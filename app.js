@@ -407,8 +407,11 @@
       try { host = new URL(item.url).hostname; } catch (e) { host = ""; }
     }
     var markLetter = escapeHtml((item.name || "?").charAt(0).toUpperCase());
+    /* Favicon via Google s2, falling back to DuckDuckGo's icon service (both
+       are commonly blocked on school networks, so a letter chip stays behind
+       the image either way). */
     var mark = host
-      ? '<span>' + markLetter + '</span><img class="proxy-fav" src="https://www.google.com/s2/favicons?domain=' + escapeAttr(host) + '&sz=64" alt="" loading="lazy" onerror="this.remove()">'
+      ? '<span>' + markLetter + '</span><img class="proxy-fav" src="https://www.google.com/s2/favicons?domain=' + escapeAttr(host) + '&sz=64" alt="" loading="lazy" referrerpolicy="no-referrer" data-fb="https://icons.duckduckgo.com/ip3/' + escapeAttr(host) + '.ico" onerror="var t=this; if(t.src.indexOf(\'duckduckgo\')===-1){ t.src=t.getAttribute(\'data-fb\'); } else { t.remove(); }">'
       : markLetter;
     var row =
       '<div class="card proxy-card">' +
@@ -539,6 +542,9 @@
     } else if (view === "partners") {
       /* owned by partners.js */
       if (window.ChalklePartners && window.ChalklePartners.render) window.ChalklePartners.render();
+    } else if (view === "ai") {
+      /* owned by ai.js */
+      if (window.ChalkleAI && window.ChalkleAI.render) window.ChalkleAI.render();
     } else {
       render();
     }
@@ -777,6 +783,7 @@
     else if (item.kind === "editor" && window.ChalkleEditor) window.ChalkleEditor.open();
     else if (item.kind === "urlauditor" && window.ChalkleUrlAuditor) window.ChalkleUrlAuditor.open();
     else if (item.kind === "pixel" && window.ChalklePixel) window.ChalklePixel.open();
+    else if (item.kind === "domainhub" && window.ChalkleDomainHub) window.ChalkleDomainHub.open();
     else if (item.kind === "iphone16") openIphone16();
     else if (item.kind === "browser") openBrowser();
   }
@@ -911,7 +918,7 @@
     /* Built-in apps (Blank tab launcher, HTML Editor) open their own modal
        instead of launching a URL - data-tool-kind handles that in the click
        handler. Everything else is a plain link tile. */
-    var kind = item.kind === "launcher" || item.kind === "editor" || item.kind === "urlauditor" || item.kind === "pixel" || item.kind === "iphone16" || item.kind === "browser" ? escapeAttr(item.kind) : "";
+    var kind = item.kind === "launcher" || item.kind === "editor" || item.kind === "urlauditor" || item.kind === "pixel" || item.kind === "domainhub" || item.kind === "iphone16" || item.kind === "browser" ? escapeAttr(item.kind) : "";
     var kindAttr = kind ? ' data-tool-kind="' + kind + '"' : '';
     var isProxy = item.via === "proxy" && !!item.url;
     var proxyAttr = isProxy ? ' data-proxy-app="' + escapeAttr(item.url) + '"' : "";
@@ -2067,6 +2074,7 @@
         else if (!$("#editor-modal").hidden && window.ChalkleEditor) window.ChalkleEditor.close();
         else if (!$("#urlauditor-modal").hidden && window.ChalkleUrlAuditor) window.ChalkleUrlAuditor.close();
         else if (!$("#pixel-modal").hidden && window.ChalklePixel) window.ChalklePixel.close();
+        else if (!$("#domainhub-modal").hidden && window.ChalkleDomainHub) window.ChalkleDomainHub.close();
         else if (!$("#proxy-overlay").hidden) closeOverlay();
         else closeSidebar();
         return;
@@ -2367,6 +2375,7 @@
           else if (toolKind.dataset.toolKind === "editor" && window.ChalkleEditor) window.ChalkleEditor.open();
           else if (toolKind.dataset.toolKind === "urlauditor" && window.ChalkleUrlAuditor) window.ChalkleUrlAuditor.open();
           else if (toolKind.dataset.toolKind === "pixel" && window.ChalklePixel) window.ChalklePixel.open();
+          else if (toolKind.dataset.toolKind === "domainhub" && window.ChalkleDomainHub) window.ChalkleDomainHub.open();
           else if (toolKind.dataset.toolKind === "iphone16" && window.ChalkleLaunch) {
             var ipTile = toolKind.closest(".tool-tile");
             ipTileClick(ipTile);

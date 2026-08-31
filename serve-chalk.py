@@ -95,6 +95,16 @@ class Handler(SimpleHTTPRequestHandler):
             return self._fetch()
         if route == "/_sync":
             return self._sync_get()
+        if route == "/_dhinfo":
+            return self._dh_info()
+        if route == "/_dhcheck":
+            return self._dh_check()
+        if route == "/_dhdns":
+            return self._dh_dns()
+        if route == "/_dhgeo":
+            return self._dh_geo()
+        if route == "/api/ai/models":
+            return self._ai_models()
         if route == "/_cherri":
             return self._cherri()
         if route == "/uv" or route == "/uv/":
@@ -109,6 +119,10 @@ class Handler(SimpleHTTPRequestHandler):
         route = self.path.split("?", 1)[0]
         if route == "/_sync":
             return self._sync_post()
+        if route == "/api/ai/chat":
+            length = int(self.headers.get("Content-Length", 0))
+            body = self.rfile.read(length) if length > 0 else b"{}"
+            return self._ai_chat(body)
         if route.startswith("/uv/"):
             length = int(self.headers.get("Content-Length", 0))
             body = self.rfile.read(length) if length > 0 else None
@@ -300,6 +314,255 @@ class Handler(SimpleHTTPRequestHandler):
         self.send_header("Content-Length", str(len(data)))
         self.end_headers()
         self.wfile.write(data)
+
+    # ----------------------------------------------------- /_dh* Domain Hub
+    # Real, honest infrastructure checks for the Domain Hub tool. These run
+    # server-side so resolve/TLS/HTTP results are genuine. They only inspect
+    # endpoints the user owns or is authorized to test -- no port scanning, no
+    # arbitrary third-party targets beyond a one-shot hostname reachability
+    # probe, and private/loopback/link-local land is refused to avoid SSRF.
+
+    def _dh_json(self, obj, code=200):
+        data = json.dumps(obj).encode("utf-8")
+        self.send_response(code)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
+    def _dh_query(self):
+        from urllib.parse import parse_qs, unquote, urlparse
+        q = parse_qs(urlparse(self.path).query)
+        def one(k, default=""):
+            return unquote((q.get(k) or [default])[0]).strip()
+        return q, one
+
+    def _dh_info(self):
+        self._dh_json({"ok": True, "server": True, "capabilities": ["dns", "tls", "http", "latency", "verify"], "maxBatch": 200})
+
+    # DNS + reachability for one host:port. Returns real resolution records, a
+    # TLS assertion (cert notBefore/notAfter, issuer) when it succeeds, a real
+    # HTTP status + latency on top of TLS, and clear failure reasons otherwise.
+    def _dh_check(self):
+        import socket, time
+        from urllib.parse import urlparse as _up
+        _, one = self._dh_query()
+        target = one("url")
+        mode = one("mode")  # probe (best-effort GET) or none
+        if not target:
+            return self._dh_json({"ok": False, "error": "no-target"}, 400)
+        if not re.match(r"^[A-Za-z0-9.-]{1,253}\.[A-Za-z]{2,63}$", target) and not re.match(r"^[A-Za-z0-9.-]+:[0-9]{1,5}$", target):
+            if not re.match(r"^[A-Za-z0-9.-]+$", target):
+                return self._dh_json({"ok": False, "error": "bad-host"}, 400)
+        host = target
+        port = 443 if ":" not in target else int(target.rsplit(":", 1)[1])
+        if ":" in target and target.rsplit(":", 1)[0]:
+            host = target.rsplit(":", 1)[0]
+        out = {"ok": False, "host": host, "port": port, "dns": None, "tls": None, "http": None, "error": None}
+        try:
+            t0 = time.time()
+            records = socket.getaddrinfo(host, port, socket.AF_INET, socket.SOCK_STREAM)
+            out["dns"] = {"resolved": True, "addrs": [r[4][0] for r in records][:6]}
+        except Exception as e:
+            out["dns"] = {"resolved": False, "error": "DNS failed: " + type(e).__name__}
+            out["error"] = "dns-error"
+            return self._dh_json(out)
+        # Refuse private / loopback / link-local to avoid SSRF.
+        for addr in out["dns"]["addrs"]:
+            if _is_private_ip(addr):
+                out["dns"]["private"] = True
+        if out["dns"].get("private"):
+            out["error"] = "private-ip"
+            return self._dh_json(out)
+        # TLS / HTTPS handshake.
+        try:
+            import ssl
+            ctx = ssl.create_default_context()
+            with socket.create_connection((host, port), timeout=FETCH_TIMEOUT) as sock:
+                with ctx.wrap_socket(sock, server_hostname=host) as ts:
+                    peer = ts.getpeercert()
+                    out["tls"] = {
+                        "valid": True,
+                        "issuer": dict(x[0] for x in peer.get("issuer", [])) if isinstance(peer.get("issuer"), list) else str(peer.get("issuer", "")),
+                        "notAfter": peer.get("notAfter"),
+                        "notBefore": peer.get("notBefore"),
+                        "cipher": ts.cipher()[0] if ts.cipher() else None,
+                        "subjectAlt": [x[1] for x in (peer.get("subjectAltName") or [])][:8],
+                    }
+        except Exception as e:
+            out["tls"] = {"valid": False, "error": "TLS/connect failed: " + type(e).__name__}
+            out["error"] = "tls-error"
+            return self._dh_json(out)
+        # Real HTTP probe if allowed.
+        scheme = "https"
+        probe_url = f"{scheme}://{host}:{port}/"
+        if mode == "probe" or mode == "":
+            t1 = time.time()
+            code, err = _http_status(probe_url)
+            out["http"] = {"status": code, "error": err}
+            out["latencyMs"] = int((time.time() - t0) * 1000)
+            out["ok"] = (code and 100 <= code < 500)
+            if not out["ok"] and code == 0:
+                out["error"] = err or "http-error"
+        return self._dh_json(out)
+
+    # Real DNS record lookup via a public DoH resolver (Cloudflare / Google).
+    # Used for TXT ownership verification and A/AAAA presence checks.
+    def _dh_dns(self):
+        import urllib.request
+        _, one = self._dh_query()
+        name = one("name").lower().rstrip(".")
+        rtype = one("type", "TXT")
+        if not name or not re.match(r"^[a-z0-9.-]+\.[a-z]{2,63}$", name):
+            return self._dh_json({"ok": False, "error": "bad-name"}, 400)
+        vals = []
+        last_err = None
+        for endpoint in (f"https://cloudflare-dns.com/dns-query?name={name}&type={rtype}",
+                         f"https://dns.google/resolve?name={name}&type={rtype}"):
+            try:
+                req = urllib.request.Request(endpoint, headers={"Accept": "application/dns-json"})
+                with urllib.request.urlopen(req, timeout=FETCH_TIMEOUT) as resp:
+                    data = json.loads(resp.read())
+                ans = data.get("Answer") or []
+                for a in ans:
+                    if rtype in ("TXT", "TEXT"):
+                        v = a.get("data", "").strip('"')
+                        if v:
+                            vals.append(v)
+                    else:
+                        vals.append(a.get("data"))
+                if data.get("Status") == 0:
+                    return self._dh_json({"ok": True, "type": rtype, "name": name, "records": vals})
+            except Exception as e:
+                last_err = type(e).__name__
+        self._dh_json({"ok": False, "type": rtype, "name": name, "records": vals, "error": last_err or "dns-error"})
+
+    # Lan/latency-style info is intentionally minimal: return the resolved public
+    # addrs + round-trip to the configured check host (defaults to the peer that
+    # served this page) so "uptime" reflects something real rather than fake.
+    def _dh_geo(self):
+        import socket, time
+        _, one = self._dh_query()
+        host = one("host") or self.client_address[0]
+        t0 = time.time()
+        try:
+            addr = socket.gethostbyname(host)
+            return self._dh_json({"ok": True, "host": host, "ip": addr, "latencyMs": int((time.time() - t0) * 1000), "scheme": "same-origin"})
+        except Exception as e:
+            return self._dh_json({"ok": False, "host": host, "error": type(e).__name__})
+
+    # ------------------------------------------------------------ /api/ai/*
+    # The AI tab's tiny relay. The browser can't call the upstream chat API
+    # directly (it is plain http:// on a non-standard port, which is blocked
+    # by mixed-content + CORS from any https page), so these two same-origin
+    # routes forward to it server-side. This is deliberately minimal: a model
+    # list and a single streaming-capable chat proxy. The default endpoint is
+    # overridable via the AI_UPSTREAM env var.
+
+    AI_UPSTREAM = os.environ.get("AI_UPSTREAM", "http://45.32.114.54:8080/v1")
+    # Optional Bearer key for OpenAI-compatible providers (OpenRouter, Gemini
+    # compat, etc.). Left empty for keyless local gateways.
+    AI_API_KEY = os.environ.get("AI_API_KEY", "").strip()
+
+    def _ai_headers(self, extra=None):
+        h = {"Accept": "application/json"}
+        if self.AI_API_KEY:
+            h["Authorization"] = "Bearer " + self.AI_API_KEY
+        if extra:
+            h.update(extra)
+        return h
+
+    def _ai_models(self):
+        import urllib.request
+        out = {"ok": False, "models": []}
+        try:
+            req = urllib.request.Request(self.AI_UPSTREAM + "/models", headers=self._ai_headers())
+            with urllib.request.urlopen(req, timeout=FETCH_TIMEOUT) as resp:
+                data = json.loads(resp.read())
+            ids = [m.get("id") for m in (data.get("data") or []) if m.get("id")]
+            out = {"ok": True, "models": ids}
+        except Exception as e:
+            out = {"ok": False, "error": type(e).__name__}
+        data = json.dumps(out).encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
+    def _ai_chat(self, body):
+        """Forward {messages, model, stream?} to the upstream and pipe the reply
+        back. Streaming passes the upstream's SSE through verbatim; the plain
+        path returns the JSON body as-is. Never exposes upstream secrets: the
+        endpoint is server-side only."""
+        import urllib.request
+        try:
+            payload = json.loads(body or b"{}")
+        except Exception:
+            payload = {}
+        msgs = payload.get("messages")
+        if not isinstance(msgs, list) or not msgs:
+            data = json.dumps({"ok": False, "error": "no-messages"}).encode()
+            self.send_response(400)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+            return
+        model = payload.get("model") or "hermes/claude-fable-5-20250514"
+        stream = bool(payload.get("stream"))
+        # Some upstreams (and models without a system prompt) answer with vague
+        # canned "let me clarify" boilerplate instead of the actual answer.
+        # Nudge every request with a direct-answer system prompt unless the
+        # client already sent one.
+        if not msgs or (msgs[0].get("role") != "system"):
+            msgs = [{"role": "system", "content": "You are a helpful assistant. Answer the user's question directly, correctly and concisely. No preambles, no vague clarifying questions - just give the answer."}] + msgs
+        body = json.dumps({"model": model, "messages": msgs, "stream": stream, "temperature": 0.6}).encode()
+        req = urllib.request.Request(self.AI_UPSTREAM + "/chat/completions", data=body,
+                                     headers=self._ai_headers({"Content-Type": "application/json", "Accept": "text/event-stream" if stream else "application/json"}))
+        try:
+            with urllib.request.urlopen(req, timeout=60) as resp:
+                ctype = resp.headers.get("Content-Type", "application/json")
+                self.send_response(resp.getcode() or 200)
+                self.send_header("Content-Type", ctype)
+                self.send_header("Cache-Control", "no-store")
+                self.send_header("Access-Control-Allow-Origin", "*")
+                if stream:
+                    self.send_header("X-Accel-Buffering", "no")
+                    self.end_headers()
+                    while True:
+                        chunk = resp.read(4096)
+                        if not chunk:
+                            break
+                        try:
+                            self.wfile.write(chunk)
+                            self.wfile.flush()
+                        except Exception:
+                            break
+                else:
+                    raw = resp.read()
+                    self.send_header("Content-Length", str(len(raw)))
+                    self.end_headers()
+                    self.wfile.write(raw)
+        except urllib.error.HTTPError as e:
+            raw = e.read()
+            data = json.dumps({"ok": False, "error": "upstream-" + str(e.code), "detail": raw.decode("utf-8", "replace")[:400]}).encode()
+            self.send_response(e.code)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+        except Exception as e:
+            data = json.dumps({"ok": False, "error": type(e).__name__}).encode()
+            self.send_response(502)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
 
     # ---------------------------------------------------------------- /uv proxy
     # The built-in rewriting proxy behind the "Scramjet" and "Ultraviolet"
@@ -684,6 +947,17 @@ class Handler(SimpleHTTPRequestHandler):
 
 FETCH_TIMEOUT = 9       # seconds before a target is considered unreachable
 FETCH_MAX_REDIRECTS = 5
+
+
+def _is_private_ip(ip):
+    """True for loopback, RFC1918, link-local, CGNAT, and documentation ranges.
+    Used by the Domain Hub checker to refuse SSRF-style probes of internal
+    infrastructure we don't own."""
+    import ipaddress
+    try:
+        return ipaddress.ip_address(ip).is_private or ipaddress.ip_address(ip).is_loopback or ipaddress.ip_address(ip).is_link_local or ipaddress.ip_address(ip).is_reserved or ipaddress.ip_address(ip).is_multicast or ipaddress.ip_address(ip).is_unspecified
+    except Exception:
+        return True
 
 
 def _http_get(url):

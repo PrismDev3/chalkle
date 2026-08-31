@@ -145,6 +145,15 @@
     var css;
     if (value.indexOf("custom:") === 0) {
       var url = value.slice(7);
+      /* Only http(s)/data/blob URLs can render as a wallpaper on a web page.
+         A file:// (or other exotic scheme) URL saved earlier throws a
+         SecurityError in the console and leaves the background transparent,
+         so it is rejected here. */
+      if (!/^(https?:|data:|blob:)/i.test(url)) {
+        document.documentElement.style.removeProperty("--wallpaper-image");
+        document.documentElement.style.removeProperty("--wallpaper-scrim");
+        return;
+      }
       css = "url('" + url.replace(/'/g, "%27") + "')";
     } else if (WALLPAPERS[value]) {
       css = WALLPAPERS[value];

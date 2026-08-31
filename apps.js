@@ -23,6 +23,12 @@ window.ChalkApps = [
     thumb: "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2064%2064%22%3E%3Cdefs%3E%3ClinearGradient%20id%3D%22b%22%20x1%3D%220%22%20y1%3D%220%22%20x2%3D%221%22%20y2%3D%221%22%3E%3Cstop%20offset%3D%220%22%20stop-color%3D%22%234285f4%22%2F%3E%3Cstop%20offset%3D%221%22%20stop-color%3D%22%233a6bd6%22%2F%3E%3C%2FlinearGradient%3E%3C%2Fdefs%3E%3Crect%20width%3D%2264%22%20height%3D%2264%22%20rx%3D%2214%22%20fill%3D%22url(%23b)%22%2F%3E%3Cpath%20d%3D%22M24%2018L14%2032l10%2014M40%2018l10%2014-10%2014%22%20fill%3D%22none%22%20stroke%3D%22%230c1210%22%20stroke-width%3D%225%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fsvg%3E",
   },
   {
+    title: "Domain Hub",
+    kind: "domainhub",
+    category: "Built-in",
+    thumb: "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2064%2064%22%3E%3Cdefs%3E%3ClinearGradient%20id%3D%22g%22%20x1%3D%220%22%20y1%3D%220%22%20x2%3D%221%22%20y2%3D%221%22%3E%3Cstop%20offset%3D%220%22%20stop-color%3D%22%2326c6da%22%2F%3E%3Cstop%20offset%3D%221%22%20stop-color%3D%22%23a970ff%22%2F%3E%3C%2FlinearGradient%3E%3Cdefs%3E%3Crect%20width%3D%2264%22%20height%3D%2264%22%20rx%3D%2214%22%20fill%3D%22url(%23g)%22%2F%3E%3Ccircle%20cx%3D%2232%22%20cy%3D%2232%22%20r%3D%2216%22%20fill%3D%22none%22%20stroke%3D%22%230c1210%22%20stroke-width%3D%223.5%22%2F%3E%3Cpath%20d%3D%22M16%2020h32M16%2032h32M16%2044h32M32%2032v-16M32%2032v16%22%20stroke%3D%22%230c1210%22%20stroke-width%3D%222.6%22%20stroke-linecap%3D%22round%22%2F%3E%3Ccircle%20cx%3D%2232%22%20cy%3D%2232%22%20r%3D%224%22%20fill%3D%22%230c1210%22%2F%3E%3C%2Fsvg%3E"
+  },
+  {
     title: "URL Auditor",
     kind: "urlauditor",
     category: "Built-in",

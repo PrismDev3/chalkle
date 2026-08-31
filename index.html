@@ -39,10 +39,12 @@
       background: rgba(13, 15, 18, 0.96);
       color: var(--text); font: 14px/1.5 var(--font);
       padding: 24px; box-sizing: border-box;
+      overflow: auto;
     }
     #launch-screen * { box-sizing: border-box; }
     #launch-card {
       width: min(680px, 100%); max-height: 100%; overflow: auto;
+      margin: auto; /* flexbox-safe centering: never clips the top when short */
       background: var(--panel); border: 1px solid var(--line);
       border-radius: var(--radius-lg); padding: 36px 30px 28px; text-align: center;
       box-shadow: var(--shadow-card);
@@ -74,8 +76,14 @@
     #launch-options .opt-txt strong { display: block; font-size: 14px; margin-bottom: 2px; }
     #launch-options .opt-txt small { color: var(--text-2); font-size: 12px; line-height: 1.4; display: block; }
     #launch-options .opt-full { grid-column: 1 / -1; }
-    #launch-status { margin: 14px 0 0; min-height: 18px; color: var(--text-2); font-size: 12px; }
+    #launch-status { margin: 14px 0 0; min-height: 18px; color: var(--text-2); font-size: 12px; display: flex; gap: 8px; align-items: center; justify-content: center; }
     #launch-status.is-err { color: var(--red); }
+    #launch-status .spin {
+      width: 13px; height: 13px; border-radius: 50%; flex-shrink: 0;
+      border: 2px solid var(--line-2); border-top-color: var(--accent);
+      animation: launch-spin .8s linear infinite;
+    }
+    @keyframes launch-spin { to { transform: rotate(360deg); } }
     #launch-hint { margin: 12px 0 0; color: var(--text-3); font-size: 11.5px; line-height: 1.5; }
     #launch-hint b { color: var(--text-2); font-weight: 600; }
     @media (max-width: 560px) { #launch-options { grid-template-columns: 1fr; } }
@@ -137,48 +145,72 @@
       if (!status) return;
       status.className = 'is-err';
       status.textContent = 'Could not load chalkle-single.html (' + (e && e.message ? e.message : e) + '). Keep it next to this page, or use Direct.';
+      status.querySelectorAll('.spin').forEach(function (s) { s.remove(); });
     }
     function go(fn) {
       if (busy) return;
       busy = true;
-      if (status) { status.className = ''; status.textContent = 'Loading the official build…'; }
+      if (status) {
+        status.className = 'is-loading';
+        status.innerHTML = '<span class="spin"></span>Loading the official build…';
+      }
       getPayload().then(function (html) { busy = false; fn(html); }).catch(function (e) { busy = false; fail(e); });
     }
     function dismiss() {
       if (screen && screen.parentNode) screen.parentNode.removeChild(screen);
       document.documentElement.classList.remove('launch-open');
     }
+    // Open the target window synchronously inside the click (a user gesture) so
+    // the popup blocker doesn't kill it. The 26MB payload is fetched after, and
+    // the opened window is only written to once it arrives. Once the launch
+    // lands, the chooser dismisses and the site itself becomes visible behind it.
+    function openNow(fn) {
+      var w = window.open('about:blank', '_blank');
+      if (!w) {
+        if (status) { status.className = 'is-err'; status.textContent = 'Popup blocked. Allow popups for this site, then try again.'; }
+        return null;
+      }
+      go(function (html) {
+        if (fn(w, html) !== false) dismiss(); // fn returns false only on failure
+      });
+      return w;
+    }
 
     document.getElementById('launch-direct').addEventListener('click', dismiss);
     document.getElementById('launch-blank').addEventListener('click', function () {
-      go(function (html) {
-        var w = window.open('about:blank', '_blank');
-        if (!w) { if (status) { status.className = 'is-err'; status.textContent = 'Popup blocked — allow popups for this site, then try again.'; } return; }
+      openNow(function (w, html) {
         w.document.open(); w.document.write(html); w.document.close();
       });
     });
     document.getElementById('launch-blob').addEventListener('click', function () {
-      go(function (html) {
+      openNow(function (w, html) {
         var url = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' }));
-        window.open(url, '_blank');
+        try { w.location.replace(url); } catch (e) { w.location.href = url; }
       });
     });
     document.getElementById('launch-data').addEventListener('click', function () {
-      go(function (html) {
+      openNow(function (w, html) {
         try {
           var b64 = btoa(unescape(encodeURIComponent(html)));
-          window.open('data:text/html;base64,' + b64, '_blank');
-        } catch (e) { fail(e); }
+          var url = 'data:text/html;base64,' + b64;
+          if (url.length > 1900000) { // Chrome drops data: URLs past ~2MB
+            if (status) { status.className = 'is-err'; status.textContent = 'The build is too big for a data URL. Use Blob or Direct instead.'; }
+            try { w.close(); } catch (e) {}
+            return false;
+          }
+          try { w.location.replace(url); } catch (e) { w.location.href = url; }
+        } catch (e) { fail(e); return false; }
       });
     });
     document.getElementById('launch-frame').addEventListener('click', function () {
+      // iframe needs no popup permission — build it now, feed it after fetch
+      var f = document.createElement('iframe');
+      f.setAttribute('allowfullscreen', '');
+      f.style.cssText = 'position:fixed;inset:0;width:100vw;height:100vh;border:0;z-index:2147483646;background:#000';
+      document.body.appendChild(f);
       go(function (html) {
         var url = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' }));
-        var f = document.createElement('iframe');
         f.src = url;
-        f.setAttribute('allowfullscreen', '');
-        f.style.cssText = 'position:fixed;inset:0;width:100vw;height:100vh;border:0;z-index:2147483646;background:#000';
-        document.body.appendChild(f);
         dismiss();
       });
     });
@@ -245,7 +277,8 @@
           <button class="nav-item" data-view="sites" title="Sites">
             <svg class="icon tab-ico" viewBox="0 0 24 24" aria-hidden="true">
               <circle cx="12" cy="12" r="10"/>
-              <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/>
+              <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/>
+              <path d="M2 12h20"/>
             </svg>
             <span class="nav-label">Sites</span>
           </button>
@@ -271,6 +304,15 @@
               <path d="M8.6 15.4l6.8-6.8"/>
             </svg>
             <span class="nav-label">Proxies</span>
+          </button>
+
+          <button class="nav-item" data-view="ai" title="AI">
+            <svg class="icon tab-ico" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 3.5c.9 3.4 2.6 5.1 6 6-3.4.9-5.1 2.6-6 6-.9-3.4-2.6-5.1-6-6 3.4-.9 5.1-2.6 6-6z"/>
+              <path d="M18.5 13c.5 1.9 1.4 2.8 3.3 3.3-1.9.5-2.8 1.4-3.3 3.3-.5-1.9-1.4-2.8-3.3-3.3 1.9-.5 2.8-1.4 3.3-3.3z"/>
+              <path d="M5.5 14.5c.4 1.5 1.1 2.2 2.6 2.6-1.5.4-2.2 1.1-2.6 2.6-.4-1.5-1.1-2.2-2.6-2.6 1.5-.4 2.2-1.1 2.6-2.6z"/>
+            </svg>
+            <span class="nav-label">AI</span>
           </button>
 
           <button class="nav-item" data-view="docs" title="Docs">
@@ -545,6 +587,8 @@
           </div>
         </section>
 
+        <section class="view ai-view" data-view="ai" id="ai-view"></section>
+
         <section class="view docs-view" data-view="docs">
           <div class="view-head">
             <div class="view-heading">
@@ -634,131 +678,190 @@
 
         <section class="view" data-view="settings">
           <div class="view-head">
-            <h1 class="view-title">Settings</h1>
-            <span class="view-meta">local to this device</span>
-          </div>
-          <div class="panel">
-            <div class="editor-head">
-              <h2 class="panel-title">Appearance</h2>
-              <span class="panel-chip">make it yours</span>
+            <div class="view-heading">
+              <h1 class="view-title">Settings</h1>
+              <span class="view-meta">local to this device</span>
             </div>
-            <p class="empty-hint panel-note">Pick your own colors, wallpaper, and cursor. Everything is saved on this device and applies instantly.</p>
-            <div class="setting">
-              <span class="setting-name">Colors</span>
-              <span class="setting-hint">Background + accent — light backgrounds switch the whole theme to light mode</span>
-              <div class="theme-color-row">
-                <label class="theme-color-field">
-                  <span>Background</span>
-                  <input type="color" id="opt-theme-bg" value="#0d0f12" aria-label="Background color">
-                </label>
-                <label class="theme-color-field">
-                  <span>Accent</span>
-                  <input type="color" id="opt-theme-accent" value="#34a853" aria-label="Accent color">
-                </label>
-                <div class="theme-actions">
-                  <button class="btn-theme" id="opt-theme-reset">Reset colors</button>
+          </div>
+
+          <div class="settings-grid">
+            <!-- Appearance: colors + quick themes (full width) -->
+            <div class="panel settings-card settings-card-wide">
+              <div class="settings-head">
+                <h2 class="panel-title">Appearance</h2>
+                <span class="panel-chip">make it yours</span>
+              </div>
+              <p class="settings-note">Pick your own colors and quick themes. Everything is saved on this device and applies instantly.</p>
+              <div class="settings-block">
+                <div class="settings-block-label">Colors</div>
+                <p class="settings-block-hint">Background + accent. Light backgrounds switch the whole theme to light mode</p>
+                <div class="theme-color-row">
+                  <label class="theme-color-field">
+                    <span>Background</span>
+                    <input type="color" id="opt-theme-bg" value="#0d0f12" aria-label="Background color">
+                  </label>
+                  <label class="theme-color-field">
+                    <span>Accent</span>
+                    <input type="color" id="opt-theme-accent" value="#34a853" aria-label="Accent color">
+                  </label>
+                  <div class="theme-actions">
+                    <button class="btn-theme" id="opt-theme-reset">Reset colors</button>
+                  </div>
                 </div>
               </div>
+              <div class="settings-block">
+                <div class="settings-block-label">Quick themes</div>
+                <p class="settings-block-hint">One-click palettes with background + accent together</p>
+                <div class="preset-grid" id="preset-grid"></div>
+              </div>
             </div>
-            <div class="setting">
-              <span class="setting-name">Quick themes</span>
-              <span class="setting-hint">One-click palettes — background + accent together</span>
-              <div class="preset-grid" id="preset-grid"></div>
-            </div>
-            <div class="setting">
-              <span class="setting-name">Wallpaper</span>
-              <span class="setting-hint">Gradient presets or your own image URL</span>
+
+            <!-- Wallpaper + cursor -->
+            <div class="panel settings-card">
+              <div class="settings-head">
+                <h2 class="panel-title">Wallpaper</h2>
+                <span class="panel-chip">backdrop</span>
+              </div>
+              <p class="settings-note">Gradient presets or your own image URL.</p>
               <div class="wallpaper-grid" id="wallpaper-grid"></div>
               <div class="theme-custom-row">
                 <input class="field" id="opt-wallpaper-url" type="url" placeholder="https://… image URL" aria-label="Custom wallpaper URL">
                 <button class="btn-theme" id="opt-wallpaper-apply">Apply</button>
               </div>
             </div>
-            <div class="setting">
-              <span class="setting-name">Cursor</span>
-              <span class="setting-hint">A little personality</span>
+
+            <div class="panel settings-card">
+              <div class="settings-head">
+                <h2 class="panel-title">Cursor</h2>
+                <span class="panel-chip">personality</span>
+              </div>
+              <p class="settings-note">A little personality, everywhere.</p>
               <div class="cursor-grid" id="cursor-grid"></div>
             </div>
-          </div>
-          <div class="panel">
-            <div class="setting">
-              <span class="setting-name">Reduce motion</span>
-              <label class="switch">
-                <input type="checkbox" id="opt-motion">
-                <span class="track" aria-hidden="true"></span>
-              </label>
-            </div>
-            <div class="setting">
-              <span class="setting-name">Military time (24h)</span>
-              <label class="switch">
-                <input type="checkbox" id="opt-clock-military">
-                <span class="track" aria-hidden="true"></span>
-              </label>
-            </div>
-            <div class="setting">
-              <span class="setting-name">Show time parts</span>
-              <span class="setting-hint">Toggle hours, minutes, seconds</span>
-              <div class="chip-row" id="clock-parts">
-                <label class="chip"><input type="checkbox" id="opt-clock-h" checked><span>Hours</span></label>
-                <label class="chip"><input type="checkbox" id="opt-clock-m" checked><span>Minutes</span></label>
-                <label class="chip"><input type="checkbox" id="opt-clock-s" checked><span>Seconds</span></label>
+
+            <!-- Display -->
+            <div class="panel settings-card">
+              <div class="settings-head">
+                <h2 class="panel-title">Display</h2>
+                <span class="panel-chip">clock &amp; size</span>
+              </div>
+              <div class="settings-row">
+                <div class="settings-row-txt">
+                  <span class="setting-name">Reduce motion</span>
+                  <span class="setting-hint">Turn off animations</span>
+                </div>
+                <label class="switch">
+                  <input type="checkbox" id="opt-motion">
+                  <span class="track" aria-hidden="true"></span>
+                </label>
+              </div>
+              <div class="settings-row">
+                <div class="settings-row-txt">
+                  <span class="setting-name">Card size</span>
+                  <span class="setting-hint">How much each tile breathes</span>
+                </div>
+                <div class="seg" role="group" aria-label="Card size">
+                  <button class="seg-btn" data-size="comfortable">Comfortable</button>
+                  <button class="seg-btn" data-size="compact">Compact</button>
+                </div>
+              </div>
+              <div class="settings-row">
+                <div class="settings-row-txt">
+                  <span class="setting-name">Military time (24h)</span>
+                  <span class="setting-hint">Top bar clock format</span>
+                </div>
+                <label class="switch">
+                  <input type="checkbox" id="opt-clock-military">
+                  <span class="track" aria-hidden="true"></span>
+                </label>
+              </div>
+              <div class="settings-row">
+                <div class="settings-row-txt">
+                  <span class="setting-name">Show time parts</span>
+                  <span class="setting-hint">Toggle hours, minutes, seconds</span>
+                </div>
+                <div class="chip-row" id="clock-parts">
+                  <label class="chip"><input type="checkbox" id="opt-clock-h" checked><span>Hours</span></label>
+                  <label class="chip"><input type="checkbox" id="opt-clock-m" checked><span>Minutes</span></label>
+                  <label class="chip"><input type="checkbox" id="opt-clock-s" checked><span>Seconds</span></label>
+                </div>
               </div>
             </div>
-            <div class="setting">
-              <span class="setting-name">Card size</span>
-              <div class="seg" role="group" aria-label="Card size">
-                <button class="seg-btn" data-size="comfortable">Comfortable</button>
-                <button class="seg-btn" data-size="compact">Compact</button>
+
+            <!-- Launches -->
+            <div class="panel settings-card">
+              <div class="settings-head">
+                <h2 class="panel-title">Launches</h2>
+                <span class="panel-chip">open &amp; cloak</span>
+              </div>
+              <div class="settings-row">
+                <div class="settings-row-txt">
+                  <span class="setting-name">Ask before launching</span>
+                  <span class="setting-hint">Pick a method each time</span>
+                </div>
+                <label class="switch">
+                  <input type="checkbox" id="opt-ask">
+                  <span class="track" aria-hidden="true"></span>
+                </label>
+              </div>
+              <div class="settings-row">
+                <div class="settings-row-txt">
+                  <span class="setting-name">Default open method</span>
+                  <span class="setting-hint">When you don&rsquo;t ask</span>
+                </div>
+                <select class="field field-mode settings-select" id="opt-default-mode" aria-label="Default open method">
+                  <option value="ask">Ask each time</option>
+                  <option value="direct">Direct</option>
+                  <option value="aboutblank">About:blank</option>
+                  <option value="blob">Blob</option>
+                  <option value="dataurl">Data URL</option>
+                  <option value="iframe">This tab</option>
+                  <option value="proxy">Proxy</option>
+                </select>
+              </div>
+              <div class="settings-row">
+                <div class="settings-row-txt">
+                  <span class="setting-name">Cloak tab title</span>
+                  <span class="setting-hint">Shown in the address bar trick</span>
+                </div>
+                <input class="field field-name settings-input" id="opt-cloak-title" type="text" placeholder="Classes" maxlength="40" aria-label="Cloak tab title">
               </div>
             </div>
-            <div class="setting">
-              <span class="setting-name">Ask before launching</span>
-              <label class="switch">
-                <input type="checkbox" id="opt-ask">
-                <span class="track" aria-hidden="true"></span>
-              </label>
-            </div>
-            <div class="setting">
-              <span class="setting-name">Default open method</span>
-              <select class="field field-mode" id="opt-default-mode" aria-label="Default open method">
-                <option value="ask">Ask each time</option>
-                <option value="direct">Direct</option>
-                <option value="aboutblank">About:blank</option>
-                <option value="blob">Blob</option>
-                <option value="dataurl">Data URL</option>
-                <option value="iframe">This tab</option>
-                <option value="proxy">Proxy</option>
-              </select>
-            </div>
-            <div class="setting">
-              <span class="setting-name">Cloak tab title</span>
-              <input class="field field-name" id="opt-cloak-title" type="text" placeholder="Classes" maxlength="40" aria-label="Cloak tab title">
-            </div>
-            <div class="setting setting-col" id="settings-proxy-row">
-              <div class="setting-row-head">
-                <span class="setting-name">Saved proxies
-                  <span class="setting-hint">Click a proxy to open it</span>
-                </span>
+
+            <!-- Saved proxies -->
+            <div class="panel settings-card" id="settings-proxy-row">
+              <div class="settings-head">
+                <h2 class="panel-title">Saved proxies</h2>
                 <button class="btn-danger" id="opt-clear">Clear list</button>
               </div>
+              <p class="settings-note">Click a proxy to open it.</p>
               <div class="proxy-links" id="settings-proxy-list"></div>
             </div>
-            <div class="setting">
-              <span class="setting-name">Admin panel</span>
-              <button class="btn-ghost" id="opt-admin">Open admin…</button>
+
+            <!-- Cloak tab -->
+            <div class="panel settings-card settings-card-wide">
+              <div class="settings-head">
+                <h2 class="panel-title">Cloak tab</h2>
+                <span class="panel-chip">quick disguise</span>
+              </div>
+              <p class="settings-note">Change this tab&rsquo;s title and icon with one click.</p>
+              <div class="cloak-grid" id="cloak-grid"></div>
             </div>
-            <div class="setting">
-              <span class="setting-name">Version</span>
-              <span class="setting-value mono">v1.0</span>
+
+            <!-- About -->
+            <div class="panel settings-card settings-about">
+              <div class="settings-head">
+                <h2 class="panel-title">About</h2>
+                <span class="panel-chip">v1.0</span>
+              </div>
+              <div class="settings-row">
+                <div class="settings-row-txt">
+                  <span class="setting-name">Admin panel</span>
+                  <span class="setting-hint">Manage games, sites, tools</span>
+                </div>
+                <button class="btn-ghost" id="opt-admin">Open admin…</button>
+              </div>
             </div>
-          </div>
-          <div class="panel">
-            <div class="editor-head">
-              <h2 class="panel-title">Cloak tab</h2>
-              <span class="panel-chip">quick disguise</span>
-            </div>
-            <p class="empty-hint panel-note">Change this tab's title and icon with one click.</p>
-            <div class="cloak-grid" id="cloak-grid"></div>
           </div>
         </section>
       </main>
@@ -1201,6 +1304,22 @@
       </div>
     </div>
 
+    <div class="admin-modal domainhub-modal" id="domainhub-modal" hidden>
+      <div class="admin-cover" data-domainhub-close></div>
+      <div class="admin-card domainhub-card">
+        <div class="admin-head domainhub-head">
+          <span class="admin-title">
+            <svg class="ed-title-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M4.5 8H20M4.5 16H20M12 3v18" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>
+            Domain Hub
+          </span>
+          <button class="launch-x" data-domainhub-close aria-label="Close">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+          </button>
+        </div>
+        <div class="domainhub-app" id="domainhub-app"></div>
+      </div>
+    </div>
+
   <script src="runtime-config.js"></script>
   <script src="sync.js"></script>
   <script src="games.js"></script>
@@ -1214,6 +1333,8 @@
   <script src="editor.js"></script>
   <script src="urlauditor.js"></script>
   <script src="pixel.js"></script>
+  <script src="domainhub.js"></script>
+  <script src="ai.js"></script>
   <script src="docs.js"></script>
   <script src="partners.js"></script>
   <script src="intro.js"></script>
