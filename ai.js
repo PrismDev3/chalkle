@@ -13,21 +13,16 @@
   "use strict";
 
   var LS_KEY = "chalkle.ai.v1";
+  var PAPERCLIP = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>';
   var DEFAULTS = [
-    "hermes/claude-fable-5-20250514",
-    "accounts/euromodels/models/claude-fable-5",
-    "claude-4-sonnet",
-    "claude-4-opus",
-    "gpt-4o",
-    "gpt-4o-mini",
-    "gemini-2.5-pro",
-    "gemini-2.5-flash",
-    "deepseek-r1",
-    "deepseek-v4-pro",
-    "llama3-70b",
-    "mistral-large",
-    "qwen-max",
-    "glm-4-flash"
+    "Qwen3.5-397B-A17B",
+    "Meta-Llama-3_3-70B-Instruct",
+    "gpt-oss-20b",
+    "Qwen2.5-VL-72B-Instruct",
+    "Qwen3.6-27B",
+    "Qwen3-32B",
+    "mistral-Nemo-Instruct-2407",
+    "minimax-m2.7"
   ];
 
   var S = {
@@ -81,7 +76,17 @@
     "kimi-k2.7": "Kimi K2.7",
     "kimi-k2.7-code": "Kimi K2.7 Code",
     "command-r": "Command R",
-    "command-r-plus": "Command R+"
+    "command-r-plus": "Command R+",
+    "Qwen3.5-397B-A17B": "Qwen3.5 397B",
+    "Qwen3.6-27B": "Qwen3.6 27B",
+    "Qwen3-32B": "Qwen3 32B",
+    "gpt-oss-20b": "GPT-OSS 20B",
+    "gpt-oss:20b": "GPT-OSS 20B",
+    "Meta-Llama-3_3-70B-Instruct": "Llama 3.3 70B",
+    "Meta-Llama-3.1-8B-Instruct": "Llama 3.1 8B",
+    "Qwen2.5-VL-72B-Instruct": "Qwen2.5 VL 72B ⛐ (vision)",
+    "mistral-Nemo-Instruct-2407": "Mistral Nemo",
+    "minimax-m2.7": "MiniMax M2.7"
   };
 
   /* Turn any unknown model id into a readable label:
@@ -124,7 +129,10 @@
     "kimi-k2.7", "kimi-k2.7-code", "llama3-70b", "llama3-8b",
     "glm-4-flash", "mistral-large", "mistral-7b",
     "command-r-plus", "command-r",
-    "gpt-4-turbo", "gemini-1.5-pro", "claude-3-opus-20240229"
+    "gpt-4-turbo", "gemini-1.5-pro", "claude-3-opus-20240229",
+    "Qwen3.5-397B-A17B", "Meta-Llama-3_3-70B-Instruct",
+    "gpt-oss-20b", "gpt-oss:20b", "Qwen3.6-27B", "Qwen3-32B",
+    "Qwen2.5-VL-72B-Instruct", "mistral-Nemo-Instruct-2407", "minimax-m2.7"
   ];
   var QUALITY_INDEX = {};
   QUALITY.forEach(function (id, i) { QUALITY_INDEX[id] = i; });
@@ -140,10 +148,52 @@
       if (raw) { var p = JSON.parse(raw); if (p && p.convos) { S.convos = p.convos; S.active = p.active || null; } }
     } catch (e) {}
   }
+  var syncTimer = null;
+  var syncServer = false;
   function save() {
     try {
       (window.__SAFE_LS__ || window.localStorage).setItem(LS_KEY, JSON.stringify({ convos: S.convos, active: S.active }));
     } catch (e) {}
+    /* Mirror conversations to the same-origin server (when the relay is up) so
+       they follow the visitor across every site that shares the server
+       (localhost, the tunnel, mirrors). Static/CDN builds just stay local. */
+    if (!syncServer) return;
+    clearTimeout(syncTimer);
+    syncTimer = setTimeout(function () {
+      var vid = "";
+      try { vid = localStorage.getItem("chalkle_visitor") || ""; } catch (e) {}
+      if (!vid) {
+        vid = "v" + Date.now().toString(36) + Math.random().toString(36).slice(2, 9);
+        try { localStorage.setItem("chalkle_visitor", vid); } catch (e) {}
+      }
+      fetch("/api/ai/convos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ v: vid, convos: S.convos })
+      }).catch(function () {});
+    }, 700);
+  }
+
+  /* Pull conversations saved on the server (any site that shares this relay). */
+  function fetchConvos() {
+    var vid = "";
+    try { vid = localStorage.getItem("chalkle_visitor") || ""; } catch (e) {}
+    if (!vid) return Promise.resolve(false);
+    return fetch("/api/ai/convos?v=" + encodeURIComponent(vid), { method: "GET" })
+      .then(function (r) { if (!r.ok) throw new Error("bad"); return r.json(); })
+      .then(function (d) {
+        if (d && d.ok && d.convos) {
+          Object.keys(d.convos).forEach(function (cid) {
+            var sc = d.convos[cid];
+            if (!sc || !sc.id) return;
+            var local = S.convos[cid];
+            if (!local || (sc.ts || 0) >= (local.ts || 0)) S.convos[cid] = sc;
+          });
+          save();
+        }
+        return true;
+      })
+      .catch(function () { return false; });
   }
   function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
   function el(id) { return document.getElementById(id); }
@@ -172,6 +222,8 @@
       .then(function (d) {
         S.server = !!(d && d.ok);
         S.models = (d && Array.isArray(d.models) && d.models.length) ? d.models : [];
+        syncServer = S.server;
+        if (S.server) fetchConvos();
         return S.server;
       })
       .catch(function () { S.server = false; S.models = []; return false; });
@@ -251,8 +303,11 @@
 
     h += '<div class="ai-msgs" id="ai-msgs"></div>';
 
+    h += '<div class="ai-attach-row" id="ai-attach-row"></div>';
     h += '<div class="ai-composer">';
-    h += '<textarea id="ai-input" rows="2" placeholder="Message ' + esc(convo.model ? "the model" : "pick a model first") + '…" aria-label="Message"></textarea>';
+    h += '<button class="btn ghost ai-paperclip" id="ai-attach" type="button" title="Attach images or files (or drag/paste them here)">' + PAPERCLIP + '</button>';
+    h += '<input type="file" id="ai-file" multiple hidden accept="image/*,.txt,.md,.markdown,.html,.htm,.js,.mjs,.cjs,.css,.json,.csv,.tsv,.py,.sh,.bash,.zsh,.xml,.yml,.yaml,.svg,.log,.ini,.toml">';
+    h += '<textarea id="ai-input" rows="2" placeholder="Message ' + esc(convo.model ? "the model" : "pick a model first") + '… (paste/drop files too)" aria-label="Message"></textarea>';
     h += '<button class="btn btn-accent ai-send" id="ai-send" type="button">Send</button>';
     h += "</div>";
     h += "</div>";
@@ -291,6 +346,35 @@
     if (input) input.addEventListener("keydown", function (e) {
       if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMsg(); }
     });
+    /* attach button + drag/drop + paste-to-attach */
+    var fileBtn = el("ai-attach");
+    var fileInput = el("ai-file");
+    if (fileBtn && fileInput) fileBtn.addEventListener("click", function () { fileInput.click(); });
+    if (fileInput) fileInput.addEventListener("change", function () {
+      handleFiles(fileInput.files);
+      fileInput.value = "";
+    });
+    var composer = root ? root.querySelector(".ai-composer") : null;
+    if (composer) {
+      composer.addEventListener("dragover", function (e) { e.preventDefault(); });
+      composer.addEventListener("drop", function (e) {
+        e.preventDefault();
+        if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) handleFiles(e.dataTransfer.files);
+      });
+      composer.addEventListener("paste", function (e) {
+        var items = e.clipboardData && e.clipboardData.items;
+        if (!items) return;
+        var files = [];
+        for (var i = 0; i < items.length; i++) {
+          if (items[i].kind === "file" && items[i].getAsFile) {
+            var f = items[i].getAsFile();
+            if (f) files.push(f);
+          }
+        }
+        if (files.length) { e.preventDefault(); handleFiles(files); }
+      });
+    }
+    renderAttachRow();
     renderMsgs();
   }
 
@@ -300,21 +384,183 @@
     var convo = activeConvo();
     if (!convo.messages.length) {
       box.innerHTML = '<div class="ai-empty"><div class="ai-empty-ico">✦</div>' +
-        '<h3>Chat with AI</h3><p>Pick a model, type a message, and watch the reply stream in.</p></div>';
+        '<h3>Chat with AI</h3><p>Pick a model, type a message, and watch the reply stream in.</p>' +
+        '<p class="ai-empty-sub">Attach images (png/jpg/webp), text files or code (txt/html/js/css…) with the 📎 button, or just paste/drop them here. Upload a file and ask the AI to read or edit it.</p></div>';
       return;
     }
     var h = "";
-    convo.messages.forEach(function (m) {
-      h += msgHTML(m);
+    convo.messages.forEach(function (m, i) {
+      h += msgHTML(m, i);
     });
     box.innerHTML = h;
     box.scrollTop = box.scrollHeight;
+    box.querySelectorAll("[data-act]").forEach(function (b) {
+      b.addEventListener("click", function () {
+        var mi = Number(b.getAttribute("data-i"));
+        var m = convo.messages[mi];
+        if (!m) return;
+        var txt = contentToText(m.content);
+        if (b.getAttribute("data-act") === "copy") {
+          var ta = document.createElement("textarea");
+          ta.value = txt;
+          document.body.appendChild(ta);
+          ta.select();
+          try { document.execCommand("copy"); toast("Copied"); } catch (e) {}
+          ta.remove();
+        } else {
+          var blob = new Blob([txt], { type: "text/plain;charset=utf-8" });
+          var a = document.createElement("a");
+          a.href = URL.createObjectURL(blob);
+          a.download = "chalkle-ai-reply.txt";
+          document.body.appendChild(a);
+          a.click();
+          setTimeout(function () { a.remove(); URL.revokeObjectURL(a.href); }, 300);
+        }
+      });
+    });
   }
-  function msgHTML(m) {
+  function msgContentHTML(c) {
+    if (Array.isArray(c)) {
+      var h = "";
+      c.forEach(function (p) {
+        if (!p) return;
+        if (p.type === "image_url") {
+          h += '<img class="ai-msg-img" src="' + esc((p.image_url && p.image_url.url) || "") + '" alt="attached image" loading="lazy">';
+        } else if (p.type === "text") {
+          var t = String(p.text || "");
+          if (t.trim()) h += "<div>" + esc(t).replace(/\n/g, "<br>") + "</div>";
+        }
+      });
+      return h;
+    }
+    return esc(c == null ? "" : c).replace(/\n/g, "<br>");
+  }
+  function msgHTML(m, i) {
     var user = m.role === "user";
+    var body = msgContentHTML(m.content);
+    var actions = "";
+    if (!user && contentToText(m.content).trim()) {
+      actions = '<div class="ai-msg-actions">' +
+        '<button type="button" class="ai-act" data-act="copy" data-i="' + i + '">Copy</button>' +
+        '<button type="button" class="ai-act" data-act="save" data-i="' + i + '">Save .txt</button></div>';
+    }
     return '<div class="ai-msg ' + (user ? "user" : "bot") + '">' +
-      '<div class="ai-msg-bubble">' + (m.content === undefined || m.content === null ? "" : esc(m.content).replace(/\n/g, "<br>")) + "</div>" +
-      "</div>";
+      '<div class="ai-msg-bubble">' + body + actions + "</div></div>";
+  }
+
+  /* ---------- attachments ---------- */
+  var ATTACH = []; // { kind: "image"|"text", name, size, dataUrl|content }
+  var TEXT_EXT = /\.(txt|md|markdown|html?|js|mjs|cjs|css|json|csv|tsv|py|sh|bash|zsh|xml|ya?ml|log|ini|cfg|conf|env|svg|ts|jsx|tsx|sql|java|c|cpp|h|rs|go|rb|php|ps1|bat|toml|yaml)$/i;
+
+  function handleFiles(fileList) {
+    var files = Array.prototype.slice.call(fileList || []);
+    files.forEach(function (f) {
+      if (ATTACH.length >= 6) { toast("Max 6 attachments"); return; }
+      var type = String(f.type || "").toLowerCase();
+      var name = f.name || "file";
+      if (type.indexOf("image/") === 0 && type !== "image/svg+xml") {
+        readImage(f, name);
+      } else if (type === "image/svg+xml" || TEXT_EXT.test(name) || type.indexOf("text/") === 0 || type.indexOf("json") === 0 || type.indexOf("xml") === 0) {
+        readText(f, name, false);
+      } else {
+        readText(f, name, true);
+      }
+    });
+  }
+
+  function readText(file, name, probeBinary) {
+    var r = new FileReader();
+    r.onload = function () {
+      var text = String(r.result || "");
+      if (probeBinary && /[\u0000-\u0008\u000e-\u001f]/.test(text.slice(0, 2000))) {
+        toast(name + ": binary files aren't readable");
+        return;
+      }
+      if (text.length > 60000) text = text.slice(0, 60000) + "\n…[truncated]";
+      ATTACH.push({ kind: "text", name: name, size: file.size || text.length, content: text });
+      renderAttachRow();
+    };
+    r.onerror = function () { toast(name + ": could not read file"); };
+    r.readAsText(file, "utf-8");
+  }
+
+  function readImage(file, name) {
+    var r = new FileReader();
+    r.onload = function () {
+      var img = new Image();
+      img.onload = function () {
+        var MAX = 1280, w = img.width, h = img.height;
+        if (w > MAX || h > MAX) {
+          var sc = MAX / Math.max(w, h);
+          w = Math.round(w * sc); h = Math.round(h * sc);
+        }
+        var cv = document.createElement("canvas");
+        cv.width = w; cv.height = h;
+        cv.getContext("2d").drawImage(img, 0, 0, w, h);
+        ATTACH.push({ kind: "image", name: name, size: file.size, dataUrl: cv.toDataURL("image/jpeg", 0.85) });
+        renderAttachRow();
+      };
+      img.onerror = function () { toast(name + ": could not read image"); };
+      img.src = String(r.result);
+    };
+    r.onerror = function () { toast(name + ": could not read file"); };
+    r.readAsDataURL(file);
+  }
+
+  function renderAttachRow() {
+    var row = el("ai-attach-row");
+    if (!row) return;
+    if (!ATTACH.length) { row.innerHTML = ""; return; }
+    row.innerHTML = ATTACH.map(function (a, i) {
+      var preview = a.kind === "image"
+        ? '<img class="ai-att-prev" src="' + a.dataUrl + '" alt="">'
+        : '<span class="ai-att-ico">📄</span>';
+      return '<span class="ai-att" title="' + esc(a.name) + '">' + preview +
+        '<span class="ai-att-name">' + esc(a.name) + "</span>" +
+        '<button type="button" class="ai-att-x" data-i="' + i + '" aria-label="Remove">×</button></span>';
+    }).join("");
+    row.querySelectorAll(".ai-att-x").forEach(function (b) {
+      b.addEventListener("click", function () {
+        ATTACH.splice(Number(b.getAttribute("data-i")), 1);
+        renderAttachRow();
+      });
+    });
+  }
+
+  /* OpenAI-style content for a message built from text + attachments. */
+  function buildContent(text) {
+    if (!ATTACH.length) return text;
+    var parts = [];
+    ATTACH.forEach(function (a) {
+      if (a.kind === "image") {
+        parts.push({ type: "image_url", image_url: { url: a.dataUrl } });
+      } else {
+        parts.push({ type: "text", text: "\n<file name=\"" + a.name + "\">\n" + a.content + "\n</file>\n" });
+      }
+    });
+    if (text && text.trim()) parts.push({ type: "text", text: text });
+    return parts;
+  }
+
+  function contentHasImage(c) {
+    if (Array.isArray(c)) {
+      for (var i = 0; i < c.length; i++) if (c[i] && c[i].type === "image_url") return true;
+    }
+    return false;
+  }
+
+  function contentToText(c) {
+    if (typeof c === "string") return c;
+    if (Array.isArray(c)) {
+      var out = [];
+      c.forEach(function (p) {
+        if (!p) return;
+        if (p.type === "text") out.push(String(p.text || ""));
+        else if (p.type === "image_url") out.push("[image]");
+      });
+      return out.join("\n");
+    }
+    return String(c == null ? "" : c);
   }
 
   /* ---------- send ---------- */
@@ -324,20 +570,23 @@
     var input = el("ai-input");
     var modelSel = el("ai-model");
     var model = modelSel ? modelSel.value : "";
-    if (!model) { toast("Pick a model first"); if (modelSel) modelSel.focus(); return; }
-    var text = (input ? input.value : "").trim();
-    if (!text) return;
+    if (!model) { toast("Pick a model first"); if (modelSel) modelSel.focus(); return; }    var text = (input ? input.value : "").trim();
+    if (!text && !ATTACH.length) return;
+
     var convo = activeConvo();
     convo.model = model;
-    convo.messages.push({ role: "user", content: text });
+    var content = buildContent(text);
+    convo.messages.push({ role: "user", content: content });
     convo.ts = Date.now();
-    if (convo.title === "New chat") convo.title = text.slice(0, 42);
+    if (convo.title === "New chat") convo.title = (text || (ATTACH[0] ? ATTACH[0].name : "Attachment")).slice(0, 42);
     save();
     if (input) input.value = "";
+    ATTACH = [];
+    renderAttachRow();
     renderMsgs();
     busy = true;
     setSendState(true);
-    streamReply(convo);
+    streamReply(convo, contentHasImage(content));
   }
 
   function setSendState(on) {
@@ -347,7 +596,7 @@
     if (input) input.disabled = on;
   }
 
-  function streamReply(convo) {
+  function streamReply(convo, vision) {
     // placeholder bot bubble
     convo.messages.push({ role: "assistant", content: "" });
     save();
@@ -355,7 +604,7 @@
     var box = el("ai-msgs");
     var lastEl = box ? box.lastElementChild : null;
 
-    var payload = { model: convo.model, messages: convo.messages.slice(0, -1), stream: true };
+    var payload = { model: convo.model, messages: convo.messages.slice(0, -1), stream: true, vision: !!vision };
     fetch("/api/ai/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },

@@ -105,6 +105,10 @@ class Handler(SimpleHTTPRequestHandler):
             return self._dh_geo()
         if route == "/api/ai/models":
             return self._ai_models()
+        if route == "/api/ai/convos":
+            from urllib.parse import urlparse, parse_qs
+            qs = parse_qs(urlparse(self.path).query)
+            return self._ai_convos_get((qs.get("v") or ["anon"])[0])
         if route == "/_cherri":
             return self._cherri()
         if route == "/uv" or route == "/uv/":
@@ -123,6 +127,10 @@ class Handler(SimpleHTTPRequestHandler):
             length = int(self.headers.get("Content-Length", 0))
             body = self.rfile.read(length) if length > 0 else b"{}"
             return self._ai_chat(body)
+        if route == "/api/ai/convos":
+            length = int(self.headers.get("Content-Length", 0))
+            body = self.rfile.read(length) if length > 0 else b"{}"
+            return self._ai_convos_post(body)
         if route.startswith("/uv/"):
             length = int(self.headers.get("Content-Length", 0))
             body = self.rfile.read(length) if length > 0 else None
@@ -461,30 +469,67 @@ class Handler(SimpleHTTPRequestHandler):
     # list and a single streaming-capable chat proxy. The default endpoint is
     # overridable via the AI_UPSTREAM env var.
 
-    AI_UPSTREAM = os.environ.get("AI_UPSTREAM", "http://45.32.114.54:8080/v1")
-    # Optional Bearer key for OpenAI-compatible providers (OpenRouter, Gemini
-    # compat, etc.). Left empty for keyless local gateways.
+    # Upstreams are tried in order; when one rate-limits (429) or errors, the
+    # next takes over so the tab keeps answering. Anonymous by default:
+    #   OVHcloud AI Endpoints (no key, free tier, has vision models)
+    #   LLM7.io               (no key, free tier)
+    #   legacy gateway        (45.32.114.54 - shared, often rate-limited)
+    # Set AI_UPSTREAM (+ optional AI_API_KEY) to slot a keyed provider
+    # (OpenRouter / Gemini / etc.) in FIRST.
+    AI_UPSTREAM = os.environ.get("AI_UPSTREAM", "").strip()
     AI_API_KEY = os.environ.get("AI_API_KEY", "").strip()
+    _AI_CONVOS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ai_convos.json")
 
-    def _ai_headers(self, extra=None):
+    def _ai_upstreams(self):
+        import time
+        ups = []
+        if self.AI_UPSTREAM:
+            ups.append({"base": self.AI_UPSTREAM.rstrip("/"), "key": self.AI_API_KEY, "default": ""})
+        ups.append({"base": "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1", "key": "", "default": "Qwen3.5-397B-A17B"})
+        ups.append({"base": "https://api.llm7.io/v1", "key": "", "default": "mistral-Nemo-Instruct-2407"})
+        ups.append({"base": "http://45.32.114.54:8080/v1", "key": "", "default": "gpt-4o-mini"})
+        for u in ups:
+            u["down_until"] = 0
+            u["models"] = None
+        return ups
+
+    @staticmethod
+    def _is_vision(mid):
+        s = str(mid or "").lower()
+        return any(t in s for t in ("vl", "vision", "4o", "gpt-4", "claude", "gemini", "glm-4v", "llava"))
+
+    def _ai_headers(self, key, extra=None):
         h = {"Accept": "application/json"}
-        if self.AI_API_KEY:
-            h["Authorization"] = "Bearer " + self.AI_API_KEY
+        if key:
+            h["Authorization"] = "Bearer " + key
         if extra:
             h.update(extra)
         return h
 
     def _ai_models(self):
-        import urllib.request
+        import urllib.request, time
         out = {"ok": False, "models": []}
-        try:
-            req = urllib.request.Request(self.AI_UPSTREAM + "/models", headers=self._ai_headers())
-            with urllib.request.urlopen(req, timeout=FETCH_TIMEOUT) as resp:
-                data = json.loads(resp.read())
-            ids = [m.get("id") for m in (data.get("data") or []) if m.get("id")]
-            out = {"ok": True, "models": ids}
-        except Exception as e:
-            out = {"ok": False, "error": type(e).__name__}
+        seen = {}
+        first_err = None
+        for up in self._ai_upstreams():
+            if up["down_until"] and up["down_until"] > time.time():
+                continue
+            try:
+                req = urllib.request.Request(up["base"] + "/models", headers=self._ai_headers(up["key"]))
+                with urllib.request.urlopen(req, timeout=8) as resp:
+                    data = json.loads(resp.read())
+                ids = [m.get("id") for m in (data.get("data") or []) if m.get("id")]
+                up["models"] = ids
+                for mid in ids:
+                    if mid not in seen:
+                        seen[mid] = up["base"]
+            except Exception as e:
+                if first_err is None:
+                    first_err = type(e).__name__
+        if seen:
+            out = {"ok": True, "models": list(seen.keys()), "sources": seen, "default": next(iter(seen))}
+        elif first_err:
+            out = {"ok": False, "error": first_err}
         data = json.dumps(out).encode()
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
@@ -494,12 +539,72 @@ class Handler(SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
+    def _ai_convos_load(self, vid):
+        import json as _json
+        try:
+            if os.path.exists(self._AI_CONVOS_FILE):
+                with open(self._AI_CONVOS_FILE, "r", encoding="utf-8") as f:
+                    store = _json.load(f)
+                return store.get(vid) or {}
+        except Exception:
+            pass
+        return {}
+
+    def _ai_convos_get(self, vid):
+        data = self._ai_convos_load(vid)
+        raw = json.dumps({"ok": True, "convos": data}).encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Content-Length", str(len(raw)))
+        self.end_headers()
+        self.wfile.write(raw)
+
+    def _ai_convos_post(self, body):
+        import json as _json
+        try:
+            payload = _json.loads(body or b"{}")
+        except Exception:
+            payload = {}
+        vid = str(payload.get("v") or "anon")
+        convos = payload.get("convos") or {}
+        merged = self._ai_convos_load(vid)
+        for cid, c in convos.items():
+            if isinstance(c, dict):
+                merged[cid] = c
+        ordered = sorted(merged.values(), key=lambda c: c.get("ts") or 0, reverse=True)[:40]
+        merged = {c["id"]: c for c in ordered if c.get("id")}
+        try:
+            store = {}
+            if os.path.exists(self._AI_CONVOS_FILE):
+                try:
+                    with open(self._AI_CONVOS_FILE, "r", encoding="utf-8") as f:
+                        store = _json.load(f)
+                except Exception:
+                    store = {}
+            store[vid] = merged
+            with open(self._AI_CONVOS_FILE, "w", encoding="utf-8") as f:
+                _json.dump(store, f)
+        except Exception:
+            pass
+        raw = _json.dumps({"ok": True, "count": len(merged)}).encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Content-Length", str(len(raw)))
+        self.end_headers()
+        self.wfile.write(raw)
+
     def _ai_chat(self, body):
-        """Forward {messages, model, stream?} to the upstream and pipe the reply
-        back. Streaming passes the upstream's SSE through verbatim; the plain
-        path returns the JSON body as-is. Never exposes upstream secrets: the
-        endpoint is server-side only."""
-        import urllib.request
+        """Forward {messages, model, stream?, vision?} to the first healthy
+        upstream and pipe the reply back, failing over to the next upstream on
+        429 / 5xx / network errors so a rate-limited provider never blocks the
+        chat. Image attachments (content parts with image_url) automatically
+        route to a vision-capable model. Streaming passes the upstream's SSE
+        through verbatim; the plain path returns JSON as-is."""
+        import urllib.request, urllib.error, time
         try:
             payload = json.loads(body or b"{}")
         except Exception:
@@ -513,56 +618,106 @@ class Handler(SimpleHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(data)
             return
-        model = payload.get("model") or "hermes/claude-fable-5-20250514"
+        model = str(payload.get("model") or "")
         stream = bool(payload.get("stream"))
-        # Some upstreams (and models without a system prompt) answer with vague
-        # canned "let me clarify" boilerplate instead of the actual answer.
-        # Nudge every request with a direct-answer system prompt unless the
-        # client already sent one.
+        wants_vision = bool(payload.get("vision"))
+        if not wants_vision:
+            for m in msgs:
+                c = m.get("content")
+                if isinstance(c, list):
+                    for part in c:
+                        if isinstance(part, dict) and part.get("type") == "image_url":
+                            wants_vision = True
+                            break
         if not msgs or (msgs[0].get("role") != "system"):
             msgs = [{"role": "system", "content": "You are a helpful assistant. Answer the user's question directly, correctly and concisely. No preambles, no vague clarifying questions - just give the answer."}] + msgs
-        body = json.dumps({"model": model, "messages": msgs, "stream": stream, "temperature": 0.6}).encode()
-        req = urllib.request.Request(self.AI_UPSTREAM + "/chat/completions", data=body,
-                                     headers=self._ai_headers({"Content-Type": "application/json", "Accept": "text/event-stream" if stream else "application/json"}))
-        try:
-            with urllib.request.urlopen(req, timeout=60) as resp:
-                ctype = resp.headers.get("Content-Type", "application/json")
-                self.send_response(resp.getcode() or 200)
-                self.send_header("Content-Type", ctype)
-                self.send_header("Cache-Control", "no-store")
-                self.send_header("Access-Control-Allow-Origin", "*")
-                if stream:
-                    self.send_header("X-Accel-Buffering", "no")
-                    self.end_headers()
-                    while True:
-                        chunk = resp.read(4096)
-                        if not chunk:
-                            break
-                        try:
-                            self.wfile.write(chunk)
-                            self.wfile.flush()
-                        except Exception:
-                            break
-                else:
-                    raw = resp.read()
-                    self.send_header("Content-Length", str(len(raw)))
-                    self.end_headers()
-                    self.wfile.write(raw)
-        except urllib.error.HTTPError as e:
-            raw = e.read()
-            data = json.dumps({"ok": False, "error": "upstream-" + str(e.code), "detail": raw.decode("utf-8", "replace")[:400]}).encode()
-            self.send_response(e.code)
-            self.send_header("Content-Type", "application/json")
-            self.send_header("Content-Length", str(len(data)))
-            self.end_headers()
-            self.wfile.write(data)
-        except Exception as e:
-            data = json.dumps({"ok": False, "error": type(e).__name__}).encode()
-            self.send_response(502)
-            self.send_header("Content-Type", "application/json")
-            self.send_header("Content-Length", str(len(data)))
-            self.end_headers()
-            self.wfile.write(data)
+        ups = self._ai_upstreams()
+        # Build an ordered candidate list of (upstream, model) pairs:
+        #   1. the upstream(s) that own the requested model, with that model
+        #   2. a vision model on any upstream that has one (image requests)
+        #   3. each upstream's first model as a last resort, so a model that is
+        #      unavailable/rate-limited somewhere still gets answered elsewhere
+        cands = []
+        seen = set()
+        for u in ups:
+            um = u.get("models") or []
+            if um and model and model in um:
+                key = (u["base"], model)
+                if key not in seen:
+                    seen.add(key)
+                    cands.append((u, model))
+        if wants_vision:
+            for u in ups:
+                um = u.get("models") or []
+                vid = [m for m in um if self._is_vision(m)]
+                if vid:
+                    key = (u["base"], vid[0])
+                    if key not in seen:
+                        seen.add(key)
+                        cands.append((u, vid[0]))
+        # every upstream gets a shot with its default (or requested) model so a
+        # model that's unavailable/rate-limited somewhere still gets answered
+        for u in ups:
+            um = u.get("models") or []
+            pick = u.get("default") or (um[0] if um else "")
+            if not pick:
+                continue
+            key = (u["base"], pick)
+            if key not in seen:
+                seen.add(key)
+                cands.append((u, pick))
+        errors = []
+        for up, use_model in cands:
+            if up["down_until"] and up["down_until"] > time.time():
+                continue
+            body_b = json.dumps({"model": use_model, "messages": msgs, "stream": stream, "temperature": 0.6}).encode()
+            req = urllib.request.Request(up["base"] + "/chat/completions", data=body_b,
+                                         headers=self._ai_headers(up["key"], {"Content-Type": "application/json", "Accept": "text/event-stream" if stream else "application/json"}))
+            try:
+                resp = urllib.request.urlopen(req, timeout=90)
+            except urllib.error.HTTPError as e:
+                code = e.code
+                raw = e.read()
+                errors.append("HTTP " + str(code) + " " + raw.decode("utf-8", "replace")[:120].strip())
+                if code in (429, 500, 502, 503, 504):
+                    up["down_until"] = time.time() + 60
+                elif code != 400:
+                    up["down_until"] = time.time() + 300
+                continue  # 400 (model unavailable) or 429 - try next candidate
+            except Exception as e:
+                errors.append(type(e).__name__ + " from " + up["base"])
+                up["down_until"] = time.time() + 30
+                continue
+            # success: pipe the upstream response through
+            ctype = resp.headers.get("Content-Type", "application/json")
+            self.send_response(resp.getcode() or 200)
+            self.send_header("Content-Type", ctype)
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            if stream:
+                self.send_header("X-Accel-Buffering", "no")
+                self.end_headers()
+                while True:
+                    chunk = resp.read(4096)
+                    if not chunk:
+                        break
+                    try:
+                        self.wfile.write(chunk)
+                        self.wfile.flush()
+                    except Exception:
+                        break
+            else:
+                raw = resp.read()
+                self.send_header("Content-Length", str(len(raw)))
+                self.end_headers()
+                self.wfile.write(raw)
+            return
+        data = json.dumps({"ok": False, "error": "all-upstreams-down", "detail": "; ".join(errors) or "no upstreams"}).encode()
+        self.send_response(502)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
 
     # ---------------------------------------------------------------- /uv proxy
     # The built-in rewriting proxy behind the "Scramjet" and "Ultraviolet"
