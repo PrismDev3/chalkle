@@ -1345,31 +1345,58 @@
     var app = document.getElementById("pixel-app");
     if (!app) return;
 
-    /* Toolbar — matches Aseprite's tool groups with shortcuts */
+    /* Toolbar — Aseprite's layout: a vertical icon strip on the left, with
+       the tool set ordered like the real app and monochrome line-art icons
+       (drawn to mirror Aseprite's tool glyphs) instead of emoji. */
+    var ICONS = {
+      pencil: '<path d="M4 20l8-9 4 4-9 9H4z"/><path d="M12 11l3-3c1-1 3-3 4-2s0 3-1 4l-3 3"/><path d="M17 4l3 3"/>',
+      eraser: '<path d="M13 4l7 7-8 8-7-7z"/><path d="M5 21h7"/><rect x="7" y="14" width="4" height="4" fill="currentColor" stroke="none"/>',
+      bucket: '<path d="M7 4l13 8-5 9H9L4 12l6-4"/><path d="M4 12l5-3"/><path d="M13 6l1.5-1.5a2 2 0 0 1 3 2.6L13 11"/><path d="M9 20l-2 1M13 20l2 1M7 18l2 1"/>',
+      pick: '<path d="m8 2 4 4-6 6-4-4z"/><path d="M18 14a4 4 0 0 1-4 4"/><path d="M10 8l8 8-4 4-8-8"/><path d="m6 16-3 6 6-3"/>',
+      hand: '<path d="M7 11V6a1.5 1.5 0 0 1 3 0v4M10 9V5a1.5 1.5 0 0 1 3 0v5M13 10V6a1.5 1.5 0 0 1 3 0v5"/><path d="M16 8a1.5 1.5 0 0 1 3 0v6c0 4-3 7-7 7h-2c-2.5 0-4-1-5-3L3 14c-.7-1 0-2.5 1-2.5S5 12 6 13v-5"/>',
+      move: '<path d="M12 3v18M3 12h18"/><path d="m9 6 3-3 3 3M9 18l3 3 3-3M6 9l-3 3 3 3M18 9l3 3-3 3"/>',
+      line: '<path d="M4 20 18 5"/><rect x="2" y="19" width="4" height="4" ry="1" fill="currentColor" stroke="none"/><rect x="17" y="3" width="4" height="4" ry="1" fill="currentColor" stroke="none"/>',
+      rect: '<rect x="3" y="5" width="18" height="14" ry="1"/>',
+      frect: '<rect x="3" y="5" width="18" height="14" ry="1" fill="currentColor" stroke="none"/>',
+      ellipse: '<ellipse cx="12" cy="12" rx="9" ry="7"/>',
+      fellipse: '<ellipse cx="12" cy="12" rx="9" ry="7" fill="currentColor" stroke="none"/>',
+      contour: '<path d="M4 12a8 8 0 0 1 8-8"/><path d="M4 12a8 8 0 0 0 8 8"/><path d="M12 4v7h2"/>',
+      shading: '<circle cx="12" cy="12" r="9"/><path d="M3 12a9 9 0 0 1 18 0Z" fill="currentColor" stroke="none"/>',
+      blur: '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/>',
+      marquee: '<rect x="3" y="5" width="18" height="14" rx="1" stroke-dasharray="3.5 2.5"/><rect x="1" y="3" width="4" height="4" fill="currentColor" stroke="none" opacity="0"/><path d="M3 3v2h2M21 5v-2h-2M21 19v2h-2M3 21v-2h2"/>',
+      lasso: '<path d="M5 7c1.5-3 12-4 14 1s-6 4-6 6"/><path d="M13 14a2 2 0 1 0 2 2c0-4 4-6 7-6v0"/>',
+      wand: '<path d="M4 20 15 9"/><path d="M14 9l1-1M16 7l1-1"/><path d="m9 12-4-4 7-7 4 4z"/><path d="m9 8 3 3"/><path d="M4 20l2-2"/><path d="m19 7 .8 1.7L21.5 9l-1.7.8L19 11.5l-.8-1.7L16.5 9l1.7-.8z"/><path d="m14 3 .5 1L16 4.5l-1 .5-.5 1-.5-1L13 4.5 14 4z"/>'
+    };
+    function iconSvg(name, cls) {
+      return '<svg class="' + (cls || "") + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + ICONS[name] + "</svg>";
+    }
     var toolbar = el("div", "pixel-toolbar");
     var tools = [
-      ["pencil", "Pencil", "✏", "Pencil (B)"],
-      ["eraser", "Eraser", "◻", "Eraser (E)"],
-      ["bucket", "Bucket", "🪣", "Fill (G)"],
-      ["pick", "Eyedropper", "💧", "Pick color (I)"],
-      ["hand", "Hand", "✋", "Hand / pan (H)"],
-      ["move", "Move", "✥", "Move content (V)"],
-      ["line", "Line", "╱", "Line (L)"],
-      ["rect", "Rect", "▭", "Rectangle (U)"],
-      ["frect", "Rect fill", "▬", "Filled rectangle (Shift+U)"],
-      ["ellipse", "Ellipse", "◯", "Ellipse (O)"],
-      ["fellipse", "Ellipse fill", "⬤", "Filled ellipse (Shift+O)"],
-      ["contour", "Contour", "◎", "Contour outline (D)"],
-      ["shading", "Shading", "◐", "Shade darker (S)"],
-      ["blur", "Blur", "◌", "Blur (R)"],
-      ["marquee", "Marquee", "⊞", "Rect selection (M)"],
-      ["lasso", "Lasso", "✂", "Freehand selection (Q)"],
-      ["wand", "Magic wand", "✦", "Magic wand (W)"]
+      ["marquee", "Rectangular selection", "marquee", "Rectangular selection (M)"],
+      ["lasso", "Lasso selection", "lasso", "Freehand selection (Q)"],
+      ["wand", "Magic wand", "wand", "Magic wand (W)"],
+      ["move", "Move", "move", "Move content (V)"],
+      ["hand", "Hand", "hand", "Hand / pan (H)"],
+      ["pencil", "Pencil", "pencil", "Pencil (B)"],
+      ["bucket", "Paint bucket", "bucket", "Fill (G)"],
+      ["eraser", "Eraser", "eraser", "Eraser (E)"],
+      ["line", "Line", "line", "Line (L)"],
+      ["rect", "Rectangle", "rect", "Rectangle (U)"],
+      ["frect", "Rectangle fill", "frect", "Filled rectangle (Shift+U)"],
+      ["ellipse", "Ellipse", "ellipse", "Ellipse (O)"],
+      ["fellipse", "Ellipse fill", "fellipse", "Filled ellipse (Shift+O)"],
+      ["contour", "Contour", "contour", "Contour outline (D)"],
+      ["shading", "Shade darker", "shading", "Shade darker (S)"],
+      ["blur", "Blur", "blur", "Blur (R)"],
+      ["pick", "Eyedropper", "pick", "Pick color (I)"]
     ];
     var toolBtns = {};
     tools.forEach(function (t) {
-      var b = el("button", "pixel-tool" + (S.tool === t[0] ? " is-active" : ""), t[2]);
+      var b = el("button", "pixel-tool" + (S.tool === t[0] ? " is-active" : ""));
+      b.innerHTML = iconSvg(t[2], "pixel-tool-ico");
       b.title = t[3];
+      b.setAttribute("data-tool", t[0]);
+      b.setAttribute("aria-label", t[1]);
       b.addEventListener("click", function () { S.tool = t[0]; Object.keys(toolBtns).forEach(function (k) { toolBtns[k].classList.toggle("is-active", k === t[0]); }); updateStatus(); });
       toolBtns[t[0]] = b;
       toolbar.appendChild(b);
@@ -1400,9 +1427,6 @@
     btnDeselect.addEventListener("click", function () { if (S.doc) { clearSel(); } });
     btnZoomOut.addEventListener("click", zoomOut);
     btnZoomIn.addEventListener("click", zoomIn);
-
-    var pane = el("div", "pixel-left");
-    pane.appendChild(toolbar);
 
     var colorPanel = el("div", "pixel-panel");
     var ct = el("h3", "pixel-panel-title", "Colors");
@@ -1622,19 +1646,29 @@
     var pvHint = el("p", "pixel-preview-hint", "Nearest-neighbor preview of the current frame");
     rightCol.append(previewCanvas, pvHint);
 
-    /* Main layout */
+    /* Main layout — Aseprite style: slim icon toolbar far-left, color +
+       options sidebar beside it, canvas dead-center, layers + preview
+       docked right, timeline + export along the bottom. */
     var main = el("div", "pixel-main");
+    var toolStrip = el("div", "pixel-toolstrip");
+    toolStrip.appendChild(toolbar);
     var leftCol = el("div", "pixel-leftcol");
-    leftCol.append(pane, colorPanel, optsPanel, layersPanel);
+    leftCol.append(colorPanel, optsPanel);
 
     var centerCol = el("div", "pixel-centercol");
     centerCol.append(toprow, viewWrap, status);
 
-    main.append(leftCol, centerCol, rightCol);
+    var rightCol2 = el("div", "pixel-right");
+    rightCol2.append(layersPanel, rightCol);
+
+    main.append(toolStrip, leftCol, centerCol, rightCol2);
+
+    var bottom = el("div", "pixel-bottom");
+    bottom.appendChild(tlPanel);
+    bottom.appendChild(exportRow);
 
     app.appendChild(main);
-    app.appendChild(tlPanel);
-    app.appendChild(exportRow);
+    app.appendChild(bottom);
     app.appendChild(newDims);
 
     bindRGBA();
@@ -1718,8 +1752,8 @@
         }
       }
       /* update active tool highlight */
-      var btns = document.querySelectorAll(".pixel-toolbar .pixel-tool");
-      btns.forEach(function (b) { b.classList.toggle("is-active", b.title.indexOf("(" + k.toUpperCase() + ")") !== -1); });
+      var btns = document.querySelectorAll(".pixel-toolbar .pixel-tool[data-tool]");
+      btns.forEach(function (b) { b.classList.toggle("is-active", b.getAttribute("data-tool") === S.tool); });
       updateStatus();
     }, true);
 
