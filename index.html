@@ -30,6 +30,160 @@
     <div class="boot-bar"><div class="boot-progress" id="boot-progress"></div></div>
     <div class="boot-skip" id="boot-skip">skip</div>
   </div>
+  <!-- ── Launch chooser (first screen) ─────────────────────────────── -->
+  <style>
+    html.launch-open, html.launch-open body { overflow: hidden; }
+    #launch-screen {
+      position: fixed; inset: 0; z-index: 2147483647;
+      display: flex; align-items: center; justify-content: center;
+      background: radial-gradient(1200px 700px at 50% -10%, #14201b 0%, #0a0f0d 55%, #06090 8 100%);
+      background: radial-gradient(1200px 700px at 50% -10%, #14201b 0%, #0a0f0d 55%, #060908 100%);
+      color: #e8f2ee; font: 14px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      padding: 24px; box-sizing: border-box;
+    }
+    #launch-screen * { box-sizing: border-box; }
+    #launch-card {
+      width: min(680px, 100%); max-height: 100%; overflow: auto;
+      background: rgba(14, 20, 18, 0.85); border: 1px solid rgba(143, 214, 194, 0.16);
+      border-radius: 18px; padding: 34px 30px 26px; text-align: center;
+      box-shadow: 0 24px 80px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+      backdrop-filter: blur(14px);
+    }
+    #launch-card .launch-mark {
+      width: 64px; height: 64px; margin: 0 auto 14px; border-radius: 16px;
+      display: grid; place-items: center;
+      background: linear-gradient(145deg, #8fd6c2, #3f9c83);
+      color: #07110e; font-weight: 800; font-size: 30px; letter-spacing: -0.02em;
+      box-shadow: 0 8px 24px rgba(63, 156, 131, 0.35);
+    }
+    #launch-card h1 { margin: 0 0 4px; font-size: 24px; letter-spacing: -0.02em; }
+    #launch-card .launch-sub { margin: 0 0 22px; color: #9db8ae; font-size: 13px; }
+    #launch-options { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; text-align: left; }
+    #launch-options button {
+      appearance: none; cursor: pointer; text-align: left; color: inherit;
+      background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(143, 214, 194, 0.16);
+      border-radius: 12px; padding: 13px 14px; font: inherit; transition: background .15s, border-color .15s, transform .1s;
+      display: flex; gap: 11px; align-items: flex-start;
+    }
+    #launch-options button:hover { background: rgba(143, 214, 194, 0.1); border-color: rgba(143, 214, 194, 0.45); }
+    #launch-options button:active { transform: scale(0.98); }
+    #launch-options .opt-ico {
+      flex-shrink: 0; width: 36px; height: 36px; border-radius: 10px;
+      display: grid; place-items: center; font-size: 18px;
+      background: rgba(143, 214, 194, 0.12); border: 1px solid rgba(143, 214, 194, 0.22);
+    }
+    #launch-options .opt-txt strong { display: block; font-size: 14px; margin-bottom: 2px; }
+    #launch-options .opt-txt small { color: #7d968d; font-size: 11.5px; line-height: 1.4; display: block; }
+    #launch-options .opt-full { grid-column: 1 / -1; }
+    #launch-status { margin: 14px 0 0; min-height: 18px; color: #7d968d; font-size: 12px; }
+    #launch-status.is-err { color: #e0967c; }
+    #launch-hint { margin: 10px 0 0; color: #5f7a70; font-size: 11.5px; line-height: 1.5; }
+    @media (max-width: 560px) { #launch-options { grid-template-columns: 1fr; } }
+  </style>
+  <div id="launch-screen" role="dialog" aria-modal="true" aria-label="Choose how to launch Chalkle">
+    <div id="launch-card">
+      <div class="launch-mark">C</div>
+      <h1>Choose how to launch Chalkle</h1>
+      <p class="launch-sub">Every option runs the real, official Chalkle build — pick the one that fits.</p>
+      <div id="launch-options">
+        <button id="launch-direct" type="button">
+          <span class="opt-ico">▶</span>
+          <span class="opt-txt"><strong>Direct</strong><small>Run Chalkle right here in this tab, no tricks.</small></span>
+        </button>
+        <button id="launch-blank" type="button">
+          <span class="opt-ico">▢</span>
+          <span class="opt-txt"><strong>about:blank</strong><small>Open in a fresh blank tab — nothing in the address bar.</small></span>
+        </button>
+        <button id="launch-blob" type="button">
+          <span class="opt-ico">◉</span>
+          <span class="opt-txt"><strong>Blob URL</strong><small>Launch from an in-memory blob link in a new tab.</small></span>
+        </button>
+        <button id="launch-data" type="button">
+          <span class="opt-ico">⧉</span>
+          <span class="opt-txt"><strong>Data URL</strong><small>Launch from a data: URL. Heavy — blob is usually better.</small></span>
+        </button>
+        <button id="launch-frame" type="button" class="opt-full">
+          <span class="opt-ico">▣</span>
+          <span class="opt-txt"><strong>iframe</strong><small>Embed Chalkle full-screen inside this page.</small></span>
+        </button>
+      </div>
+      <div id="launch-status"></div>
+      <p id="launch-hint">Chalkle runs the official single-file build (<b>chalkle-single.html</b>) for every non-direct option, so it works even from a blank tab.</p>
+    </div>
+  </div>
+  <script>
+  (function () {
+    var screen = document.getElementById('launch-screen');
+    var status = document.getElementById('launch-status');
+    var cached = null;
+    var busy = false;
+    // When this page is injected by a cloak (learn-N.svg on jsdelivr), boot
+    // straight into the app — the chooser would try to fetch
+    // chalkle-single.html relative to the cloak's origin.
+    if (window.__CHALKLE_EMBED__ && screen && screen.parentNode) {
+      screen.parentNode.removeChild(screen);
+      return;
+    }
+    document.documentElement.classList.add('launch-open');
+
+    function getPayload() {
+      if (cached) return Promise.resolve(cached);
+      return fetch('chalkle-single.html?t=' + Date.now()).then(function (r) {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.text();
+      }).then(function (t) { cached = t; return t; });
+    }
+    function fail(e) {
+      if (!status) return;
+      status.className = 'is-err';
+      status.textContent = 'Could not load chalkle-single.html (' + (e && e.message ? e.message : e) + '). Keep it next to this page, or use Direct.';
+    }
+    function go(fn) {
+      if (busy) return;
+      busy = true;
+      if (status) { status.className = ''; status.textContent = 'Loading the official build…'; }
+      getPayload().then(function (html) { busy = false; fn(html); }).catch(function (e) { busy = false; fail(e); });
+    }
+    function dismiss() {
+      if (screen && screen.parentNode) screen.parentNode.removeChild(screen);
+      document.documentElement.classList.remove('launch-open');
+    }
+
+    document.getElementById('launch-direct').addEventListener('click', dismiss);
+    document.getElementById('launch-blank').addEventListener('click', function () {
+      go(function (html) {
+        var w = window.open('about:blank', '_blank');
+        if (!w) { if (status) { status.className = 'is-err'; status.textContent = 'Popup blocked — allow popups for this site, then try again.'; } return; }
+        w.document.open(); w.document.write(html); w.document.close();
+      });
+    });
+    document.getElementById('launch-blob').addEventListener('click', function () {
+      go(function (html) {
+        var url = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' }));
+        window.open(url, '_blank');
+      });
+    });
+    document.getElementById('launch-data').addEventListener('click', function () {
+      go(function (html) {
+        try {
+          var b64 = btoa(unescape(encodeURIComponent(html)));
+          window.open('data:text/html;base64,' + b64, '_blank');
+        } catch (e) { fail(e); }
+      });
+    });
+    document.getElementById('launch-frame').addEventListener('click', function () {
+      go(function (html) {
+        var url = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' }));
+        var f = document.createElement('iframe');
+        f.src = url;
+        f.setAttribute('allowfullscreen', '');
+        f.style.cssText = 'position:fixed;inset:0;width:100vw;height:100vh;border:0;z-index:2147483646;background:#000';
+        document.body.appendChild(f);
+        dismiss();
+      });
+    });
+  })();
+  </script>
 
   <div class="app" id="app" hidden>
     <header class="topbar">
@@ -398,6 +552,12 @@
               <span class="view-meta" id="docs-meta">link lists, saved as text</span>
             </div>
             <div class="view-actions">
+              <div class="chip-row docs-filter-row" id="docs-filters">
+                <button class="chip is-active" data-docs-filter="all" type="button">All</button>
+                <button class="chip" data-docs-filter="list" type="button">Lists</button>
+                <button class="chip" data-docs-filter="svg" type="button">SVGs</button>
+                <button class="chip" data-docs-filter="html" type="button">HTMLs</button>
+              </div>
               <select class="field field-mode" id="docs-sort" aria-label="Sort docs">
                 <option value="new">Newest</option>
                 <option value="az">A-Z</option>

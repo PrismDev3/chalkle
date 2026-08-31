@@ -77,8 +77,26 @@
      server, so a school filter has nothing separate to block and the URL can
      never go stale the way a hosted tunnel can. Every auto-route prefers it
      over hosted proxies (which can be blocked or die). */
+  /* A usable same-origin base for the built-in /uv/ proxy. The single-file
+     build runs from file:// or an opaque origin (about:blank / blob / data),
+     where location.origin is the literal string "null" and there is no
+     server behind it - the builtin /uv/ route cannot exist there. Returns ""
+     when the origin can't host /uv/, so callers fall back to hosted
+     proxies instead of building a broken "null/uv" URL. */
+  function usableOrigin() {
+    try {
+      var o = String(location.origin || "");
+      if (!o || o === "null") return "";
+      return /^https?:/i.test(o) ? o.replace(/\/+$/, "") : "";
+    } catch (e) {
+      return "";
+    }
+  }
+
   function builtinProxy() {
-    return { name: "Built-in", url: (location.origin || "") + "/uv", mode: "path", builtin: true };
+    var origin = usableOrigin();
+    if (!origin) return null;
+    return { name: "Built-in", url: origin + "/uv", mode: "path", builtin: true };
   }
 
   /* Pick the first real configured proxy (skips the "your-proxy-url"
@@ -90,19 +108,28 @@
     var proxies =
       (typeof window.ChalkleGetProxies === "function" && window.ChalkleGetProxies()) ||
       window.ChalkleProxies || window.ChalkProxies || [];
+    var hosted = null;
     for (var i = 0; i < proxies.length; i++) {
       var p = proxies[i];
       if (p && p.url && !isDeadStubProxy(p.url)) {
-        /* Prefer a same-origin /uv/ entry if the list has one, else builtin. */
+        /* Prefer a same-origin /uv/ entry if the list has one. */
         try {
           if (new URL(p.url, location.href).origin === location.origin && /\/uv\/?$/.test(new URL(p.url, location.href).pathname)) {
             return p;
           }
         } catch (e) { /* fall through */ }
-        break;
+        if (!hosted) hosted = p;
+        /* On a real origin the builtin /uv/ always wins. On file:// or an
+           opaque origin (single-file build) it cannot exist, so keep scanning
+           and remember the first hosted proxy instead. */
+        if (builtin) break;
       }
     }
-    return builtin;
+    if (builtin) return builtin;
+    /* No same-origin /uv/ server (single-file build on file://, about:blank,
+       blob or data): route through the first hosted proxy instead of the
+       broken "null/uv". */
+    return hosted || null;
   }
 
   function watchGameTab(win, url, opts) {
@@ -320,8 +347,12 @@
       /* Local webroot path: must go through the same-origin /uv/ proxy so CDN
          refs inside the page get rewritten. Hosted proxies can't fetch our
          local files, so force the /uv/ route regardless of which proxy was
-         picked. */
-      return (location.origin || "") + "/uv/" + b64url(target);
+         picked. With no server behind us (single-file build on file:// or an
+         opaque origin) there is no /uv/ to route through - hand the path back
+         unchanged so the embedded game loader or local folder can serve it. */
+      var origin = usableOrigin();
+      if (!origin) return target;
+      return origin + "/uv/" + b64url(target);
     }
     if (target.indexOf("//") === 0) target = location.protocol + target;
     if (target.indexOf("://") === -1) target = "https://" + target;

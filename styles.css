@@ -1983,10 +1983,38 @@ body.sidebar-collapsed .collapse-btn .icon { transform: rotate(180deg); }
 
 .chip input { display: none; }
 
-.chip:has(input:checked) {
+.chip:has(input:checked),
+.chip.is-active {
   background: var(--accent-soft);
   border-color: var(--accent);
   color: var(--accent);
+}
+
+/* Docs type filter (All / Lists / SVGs / HTMLs). Sits in the view header next
+   to the sort control; uses the same pill chips as everywhere else. */
+.docs-filter-row {
+  justify-content: flex-end;
+  margin: 0;
+}
+
+.docs-filter-row .chip {
+  font-size: 13px;
+  padding: 4px 12px;
+  border: none;
+  background: transparent;
+  color: var(--text-3);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+
+.docs-filter-row .chip:hover {
+  color: var(--text);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.docs-filter-row .chip.is-active {
+  background: var(--accent-soft);
+  color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
 }
 
 .setting-stack {
