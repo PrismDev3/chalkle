@@ -724,14 +724,15 @@ body.sidebar-collapsed .nav-label { display: none; }
 
 body.sidebar-collapsed .collapse-btn .icon { transform: rotate(180deg); }
 
-/* Small tablets / narrow windows only: keep the sidebar ON SCREEN (never
-   hide it behind the hamburger) but auto-collapse it to the icon rail so the
-   content keeps real room. Chromebook / laptop widths (861px+) keep the full
-   labeled sidebar by default - that band is exactly 1280x800 Chromebooks and
-   1366px screens at 125% display scaling, and collapsing the nav there made
-   it look like the sidebar had vanished. The collapse button still shrinks
-   it to the rail when the user wants the space back. */
-@media (max-width: 860px) {
+/* Phones only: keep the sidebar ON SCREEN (never hide it behind the
+   hamburger) but auto-collapse it to the icon rail so the content keeps real
+   room. Everything wider stays on the full labeled sidebar by default -
+   Chromebooks report tiny CSS widths (125-150% display scaling puts a
+   1280x800 / 1366x768 screen at 560-860px, and zoom makes it worse), so the
+   collapsing media query has to stay below real phone widths or the nav
+   looks like it vanished. The collapse button still shrinks the sidebar to
+   the rail at ANY width when the user wants the space back. */
+@media (max-width: 520px) {
   .sidebar { width: var(--side-w-collapsed); }
   .brand { width: var(--side-w-collapsed); }
   .brand-mark { display: none; }

@@ -15,14 +15,14 @@
   var LS_KEY = "chalkle.ai.v1";
   var PAPERCLIP = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>';
   var DEFAULTS = [
-    "Qwen3.5-397B-A17B",
-    "Meta-Llama-3_3-70B-Instruct",
+    "Mistral-Small-3.2-24B-Instruct-2506",
+    "mistral-Nemo-Instruct-2407",
     "gpt-oss-20b",
-    "Qwen2.5-VL-72B-Instruct",
+    "Meta-Llama-3_3-70B-Instruct",
     "Qwen3.6-27B",
     "Qwen3-32B",
-    "mistral-Nemo-Instruct-2407",
-    "minimax-m2.7"
+    "Qwen3.5-397B-A17B",
+    "Qwen2.5-VL-72B-Instruct"
   ];
 
   var S = {
@@ -85,6 +85,7 @@
     "Meta-Llama-3_3-70B-Instruct": "Llama 3.3 70B",
     "Meta-Llama-3.1-8B-Instruct": "Llama 3.1 8B",
     "Qwen2.5-VL-72B-Instruct": "Qwen2.5 VL 72B ⛐ (vision)",
+    "Mistral-Small-3.2-24B-Instruct-2506": "Mistral Small 24B",
     "mistral-Nemo-Instruct-2407": "Mistral Nemo",
     "minimax-m2.7": "MiniMax M2.7"
   };
@@ -130,9 +131,10 @@
     "glm-4-flash", "mistral-large", "mistral-7b",
     "command-r-plus", "command-r",
     "gpt-4-turbo", "gemini-1.5-pro", "claude-3-opus-20240229",
-    "Qwen3.5-397B-A17B", "Meta-Llama-3_3-70B-Instruct",
-    "gpt-oss-20b", "gpt-oss:20b", "Qwen3.6-27B", "Qwen3-32B",
-    "Qwen2.5-VL-72B-Instruct", "mistral-Nemo-Instruct-2407", "minimax-m2.7"
+    "Mistral-Small-3.2-24B-Instruct-2506", "mistral-Nemo-Instruct-2407",
+    "gpt-oss-20b", "gpt-oss:20b", "Meta-Llama-3_3-70B-Instruct",
+    "Qwen3.6-27B", "Qwen3-32B", "Qwen3.5-397B-A17B",
+    "Qwen2.5-VL-72B-Instruct", "minimax-m2.7"
   ];
   var QUALITY_INDEX = {};
   QUALITY.forEach(function (id, i) { QUALITY_INDEX[id] = i; });

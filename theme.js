@@ -9,6 +9,28 @@
   var CUSTOM_KEY = "chalkle-custom-theme";
   var WALLPAPER_KEY = "chalkle-wallpaper";
   var CURSOR_KEY = "chalkle-cursor";
+  var PRESET_KEY = "chalkle-theme-preset";
+  var RESET_FLAG = "chalkle-theme-reset-v1";
+
+  /* One-time auto-reset: older builds could leave behind a weird saved theme
+     (a light "white + pink" palette, candy wallpaper, etc.) that users never
+     deliberately picked, and it came back on every load. On the first boot
+     after this ships, clear any stored custom theme / preset / wallpaper so
+     everyone lands on the default dark Chalkle look again. Runs exactly once
+     per device: after that, theme choices ARE respected and persist. */
+  function autoResetOnce() {
+    try {
+      if (localStorage.getItem(RESET_FLAG)) return;
+      localStorage.removeItem(CUSTOM_KEY);
+      localStorage.removeItem(PRESET_KEY);
+      localStorage.removeItem(WALLPAPER_KEY);
+      localStorage.setItem(RESET_FLAG, "1");
+      /* Tell sync.js (which loads later) that THIS session cleared the old
+         synced theme, so its /_sync restore drops any stale palette the
+         server still has instead of putting it back. */
+      window.__chalkleThemeAutoReset = true;
+    } catch (e) { /* private mode: nothing to do */ }
+  }
 
   var CURSORS = {
     cat: { label: "cat", css: "url('/assets/cursors/cursor-cat.png') 32 32, auto", preview: "/assets/cursors/cursor-cat.png" },
@@ -200,20 +222,20 @@
       applyPalette(buildPalette(bg, accent));
     },
     getPreset: function () {
-      return localStorage.getItem("chalkle-theme-preset") || "";
+      return localStorage.getItem(PRESET_KEY) || "";
     },
     setPreset: function (id) {
       var p = PRESETS[id];
       if (!p) {
-        localStorage.removeItem("chalkle-theme-preset");
+        localStorage.removeItem(PRESET_KEY);
         return;
       }
-      localStorage.setItem("chalkle-theme-preset", id);
+      localStorage.setItem(PRESET_KEY, id);
       applyPalette(buildPalette(p.bg, p.accent));
       localStorage.setItem(CUSTOM_KEY, JSON.stringify({ bg: p.bg, accent: p.accent }));
     },
     resetPreset: function () {
-      localStorage.removeItem("chalkle-theme-preset");
+      localStorage.removeItem(PRESET_KEY);
     },
     resetCustom: function () {
       localStorage.removeItem(CUSTOM_KEY);
@@ -230,5 +252,6 @@
   };
 
   window.ChalkleTheme = ChalkleTheme;
+  autoResetOnce();
   ChalkleTheme.apply();
 })();

@@ -485,7 +485,7 @@ class Handler(SimpleHTTPRequestHandler):
         ups = []
         if self.AI_UPSTREAM:
             ups.append({"base": self.AI_UPSTREAM.rstrip("/"), "key": self.AI_API_KEY, "default": ""})
-        ups.append({"base": "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1", "key": "", "default": "Qwen3.5-397B-A17B"})
+        ups.append({"base": "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1", "key": "", "default": "Mistral-Small-3.2-24B-Instruct-2506"})
         ups.append({"base": "https://api.llm7.io/v1", "key": "", "default": "mistral-Nemo-Instruct-2407"})
         ups.append({"base": "http://45.32.114.54:8080/v1", "key": "", "default": "gpt-4o-mini"})
         for u in ups:
