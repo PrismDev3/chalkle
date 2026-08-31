@@ -1,18 +1,26 @@
 (function() {
-  try {
-    var xhr = new XMLHttpRequest();
-    xhr.open('GET', '/_sync', false);
-    xhr.send(null);
-    if (xhr.status === 200) {
-      var data = JSON.parse(xhr.responseText);
-      var keys = Object.keys(data);
-      if (keys.length > 0) {
-        for (var i = 0; i < keys.length; i++) {
-          localStorage.setItem(keys[i], data[keys[i]]);
-        }
-      }
-    }
-  } catch(e) {}
+  var storage = null;
+  try { storage = window.localStorage; } catch (e) {}
+
+  /* Fetch the server-side saved state asynchronously - the old synchronous
+     XMLHttpRequest on the main thread fires a deprecation warning (blocking
+     the page on every load). Same result, no blocking. Uses the real
+     localStorage.setItem (not the already-patched one below) so loading the
+     saved state doesn't echo a write back to the server. */
+  if (storage) {
+    try {
+      fetch('/_sync')
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (data) {
+          if (!data) return;
+          var keys = Object.keys(data);
+          for (var i = 0; i < keys.length; i++) {
+            try { storage.setItem(keys[i], data[keys[i]]); } catch (e) {}
+          }
+        })
+        .catch(function () {});
+    } catch (e) {}
+  }
   
   var origSet = localStorage.setItem;
   var origRemove = localStorage.removeItem;
