@@ -19,6 +19,39 @@
     <div style="padding:24px;color:#e8eaed;font-family:sans-serif;">Chalkle needs JavaScript to run. Turn it on and reload.</div>
   </noscript>
 
+  <script>
+  /* Cloak fix: when Chalkle is injected by a learn-N.svg cloak, the loader
+     rewrites /assets/ paths in the HTML and every script, but asset URLs that
+     come from saved data (recents, synced libraries, user entries) are built
+     at runtime with a leading slash. Those resolve against the CDN origin root
+     instead of /gh/.../chalkle@main/. Rewrite any such path on the way into
+     the DOM so it resolves via the injected <base> tag. Runs only when
+     embedded (__CHALKLE_EMBED__), never on the normal site. */
+  (function () {
+    if (!window.__CHALKLE_EMBED__) return;
+    var P = "/" + "assets/";
+    function fixImg(im) {
+      if (!im || !im.getAttribute) return;
+      var s = im.getAttribute("src");
+      if (s && s.charAt(0) === "/" && s.indexOf(P) === 0) im.setAttribute("src", s.slice(1));
+      var ss = im.getAttribute("srcset");
+      if (ss) im.setAttribute("srcset", ss.replace(/\/(assets\/[^ ,]+)/g, "$1"));
+    }
+    var obs = new MutationObserver(function (muts) {
+      for (var i = 0; i < muts.length; i++) {
+        var nodes = muts[i].addedNodes;
+        for (var j = 0; j < nodes.length; j++) {
+          var n = nodes[j];
+          if (!n || n.nodeType !== 1) continue;
+          if (n.tagName === "IMG") fixImg(n);
+          if (n.querySelectorAll) n.querySelectorAll("img").forEach(fixImg);
+        }
+      }
+    });
+    obs.observe(document.documentElement, { childList: true, subtree: true });
+  })();
+  </script>
+
   <div class="boot" id="boot" aria-hidden="true">
     <div class="boot-hud">
       <div class="boot-hud-line left"></div>
