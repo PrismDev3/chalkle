@@ -36,74 +36,74 @@
     #launch-screen {
       position: fixed; inset: 0; z-index: 2147483647;
       display: flex; align-items: center; justify-content: center;
-      background: radial-gradient(1200px 700px at 50% -10%, #14201b 0%, #0a0f0d 55%, #06090 8 100%);
-      background: radial-gradient(1200px 700px at 50% -10%, #14201b 0%, #0a0f0d 55%, #060908 100%);
-      color: #e8f2ee; font: 14px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      background: rgba(13, 15, 18, 0.96);
+      color: var(--text); font: 14px/1.5 var(--font);
       padding: 24px; box-sizing: border-box;
     }
     #launch-screen * { box-sizing: border-box; }
     #launch-card {
       width: min(680px, 100%); max-height: 100%; overflow: auto;
-      background: rgba(14, 20, 18, 0.85); border: 1px solid rgba(143, 214, 194, 0.16);
-      border-radius: 18px; padding: 34px 30px 26px; text-align: center;
-      box-shadow: 0 24px 80px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.04);
-      backdrop-filter: blur(14px);
+      background: var(--panel); border: 1px solid var(--line);
+      border-radius: var(--radius-lg); padding: 36px 30px 28px; text-align: center;
+      box-shadow: var(--shadow-card);
     }
-    #launch-card .launch-mark {
-      width: 64px; height: 64px; margin: 0 auto 14px; border-radius: 16px;
-      display: grid; place-items: center;
-      background: linear-gradient(145deg, #8fd6c2, #3f9c83);
-      color: #07110e; font-weight: 800; font-size: 30px; letter-spacing: -0.02em;
-      box-shadow: 0 8px 24px rgba(63, 156, 131, 0.35);
+    #launch-card .launch-logo {
+      display: inline-block; font-family: var(--display);
+      font-size: 46px; line-height: 1; letter-spacing: -0.01em;
+      margin: 0 auto 18px; -webkit-user-select: none; user-select: none;
     }
-    #launch-card h1 { margin: 0 0 4px; font-size: 24px; letter-spacing: -0.02em; }
-    #launch-card .launch-sub { margin: 0 0 22px; color: #9db8ae; font-size: 13px; }
+    #launch-card .launch-logo .bubble-letter { display: inline-block; }
+    #launch-card h1 { margin: 0 0 6px; font-size: 22px; font-weight: 700; letter-spacing: -0.01em; }
+    #launch-card .launch-sub { margin: 0 0 24px; color: var(--text-2); font-size: 13px; }
     #launch-options { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; text-align: left; }
     #launch-options button {
-      appearance: none; cursor: pointer; text-align: left; color: inherit;
-      background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(143, 214, 194, 0.16);
-      border-radius: 12px; padding: 13px 14px; font: inherit; transition: background .15s, border-color .15s, transform .1s;
-      display: flex; gap: 11px; align-items: flex-start;
+      appearance: none; cursor: pointer; text-align: left; color: var(--text);
+      background: var(--panel-2); border: 1px solid var(--line);
+      border-radius: var(--radius); padding: 13px 14px; font: inherit;
+      transition: background .15s, border-color .15s, transform .1s;
+      display: flex; gap: 12px; align-items: flex-start;
     }
-    #launch-options button:hover { background: rgba(143, 214, 194, 0.1); border-color: rgba(143, 214, 194, 0.45); }
+    #launch-options button:hover { background: var(--accent-soft); border-color: var(--accent); }
     #launch-options button:active { transform: scale(0.98); }
     #launch-options .opt-ico {
-      flex-shrink: 0; width: 36px; height: 36px; border-radius: 10px;
-      display: grid; place-items: center; font-size: 18px;
-      background: rgba(143, 214, 194, 0.12); border: 1px solid rgba(143, 214, 194, 0.22);
+      flex-shrink: 0; width: 34px; height: 34px; border-radius: var(--radius);
+      display: grid; place-items: center; color: var(--accent);
+      background: var(--accent-soft); border: 1px solid rgba(52, 168, 83, 0.28);
     }
+    #launch-options .opt-ico svg { width: 18px; height: 18px; display: block; }
     #launch-options .opt-txt strong { display: block; font-size: 14px; margin-bottom: 2px; }
-    #launch-options .opt-txt small { color: #7d968d; font-size: 11.5px; line-height: 1.4; display: block; }
+    #launch-options .opt-txt small { color: var(--text-2); font-size: 12px; line-height: 1.4; display: block; }
     #launch-options .opt-full { grid-column: 1 / -1; }
-    #launch-status { margin: 14px 0 0; min-height: 18px; color: #7d968d; font-size: 12px; }
-    #launch-status.is-err { color: #e0967c; }
-    #launch-hint { margin: 10px 0 0; color: #5f7a70; font-size: 11.5px; line-height: 1.5; }
+    #launch-status { margin: 14px 0 0; min-height: 18px; color: var(--text-2); font-size: 12px; }
+    #launch-status.is-err { color: var(--red); }
+    #launch-hint { margin: 12px 0 0; color: var(--text-3); font-size: 11.5px; line-height: 1.5; }
+    #launch-hint b { color: var(--text-2); font-weight: 600; }
     @media (max-width: 560px) { #launch-options { grid-template-columns: 1fr; } }
   </style>
   <div id="launch-screen" role="dialog" aria-modal="true" aria-label="Choose how to launch Chalkle">
     <div id="launch-card">
-      <div class="launch-mark">C</div>
+      <div class="launch-logo chalkle-logo" role="img" aria-label="Chalkle"></div>
       <h1>Choose how to launch Chalkle</h1>
-      <p class="launch-sub">Every option runs the real, official Chalkle build — pick the one that fits.</p>
+      <p class="launch-sub">Every option runs the real build. Pick the one that fits.</p>
       <div id="launch-options">
         <button id="launch-direct" type="button">
-          <span class="opt-ico">▶</span>
-          <span class="opt-txt"><strong>Direct</strong><small>Run Chalkle right here in this tab, no tricks.</small></span>
+          <span class="opt-ico"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15l13-7.5Z"/></svg></span>
+          <span class="opt-txt"><strong>Direct</strong><small>Run Chalkle right here in this tab.</small></span>
         </button>
         <button id="launch-blank" type="button">
-          <span class="opt-ico">▢</span>
-          <span class="opt-txt"><strong>about:blank</strong><small>Open in a fresh blank tab — nothing in the address bar.</small></span>
+          <span class="opt-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="2"/></svg></span>
+          <span class="opt-txt"><strong>about:blank</strong><small>Open in a fresh blank tab. Nothing in the address bar.</small></span>
         </button>
         <button id="launch-blob" type="button">
-          <span class="opt-ico">◉</span>
+          <span class="opt-ico"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 3c4 0 7 2.7 7 6.2 0 2.1-1 3.8-2.4 5.1-1.3 1.2-3 2-4.6 2-1.6 0-3.3-.8-4.6-2C6 13 5 11.3 5 9.2 5 5.7 8 3 12 3Z"/></svg></span>
           <span class="opt-txt"><strong>Blob URL</strong><small>Launch from an in-memory blob link in a new tab.</small></span>
         </button>
         <button id="launch-data" type="button">
-          <span class="opt-ico">⧉</span>
-          <span class="opt-txt"><strong>Data URL</strong><small>Launch from a data: URL. Heavy — blob is usually better.</small></span>
+          <span class="opt-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m9 7-5 5 5 5M15 7l5 5-5 5"/></svg></span>
+          <span class="opt-txt"><strong>Data URL</strong><small>Launch from a data: URL. Heavy, blob is usually better.</small></span>
         </button>
         <button id="launch-frame" type="button" class="opt-full">
-          <span class="opt-ico">▣</span>
+          <span class="opt-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 8h18"/></svg></span>
           <span class="opt-txt"><strong>iframe</strong><small>Embed Chalkle full-screen inside this page.</small></span>
         </button>
       </div>
