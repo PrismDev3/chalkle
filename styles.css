@@ -6035,7 +6035,10 @@ body.ed-resizing iframe { pointer-events: none; }
 .pixel-panel-title { margin: 0; font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted-2); }
 .pixel-panel-title-row { display: flex; align-items: center; gap: 6px; }
 
-.pixel-toolbar { display: flex; flex-wrap: wrap; gap: 6px; }
+.pixel-toolbar { display: flex; flex-wrap: wrap; gap: 5px; }
+.pixel-tool { width: 34px; height: 34px; font-size: 15px; }
+.pixel-blend { max-width: 110px; font-size: 11px; background: rgba(0,0,0,0.3); color: var(--fg); border: 1px solid var(--line); border-radius: 7px; padding: 4px 5px; }
+.pixel-sel-canvas { position: absolute; top: 20px; left: 20px; pointer-events: none; }
 .pixel-tool { width: 40px; height: 40px; font-size: 18px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel-2); color: var(--fg); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: transform 120ms ease, border-color 120ms ease, background 120ms ease; }
 .pixel-tool.is-active { border-color: var(--accent); background: var(--accent-soft); transform: translateY(-2px); }
 .pixel-tool:hover { border-color: var(--accent); }
