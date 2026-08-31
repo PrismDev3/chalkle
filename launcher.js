@@ -633,7 +633,12 @@
     close: pickerClose
   };
 
-  document.addEventListener("DOMContentLoaded", function () {
+  /* In a cloak-injected page (learn-N.svg on jsDelivr), the app HTML and
+     scripts are written into the iframe after the document has already
+     finished loading, so DOMContentLoaded never refires and these modal
+     handlers would never bind (launcher buttons + close would do nothing).
+     If the document is already complete, run them immediately instead. */
+  function bindLaunchModal() {
     var modal = document.getElementById("launch-modal");
     if (!modal) return;
 
@@ -672,5 +677,9 @@
         modeSel.value = saved;
       } catch (e) { /* no storage */ }
     }
-  });
+  }    if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", bindLaunchModal);
+  } else {
+    bindLaunchModal();
+  }
 })();
