@@ -378,7 +378,7 @@
 
   var DEFAULT_PARTNERS = [
     { name: "Kyro", official: "", discord: "https://discord.gg/cmAjzkYKTc", icon: "assets/partners/kyro.png" },
-    { name: "NEO OS", official: "", discord: "https://discord.gg/4TjwQagfN", icon: "assets/partners/neoos.jpg", renames: ["neoos"] },
+    { name: "NEO OS", official: "https://n-xcsxzutr6punfhylgg3xfr5mp4lfywjjxzqtrfq-0lu-script.googleusercontent.com/userCodeAppPanel", discord: "https://discord.gg/4TjwQagfN", icon: "assets/partners/neoos.jpg", renames: ["neoos"] },
     { name: "Godly Links", official: "", discord: "https://discord.gg/XZt4t8Jtk", icon: "assets/partners/godlylinks.png" },
     { name: "Project Bugs", official: "https://sites.google.com/view/intresting-history-facts/home", discord: "https://discord.gg/m5B7munZvn", icon: "assets/partners/projectbugs.jpg" },
     { name: "Frosted V2", official: "https://frostedbrowser.cfd/", discord: "https://discord.gg/w7J5auDhNm", icon: "assets/partners/frosted.png", renames: ["frosted"] }
@@ -421,6 +421,11 @@
         /* Partner was seeded before the icon existed - backfill it now so
            already-stored copies pick up the new logo. */
         existing.icon = def.icon;
+        dirty = true;
+      } else if (def.official && !existing.official) {
+        /* Partner was seeded before the site went live - backfill the
+           official link so already-stored copies pick it up. */
+        existing.official = def.official;
         dirty = true;
       }
     });
