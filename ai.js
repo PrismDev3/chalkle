@@ -650,6 +650,7 @@
         var m = convo.messages[convo.messages.length - 1];
         if (!m || !m.content) m.content = "(empty reply)";
         save();
+        renderMsgs(); /* re-render so Copy / Save .txt actions appear */
         busy = false;
         setSendState(false);
       }
