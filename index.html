@@ -1,0 +1,1062 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0c1210">
+  <meta name="description" content="Games, music and tools in one fast, simple place.">
+  <title>Chalkle</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Boogaloo&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="preload" as="image" href="bg-chalk.webp" fetchpriority="high">
+  <link rel="stylesheet" href="styles.css?v=20260830a">
+  <script src="theme.js"></script>
+</head>
+<body>
+  <noscript>
+    <div style="padding:24px;color:#e8eaed;font-family:sans-serif;">Chalkle needs JavaScript to run. Turn it on and reload.</div>
+  </noscript>
+
+  <div class="boot" id="boot" aria-hidden="true">
+    <div class="boot-hud">
+      <div class="boot-hud-line left"></div>
+      <div class="boot-hud-line right"></div>
+    </div>
+    <div class="boot-logo-wrap"><span class="chalkle-logo boot-logo" role="img" aria-label="Chalkle"></span></div>
+    <div class="boot-tag">GAME STATION</div>
+    <div class="boot-log" id="boot-log"></div>
+    <div class="boot-bar"><div class="boot-progress" id="boot-progress"></div></div>
+    <div class="boot-skip" id="boot-skip">skip</div>
+  </div>
+
+  <div class="app" id="app" hidden>
+    <header class="topbar">
+      <a class="brand" href="index.html" aria-label="Chalkle home">
+        <span class="chalkle-logo brand-name" role="img" aria-label="Chalkle"></span>
+      </a>
+
+      <div class="search">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="11" cy="11" r="6.5"/>
+          <line x1="16" y1="16" x2="20.5" y2="20.5"/>
+        </svg>
+        <input id="search-input" type="search" placeholder="Search games, sites & apps" autocomplete="off" spellcheck="false" aria-label="Search">
+        <kbd class="kbd" aria-hidden="true">Ctrl K</kbd>
+        <div class="search-results" id="search-results" hidden role="listbox"></div>
+      </div>
+
+      <button class="hamburger" id="hamburger" aria-label="Open menu" aria-expanded="false">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+          <line x1="4" y1="7" x2="20" y2="7"/>
+          <line x1="4" y1="12" x2="20" y2="12"/>
+          <line x1="4" y1="17" x2="20" y2="17"/>
+        </svg>
+      </button>
+      <div class="topbar-spacer" aria-hidden="true"></div>
+      <div class="topbar-clock" id="topbar-clock" title="Local time" aria-hidden="true">
+        <img class="clock-gif" src="https://minecraft.wiki/images/Clock_JE3_BE3.gif?a4011" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">
+        <span class="clock-time" id="clock-time">--:--</span>
+        <span class="clock-ampm" id="clock-ampm"></span>
+      </div>
+      <div class="viewer-pill" id="viewer-pill" hidden>
+        <svg class="viewer-eye" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M2.6 12S6.1 5.6 12 5.6 21.4 12 21.4 12 17.9 18.4 12 18.4 2.6 12 2.6 12z"/>
+          <circle cx="12" cy="12" r="2.9"/>
+        </svg>
+        <span class="viewer-count" id="viewer-count">0</span>
+        <span class="viewer-tip" role="tooltip">Active viewers right now</span>
+      </div>
+    </header>
+
+    <div class="shell">
+      <aside class="sidebar" id="sidebar" aria-label="Sections">
+        <nav class="nav">
+          <button class="nav-item is-active" data-view="home" title="Home">
+            <svg class="icon tab-ico" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M3.5 10.8 12 3.7l8.5 7.1"/><path d="M5.5 9.6v10h13v-10"/><path d="M9.5 16v-3.5h5V16"/>
+            </svg>
+            <span class="nav-label">Home</span>
+          </button>
+
+          <button class="nav-item" data-view="games" title="Games">
+            <svg class="icon tab-ico" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M17.32 5H6.68a4 4 0 0 0-3.978 3.59c-.006.052-.01.101-.017.152C2.604 9.416 2 14.456 2 16a3 3 0 0 0 3 3c1 0 1.5-.5 2-1l1.414-1.414A2 2 0 0 1 9.828 16h4.344a2 2 0 0 1 1.414.586L17 18c.5.5 1 1 2 1a3 3 0 0 0 3-3c0-1.545-.604-6.584-.685-7.258-.007-.05-.011-.1-.017-.151A4 4 0 0 0 17.32 5z"/>
+              <path d="M8 11v2M7 12h2"/><path d="M15 12h.01M18 10h.01"/>
+            </svg>
+            <span class="nav-label">Games</span>
+          </button>
+
+          <button class="nav-item" data-view="sites" title="Sites">
+            <svg class="icon tab-ico" viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="12" cy="12" r="10"/>
+              <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/>
+            </svg>
+            <span class="nav-label">Sites</span>
+          </button>
+
+          <button class="nav-item" data-view="music" title="YouTube">
+            <svg class="icon youtube-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M23.5 6.19a3.02 3.02 0 0 0-2.12-2.14C19.5 3.55 12 3.55 12 3.55s-7.5 0-9.38.5A3.02 3.02 0 0 0 .5 6.19C0 8.07 0 12 0 12s0 3.93.5 5.81a3.02 3.02 0 0 0 2.12 2.14c1.88.5 9.38.5 9.38.5s7.5 0 9.38-.5a3.02 3.02 0 0 0 2.12-2.14C24 15.93 24 12 24 12s0-3.93-.5-5.81z" fill="currentColor" stroke="none"/><path d="M9.55 15.57V8.43L15.82 12l-6.27 3.57z" fill="var(--base)" stroke="none"/>
+            </svg>
+            <span class="nav-label">YouTube</span>
+          </button>
+
+          <button class="nav-item" data-view="apps-tools" title="Apps/Tools">
+            <svg class="icon tab-ico" viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="3.6" y="3.6" width="7" height="7" rx="1.7"/><rect x="13.4" y="3.6" width="7" height="7" rx="1.7"/><rect x="3.6" y="13.4" width="7" height="7" rx="1.7"/><rect x="13.4" y="13.4" width="7" height="7" rx="1.7"/>
+            </svg>
+            <span class="nav-label">Apps/Tools</span>
+          </button>
+
+          <button class="nav-item" data-view="proxies" title="Proxies">
+            <svg class="icon tab-ico" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M14.2 9.2l3.5-3.5a2.9 2.9 0 0 1 4.1 4.1l-3.5 3.5a2.9 2.9 0 0 1-4.1 0"/>
+              <path d="M9.8 14.8l-3.5 3.5a2.9 2.9 0 0 1-4.1-4.1l3.5-3.5a2.9 2.9 0 0 1 4.1 0"/>
+              <path d="M8.6 15.4l6.8-6.8"/>
+            </svg>
+            <span class="nav-label">Proxies</span>
+          </button>
+
+          <button class="nav-item" data-view="docs" title="Docs">
+            <svg class="icon tab-ico" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M6 3.5h8l4 4.5v12.5a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-16a1 1 0 0 1 1-1z"/><path d="M14 3.5v4.5h4.5"/><path d="M8.5 11.5h7M8.5 14.7h7M8.5 17.9h4"/>
+            </svg>
+            <span class="nav-label">Docs</span>
+          </button>
+
+          <button class="nav-item" data-view="partners" title="Partners">
+            <svg class="icon tab-ico" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="m11 17 2 2a1 1 0 1 0 3-3"/>
+              <path d="m14 14 2.5 2.5a1 1 0 1 0 3-3l-3.88-3.88a3 3 0 0 0-4.24 0l-.88.88a1 1 0 1 1-3-3l2.81-2.81a5.79 5.79 0 0 1 7.06-.87l.47.28a2 2 0 0 0 1.42.25L21 4"/>
+              <path d="m21 3 1 11h-2"/>
+              <path d="M3 3 2 14l6.5 6.5a1 1 0 1 0 3-3"/>
+              <path d="M3 4h8"/>
+            </svg>
+            <span class="nav-label">Partners</span>
+          </button>
+        </nav>
+
+        <nav class="nav nav-bottom" aria-label="Board and settings">
+          <div class="nav-socials" aria-label="Social links">
+            <a class="nav-social" href="https://www.tiktok.com/@chalkle_official" target="_blank" rel="noopener noreferrer" title="TikTok @chalkle_official">
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" stroke="none" d="M15.05 2.4c.14 1.19.72 2.3 1.72 3.02.8.57 1.78.82 2.73.76v3.44a7.6 7.6 0 0 1-3.96-1.2v5.7a5.86 5.86 0 1 1-5.86-5.86c.3 0 .6.02.9.07v3.5a2.46 2.46 0 1 0 1.75 2.35V2.4h2.72z"/></svg>
+            </a>
+            <a class="nav-social" href="https://www.youtube.com/@chalkle_official" target="_blank" rel="noopener noreferrer" title="YouTube @chalkle_official">
+              <svg class="icon youtube-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M23.5 6.19a3.02 3.02 0 0 0-2.12-2.14C19.5 3.55 12 3.55 12 3.55s-7.5 0-9.38.5A3.02 3.02 0 0 0 .5 6.19C0 8.07 0 12 0 12s0 3.93.5 5.81a3.02 3.02 0 0 0 2.12 2.14c1.88.5 9.38.5 9.38.5s7.5 0 9.38-.5a3.02 3.02 0 0 0 2.12-2.14C24 15.93 24 12 24 12s0-3.93-.5-5.81zM9.55 15.57V8.43L15.82 12l-6.27 3.57z" fill="currentColor" stroke="none"/></svg>
+            </a>
+            <a class="nav-social" href="https://discord.gg/Y8Zh2mE7Ke" target="_blank" rel="noopener noreferrer" title="Discord @chalkle_official">
+              <svg class="icon disc-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" stroke="none" d="M20.317 4.37a19.79 19.79 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.211.375-.445.865-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.319 13.58.099 18.058a.082.082 0 0 0 .031.056c2.053 1.507 4.041 2.423 5.993 3.03a.078.078 0 0 0 .084-.028c.462-.63.873-1.295 1.226-1.994a.076.076 0 0 0-.042-.106 13.11 13.11 0 0 1-1.872-.892.077.077 0 0 1-.008-.128c.126-.094.252-.192.372-.291a.074.074 0 0 1 .078-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.009c.12.099.246.198.373.292a.077.077 0 0 1-.007.128 12.3 12.3 0 0 1-1.873.891.076.076 0 0 0-.04.107c.36.698.772 1.363 1.225 1.993a.076.076 0 0 0 .084.029c1.961-.607 3.95-1.522 6.002-3.03a.077.077 0 0 0 .031-.055c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.029zM8.02 15.33c-1.183 0-2.157-1.086-2.157-2.42 0-1.333.956-2.418 2.157-2.418 1.211 0 2.176 1.095 2.157 2.418 0 1.334-.956 2.42-2.157 2.42zm7.975 0c-1.183 0-2.157-1.086-2.157-2.42 0-1.333.956-2.418 2.157-2.418 1.211 0 2.176 1.095 2.157 2.418 0 1.334-.946 2.42-2.157 2.42z"/></svg>
+            </a>
+          </div>
+          <button class="nav-item" data-view="board" title="The Board">
+            <svg class="icon tab-ico" viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="3.4" y="4" width="17.2" height="12" rx="1.6"/><path d="M7 7.8h10M7 10.4h7M7 13h4"/><path d="M8.8 16l-1.8 4M15.2 16l1.8 4M6.4 20h11.2"/>
+            </svg>
+            <span class="nav-label">Board</span>
+          </button>
+
+          <button class="nav-item" data-view="settings" title="Settings">
+            <svg class="icon tab-ico" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M4 7h8M18 7h2"/><circle cx="16" cy="7" r="2"/><path d="M4 12h2M10 12h10"/><circle cx="8" cy="12" r="2"/><path d="M4 17h9M17 17h3"/><circle cx="14" cy="17" r="2"/>
+            </svg>
+            <span class="nav-label">Settings</span>
+          </button>
+        </nav>
+
+        <button class="collapse-btn" id="collapse-btn" aria-label="Collapse sidebar">
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M16 5.5l-8 6.5 8 6.5"/>
+          </svg>
+          <span class="nav-label">Collapse</span>
+        </button>
+        <div class="side-foot" aria-hidden="true">CHALKLE v1.0</div>
+      </aside>
+
+      <div class="backdrop" id="backdrop" hidden></div>
+
+      <main class="main" id="main">
+        <section class="view is-visible home-view" data-view="home">
+          <div class="home-hero">
+            <div class="home-hero-main">
+              <span class="chalkle-logo home-logo" role="img" aria-label="Chalkle"></span>
+              <span class="home-kicker">No sign-in. Just play.</span>
+              <h1 class="home-title">Everything fun, always ready.</h1>
+              <p class="home-text">Games, music, sites, and tools pulled together in one place. Pick one and go.</p>
+              <div class="home-actions">
+                <button class="home-primary" data-home-go="games">Browse games</button>
+                <button class="home-secondary" data-home-go="music">Open YouTube</button>
+                <button class="home-secondary" data-home-go="apps-tools">Tools</button>
+              </div>
+            </div>
+
+            <div class="home-hero-side">
+              <div class="home-quick-head">
+                <span class="home-quick-label">Jump back in</span>
+                <span class="home-quick-chip">One tap</span>
+              </div>
+              <div class="home-quick">
+                <button class="home-quick-card q-games" data-home-go="games"><span class="home-quick-ico"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7.55 6.15h8.9a4.55 4.55 0 0 1 4.5 5.05l-.42 3.95a3.05 3.05 0 0 1-5.37 1.75l-1.3-1.6h-3.72l-1.3 1.6a3.05 3.05 0 0 1-5.37-1.75l-.42-3.95A4.55 4.55 0 0 1 7.55 6.15z"/><path d="M8.45 9.7v2.3M7.3 10.85h2.3"/></svg></span><span class="home-quick-t">Games</span></button>
+                <button class="home-quick-card q-sites" data-home-go="sites"><span class="home-quick-ico"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.4"/><path d="M3.6 12h16.8"/><ellipse cx="12" cy="12" rx="3.7" ry="8.4"/></svg></span><span class="home-quick-t">Sites</span></button>
+                <button class="home-quick-card q-yt" data-home-go="music"><span class="home-quick-ico"><svg class="icon youtube-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M23.5 6.19a3.02 3.02 0 0 0-2.12-2.14C19.5 3.55 12 3.55 12 3.55s-7.5 0-9.38.5A3.02 3.02 0 0 0 .5 6.19C0 8.07 0 12 0 12s0 3.93.5 5.81a3.02 3.02 0 0 0 2.12 2.14c1.88.5 9.38.5 9.38.5s7.5 0 9.38-.5a3.02 3.02 0 0 0 2.12-2.14C24 15.93 24 12 24 12s0-3.93-.5-5.81zM9.55 15.57V8.43L15.82 12l-6.27 3.57z" fill="currentColor" stroke="none"/></svg></span><span class="home-quick-t">YouTube</span></button>
+                <button class="home-quick-card q-tools" data-home-go="apps-tools"><span class="home-quick-ico"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.75" y="3.75" width="6.9" height="6.9" rx="1.6"/><rect x="13.35" y="3.75" width="6.9" height="6.9" rx="1.6"/><rect x="3.75" y="13.35" width="6.9" height="6.9" rx="1.6"/><rect x="13.35" y="13.35" width="6.9" height="6.9" rx="1.6"/></svg></span><span class="home-quick-t">Tools</span></button>
+                <button class="home-quick-card q-proxy" data-home-go="proxies"><span class="home-quick-ico"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 9.3l3.6-3.6a2.9 2.9 0 0 1 4.1 4.1l-3.6 3.6a2.9 2.9 0 0 1-4.1 0"/><path d="M9 14.7l-3.6 3.6a2.9 2.9 0 0 1-4.1-4.1l3.6-3.6a2.9 2.9 0 0 1 4.1 0"/><path d="M8.3 15.7l7.4-7.4"/></svg></span><span class="home-quick-t">Proxy</span></button>
+                <button class="home-quick-card q-board" data-home-go="board"><span class="home-quick-ico"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.2" y="4" width="17.6" height="12" rx="1.5"/><path d="M7 7.7h10M7 10.2h7M7 12.7h4"/></svg></span><span class="home-quick-t">Board</span></button>
+                <button class="home-quick-card q-docs" data-home-go="docs"><span class="home-quick-ico"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3.5h8l4 4.5v12.5a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-16a1 1 0 0 1 1-1z"/><path d="M14 3.5v4.5h4.5"/><path d="M8.5 11.5h7M8.5 14.7h7M8.5 17.9h4"/></svg></span><span class="home-quick-t">Docs</span></button>
+                <button class="home-quick-card q-partners" data-home-go="partners"><span class="home-quick-ico"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m11 17 2 2a1 1 0 1 0 3-3"/><path d="m14 14 2.5 2.5a1 1 0 1 0 3-3l-3.88-3.88a3 3 0 0 0-4.24 0l-.88.88a1 1 0 1 1-3-3l2.81-2.81a5.79 5.79 0 0 1 7.06-.87l.47.28a2 2 0 0 0 1.42.25L21 4"/><path d="m21 3 1 11h-2"/><path d="M3 3 2 14l6.5 6.5a1 1 0 1 0 3-3"/><path d="M3 4h8"/></svg></span><span class="home-quick-t">Partners</span></button>
+                <button class="home-quick-card q-settings" data-home-go="settings"><span class="home-quick-ico"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h8M18 7h2"/><circle cx="16" cy="7" r="2"/><path d="M4 12h2M10 12h10"/><circle cx="8" cy="12" r="2"/><path d="M4 17h9M17 17h3"/><circle cx="14" cy="17" r="2"/></svg></span><span class="home-quick-t">Settings</span></button>
+              </div>
+
+              <div class="home-surface">
+                <div class="home-surface-head"><span class="home-surface-title">Your shelf</span><span class="home-panel-chip">On this device</span></div>
+                <div class="home-metrics">
+                  <div class="home-metric"><span class="home-metric-value" id="home-stat-games">0</span><span class="home-metric-label">games</span></div>
+                  <div class="home-metric"><span class="home-metric-value" id="home-stat-sites">0</span><span class="home-metric-label">sites</span></div>
+                  <div class="home-metric"><span class="home-metric-value" id="home-stat-tools">0</span><span class="home-metric-label">tools</span></div>
+                  <div class="home-metric"><span class="home-metric-value" id="home-stat-favs">0</span><span class="home-metric-label">saved</span></div>
+                </div>
+                <span class="home-surface-text">Use the search bar up top to pull up any game, site, or tool.</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="home-recents" id="home-recents" hidden></div>
+
+          <section class="home-block">
+            <div class="home-block-head">
+              <h2 class="home-block-title">Popular games</h2>
+              <span class="home-block-note">What everyone&rsquo;s been launching</span>
+            </div>
+            <div class="home-shelf" id="home-popular-games"></div>
+          </section>
+        </section>
+
+        <section class="view" data-view="games">
+          <div class="view-head">
+            <div class="view-heading">
+              <h1 class="view-title">Games</h1>
+              <span class="view-meta" id="games-meta"></span>
+            </div>
+            <div class="view-actions">
+              <select class="field field-mode" id="game-sort" aria-label="Sort games">
+                <option value="favorite">Favorites first</option>
+                <option value="popular">Most popular</option>
+                <option value="az">A-Z</option>
+                <option value="za">Z-A</option>
+              </select>
+            </div>
+          </div>
+          <div class="game-command">
+            <div class="game-stats" aria-label="Library stats">
+              <div class="game-stat">
+                <span class="game-stat-value" id="stat-games">0</span>
+                <span class="game-stat-label">games</span>
+              </div>
+              <div class="game-stat">
+                <span class="game-stat-value" id="stat-ports">0</span>
+                <span class="game-stat-label">pc ports</span>
+              </div>
+              <div class="game-stat">
+                <span class="game-stat-value" id="stat-favs">0</span>
+                <span class="game-stat-label">saved</span>
+              </div>
+              <div class="game-stat">
+                <span class="game-stat-value" id="stat-clicks">0</span>
+                <span class="game-stat-label">launches</span>
+              </div>
+            </div>
+            <div class="game-filters" role="group" aria-label="Game filters">
+              <button class="chip is-active" data-game-filter="all">All</button>
+              <button class="chip" data-game-filter="ports">PC ports</button>
+              <button class="chip" data-game-filter="favorites">Favorites</button>
+              <button class="chip" data-game-filter="new">New</button>
+            </div>
+          </div>
+          <div class="genre-filters" id="genre-filters" role="group" aria-label="Filter by genre" hidden></div>
+          <div class="grid" id="games-grid"></div>
+          <div class="empty" id="games-empty" hidden>
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="2.25" y="5.25" width="19.5" height="12" rx="5.75"/>
+              <path d="M7.25 8.25v6M5.25 11.25h4"/>
+              <circle cx="15.75" cy="10.5" r=".9" fill="currentColor"/>
+              <circle cx="18.25" cy="12.75" r=".9" fill="currentColor"/>
+            </svg>
+            <p class="empty-title">No games match that.</p>
+            <p class="empty-hint">Clear search or switch filters.</p>
+          </div>
+        </section>
+
+        <section class="view" data-view="sites">
+          <div class="view-head">
+            <div class="view-heading">
+              <h1 class="view-title">Sites</h1>
+              <span class="view-meta" id="sites-meta"></span>
+            </div>
+            <div class="view-actions">
+              <select class="field field-mode" id="sites-sort" aria-label="Sort sites">
+                <option value="az">A-Z</option>
+                <option value="za">Z-A</option>
+                <option value="new">Newest</option>
+              </select>
+            </div>
+          </div>
+          <div class="grid" id="sites-grid"></div>
+          <div class="empty" id="sites-empty" hidden>
+            <svg class="icon tab-ico" viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="12" cy="12" r="8.6"/>
+              <path d="M3.4 12h17.2"/>
+              <path d="M12 3.4a12.7 12.7 0 0 1 0 17.2M12 3.4a12.7 12.7 0 0 0 0 17.2"/>
+            </svg>
+            <p class="empty-title">No sites yet.</p>
+            <p class="empty-hint">Add one from the Admin panel.</p>
+          </div>
+        </section>
+
+        <section class="view" data-view="music">
+          <div class="view-head">
+            <h1 class="view-title">YouTube</h1>
+            <span class="view-meta">full songs, no cuts</span>
+          </div>
+          <div class="panel music-toolbar">
+            <div class="music-search">
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="11" cy="11" r="6.5"/>
+                <line x1="16" y1="16" x2="20.5" y2="20.5"/>
+              </svg>
+              <input id="music-q" type="search" placeholder="Search YouTube videos" autocomplete="off" spellcheck="false" aria-label="Search YouTube videos">
+              <button class="music-search-clear" id="music-q-clear" type="button" aria-label="Clear video search" hidden>×</button>
+            </div>
+            <div class="music-chips">
+              <button class="chip is-active" data-music-chip="trending">Trending</button>
+              <button class="chip" data-music-chip="recommended">Recommended</button>
+              <button class="chip" data-music-chip="channels">Channels</button>
+              <button class="chip" data-music-chip="favorites">Favorites</button>
+              <label class="chip chip-upload">Upload
+                <input type="file" id="music-upload" accept="audio/*" multiple hidden>
+              </label>
+            </div>
+          </div>
+          <div class="music-line">
+            <button class="chip channel-back" id="channel-back" hidden>&lsaquo;&nbsp;Back</button>
+            <h2 class="music-head" id="music-head">Trending videos</h2>
+            <span class="music-status" id="music-status"></span>
+          </div>
+          <div class="grid" id="music-grid" hidden></div>
+          <div class="empty" id="music-empty" hidden>
+            <p class="empty-hint">Search for a video or open your favorites.</p>
+          </div>
+        </section>
+
+        <section class="view" data-view="apps-tools">
+          <div class="view-head">
+            <h1 class="view-title">Apps/Tools</h1>
+            <span class="view-meta" id="apps-tools-meta"></span>
+          </div>
+          <div class="grid" id="apps-grid"></div>
+          <div class="empty" id="apps-empty" hidden>
+            <p class="empty-title">No tools yet.</p>
+            <p class="empty-hint">Add one from the Admin panel.</p>
+          </div>
+        </section>
+
+        <section class="view" data-view="proxies">
+          <div class="view-head">
+            <h1 class="view-title">Proxies</h1>
+            <span class="view-meta" id="proxies-meta"></span>
+          </div>
+          <div class="panel proxy-form">
+            <h2 class="panel-title">Add a proxy</h2>
+            <p class="empty-hint panel-note">Paste a proxy URL here. Once one is set, the <b>proxy apps</b> in Apps/Tools (TikTok, Discord, and so on) open through it in the iframe, about:blank, new tab, or whatever mode you pick.</p>
+            <form id="proxy-form" class="form-row" autocomplete="off">
+              <input class="field field-name" id="proxy-name" type="text" placeholder="Name" required>
+              <input class="field field-url" id="proxy-url" type="text" placeholder="https://your-proxy.onrender.com" spellcheck="false" required>
+              <select class="field field-mode" id="proxy-mode" aria-label="Open mode">
+                <option value="frame">Open in this tab</option>
+                <option value="tab">Open in new tab</option>
+              </select>
+              <button class="btn" type="submit">Add</button>
+            </form>
+          </div>
+
+          <div class="grid proxy-grid" id="proxies-grid"></div>
+          <div class="empty" id="proxies-empty" hidden>
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="12" cy="12" r="9"/>
+              <ellipse cx="12" cy="12" rx="3.9" ry="9"/>
+              <path d="M3 12h18"/>
+            </svg>
+            <p class="empty-title">No proxies yet.</p>
+            <p class="empty-hint">Add one with the form above.</p>
+          </div>
+        </section>
+
+        <section class="view docs-view" data-view="docs">
+          <div class="view-head">
+            <div class="view-heading">
+              <h1 class="view-title">Docs</h1>
+              <span class="view-meta" id="docs-meta">link lists, saved as text</span>
+            </div>
+            <div class="view-actions">
+              <select class="field field-mode" id="docs-sort" aria-label="Sort docs">
+                <option value="new">Newest</option>
+                <option value="az">A-Z</option>
+                <option value="za">Z-A</option>
+                <option value="links">Most links</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="panel docs-bar" hidden>
+            <div class="docs-upload">
+              <label class="btn docs-btn-upload">
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4"/><path d="m7 9 5-5 5 5"/><path d="M5 19h14"/></svg>
+                Upload .txt
+                <input type="file" id="docs-file" accept=".txt,.text,.md,.csv,.html,.htm,.svg" multiple hidden>
+              </label>
+              <button class="btn-ghost" id="docs-new">
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+                New doc
+              </button>
+            </div>
+            <div class="docs-count" id="docs-count">0 docs</div>
+          </div>
+
+          <div class="docs-grid" id="docs-grid"></div>
+
+          <div class="empty" id="docs-empty" hidden>
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M6 3.5h8l4 4v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-16a1 1 0 0 1 1-1z"/>
+              <path d="M14 3.5v4h4"/>
+            </svg>
+            <p class="empty-title">No docs yet.</p>
+            <p class="empty-hint" data-docs-hint="upload">Upload a .txt of links, or hit New doc and paste one in. Every link becomes a clickable tile.</p>
+          </div>
+        </section>
+
+        <section class="view partners-view" data-view="partners">
+          <div class="view-head">
+            <div class="view-heading">
+              <h1 class="view-title">Partners</h1>
+              <span class="view-meta" id="partners-meta">creators, servers, and friends</span>
+            </div>
+          </div>
+
+          <div class="panel partners-bar" hidden>
+            <div class="partners-upload">
+              <button class="btn partners-btn-add" id="partners-add">
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+                Add partner
+              </button>
+            </div>
+            <div class="partners-count" id="partners-count">0 partners</div>
+          </div>
+
+          <div class="partners-grid" id="partners-grid"></div>
+
+          <div class="empty" id="partners-empty" hidden>
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="m11 17 2 2a1 1 0 1 0 1.4-1.4l-2-2"/>
+              <path d="M14.5 12.5 16 14a1.4 1.4 0 1 1-2 2l-2.5-2.5"/>
+              <path d="m9 8 3.5-3.5a1.4 1.4 0 0 1 2 2L10.5 10"/>
+            </svg>
+            <p class="empty-title">No partners yet.</p>
+            <p class="empty-hint" data-partners-hint="add">Only admins can add partners. Everyone else can open their links and Discords.</p>
+          </div>
+        </section>
+
+        <section class="view board-view" data-view="board">
+          <div class="chalkboard">
+            <h1 class="board-title">The Board</h1>
+            <div class="board-columns" id="board-columns"></div>
+          </div>
+        </section>
+
+        <section class="view" data-view="settings">
+          <div class="view-head">
+            <h1 class="view-title">Settings</h1>
+            <span class="view-meta">local to this device</span>
+          </div>
+          <div class="panel">
+            <div class="editor-head">
+              <h2 class="panel-title">Appearance</h2>
+              <span class="panel-chip">make it yours</span>
+            </div>
+            <p class="empty-hint panel-note">Pick your own colors, wallpaper, and cursor. Everything is saved on this device and applies instantly.</p>
+            <div class="setting">
+              <span class="setting-name">Colors</span>
+              <span class="setting-hint">Background + accent — light backgrounds switch the whole theme to light mode</span>
+              <div class="theme-color-row">
+                <label class="theme-color-field">
+                  <span>Background</span>
+                  <input type="color" id="opt-theme-bg" value="#0d0f12" aria-label="Background color">
+                </label>
+                <label class="theme-color-field">
+                  <span>Accent</span>
+                  <input type="color" id="opt-theme-accent" value="#34a853" aria-label="Accent color">
+                </label>
+                <div class="theme-actions">
+                  <button class="btn-theme" id="opt-theme-reset">Reset colors</button>
+                </div>
+              </div>
+            </div>
+            <div class="setting">
+              <span class="setting-name">Quick themes</span>
+              <span class="setting-hint">One-click palettes — background + accent together</span>
+              <div class="preset-grid" id="preset-grid"></div>
+            </div>
+            <div class="setting">
+              <span class="setting-name">Wallpaper</span>
+              <span class="setting-hint">Gradient presets or your own image URL</span>
+              <div class="wallpaper-grid" id="wallpaper-grid"></div>
+              <div class="theme-custom-row">
+                <input class="field" id="opt-wallpaper-url" type="url" placeholder="https://… image URL" aria-label="Custom wallpaper URL">
+                <button class="btn-theme" id="opt-wallpaper-apply">Apply</button>
+              </div>
+            </div>
+            <div class="setting">
+              <span class="setting-name">Cursor</span>
+              <span class="setting-hint">A little personality</span>
+              <div class="cursor-grid" id="cursor-grid"></div>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="setting">
+              <span class="setting-name">Reduce motion</span>
+              <label class="switch">
+                <input type="checkbox" id="opt-motion">
+                <span class="track" aria-hidden="true"></span>
+              </label>
+            </div>
+            <div class="setting">
+              <span class="setting-name">Military time (24h)</span>
+              <label class="switch">
+                <input type="checkbox" id="opt-clock-military">
+                <span class="track" aria-hidden="true"></span>
+              </label>
+            </div>
+            <div class="setting">
+              <span class="setting-name">Show time parts</span>
+              <span class="setting-hint">Toggle hours, minutes, seconds</span>
+              <div class="chip-row" id="clock-parts">
+                <label class="chip"><input type="checkbox" id="opt-clock-h" checked><span>Hours</span></label>
+                <label class="chip"><input type="checkbox" id="opt-clock-m" checked><span>Minutes</span></label>
+                <label class="chip"><input type="checkbox" id="opt-clock-s" checked><span>Seconds</span></label>
+              </div>
+            </div>
+            <div class="setting">
+              <span class="setting-name">Card size</span>
+              <div class="seg" role="group" aria-label="Card size">
+                <button class="seg-btn" data-size="comfortable">Comfortable</button>
+                <button class="seg-btn" data-size="compact">Compact</button>
+              </div>
+            </div>
+            <div class="setting">
+              <span class="setting-name">Ask before launching</span>
+              <label class="switch">
+                <input type="checkbox" id="opt-ask">
+                <span class="track" aria-hidden="true"></span>
+              </label>
+            </div>
+            <div class="setting">
+              <span class="setting-name">Default open method</span>
+              <select class="field field-mode" id="opt-default-mode" aria-label="Default open method">
+                <option value="ask">Ask each time</option>
+                <option value="direct">Direct</option>
+                <option value="aboutblank">About:blank</option>
+                <option value="blob">Blob</option>
+                <option value="dataurl">Data URL</option>
+                <option value="iframe">This tab</option>
+                <option value="proxy">Proxy</option>
+              </select>
+            </div>
+            <div class="setting">
+              <span class="setting-name">Cloak tab title</span>
+              <input class="field field-name" id="opt-cloak-title" type="text" placeholder="Classes" maxlength="40" aria-label="Cloak tab title">
+            </div>
+            <div class="setting setting-col" id="settings-proxy-row">
+              <div class="setting-row-head">
+                <span class="setting-name">Saved proxies
+                  <span class="setting-hint">Click a proxy to open it</span>
+                </span>
+                <button class="btn-danger" id="opt-clear">Clear list</button>
+              </div>
+              <div class="proxy-links" id="settings-proxy-list"></div>
+            </div>
+            <div class="setting">
+              <span class="setting-name">Admin panel</span>
+              <button class="btn-ghost" id="opt-admin">Open admin…</button>
+            </div>
+            <div class="setting">
+              <span class="setting-name">Version</span>
+              <span class="setting-value mono">v1.0</span>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="editor-head">
+              <h2 class="panel-title">Cloak tab</h2>
+              <span class="panel-chip">quick disguise</span>
+            </div>
+            <p class="empty-hint panel-note">Change this tab's title and icon with one click.</p>
+            <div class="cloak-grid" id="cloak-grid"></div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <div class="audio-dock" id="audio-dock" hidden>
+      <div class="audio-eq" id="audio-eq" hidden>
+        <canvas id="eq-canvas" width="220" height="40"></canvas>
+      </div>
+      <div class="audio-row">
+        <div class="audio-meta">
+          <div class="audio-art" id="audio-art"></div>
+          <div class="audio-titles">
+            <div class="audio-title" id="audio-title">Nothing playing</div>
+            <div class="audio-artist" id="audio-artist"></div>
+          </div>
+          <button class="audio-btn heart" id="audio-heart" aria-label="Favorite">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.3 4.6 13a4.6 4.6 0 0 1 6.5-6.5L12 7.6l0.9-.9a4.6 4.6 0 0 1 6.5 6.5L12 20.3z"/></svg>
+          </button>
+        </div>
+        <div class="audio-center">
+          <div class="audio-buttons">
+            <button class="audio-btn sm" id="btn-shuffle" aria-label="Shuffle">
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h3.2c2.2 0 4.1 1.3 5.3 3.4M13.5 13.6c1.2 2.1 3.1 3.4 5.3 3.4H20M4 17h3.2c1.6 0 3-.7 4-1.8M16.5 5h3.5v3.5M20 5l-5.5 5.5M16.5 19l3.5-3.5-3.5-3.5"/></svg>
+            </button>
+            <button class="audio-btn sm" id="btn-prev" aria-label="Previous">
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 6v12M17 6l-8 6 8 6z"/></svg>
+            </button>
+            <button class="audio-btn play" id="btn-play" aria-label="Play">
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5l11 7-11 7z"/></svg>
+            </button>
+            <button class="audio-btn sm" id="btn-next" aria-label="Next">
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M17 6v12M7 6l8 6-8 6z"/></svg>
+            </button>
+            <button class="audio-btn sm" id="btn-repeat" aria-label="Repeat">
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M17 3.5 20.5 7 17 10.5M20 7H4.5A2.5 2.5 0 0 0 2 9.5v1M7 20.5 3.5 17 7 13.5M4 17h15.5a2.5 2.5 0 0 0 2.5-2.5v-1"/></svg>
+            </button>
+          </div>
+          <div class="audio-track">
+            <span class="audio-time" id="audio-cur">0:00</span>
+            <input class="audio-range" id="audio-seek" type="range" min="0" max="1000" value="0" step="1" aria-label="Seek">
+            <span class="audio-time" id="audio-dur">0:00</span>
+          </div>
+        </div>
+        <div class="audio-right">
+          <button class="audio-btn sm" id="btn-eq" aria-label="Equalizer">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 9v6M10 5v14M15 8v8M20 11v2"/></svg>
+          </button>
+          <button class="audio-btn sm" id="btn-vol" aria-label="Mute">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9.5v5h3.5L12 19V5L7.5 9.5H4z"/><path d="M15.5 9a4.5 4.5 0 0 1 0 6M17.8 6.6a8 8 0 0 1 0 10.8"/></svg>
+          </button>
+          <input class="audio-range vol" id="audio-vol" type="range" min="0" max="1" step="0.01" value="0.9" aria-label="Volume">
+          <button class="audio-btn sm" id="btn-queue" aria-label="Queue">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></svg>
+            <span class="queue-count" id="queue-count">0</span>
+          </button>
+        </div>
+      </div>
+      <div class="audio-queue" id="audio-queue" hidden>
+        <div class="audio-queue-head">
+          <span>Up next</span>
+          <button class="audio-btn sm x" id="btn-queue-close" aria-label="Close queue">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+          </button>
+        </div>
+        <div class="audio-queue-list" id="audio-queue-list"></div>
+      </div>
+    </div>
+
+    <div class="video-overlay" id="video-overlay" hidden>
+      <div class="video-window">
+        <div class="video-bar">
+          <span id="video-overlay-title">YouTube video</span>
+          <div class="video-bar-actions">
+            <button class="btn-ghost" id="video-pip" type="button" aria-label="Picture in picture">Picture in picture</button>
+            <button class="launch-x" id="video-overlay-close" aria-label="Close video">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+          </button>
+          </div>
+        </div>
+        <iframe id="video-frame" title="YouTube video" allow="fullscreen; picture-in-picture" allowfullscreen referrerpolicy="origin"></iframe>
+      </div>
+    </div>
+
+    <div class="launch-modal" id="launch-modal" hidden>
+      <div class="launch-card">
+        <div class="launch-head">
+          <span class="launch-name" id="launch-name"></span>
+          <button class="launch-x" id="launch-close" aria-label="Close">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+          </button>
+        </div>
+        <div class="launch-grid">
+          <button class="launch-opt" data-launch-method="direct">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17L17 7M9 7h8v8"/></svg>
+            <span>Direct</span>
+          </button>
+          <button class="launch-opt" data-launch-method="aboutblank">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3"/><circle cx="12" cy="12" r="2.5"/></svg>
+            <span>About Blank</span>
+          </button>
+          <button class="launch-opt" data-launch-method="blob">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 8l8-4v12l-8 4z"/></svg>
+            <span>Blob</span>
+          </button>
+          <button class="launch-opt" data-launch-method="dataurl">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M8 9h8M8 13h8M8 17h5"/></svg>
+            <span>DataURL</span>
+          </button>
+          <button class="launch-opt" data-launch-method="iframe">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4.5" width="18" height="15" rx="2.5"/><path d="M3 9h18"/></svg>
+            <span>Iframe Here</span>
+          </button>
+          <button class="launch-opt" data-launch-method="proxy" id="launch-proxy">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><ellipse cx="12" cy="12" rx="3.6" ry="8.5"/><path d="M3.5 12h17"/></svg>
+            <span>Proxy</span>
+          </button>
+        </div>
+        <div class="launch-foot">
+          <div class="launch-proxy-row">
+            <span class="launch-label">Proxy</span>
+            <select class="field" id="launch-proxy-select" hidden></select>
+          </div>
+          <div class="launch-set">
+            <select class="field" id="launch-mode-select" aria-label="Default method">
+              <option value="direct">Direct</option>
+              <option value="aboutblank">About Blank</option>
+              <option value="blob">Blob</option>
+              <option value="dataurl">DataURL</option>
+              <option value="iframe">Iframe Here</option>
+              <option value="proxy">Proxy</option>
+            </select>
+            <button class="btn-ghost" id="launch-set-default">Always use this</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="overlay" id="proxy-overlay" hidden>
+      <div class="overlay-bar">
+        <button class="overlay-back" id="overlay-back" aria-label="Back to Chalkle">
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M16 5.5l-8 6.5 8 6.5"/>
+          </svg>
+        </button>
+        <span class="overlay-title" id="overlay-title"></span>
+        <a class="overlay-ext" id="overlay-ext" target="_blank" rel="noopener">
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M7 17L17 7"/>
+            <path d="M9 7h8v8"/>
+          </svg>
+          <span>New tab</span>
+        </a>
+      </div>
+      <div class="overlay-notice" id="overlay-notice" hidden>
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v6M12 16.5v.1"/></svg>
+        <span>This site blocks embedded play. Open it in a new tab instead.</span>
+        <a class="btn" id="overlay-open-fallback" target="_blank" rel="noopener">Open game</a>
+      </div>
+      <iframe class="overlay-frame" id="proxy-frame" title="Proxy" allow="fullscreen" referrerpolicy="no-referrer"></iframe>
+    </div>
+
+    <div class="admin-modal" id="admin-modal" hidden>
+      <div class="admin-cover" data-admin-close></div>
+      <div class="admin-card">
+        <div class="admin-head">
+          <span class="admin-title">Admin</span>
+          <button class="launch-x" data-admin-close aria-label="Close">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+          </button>
+        </div>
+        <div class="admin-gate" id="admin-gate">
+          <p class="empty-hint panel-note" style="text-align:center">Enter the admin code to manage games, sites, tools and proxies.</p>
+          <form id="admin-lock-form" class="form-row" autocomplete="off">
+            <input class="field field-name" id="admin-code" type="password" placeholder="Admin code" autocomplete="off">
+            <button class="btn" type="submit">Unlock</button>
+          </form>
+          <label class="admin-check" style="margin-top:12px"><input type="checkbox" id="admin-remember" checked> Stay unlocked on this device</label>
+        </div>
+        <div class="admin-body" id="admin-body" hidden>
+          <div class="admin-tabs" role="tablist" aria-label="Admin sections">
+            <button class="admin-tab is-active" data-admin-tab="games">Games</button>
+            <button class="admin-tab" data-admin-tab="sites">Sites</button>
+            <button class="admin-tab" data-admin-tab="tools">Tools</button>
+            <button class="admin-tab" data-admin-tab="proxies">Proxies</button>
+            <button class="admin-tab" data-admin-tab="board">Board</button>
+            <button class="admin-tab" data-admin-tab="docs">Docs</button>
+            <button class="admin-tab" data-admin-tab="partners">Partners</button>
+          </div>
+          <div class="admin-scroll">
+            <div class="admin-form-panel" data-admin-panel="games"><div id="admin-sheet-games"></div></div>
+            <div class="admin-form-panel" data-admin-panel="sites" hidden><div id="admin-sheet-sites"></div></div>
+            <div class="admin-form-panel" data-admin-panel="tools" hidden><div id="admin-sheet-tools"></div></div>
+            <div class="admin-form-panel" data-admin-panel="proxies" hidden><div id="admin-sheet-proxies"></div></div>
+            <div class="admin-form-panel" data-admin-panel="board" hidden><div id="admin-sheet-board"></div></div>
+            <div class="admin-form-panel" data-admin-panel="docs" hidden>
+              <div class="field-stack">
+                <label class="btn docs-btn-upload admin-upload-btn">
+                  <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4"/><path d="m7 9 5-5 5 5"/><path d="M5 19h14"/></svg>
+                  Upload .txt / .html
+                  <input type="file" id="admin-docs-file" accept=".txt,.text,.md,.csv,.html,.htm,.svg" multiple hidden>
+                </label>
+                <button class="btn-ghost" id="admin-docs-new">
+                  <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+                  New doc
+                </button>
+              </div>
+              <p class="empty-hint panel-note" style="margin-top:10px">Docs uploaded here appear on the Docs tab.</p>
+              <div class="admin-lib" id="admin-docs-list"></div>
+            </div>
+            <div class="admin-form-panel" data-admin-panel="partners" hidden>
+              <div class="field-stack">
+                <button class="btn" id="admin-partners-add">
+                  <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+                  Add partner
+                </button>
+              </div>
+              <p class="empty-hint panel-note" style="margin-top:10px">Partners added here appear on the Partners tab.</p>
+              <div class="admin-lib" id="admin-partners-list"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="admin-modal" id="blanktab-modal" hidden>
+      <div class="admin-cover" data-blanktab-close></div>
+      <div class="admin-card blanktab-card">
+        <div class="admin-head">
+          <span class="admin-title">Blank tab</span>
+          <button class="launch-x" data-blanktab-close aria-label="Close">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+          </button>
+        </div>
+        <div class="blanktab-body">
+          <p class="empty-hint panel-note">Open any URL in direct, about:blank, blob, in-app frame, or through a proxy.</p>
+          <form id="blanktab-form" class="form-row" autocomplete="off">
+            <input class="field field-name" id="blanktab-url" type="text" placeholder="https://example.com" spellcheck="false" required>
+            <select class="field field-mode" id="blanktab-mode" aria-label="Open method">
+              <option value="direct">Direct</option>
+              <option value="aboutblank">About:blank</option>
+              <option value="blob">Blob</option>
+              <option value="dataurl">Data URL</option>
+              <option value="iframe">This tab</option>
+              <option value="proxy">Proxy</option>
+            </select>
+            <button class="btn" type="submit">Launch</button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <div class="admin-modal editor-modal" id="editor-modal" hidden>
+      <div class="admin-cover" data-editor-close></div>
+      <div class="admin-card editor-card">
+        <div class="admin-head">
+          <span class="admin-title">
+            <svg class="ed-title-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/><path d="m9 14 2 2 4-4"/></svg>
+            HTML Editor
+          </span>
+          <div class="editor-tools">
+            <div class="ed-toolbar" role="toolbar" aria-label="Editor tools">
+              <button class="ed-btn" id="ed-refresh" title="Refresh preview (Ctrl+Enter)" aria-label="Refresh preview">
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 0 0-14.9-3M4 13a8 8 0 0 0 14.9 3"/><path d="M4 4v4h4M20 20v-4h-4"/></svg>
+              </button>
+              <button class="ed-btn" id="ed-inspect" title="Inspect: hover the preview to highlight the code (Ctrl+E)" aria-label="Toggle inspect mode">
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="4" cy="4" r="2" fill="none"/><circle cx="20" cy="4" r="2" fill="none"/><circle cx="4" cy="20" r="2" fill="none"/><circle cx="20" cy="20" r="2" fill="none"/><path d="M4 6v12M20 6v12M6 4h12M6 20h12"/></svg>
+              </button>
+              <button class="ed-btn" id="ed-format" title="Format code" aria-label="Format code">
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h6M4 10h10M4 14h6M4 18h10"/><path d="m15 7 4 3-4 3"/></svg>
+              </button>
+              <button class="ed-btn" id="ed-find" title="Find in code (Ctrl+F)" aria-label="Find in code">
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><line x1="16" y1="16" x2="20.5" y2="20.5"/></svg>
+              </button>
+            </div>
+            <span class="ed-divider"></span>
+            <div class="ed-launch" role="group" aria-label="Open HTML in">
+              <button class="ed-btn" id="ed-open" title="Open in new tab (direct)" aria-label="Open in new tab">
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7"/><path d="M9 7h8v8"/></svg>
+              </button>
+              <button class="ed-btn" id="ed-blob" title="Open as a blob tab" aria-label="Open as blob tab">
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 8l8-4v12l-8 4z"/></svg>
+              </button>
+              <button class="ed-btn" id="ed-aboutblank" title="Open in about:blank" aria-label="Open in about:blank">
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3"/><circle cx="12" cy="12" r="2.5"/></svg>
+              </button>
+              <button class="ed-btn" id="ed-dataurl" title="Open as a data URL" aria-label="Open as data URL">
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M8 9h8M8 13h8M8 17h5"/></svg>
+              </button>
+            </div>
+            <span class="ed-divider"></span>
+            <div class="ed-toolbar" role="toolbar" aria-label="Export tools">
+              <button class="ed-btn" id="ed-dl" title="Download .html" aria-label="Download">
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 19h14"/></svg>
+              </button>
+              <button class="ed-btn" id="ed-copy" title="Copy code" aria-label="Copy code">
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg>
+              </button>
+              <label class="ed-btn file" title="Upload .html" aria-label="Upload">
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4"/><path d="m7 9 5-5 5 5"/><path d="M5 19h14"/></svg>
+                <input type="file" id="ed-file" accept=".html,.htm,.txt" hidden>
+              </label>
+            </div>
+          </div>
+          <button class="launch-x" data-editor-close aria-label="Close">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+          </button>
+        </div>
+        <div class="editor-statusbar">
+          <span class="ed-status-left" id="ed-mode">Editing</span>
+          <span class="ed-status-right" id="ed-status">Saved locally</span>
+          <span class="ed-status-right mono" id="ed-cursor">Ln 1, Col 1</span>
+        </div>
+        <div class="editor">
+          <div class="editor-pane">
+            <div class="editor-gutter" id="ed-gutter" aria-hidden="true"></div>
+            <div class="editor-wrap">
+              <pre class="editor-hl" id="ed-hl" aria-hidden="true"></pre>
+              <textarea id="ed-code" class="editor-code" spellcheck="false" wrap="off" aria-label="HTML source"></textarea>
+            </div>
+          </div>
+          <div class="ed-split" id="ed-split" title="Drag to resize" role="separator" aria-orientation="vertical"></div>
+          <iframe class="editor-preview" id="ed-preview" sandbox="allow-scripts allow-forms allow-popups" title="Preview"></iframe>
+        </div>
+      </div>
+    </div>
+  </div>
+
+    <div class="admin-modal docs-modal" id="docs-modal" hidden>
+      <div class="admin-cover" data-docs-close></div>
+      <div class="admin-card docs-card">
+        <div class="admin-head">
+          <span class="admin-title">New doc</span>
+          <button class="launch-x" data-docs-close aria-label="Close">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+          </button>
+        </div>
+        <div class="docs-edit-body">
+          <input class="field docs-edit-title" id="docs-edit-title" type="text" placeholder="Doc title" maxlength="60" spellcheck="false">
+          <textarea id="docs-edit-text" class="field docs-edit-text" placeholder="Paste links here, one per line. Any text works; links are pulled out automatically." spellcheck="false"></textarea>
+          <div class="docs-edit-foot">
+            <span class="docs-edit-count" id="docs-edit-count">0 links detected</span>
+            <div class="docs-edit-actions">
+              <button class="btn-ghost" id="docs-edit-cancel">Cancel</button>
+              <button class="btn" id="docs-edit-save">Save doc</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="admin-modal partners-modal" id="partners-modal" hidden>
+      <div class="admin-cover" data-partners-close></div>
+      <div class="admin-card partners-card">
+        <div class="admin-head">
+          <span class="admin-title" id="partners-edit-title">Add partner</span>
+          <button class="launch-x" data-partners-close aria-label="Close">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+          </button>
+        </div>
+        <div class="partners-edit-body">
+          <input class="field partners-edit-name" id="partners-edit-name" type="text" placeholder="Partner name" maxlength="60" spellcheck="false">
+          <div class="partners-icon-row">
+            <label class="btn-ghost" id="partners-edit-icon-label">
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4"/><path d="m7 9 5-5 5 5"/><path d="M5 19h14"/></svg>
+              Upload icon
+              <input type="file" id="partners-edit-icon-file" accept="image/*" hidden>
+            </label>
+            <input class="field partners-edit-icon-url" id="partners-edit-icon-url" type="text" placeholder="...or paste an icon link" spellcheck="false">
+            <button class="btn-ghost" id="partners-edit-icon-apply">Use link</button>
+          </div>
+          <div class="partners-icon-preview-row">
+            <img id="partners-edit-icon-preview" class="partners-edit-icon-preview" alt="icon preview" style="display:none">
+            <button class="btn-ghost" id="partners-edit-icon-clear" hidden>Remove icon</button>
+          </div>
+          <input class="field" id="partners-edit-official" type="text" placeholder="Official link (https://...)" spellcheck="false">
+          <input class="field" id="partners-edit-discord" type="text" placeholder="Discord invite (discord.gg/...)" spellcheck="false">
+          <div class="partners-edit-foot">
+            <div class="partners-edit-actions">
+              <button class="btn-ghost" id="partners-edit-cancel">Cancel</button>
+              <button class="btn" id="partners-edit-save">Save partner</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="admin-modal ua-modal" id="urlauditor-modal" hidden>
+      <div class="admin-cover" data-ua-close></div>
+      <div class="admin-card ua-card">
+        <div class="admin-head">
+          <span class="admin-title"><span class="ua-title-icon"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 7a5 5 0 0 0-9 4L3 13l4 4 2-2a4 4 0 0 0 5 0l2 2 4-4-2-2a5 5 0 0 0-1-14z" transform="translate(0 2)"/></svg></span> URL Auditor</span>
+          <div class="ua-tools">
+            <button class="btn-ghost" id="ua-copy-all">Copy results</button>
+            <button class="btn-ghost" id="ua-download">Export .txt</button>
+          </div>
+          <button class="launch-x" data-ua-close aria-label="Close">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+          </button>
+        </div>
+        <div class="ua-body">
+          <p class="ua-hint">Paste any text below (every link is pulled out automatically), add a single link, or import a <b>.txt</b> of links. Each URL is checked for a real HTTP status so you can spot broken or blocked links.</p>
+          <div class="ua-row">
+            <input class="field field-name" id="ua-single" type="text" placeholder="https://example.com" spellcheck="false">
+            <button class="btn-ghost" id="ua-add">Add link</button>
+            <label class="btn-ghost file" id="ua-file-label">Import .txt<input type="file" id="ua-file" accept=".txt,.text,.html,.htm,.csv" hidden></label>
+            <button class="btn-ghost" id="ua-clear">Clear</button>
+          </div>
+          <textarea id="ua-paste" class="field ua-paste" placeholder="Paste a list of URLs (one per line) or any text with links…" spellcheck="false"></textarea>
+          <div class="ua-count" id="ua-count">0 links ready to scan</div>
+          <div class="ua-scan-row">
+            <button class="btn" id="ua-scan">Scan all links</button>
+            <button class="btn-ghost" id="ua-cancel" hidden>Cancel</button>
+          </div>
+          <div class="ua-progress" id="ua-progress" hidden>
+            <div class="ua-bar-track"><div class="ua-bar" id="ua-bar"></div></div>
+            <span class="ua-progress-label" id="ua-progress-label"></span>
+          </div>
+          <div class="ua-stats" id="ua-stats"></div>
+          <div class="ua-filters" id="ua-filters"></div>
+          <div class="ua-results" id="ua-results"></div>
+          <div class="ua-toast" id="ua-toast"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="admin-modal pixel-modal" id="pixel-modal" hidden>
+      <div class="admin-cover" data-pixel-close></div>
+      <div class="admin-card pixel-card">
+        <div class="admin-head">
+          <span class="admin-title">
+            <svg class="ed-title-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6" width="18" height="13" rx="1.5"/><path d="M7 3v3M12 3v3M17 3v3"/><circle cx="6.6" cy="10.6" r="0.6" fill="currentColor" stroke="none"/><circle cx="9.4" cy="12.6" r="0.6" fill="currentColor" stroke="none"/><circle cx="12.4" cy="9.8" r="0.6" fill="currentColor" stroke="none"/><circle cx="15.4" cy="13.4" r="0.6" fill="currentColor" stroke="none"/><circle cx="17.4" cy="10.2" r="0.6" fill="currentColor" stroke="none"/></svg>
+            Pixel Sprite Editor
+          </span>
+          <button class="launch-x" data-pixel-close aria-label="Close">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+          </button>
+        </div>
+        <div class="pixel-app" id="pixel-app"></div>
+      </div>
+    </div>
+
+  <script src="runtime-config.js"></script>
+  <script src="sync.js"></script>
+  <script src="games.js"></script>
+  <script src="webports.js"></script>
+  <script src="sites.js"></script>
+  <script src="proxies.js"></script>
+  <script src="apps.js"></script>
+  <script src="music.js"></script>
+  <script src="launcher.js"></script>
+  <script src="blanktab.js"></script>
+  <script src="editor.js"></script>
+  <script src="urlauditor.js"></script>
+  <script src="pixel.js"></script>
+  <script src="docs.js"></script>
+  <script src="partners.js"></script>
+  <script src="intro.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,8 @@
+game-builds/
+web-port/
+cherri-list.txt
+chalkle-single.html
+sync.json
+_served_sync.json
+*.log
+_chrome*

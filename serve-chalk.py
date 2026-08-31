@@ -1,0 +1,1084 @@
+#!/usr/bin/env python3
+"""Chalkle static server.
+
+Serves this folder exactly like `python -m http.server 4173`, plus two
+same-origin routes:
+
+    GET /_active?s=<visitor_id>
+        Registers the visitor and returns JSON with the number of distinct
+        visitors that have pinged in the last ACTIVE_TTL seconds, so the
+        header can show a genuine "people online right now" count shared
+        across everyone behind the same Cloudflare quick tunnel.
+
+    GET /_fetch?url=<encoded>
+        Fetches the target URL server-side and returns its real HTTP status
+        code as JSON. The URL Auditor uses this instead of flaky third-party
+        CORS relays (allorigins & co. time out or get blocked), so dead /
+        live checks are accurate and fast. Only http/https targets allowed.
+
+    GET /uv/<base64url(target)>
+        The built-in rewriting proxy (the "Scramjet" / "Ultraviolet" routes).
+        Fetches the target server-side, rewrites HTML/CSS so every URL flows
+        back through /uv/, strips CSP/X-Frame-Options, injects a small client
+        patch (fetch/XHR/WebSocket/history) and serves it all from this same
+        origin - so there is nothing separate for a filter to block and the
+        route never goes stale the way a temporary tunnel does. WebSocket
+        upgrade requests to /uv/... are tunneled straight through.
+"""
+import os
+import re
+import ssl
+import json
+import time
+import mmap
+import socket
+import base64
+import threading
+from urllib.parse import urljoin
+from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+
+HOST = "127.0.0.1"
+WEB_ROOT = os.path.dirname(os.path.abspath(__file__))
+PORT = 4173
+ACTIVE_TTL = 20          # seconds a visitor stays "online" after their last ping
+PRUNE_EVERY = 4          # seconds between pruning expired visitors
+PRUNE_AFTER = ACTIVE_TTL + 4
+
+# visitor_id -> last-seen unix ts
+STATE = {}
+LOCK = threading.Lock()
+
+
+def _prune():
+    now = time.time()
+    with LOCK:
+        expired = [k for k, ts in STATE.items() if now - ts > PRUNE_AFTER]
+        for k in expired:
+            STATE.pop(k, None)
+
+
+def _active_count():
+    _prune()
+    now = time.time()
+    with LOCK:
+        return sum(1 for ts in STATE.values() if now - ts <= ACTIVE_TTL)
+
+
+def _pruner():
+    while True:
+        time.sleep(PRUNE_EVERY)
+        _prune()
+
+
+class Handler(SimpleHTTPRequestHandler):
+    def log_message(self, *a):  # quieter than the default per-request logger
+        pass
+
+    def send_response(self, code, message=None):
+        super().send_response(code, message)
+        # Ruffle SWF wrappers run in an opaque (blob:null) about:blank tab, so
+        # they must be able to fetch game assets cross-origin.
+        self.send_header("Access-Control-Allow-Origin", "*")
+        # The site is edited live and re-deployed constantly; browsers/CDNs
+        # must NEVER heuristically cache the text assets or users keep seeing
+        # stale versions (e.g. the old off-canvas sidebar CSS). No-store keeps
+        # every load fresh; images can still be cached normally.
+        route = self.path.split("?", 1)[0].lower()
+        if route.endswith((".html", ".htm", ".css", ".js", ".json", ".svg", ".mjs")):
+            self.send_header("Cache-Control", "no-store, max-age=0")
+
+    def do_GET(self):
+        route = self.path.split("?", 1)[0]
+        if route == "/_active":
+            return self._active()
+        if route == "/_fetch":
+            return self._fetch()
+        if route == "/_sync":
+            return self._sync_get()
+        if route == "/_cherri":
+            return self._cherri()
+        if route == "/uv" or route == "/uv/":
+            return self._uv_boot()
+        if route.startswith("/uv/"):
+            if (self.headers.get("Upgrade") or "").lower() == "websocket":
+                return self._uv_ws(route[len("/uv/"):])
+            return self._uv_route(route[len("/uv/"):])
+        return super().do_GET()
+
+    def do_POST(self):
+        route = self.path.split("?", 1)[0]
+        if route == "/_sync":
+            return self._sync_post()
+        if route.startswith("/uv/"):
+            length = int(self.headers.get("Content-Length", 0))
+            body = self.rfile.read(length) if length > 0 else None
+            ctype = (self.headers.get("Content-Type") or "").lower()
+            if body is not None and "application/x-www-form-urlencoded" in ctype:
+                body = body.decode("utf-8", "replace")
+            return self._uv_route(route[len("/uv/"):], body)
+        self.send_response(405)
+        self.end_headers()
+
+    # ---------------------------------------------------------------- cherri list
+    # The Cherri List doc is a 2.5M-line file of jsDelivr SVG cloak URLs
+    # (~265MB). The browser must never load that whole file, so this endpoint
+    # serves tiny JSON pages: line-range browsing when no query is given, and a
+    # case-insensitive substring search when one is. The file is mmap'd lazily
+    # with a line-offset index so paging is O(1); search scans once per query.
+    CHERRI_PATH = os.path.join(WEB_ROOT, "cherri-list.txt")
+    _cherri_mm = None        # mmap of the raw file
+    _cherri_lower = None     # lazy lowercase copy of the raw bytes (search only)
+    _cherri_offsets = None   # byte offset of each line start (array 'Q')
+    _cherri_total = 0
+
+    @classmethod
+    def _cherri_index(cls):
+        if cls._cherri_offsets is not None:
+            return
+        import array as _array
+        if not os.path.isfile(cls.CHERRI_PATH):
+            cls._cherri_offsets = _array.array("Q")
+            return
+        with open(cls.CHERRI_PATH, "rb") as f:
+            mm = mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ)
+        cls._cherri_mm = mm
+        offs = _array.array("Q", [0])
+        pos = 0
+        n = len(mm)
+        while True:
+            nl = mm.find(b"\n", pos)
+            if nl == -1:
+                break
+            offs.append(nl + 1)
+            pos = nl + 1
+        # One line-start offset per newline found, plus the implicit start of a
+        # final line that has no trailing newline. Total lines = len(offs), minus
+        # one when the file ends with a newline (no trailing empty line).
+        cls._cherri_offsets = offs
+        ends_nl = len(mm) > 0 and mm[-1:] == b"\n"
+        cls._cherri_total = max(0, len(offs) - (1 if ends_nl else 0))
+
+    def _cherri(self):
+        from urllib.parse import parse_qs, urlparse
+        q = parse_qs(urlparse(self.path).query)
+        query = (q.get("q") or [""])[0].strip()
+        try:
+            offset = max(0, int((q.get("offset") or ["0"])[0]))
+            limit = min(200, max(1, int((q.get("limit") or ["50"])[0])))
+        except Exception:
+            offset, limit = 0, 50
+        Handler._cherri_index()
+        mm = Handler._cherri_mm
+        offs = Handler._cherri_offsets
+        total = Handler._cherri_total
+        results = []
+        if mm is None or offs is None or len(offs) < 2:
+            body = json.dumps({"ok": True, "total": 0, "results": []}).encode()
+        else:
+            if not query:
+                # Line-range browse: O(1) via the offset index.
+                for i in range(offset, min(offset + limit, total)):
+                    s = offs[i]
+                    e = offs[i + 1] if i + 1 < len(offs) else len(mm)
+                    line = mm[s:e].strip()
+                    if line:
+                        results.append(line.decode("utf-8", "replace"))
+                match_total = total
+            else:
+                # Case-insensitive substring search over the lazy lowercase copy.
+                if Handler._cherri_lower is None:
+                    Handler._cherri_lower = bytes(mm).lower()
+                lower = Handler._cherri_lower
+                needle = query.lower().encode()
+                idx = [0]
+                match_total = 0
+                seen_line = -1
+                skip = offset
+                pos = 0
+                while True:
+                    hit = lower.find(needle, pos)
+                    if hit == -1:
+                        break
+                    # map hit position -> line index
+                    import bisect
+                    li = bisect.bisect_right(offs, hit) - 1
+                    if li < 0:
+                        li = 0
+                    if li != seen_line:
+                        seen_line = li
+                        match_total += 1
+                        if skip > 0:
+                            skip -= 1
+                        elif len(results) < limit:
+                            s = offs[li]
+                            e = offs[li + 1] if li + 1 < len(offs) else len(mm)
+                            line = mm[s:e].strip()
+                            if line:
+                                results.append(line.decode("utf-8", "replace"))
+                    pos = hit + 1
+            body = json.dumps({"ok": True, "total": total, "match_total": match_total, "results": results}).encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _sync_get(self):
+        db_path = os.path.join(WEB_ROOT, "sync.json")
+        data = b"{}"
+        if os.path.isfile(db_path):
+            with open(db_path, "rb") as f:
+                data = f.read()
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
+    def _sync_post(self):
+        length = int(self.headers.get("Content-Length", 0))
+        data = self.rfile.read(length) if length > 0 else b"{}"
+        db_path = os.path.join(WEB_ROOT, "sync.json")
+        try:
+            with open(db_path, "wb") as f:
+                f.write(data)
+            out = b'{"ok":true}'
+        except Exception:
+            out = b'{"ok":false}'
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Content-Length", str(len(out)))
+        self.end_headers()
+        self.wfile.write(out)
+
+    def _fetch(self):
+        """Byte proxy. Returns {ok, code, body, bodyMime, error} where body is
+        the fetched file base64-encoded. Server-local paths (/...) are read from
+        disk; absolute http(s) URLs are fetched server-side. This lets the Ruffle
+        SWF wrapper hand raw bytes to Ruffle with zero cross-origin requests which
+        works from an opaque (blob:null) about:blank tab."""
+        import base64
+        from urllib.parse import parse_qs, unquote, urlparse
+        q = parse_qs(urlparse(self.path).query)
+        target = unquote((q.get("url") or [""])[0].strip())
+        out = {"ok": False, "code": 0, "error": "bad-url"}
+        if target.startswith("/"):
+            rel = target.lstrip("/")
+            p = os.path.normpath(os.path.join(WEB_ROOT, rel))
+            if not p.startswith(WEB_ROOT) or not os.path.isfile(p):
+                out = {"ok": False, "code": 404, "error": "not-found"}
+            else:
+                try:
+                    with open(p, "rb") as f:
+                        raw = f.read()
+                    ext = os.path.splitext(p)[1].lower()
+                    mime = {
+                        ".swf": "application/x-shockwave-flash",
+                        ".png": "image/png",".jpg": "image/jpeg",".jpeg": "image/jpeg",
+                        ".gif": "image/gif",".webp": "image/webp",".svg": "image/svg+xml",
+                        ".json": "application/json",".js": "text/javascript",".css": "text/css",
+                        ".html": "text/html",".txt": "text/plain",
+                    }.get(ext, "application/octet-stream")
+                    out = {"ok": True, "code": 200, "body": base64.b64encode(raw).decode("ascii"), "mime": mime}
+                except Exception as e:
+                    out = {"ok": False, "code": 0, "error": type(e).__name__}
+        elif target.lower().startswith(("http://", "https://")):
+            raw, mime, code, err = _http_get(target)
+            if raw is not None:
+                out = {"ok": True, "code": code, "body": base64.b64encode(raw).decode("ascii"), "mime": mime}
+            else:
+                out = {"ok": False, "code": code, "error": err}
+        data = json.dumps(out).encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
+    # ---------------------------------------------------------------- /uv proxy
+    # The built-in rewriting proxy behind the "Scramjet" and "Ultraviolet"
+    # routes. <proxy>/uv/<base64url(target)> fetches the target server-side,
+    # rewrites every URL in the HTML/CSS back through /uv/ (so the tab only
+    # ever talks to this origin), strips CSP / X-Frame-Options, and injects a
+    # small client patch that reroutes fetch/XHR/WebSocket/history calls that
+    # only exist at runtime. No service worker, no separate host to block, and
+    # the route can never go stale the way a temporary tunnel does.
+
+    def _uv_send(self, code, ctype, raw, extra=None):
+        self.send_response(code)
+        self.send_header("Content-Type", ctype or "application/octet-stream")
+        self.send_header("Cache-Control", "no-store, max-age=0")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        for k, v in (extra or {}).items():
+            self.send_header(k, v)
+        self.send_header("Content-Length", str(len(raw)))
+        self.end_headers()
+        try:
+            self.wfile.write(raw)
+        except Exception:
+            pass
+
+    def _uv_error(self, code, msg):
+        body = ("<!doctype html><html><head><meta charset='utf-8'><title>Proxy error</title>"
+                "<style>body{background:#0c1210;color:#e8eaed;font:15px system-ui;display:grid;"
+                "place-items:center;height:100vh;margin:0}p{max-width:520px;text-align:center}"
+                "</style></head>"
+                "<body><p><b>Proxy couldn't load that page.</b><br>" + _esc_html(str(msg)) +
+                "</p></body></html>").encode()
+        self._uv_send(code if code else 502, "text/html", body)
+
+    def _uv_boot(self):
+        """Small themed page for the /uv/ proxy root (what the proxy card's
+        in-app Open button shows). Lets you type a URL, and handles the
+        hash-route form (#<base64url>) by bouncing to the path route."""
+        html = (
+            "<!doctype html><html><head><meta charset='utf-8'><title>Chalkle Proxy</title>"
+            "<style>body{background:#0c1210;color:#e8eaed;font:15px/1.5 system-ui;display:grid;"
+            "place-items:center;min-height:100vh;margin:0;padding:24px;box-sizing:border-box}"
+            ".box{width:min(420px,100%);background:#16251d;border:1px solid #234033;"
+            "border-radius:16px;padding:28px;text-align:center}"
+            "h1{margin:0 0 6px;font-size:20px;color:#8fd6c2}"
+            "p{margin:0 0 18px;color:#9aa0a6;font-size:13px}"
+            "input{width:100%;box-sizing:border-box;padding:11px 12px;border-radius:10px;"
+            "border:1px solid #2c4437;background:#0c1210;color:#e8eaed;font:14px system-ui;"
+            "outline:none}input:focus{border-color:#4285f4}"
+            "button{margin-top:12px;width:100%;padding:11px;border:0;border-radius:10px;"
+            "background:#4285f4;color:#fff;font:650 14px system-ui;cursor:pointer}"
+            "</style></head><body><div class='box'>"
+            "<h1>Chalkle Proxy</h1><p>Type a site to open it through the built-in proxy.</p>"
+            "<input id='u' placeholder='https://example.com' autocomplete='off' autofocus>"
+            "<button id='go'>Open through proxy</button></div>"
+            "<script>"
+            "function enc(s){try{return btoa(unescape(encodeURIComponent(s)))"
+            ".replace(/\\+/g,'-').replace(/\\//g,'_').replace(/=+$/,'')}"
+            "catch(e){return encodeURIComponent(s)}}"
+            "function go(){var v=(document.getElementById('u').value||'').trim();"
+            "if(!v)return;if(v.indexOf('://')===-1)v='https://'+v;"
+            "location.href='/uv/'+enc(v)}"
+            "document.getElementById('go').onclick=go;"
+            "document.getElementById('u').addEventListener('keydown',function(e){if(e.key==='Enter')go()});"
+            "var h=location.hash;if(h&&h.length>1)location.replace('/uv/'+h.slice(1));"
+            "</script></body></html>"
+        )
+        self._uv_send(200, "text/html", html.encode())
+
+    def _uv_route(self, encoded, post_body=None):
+        """Serve /uv/<base64url(target)>[<extra path>]. The encoded value can
+        carry a trailing path (when the browser resolved a relative URL against
+        the injected proxied <base>); append it to the decoded target. Local
+        paths (starting with /) are served from this server's own webroot so
+        /game-builds/... shells work even when their CDN assets are blocked -
+        the rewriter turns every CDN reference back into a /uv/ route."""
+        seg, _, rest = encoded.partition("/")
+        target = _uv_b64url_decode(seg)
+        if not target:
+            return self._uv_error(400, "bad route")
+        if rest:
+            target = target.rstrip("/") + "/" + rest
+        if target.startswith("//"):
+            target = "https:" + target
+        if target.startswith("/"):
+            return self._uv_local(target, post_body)
+        if not re.match(r"^https?://", target, re.I):
+            return self._uv_error(400, "bad target")
+        # Binary assets (Unity .data/.wasm, images, fonts) must be streamed -
+        # they can be hundreds of MB and buffering them would kill the server.
+        # Probe the upstream Content-Type cheaply: HTML/CSS get rewritten, all
+        # other MIME types stream straight through with the real type.
+        import urllib.error
+        try:
+            probe = _uv_open(target, post_body)
+        except urllib.error.HTTPError as e:
+            return self._uv_error(e.code or 502, "HTTP %s" % e.code)
+        except Exception as e:
+            return self._uv_error(502, type(e).__name__)
+        ctype = (probe.headers.get("Content-Type", "").split(";")[0].strip().lower())
+        is_html = "text/html" in ctype
+        is_css = ctype == "text/css"
+        if not (is_html or is_css):
+            # Not HTML/CSS - stream. If the target is really HTML served with a
+            # wrong MIME, sniff the first bytes before committing to a stream.
+            head = probe.read(512)
+            probe.close()
+            if head.lstrip().lower().startswith((b"<!doctype", b"<html", b"<head")):
+                is_html = True
+                # Rewind isn't possible - re-open so the full body can be read.
+                try:
+                    probe = _uv_open(target, post_body)
+                except Exception as e:
+                    return self._uv_error(502, type(e).__name__)
+            else:
+                # Rewind isn't possible - re-open and stream the whole thing.
+                try:
+                    probe = _uv_open(target, post_body)
+                except Exception as e:
+                    return self._uv_error(502, type(e).__name__)
+                ctype = (probe.headers.get("Content-Type", "").split(";")[0].strip().lower())
+                if "text/html" in ctype:
+                    is_html = True
+                else:
+                    return self._uv_stream_resp(probe)
+        if is_html or is_css:
+            raw = probe.read(40 * 1024 * 1024 + 1)
+            probe.close()
+            if len(raw) > 40 * 1024 * 1024:
+                return self._uv_error(502, "page too large")
+            code = 200
+            if is_html:
+                text = _uv_decode(raw)
+                text = _uv_rewrite_html(text, target)
+                text = _uv_inject_patch(text, target)
+                raw = text.encode("utf-8", "replace")
+                ctype = "text/html"
+            else:
+                raw = _uv_rewrite_css(_uv_decode(raw), target).encode("utf-8", "replace")
+                ctype = "text/css"
+            # Strip frame/CSP killers so the page can load here (top-level or the
+            # in-app frame) and so our injected script is never blocked.
+            extra = {
+                "Content-Security-Policy": "",
+                "X-Frame-Options": "",
+                "Content-Security-Policy-Report-Only": "",
+            }
+            self._uv_send(code, ctype, raw, extra)
+            return
+        return self._uv_stream_resp(probe)
+
+    def _uv_stream_resp(self, resp):
+        """Stream an already-open upstream response through to the client."""
+        try:
+            ctype = resp.headers.get("Content-Type", "").split(";")[0].strip().lower()
+            self.send_response(resp.getcode() or 200)
+            self.send_header("Content-Type", ctype or "application/octet-stream")
+            self.send_header("Cache-Control", "no-store, max-age=0")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Content-Security-Policy", "")
+            self.send_header("X-Frame-Options", "")
+            self.send_header("Content-Security-Policy-Report-Only", "")
+            self.end_headers()
+            while True:
+                chunk = resp.read(65536)
+                if not chunk:
+                    break
+                self.wfile.write(chunk)
+        except Exception:
+            pass
+        finally:
+            try:
+                resp.close()
+            except Exception:
+                pass
+
+    def _uv_stream_remote(self, url):
+        """Stream a remote binary asset (Unity .data/.wasm, images, fonts)
+        straight through without buffering or size caps. The browser only ever
+        talks to this origin; the CDN fetch happens server-side."""
+        import urllib.error
+        try:
+            resp = _uv_open(url, None)
+        except urllib.error.HTTPError as e:
+            return self._uv_error(e.code or 502, "HTTP %s" % e.code)
+        except Exception as e:
+            return self._uv_error(502, type(e).__name__)
+        try:
+            ctype = resp.headers.get("Content-Type", "").split(";")[0].strip().lower()
+            self.send_response(resp.getcode() or 200)
+            self.send_header("Content-Type", ctype or "application/octet-stream")
+            self.send_header("Cache-Control", "no-store, max-age=0")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Content-Security-Policy", "")
+            self.send_header("X-Frame-Options", "")
+            self.send_header("Content-Security-Policy-Report-Only", "")
+            self.end_headers()
+            while True:
+                chunk = resp.read(65536)
+                if not chunk:
+                    break
+                self.wfile.write(chunk)
+        except Exception:
+            pass
+        finally:
+            try:
+                resp.close()
+            except Exception:
+                pass
+
+    def _uv_local(self, path, post_body=None):
+        """Serve a local webroot path (e.g. /game-builds/granny3/index.html)
+        through the /uv/ pipeline. The HTML/CSS rewriter turns any external
+        CDN reference (jsdelivr, raw.githubusercontent, ...) into a /uv/ route,
+        so a local shell whose assets live on a blocked CDN still boots: the
+        browser only ever talks to this origin, and the server fetches the CDN
+        parts server-side. Binary assets are streamed with their real MIME so
+        Unity .data/.wasm keep working, with no size cap."""
+        import mimetypes
+        safe = os.path.normpath(os.path.join(WEB_ROOT, path.lstrip("/")))
+        if not safe.startswith(os.path.normpath(WEB_ROOT) + os.sep) and safe != os.path.normpath(WEB_ROOT):
+            return self._uv_error(400, "bad local path")
+        if os.path.isdir(safe):
+            safe = os.path.join(safe, "index.html")
+        if not os.path.isfile(safe):
+            return self._uv_error(404, "local file not found")
+        ctype = mimetypes.guess_type(safe)[0] or "application/octet-stream"
+        # Detect HTML by extension first; fall back to sniffing.
+        is_html = ctype == "text/html" or safe.lower().endswith((".html", ".htm", ".xhtml"))
+        is_css = ctype == "text/css" or safe.lower().endswith(".css")
+        if is_html or is_css:
+            try:
+                with open(safe, "rb") as f:
+                    raw = f.read()
+            except Exception as e:
+                return self._uv_error(500, type(e).__name__)
+            if is_html:
+                text = _uv_decode(raw)
+                text = _uv_rewrite_html(text, path)
+                text = _uv_inject_patch(text, path)
+                raw = text.encode("utf-8", "replace")
+                ctype = "text/html"
+            else:
+                raw = _uv_rewrite_css(_uv_decode(raw), path).encode("utf-8", "replace")
+                ctype = "text/css"
+            extra = {
+                "Content-Security-Policy": "",
+                "X-Frame-Options": "",
+                "Content-Security-Policy-Report-Only": "",
+            }
+            self._uv_send(200, ctype, raw, extra)
+            return
+        # Binary / streaming path: stream the file with its real MIME so large
+        # Unity .data / .wasm / game assets never get buffered or capped.
+        try:
+            size = os.path.getsize(safe)
+            f = open(safe, "rb")
+        except Exception as e:
+            return self._uv_error(500, type(e).__name__)
+        try:
+            self.send_response(200)
+            self.send_header("Content-Type", ctype)
+            self.send_header("Content-Length", str(size))
+            self.send_header("Cache-Control", "no-store, max-age=0")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Content-Security-Policy", "")
+            self.send_header("X-Frame-Options", "")
+            self.send_header("Content-Security-Policy-Report-Only", "")
+            self.end_headers()
+            while True:
+                chunk = f.read(65536)
+                if not chunk:
+                    break
+                self.wfile.write(chunk)
+        except Exception:
+            pass
+        finally:
+            try:
+                f.close()
+            except Exception:
+                pass
+
+    def _uv_ws(self, encoded):
+        """Tunnel a WebSocket upgrade: connect to the real ws(s) target, relay
+        the 101 handshake back untouched (the client's Sec-WebSocket-Key is
+        forwarded, so the upstream's accept value is valid), then pump bytes
+        both ways."""
+        target = _uv_b64url_decode(encoded)
+        if not target or not re.match(r"^wss?://", target, re.I):
+            return self._uv_error(400, "bad ws target")
+        import urllib.parse
+        parts = urllib.parse.urlsplit(target)
+        host = parts.hostname or ""
+        port = parts.port or (443 if parts.scheme == "wss" else 80)
+        path = parts.path or "/"
+        if parts.query:
+            path += "?" + parts.query
+        try:
+            sock = socket.create_connection((host, port), timeout=15)
+            if parts.scheme == "wss":
+                ctx = ssl.create_default_context()
+                sock = ctx.wrap_socket(sock, server_hostname=host)
+            key = self.headers.get("Sec-WebSocket-Key", "").strip()
+            ver = self.headers.get("Sec-WebSocket-Version", "13").strip()
+            proto = self.headers.get("Sec-WebSocket-Protocol", "").strip()
+            lines = ["GET %s HTTP/1.1" % path, "Host: %s" % host, "Upgrade: websocket", "Connection: Upgrade"]
+            if key:
+                lines.append("Sec-WebSocket-Key: " + key)
+            if ver:
+                lines.append("Sec-WebSocket-Version: " + ver)
+            if proto:
+                lines.append("Sec-WebSocket-Protocol: " + proto)
+            origin = self.headers.get("Origin", "")
+            if origin:
+                lines.append("Origin: " + origin)
+            sock.sendall(("\r\n".join(lines) + "\r\n\r\n").encode())
+            head = b""
+            while b"\r\n\r\n" not in head:
+                chunk = sock.recv(4096)
+                if not chunk:
+                    break
+                head += chunk
+                if len(head) > 65536:
+                    break
+        except Exception as e:
+            try:
+                sock.close()
+            except Exception:
+                pass
+            return self._uv_error(502, "ws connect failed: " + type(e).__name__)
+        try:
+            self.connection.sendall(head)
+            self.close_connection = True
+        except Exception:
+            try:
+                sock.close()
+            except Exception:
+                pass
+            return
+
+        def pump(src, dst):
+            try:
+                while True:
+                    data = src.recv(65536)
+                    if not data:
+                        break
+                    dst.sendall(data)
+            except Exception:
+                pass
+            finally:
+                try:
+                    dst.shutdown(socket.SHUT_WR)
+                except Exception:
+                    pass
+
+        t1 = threading.Thread(target=pump, args=(self.connection, sock), daemon=True)
+        t2 = threading.Thread(target=pump, args=(sock, self.connection), daemon=True)
+        t1.start()
+        t2.start()
+        t1.join()
+        t2.join()
+        try:
+            sock.close()
+        except Exception:
+            pass
+
+
+    def _active(self):
+        from urllib.parse import parse_qs, urlparse
+        q = parse_qs(urlparse(self.path).query)
+        sid = (q.get("s") or [""])[0].strip()
+        if sid:
+            with LOCK:
+                STATE[sid] = time.time()
+        body = json.dumps({"active": _active_count(), "ttl": ACTIVE_TTL}).encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+
+FETCH_TIMEOUT = 9       # seconds before a target is considered unreachable
+FETCH_MAX_REDIRECTS = 5
+
+
+def _http_get(url):
+    """Return (raw_bytes_or_None, mime_str, code, error_or_None)."""
+    import urllib.request
+    req = urllib.request.Request(
+        url,
+        headers={
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) ChalkleAuditor/1.0",
+            "Accept": "*/*",
+        },
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=FETCH_TIMEOUT) as resp:
+            data = resp.read()
+            ctype = resp.headers.get("Content-Type", "").split(";")[0].strip().lower()
+            return data, ctype or "application/octet-stream", resp.getcode(), None
+    except urllib.error.HTTPError as e:
+        return None, "", e.code, None
+    except Exception as e:
+        return None, "", 0, type(e).__name__
+
+
+
+def _http_status(url):
+    """Return (final_http_code, error_or_None). Follows redirects; 0 = failure."""
+    import urllib.request
+    req = urllib.request.Request(
+        url,
+        headers={
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) ChalkleAuditor/1.0",
+            "Accept": "*/*",
+        },
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=FETCH_TIMEOUT) as resp:
+            return resp.getcode(), None
+    except urllib.error.HTTPError as e:
+        return e.code, None
+    except Exception as e:
+        return 0, type(e).__name__
+
+
+# ---------------------------------------------------------------- /uv helpers
+# Rewriting proxy internals: base64url route encoding, the HTML/CSS rewriter,
+# the injected client patch, and the upstream fetcher.
+
+_UV_RAW_TAGS = ("script", "textarea", "template", "noscript")
+_UV_TAG_NAME_RE = re.compile(r"<\s*([a-zA-Z][a-zA-Z0-9:_-]*)")
+_UV_ATTR_RE = re.compile(r'''\s([a-zA-Z_:][a-zA-Z0-9_:.\-]*)\s*=\s*("[^"]*"|'[^']*'|[^\s"'=<>`]+)''')
+_UV_CSS_URL_RE = re.compile(r"url\(\s*(?P<q>['\"]?)(?P<u>[^)'\"\s]+)(?P<q2>['\"]?)\s*\)", re.I)
+_UV_URL_ATTRS = ("href", "src", "action", "poster", "data-src", "data-href",
+                 "data-url", "data-original", "data-lazy-src", "xlink:href")
+
+# Injected into every proxied page, right after <head>, so it runs before any
+# site script. It reroutes the runtime requests that static rewriting can't
+# see: fetch / XHR / WebSocket calls with absolute or root-relative URLs, and
+# history / location navigations, all through the same /uv/ route.
+_UV_PATCH_JS = (
+    "<script>"
+    "(function(){"
+    "\"use strict\";"
+    "try{"
+    "var TARGET=window.__UV_TARGET__||'';var P='/uv/';"
+    "function enc(u){try{return btoa(unescape(encodeURIComponent(u)))"
+    ".replace(/\\+/g,'-').replace(/\\//g,'_').replace(/=+$/,'')}"
+    "catch(e){return encodeURIComponent(u)}}"
+    "function abs(u){"
+    "if(!u||typeof u!=='string')return u;"
+    "var s=u.trim();"
+    "if(!s||/^(data:|blob:|javascript:|mailto:|tel:|#)/i.test(s))return u;"
+    "if(s.indexOf('//')===0)s=location.protocol+s;"
+    "if(/^(?:https?|wss?):\\/\\//i.test(s))return s;"
+    "if(TARGET){try{var b=new URL(TARGET);"
+    "if(s.charAt(0)==='/')return b.origin+s;"
+    "return new URL(s,TARGET).href;}catch(e){return u;}}"
+    "return u;"
+    "}"
+    "function wrap(u){var a=abs(u);if(a===u){"
+    "if(typeof u==='string'&&/^(?:https?|wss?):\\/\\//i.test(u.trim()))return P+enc(u.trim());"
+    "return u;}"
+    "if(a.indexOf(P)===0||a.indexOf(location.origin+P)===0)return u;"
+    "if(a.indexOf(location.origin)===0)return a;"
+    "return P+enc(a);}"
+    "var of=window.fetch;"
+    "if(of){window.fetch=function(input,init){"
+    "try{if(typeof input==='string')input=wrap(input);"
+    "else if(input&&typeof input.url==='string')input=new Request(wrap(input.url),input);}"
+    "catch(e){}"
+    "return of.call(this,input,init);};}"
+    "var ox=XMLHttpRequest.prototype.open;"
+    "if(ox){XMLHttpRequest.prototype.open=function(m,u){"
+    "try{if(typeof u==='string')u=wrap(u);}catch(e){}"
+    "return ox.apply(this,arguments);};}"
+    "var OWS=window.WebSocket;"
+    "if(OWS){window.WebSocket=function(u,p){"
+    "try{u=wrap(u);}catch(e){}"
+    "return p===undefined?new OWS(u):new OWS(u,p);};"
+    "window.WebSocket.prototype=OWS.prototype;"
+    "window.WebSocket.CONNECTING=OWS.CONNECTING;window.WebSocket.OPEN=OWS.OPEN;"
+    "window.WebSocket.CLOSING=OWS.CLOSING;window.WebSocket.CLOSED=OWS.CLOSED;}"
+    "try{"
+    "var lo=window.location;"
+    "['assign','replace'].forEach(function(m){var o=lo[m];"
+    "if(o)lo[m]=function(u){try{if(typeof u==='string')u=wrap(u);}catch(e){}"
+    "return o.call(lo,u);};});"
+    "var h=window.history;"
+    "['pushState','replaceState'].forEach(function(m){var o=h[m];"
+    "if(o)h[m]=function(st,t,u){try{if(typeof u==='string')u=wrap(u);}catch(e){}"
+    "return o.call(h,st,t,u);};});"
+    "}catch(e){}"
+    "var osa=Element.prototype.setAttribute;"
+    "if(osa){Element.prototype.setAttribute=function(n,v){"
+    "if(/^(src|href|action|poster|data-src|data-href|data-url|data-original|xlink:href)$/i.test(String(n))"
+    "&&typeof v==='string'){try{v=wrap(v);}catch(e){}}"
+    "return osa.call(this,n,v);};}"
+    "[['HTMLScriptElement','src'],['HTMLImageElement','src'],['HTMLVideoElement','src'],['HTMLAudioElement','src'],['HTMLSourceElement','src'],['HTMLIFrameElement','src'],['HTMLTrackElement','src'],['HTMLLinkElement','href']].forEach(function(pair){"
+    "var C=window[pair[0]];if(!C)return;var pr=C.prototype,d=Object.getOwnPropertyDescriptor(pr,pair[1]);"
+    "if(!d||!d.set)return;"
+    "try{Object.defineProperty(pr,pair[1],{configurable:true,enumerable:d.enumerable||true,"
+    "get:function(){return d.get?d.get.call(this):this.getAttribute(pair[1]);},"
+    "set:function(v){try{if(typeof v==='string')v=wrap(v);}catch(e){}d.set.call(this,v);}});}catch(e){}"
+    "});"
+    "}catch(e){}"
+    "})();"
+    "</script>"
+)
+
+
+def _esc_html(s):
+    return str(s).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+
+def _uv_b64url_encode(s):
+    return base64.urlsafe_b64encode(s.encode("utf-8")).decode("ascii").rstrip("=")
+
+
+def _uv_b64url_decode(s):
+    s = (s or "").strip().replace("-", "+").replace("_", "/")
+    s += "=" * (-len(s) % 4)
+    try:
+        return base64.b64decode(s).decode("utf-8", "replace")
+    except Exception:
+        return None
+
+
+def _uv_decode(raw):
+    try:
+        return raw.decode("utf-8")
+    except Exception:
+        return raw.decode("latin-1", "replace")
+
+
+def _uv_open(url, post_body=None):
+    """Open a proxied target for reading. Returns the urllib response object
+    (or raises). Kept separate so binary assets can be streamed instead of
+    buffered - Unity .data/.wasm parts are frequently >100MB and must not be
+    loaded into memory or capped."""
+    import urllib.request
+    headers = {
+        "User-Agent": ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                        "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"),
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.9",
+    }
+    data = None
+    if post_body is not None:
+        data = post_body.encode() if isinstance(post_body, str) else post_body
+        headers["Content-Type"] = "application/x-www-form-urlencoded"
+    req = urllib.request.Request(url, data=data, headers=headers)
+    return urllib.request.urlopen(req, timeout=FETCH_TIMEOUT)
+
+
+def _uv_fetch(url, post_body=None):
+    """Fetch a proxied target (HTML/CSS only - binaries use _uv_stream_remote).
+    Returns (raw_bytes_or_None, mime, code, err)."""
+    try:
+        resp = _uv_open(url, post_body)
+        with resp:
+            raw = resp.read(40 * 1024 * 1024 + 1)
+            if len(raw) > 40 * 1024 * 1024:
+                return None, "", 502, "page too large"
+            ctype = (resp.headers.get("Content-Type", "").split(";")[0].strip().lower())
+            return raw, ctype, resp.getcode(), None
+    except urllib.error.HTTPError as e:
+        return None, "", e.code, None
+    except Exception as e:
+        return None, "", 0, type(e).__name__
+
+
+def _uv_wrap_url(value, base_url):
+    """Rewrite one URL to an absolute /uv/ route. Relative values resolve
+    against base_url first; non-URL values pass through untouched."""
+    v = str(value or "").strip()
+    if not v or v.startswith(("#", "data:", "blob:", "javascript:", "mailto:", "tel:")):
+        return value
+    if v.startswith("//"):
+        v = "https:" + v
+    if not re.match(r"^https?://", v, re.I):
+        v = urljoin(base_url, v)
+    return "/uv/" + _uv_b64url_encode(v)
+
+
+def _uv_rewrite_srcset(s, base_url):
+    out = []
+    for part in str(s or "").split(","):
+        part = part.strip()
+        if not part:
+            continue
+        toks = part.split()
+        if toks:
+            toks[0] = _uv_wrap_url(toks[0], base_url)
+        out.append(" ".join(toks))
+    return ", ".join(out)
+
+
+def _uv_rewrite_css(css, base_url):
+    def rep(m):
+        u = m.group("u").strip()
+        if u.startswith(("data:", "#", "blob:")):
+            return m.group(0)
+        return "url(" + _uv_wrap_url(u, base_url) + ")"
+    return _UV_CSS_URL_RE.sub(rep, str(css or ""))
+
+
+def _uv_rewrite_attrs(chunk, base_url):
+    """Rewrite URL-bearing attributes inside a tag's attribute chunk."""
+    def rep(m):
+        name = m.group(1).lower()
+        val = m.group(2)
+        quote = val[:1] if val[:1] in ("'", '"') else ""
+        inner = val[1:-1] if quote else val
+        if name in ("srcset", "data-srcset"):
+            inner = _uv_rewrite_srcset(inner, base_url)
+        elif name in _UV_URL_ATTRS:
+            inner = _uv_wrap_url(inner, base_url)
+        elif name == "style":
+            inner = _uv_rewrite_css(inner, base_url)
+        return " %s=%s%s%s" % (m.group(1), quote, inner, quote)
+    return _UV_ATTR_RE.sub(rep, chunk)
+
+
+def _uv_rewrite_meta(tag_text, base_url):
+    ev = re.search(r"\bhttp-equiv\s*=\s*(\"[^\"]*\"|'[^']*'|[^\s>]+)", tag_text, re.I)
+    prop = re.search(r"\bproperty\s*=\s*(\"[^\"]*\"|'[^']*'|[^\s>]+)", tag_text, re.I)
+    evv = ev.group(1).strip("\"'") if ev else ""
+    prv = prop.group(1).strip("\"'") if prop else ""
+    if "refresh" in evv.lower():
+        def rep(m):
+            u = m.group(2).strip("\"'")
+            return m.group(1) + _uv_wrap_url(u, base_url)
+        return re.sub(r"(url\s*=\s*)(\"[^\"]*\"|'[^']*'|[^\s;]*)", rep, tag_text, flags=re.I)
+    if "image" in prv.lower() or "url" in prv.lower():
+        def rep(m):
+            val = m.group(1)
+            quote = val[:1] if val[:1] in ("'", '"') else ""
+            inner = val[1:-1] if quote else val
+            return "content=" + quote + _uv_wrap_url(inner, base_url) + quote
+        return re.sub(r"\bcontent\s*=\s*(\"[^\"]*\"|'[^']*'|[^\s>]+)", rep, tag_text, flags=re.I)
+    return tag_text
+
+
+def _uv_process_tag(tag_text, base_url):
+    m = _UV_TAG_NAME_RE.match(tag_text)
+    if not m:
+        return tag_text
+    name = m.group(1).lower()
+    if name == "meta":
+        ev = re.search(r"\bhttp-equiv\s*=\s*(\"[^\"]*\"|'[^']*'|[^\s>]+)", tag_text, re.I)
+        if ev and "content-security-policy" in ev.group(1).strip("\"'").lower():
+            return ""
+        return _uv_rewrite_meta(tag_text, base_url)
+    return _uv_rewrite_attrs(tag_text, base_url)
+
+
+def _uv_find_tag_end(html, lt):
+    q = None
+    i = lt + 1
+    n = len(html)
+    while i < n:
+        c = html[i]
+        if q:
+            if c == q:
+                q = None
+        elif c in "\"'":
+            q = c
+        elif c == ">":
+            return i
+        i += 1
+    return -1
+
+
+def _uv_rewrite_html(html, target):
+    """Rewrite a full HTML document: every URL attribute becomes an absolute
+    /uv/ route, <style>/inline CSS url()s get rewritten, CSP meta tags and
+    <base> tags are replaced with a proxied <base> (so any relative URL a
+    script assigns at runtime still lands on the proxy), and raw-text
+    elements are left untouched."""
+    base_dir = urljoin(target, ".")
+    base_href = "/uv/" + _uv_b64url_encode(base_dir) + "/"
+    out = []
+    i = 0
+    n = len(html)
+    while i < n:
+        lt = html.find("<", i)
+        if lt == -1:
+            out.append(html[i:])
+            break
+        out.append(html[i:lt])
+        if html.startswith("<!--", lt):
+            end = html.find("-->", lt + 4)
+            if end == -1:
+                out.append(html[lt:])
+                break
+            out.append(html[lt:end + 3])
+            i = end + 3
+            continue
+        if html[lt + 1:lt + 2] in ("!", "?"):
+            end = _uv_find_tag_end(html, lt)
+            if end == -1:
+                out.append(html[lt:])
+                break
+            out.append(html[lt:end + 1])
+            i = end + 1
+            continue
+        m = _UV_TAG_NAME_RE.match(html, lt)
+        if not m:
+            out.append("<")
+            i = lt + 1
+            continue
+        name = m.group(1).lower()
+        end = _uv_find_tag_end(html, lt)
+        if end == -1:
+            out.append(html[lt:])
+            break
+        tag_text = html[lt:end + 1]
+        if name in _UV_RAW_TAGS:
+            # Rewrite the opening tag (a <script src=...> must be proxied) but
+            # keep the raw text content untouched - it's JS/HTML, not markup.
+            close = re.search(r"</\s*" + name + r"\s*>", html[end + 1:], re.I)
+            opening = _uv_rewrite_attrs(tag_text, base_dir)
+            if close:
+                out.append(opening)
+                out.append(html[end + 1:end + 1 + close.end()])
+                i = end + 1 + close.end()
+            else:
+                out.append(opening)
+                i = end + 1
+            continue
+        if name == "style":
+            close = re.search(r"</\s*style\s*>", html[end + 1:], re.I)
+            if close:
+                out.append(_uv_rewrite_attrs(tag_text, base_url=base_dir))
+                out.append(_uv_rewrite_css(html[end + 1:end + 1 + close.start()], base_dir))
+                out.append(html[end + 1 + close.start():end + 1 + close.end()])
+                i = end + 1 + close.end()
+            else:
+                out.append(_uv_rewrite_attrs(tag_text, base_url=base_dir))
+                i = end + 1
+            continue
+        if name == "base":
+            out.append('<base href="' + base_href + '">')
+            i = end + 1
+            continue
+        out.append(_uv_process_tag(tag_text, base_dir))
+        i = end + 1
+    return "".join(out)
+
+
+def _uv_inject_patch(html, target):
+    # Proxied <base>: any relative URL a script assigns at runtime (img.src =
+    # "logo.png", video.src, link.href...) resolves against this instead of the
+    # raw /uv/ route, so it still lands on the proxy. The rewriter already
+    # replaced a site <base>; only inject when the document had none.
+    base = ""
+    if not re.search(r"<base\b[^>]*>", html, re.I):
+        base_dir = urljoin(target, ".")
+        base = '<base href="/uv/' + _uv_b64url_encode(base_dir) + '/">'
+    inject = base + "<script>window.__UV_TARGET__=" + json.dumps(target) + ";</script>" + _UV_PATCH_JS
+    m = re.search(r"<head\b[^>]*>", html, re.I)
+    if m:
+        return html[:m.end()] + inject + html[m.end():]
+    m = re.search(r"<html\b[^>]*>", html, re.I)
+    if m:
+        return html[:m.end()] + inject + html[m.end():]
+    return inject + html
+
+
+def main():
+    threading.Thread(target=_pruner, daemon=True).start()
+    httpd = ThreadingHTTPServer((HOST, PORT), Handler)
+    httpd.RequestHandlerClass.directory = WEB_ROOT
+    print(f"Chalkle server on http://{HOST}:{PORT}  (/_active viewers, /_fetch proxy)")
+    httpd.serve_forever()
+
+
+if __name__ == "__main__":
+    main()

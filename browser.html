@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="referrer" content="no-referrer">
+<title>Chalkle Browser</title>
+<script src="theme.js"></script>
+<link rel="icon" href="favicon.svg">
+<style>
+  :root {
+    --base: #0d0f12;
+    --panel: #15181d;
+    --panel-2: #1d2127;
+    --line: #2b3138;
+    --line-soft: #21262c;
+    --text: #e8eaed;
+    --text-2: #9aa0a6;
+    --text-3: #62686f;
+    --accent: #34a853;
+    --accent-soft: rgba(52, 168, 83, 0.14);
+    --radius: 10px;
+    --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --display-geo: "Space Grotesk", system-ui, "Segoe UI", Roboto, Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: var(--base) var(--wallpaper-image, url("bg-chalk.webp")) center / cover no-repeat;
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 15px;
+    -webkit-font-smoothing: antialiased;
+  }
+  body::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background: rgba(0, 0, 0, var(--wallpaper-scrim, 0));
+  }
+  .browser-shell {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+  }
+  .browser-topbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    background: var(--topbar-bg, rgba(12, 18, 16, 0.94));
+    border-bottom: 1px solid var(--line);
+    flex-wrap: wrap;
+  }
+  .browser-btn {
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    border: 1px solid var(--line);
+    background: var(--panel);
+    color: var(--text-2);
+    cursor: pointer;
+    transition: background 140ms ease, border-color 140ms ease, color 140ms ease;
+  }
+  .browser-btn:hover { background: var(--panel-2); color: var(--text); border-color: var(--line-soft); }
+  .browser-btn svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .url-wrap {
+    flex: 1;
+    min-width: 160px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--base);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 7px 14px;
+    transition: border-color 140ms ease;
+  }
+  .url-wrap:focus-within { border-color: var(--accent); }
+  .url-lock { color: var(--text-3); font-size: 13px; flex-shrink: 0; }
+  .url-bar {
+    flex: 1;
+    min-width: 0;
+    border: none;
+    outline: none;
+    background: transparent;
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 14px;
+  }
+  .url-bar::placeholder { color: var(--text-3); }
+  .url-go {
+    flex-shrink: 0;
+    border: none;
+    border-radius: 999px;
+    background: var(--accent);
+    color: #fff;
+    font-family: var(--font);
+    font-weight: 650;
+    font-size: 13px;
+    padding: 8px 16px;
+    cursor: pointer;
+  }
+  .loading-line { height: 3px; width: 0; background: var(--accent); transition: width 0.3s ease; }
+  .browser-content { flex: 1; position: relative; overflow: hidden; background: #0b0d0f; }
+  .browser-start {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    text-align: center;
+    padding: 24px;
+    color: var(--text);
+    background: var(--base);
+  }
+  .browser-start h2 { font-family: var(--display-geo); font-weight: 700; font-size: clamp(24px, 4vw, 34px); margin: 0; }
+  .browser-start p { color: var(--text-2); margin: 0; max-width: 440px; line-height: 1.5; }
+  .quick-links { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; max-width: 520px; }
+  .quick-link {
+    border: 1px solid var(--line);
+    background: var(--panel-2);
+    color: var(--text-2);
+    border-radius: 999px;
+    padding: 8px 18px;
+    font-family: var(--font);
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 140ms ease;
+  }
+  .quick-link:hover { border-color: var(--accent); color: var(--accent); }
+  .proxy-frame { width: 100%; height: 100%; border: none; display: block; background: #0b0d0f; }
+  .hidden { display: none !important; }
+  .nav-loading {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    background: var(--base);
+    text-align: center;
+    padding: 24px;
+    z-index: 5;
+  }
+  .spinner {
+    width: 30px;
+    height: 30px;
+    border: 3px solid var(--line);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .nav-loading-msg { color: var(--text-2); font-size: 13px; max-width: 300px; line-height: 1.45; }
+  .browser-blocked {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    background: var(--base);
+    text-align: center;
+    padding: 24px;
+    color: var(--text-2);
+    line-height: 1.5;
+    z-index: 6;
+  }
+</style>
+</head>
+<body>
+<div class="browser-shell">
+  <div class="browser-topbar">
+    <button class="browser-btn" id="backBtn" title="Back" aria-label="Back">
+      <svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>
+    </button>
+    <button class="browser-btn" id="forwardBtn" title="Forward" aria-label="Forward">
+      <svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg>
+    </button>
+    <button class="browser-btn" id="reloadBtn" title="Reload" aria-label="Reload">
+      <svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v4h-4"/></svg>
+    </button>
+    <div class="url-wrap">
+      <span class="url-lock" aria-hidden="true">&#128274;</span>
+      <input class="url-bar" id="urlBar" type="text" placeholder="Type a URL or search…" autocomplete="off" spellcheck="false" aria-label="Address bar">
+      <button class="url-go" id="goBtn" type="button">Go</button>
+    </div>
+  </div>
+  <div class="loading-line" id="loadingLine"></div>
+  <div class="browser-content" id="browserContent">
+    <div class="browser-start" id="browserStart">
+      <h2>Chalkle Browser</h2>
+      <p>Everything here runs through the site's built-in proxy, so the tab never talks to a blocked host directly.</p>
+      <div class="quick-links" id="quickLinks">
+        <button class="quick-link" data-url="https://www.google.com">Google</button>
+        <button class="quick-link" data-url="https://www.youtube.com">YouTube</button>
+        <button class="quick-link" data-url="https://www.wikipedia.org">Wikipedia</button>
+        <button class="quick-link" data-url="https://open.spotify.com">Spotify</button>
+        <button class="quick-link" data-url="https://www.poki.com">Poki</button>
+        <button class="quick-link" data-url="https://www.geoguessr.com">GeoGuessr</button>
+      </div>
+    </div>
+    <iframe class="proxy-frame hidden" id="proxyFrame" title="Browser" allow="fullscreen; autoplay; clipboard-read; clipboard-write" referrerpolicy="no-referrer"></iframe>
+    <div class="nav-loading hidden" id="navLoading">
+      <div class="spinner" aria-hidden="true"></div>
+      <div class="nav-loading-msg" id="navLoadingMsg">Loading…</div>
+    </div>
+    <div class="browser-blocked hidden" id="browserBlocked">
+      <div>Proxy unavailable on this device.<br>Try again from the site's own address.</div>
+    </div>
+  </div>
+</div>
+<script>
+(function () {
+  "use strict";
+  var urlBar = document.getElementById("urlBar");
+  var goBtn = document.getElementById("goBtn");
+  var backBtn = document.getElementById("backBtn");
+  var forwardBtn = document.getElementById("forwardBtn");
+  var reloadBtn = document.getElementById("reloadBtn");
+  var proxyFrame = document.getElementById("proxyFrame");
+  var browserStart = document.getElementById("browserStart");
+  var loadingLine = document.getElementById("loadingLine");
+  var navLoading = document.getElementById("navLoading");
+  var navLoadingMsg = document.getElementById("navLoadingMsg");
+
+  /* Same base64url encoding the site launcher uses for /uv/ routes. */
+  function b64url(s) {
+    try { return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""); }
+    catch (e) { return ""; }
+  }
+
+  function proxied(url) {
+    return location.origin + "/uv/" + b64url(url);
+  }
+
+  function resolveUrl(input) {
+    var t = (input || "").trim();
+    if (!t) return null;
+    if (/^https?:\/\//i.test(t)) return t;
+    if (t.indexOf(".") !== -1 && t.indexOf(" ") === -1) return "https://" + t;
+    return "https://www.google.com/search?q=" + encodeURIComponent(t);
+  }
+
+  var LOADING_MSGS = [
+    "loading…",
+    "warming up the proxy…",
+    "this might take a second…",
+    "still going…",
+    "almost there…"
+  ];
+  var msgTimer = null;
+
+  function showNavLoading() {
+    navLoadingMsg.textContent = LOADING_MSGS[0];
+    navLoading.classList.remove("hidden");
+    msgTimer = setInterval(function () {
+      navLoadingMsg.textContent = LOADING_MSGS[Math.floor(Math.random() * LOADING_MSGS.length)];
+    }, 2200);
+  }
+
+  function hideNavLoading() {
+    if (msgTimer) clearInterval(msgTimer);
+    navLoading.classList.add("hidden");
+  }
+
+  function showLoadingBar() {
+    loadingLine.style.width = "0";
+    loadingLine.style.transition = "none";
+    requestAnimationFrame(function () {
+      loadingLine.style.transition = "width 0.8s ease";
+      loadingLine.style.width = "85%";
+    });
+  }
+
+  function finishLoadingBar() {
+    loadingLine.style.width = "100%";
+    setTimeout(function () { loadingLine.style.width = "0"; }, 350);
+  }
+
+  function navigate(url) {
+    if (!url) return;
+    urlBar.value = url;
+    showLoadingBar();
+    showNavLoading();
+    browserStart.style.display = "none";
+    proxyFrame.classList.remove("hidden");
+    proxyFrame.src = proxied(url);
+  }
+
+  goBtn.addEventListener("click", function () {
+    navigate(resolveUrl(urlBar.value));
+  });
+
+  urlBar.addEventListener("keydown", function (e) {
+    if (e.key === "Enter") navigate(resolveUrl(urlBar.value));
+  });
+
+  backBtn.addEventListener("click", function () {
+    try { proxyFrame.contentWindow.history.back(); } catch (e) { /* ignore */ }
+  });
+
+  forwardBtn.addEventListener("click", function () {
+    try { proxyFrame.contentWindow.history.forward(); } catch (e) { /* ignore */ }
+  });
+
+  reloadBtn.addEventListener("click", function () {
+    if (proxyFrame.classList.contains("hidden")) return;
+    showLoadingBar();
+    try { proxyFrame.contentWindow.location.reload(); } catch (e) { /* ignore */ }
+  });
+
+  proxyFrame.addEventListener("load", function () {
+    finishLoadingBar();
+    hideNavLoading();
+    try {
+      var f = proxyFrame.contentWindow;
+      var href = f.location.href;
+      if (href && href !== "about:blank") {
+        /* Show the real URL in the bar when the proxy lets us read it. */
+        urlBar.value = href.replace(/^https?:\/\//, "");
+      }
+      var t = f.document.title;
+      if (t) document.title = t + " — Chalkle";
+    } catch (e) { /* cross-origin — fine */ }
+  });
+
+  document.querySelectorAll(".quick-link").forEach(function (btn) {
+    btn.addEventListener("click", function () { navigate(btn.dataset.url); });
+  });
+
+  /* Open a URL passed as ?url=… */
+  try {
+    var q = new URLSearchParams(location.search).get("url");
+    if (q) navigate(resolveUrl(q));
+  } catch (e) { /* ignore */ }
+})();
+</script>
+</body>
+</html>

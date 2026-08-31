@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>Classes</title>
+  <link rel="icon" id="play-icon" href="favicon.svg">
+  <style>
+    html, body { margin: 0; height: 100%; background: #0c1210; color: #e8eaed; font-family: Segoe UI, system-ui, sans-serif; }
+    #game-frame { width: 100vw; height: 100vh; border: 0; display: block; background: #0c1210; }
+    #play-msg {
+      position: fixed; inset: 0; display: none; place-items: center; padding: 28px;
+      background: #0c1210; text-align: center;
+    }
+    #play-msg.is-on { display: grid; }
+    #play-msg h1 { font-size: 22px; margin: 0 0 8px; font-weight: 650; }
+    #play-msg p { margin: 0 0 18px; color: #9aa0a6; max-width: 420px; line-height: 1.45; }
+    #play-msg button {
+      border: 0; border-radius: 10px; padding: 10px 16px; background: #4285f4; color: #fff;
+      font-weight: 650; cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <iframe id="game-frame" title="Classes" allow="fullscreen; gamepad; picture-in-picture; autoplay; clipboard-read; clipboard-write" referrerpolicy="no-referrer"></iframe>
+  <div id="play-msg">
+    <div>
+      <h1 id="play-msg-title">Can't load quietly</h1>
+      <p id="play-msg-body">This game needs a working proxy, or a copy hosted on this site. The original address was not opened.</p>
+      <button type="button" id="play-msg-back">Back</button>
+    </div>
+  </div>
+  <script>
+  (function () {
+    "use strict";
+    var frame = document.getElementById("game-frame");
+    var msg = document.getElementById("play-msg");
+    var SANDBOX = "allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-downloads allow-modals allow-presentation allow-pointer-lock allow-same-origin";
+    var payload = null;
+    var settled = false;
+
+    function showMsg(title, body) {
+      document.getElementById("play-msg-title").textContent = title || "Can't load quietly";
+      document.getElementById("play-msg-body").textContent = body || "";
+      msg.classList.add("is-on");
+    }
+
+    function cloak(title, icon) {
+      try {
+        document.title = title || localStorage.getItem("chalkle-cloak-title") || "Classes";
+      } catch (e) {
+        document.title = title || "Classes";
+      }
+      var link = document.getElementById("play-icon");
+      if (link && icon) link.href = icon;
+    }
+
+    function isLocal(url) {
+      var u = String(url || "");
+      if (!u) return false;
+      if (/^(blob:|data:)/i.test(u)) return true;
+      if (u.charAt(0) === "/") return true;
+      try {
+        return new URL(u, location.href).origin === location.origin;
+      } catch (e) {
+        return false;
+      }
+    }
+
+    function isFetchable(url) {
+      return /^https?:\/\/(?:(?:cdn|fastly)\.jsdelivr\.net\/(?:gh|npm)|raw\.githubusercontent\.com|rawcdn\.githack\.com|raw\.githack\.com|unpkg\.com)\//i.test(String(url || ""));
+    }
+
+    function liveProxy() {
+      try {
+        var list = JSON.parse(localStorage.getItem("chalkle-proxies") || "[]");
+        if (!Array.isArray(list)) list = [];
+        for (var i = 0; i < list.length; i++) {
+          var u = list[i] && list[i].url;
+          if (u && /^https?:\/\//i.test(u) && String(u).indexOf("your-") === -1) return list[i];
+        }
+      } catch (e) { /* ignore */ }
+      return null;
+    }
+
+    function b64url(s) {
+      try {
+        return btoa(unescape(encodeURIComponent(s))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+      } catch (e) {
+        return encodeURIComponent(s);
+      }
+    }
+
+    function routeProxy(target, proxy) {
+      var base = String(proxy.url).replace(/\/+$/, "");
+      if (proxy.mode === "frame" || proxy.hashRoute) return base + "#" + b64url(target);
+      return base + "/" + b64url(target);
+    }
+
+    function remember(method) {
+      if (!payload || !payload.rememberKey) return;
+      try {
+        var map = JSON.parse(localStorage.getItem("chalkle-launch-ok") || "{}");
+        map[payload.rememberKey] = method;
+        localStorage.setItem("chalkle-launch-ok", JSON.stringify(map));
+      } catch (e) { /* ignore */ }
+    }
+
+    function loadFrame(src, sandboxed) {
+      if (sandboxed) frame.setAttribute("sandbox", SANDBOX);
+      else frame.removeAttribute("sandbox");
+      frame.removeAttribute("srcdoc");
+      frame.src = src;
+    }
+
+    function injectHtml(html, baseHref) {
+      var withBase = String(html);
+      if (baseHref && !/<base\s/i.test(withBase)) {
+        withBase = withBase.replace(/<head([^>]*)>/i, "<head$1><base href=\"" + String(baseHref).replace(/"/g, "&quot;") + "\">");
+      }
+      frame.setAttribute("sandbox", SANDBOX);
+      frame.srcdoc = withBase;
+    }
+
+    function tryFetch(url) {
+      return fetch(url, { credentials: "omit" }).then(function (r) {
+        if (!r.ok) throw new Error("http");
+        var ct = (r.headers.get("content-type") || "").toLowerCase();
+        if (ct.indexOf("image/") === 0) throw new Error("image");
+        return r.text();
+      }).then(function (html) {
+        if (/createUnityInstance|UnityLoader|\.unityweb|StreamingAssets/i.test(html)) throw new Error("unity");
+        var base = String(url).replace(/[^/]*$/, "");
+        injectHtml(html, base);
+        remember("fetch");
+        return true;
+      });
+    }
+
+    function runChain() {
+      if (!payload || !payload.url) {
+        showMsg("Nothing to open", "This tab did not receive a game.");
+        return;
+      }
+      var url = payload.url;
+      var method = payload.method || "smart";
+      var proxy = liveProxy();
+
+      if (method === "proxy") {
+        if (!proxy) {
+          showMsg("No proxy", "Add a proxy in Chalkle, then try again. The original site was not opened.");
+          return;
+        }
+        loadFrame(routeProxy(url, proxy), false);
+        remember("proxy");
+        return;
+      }
+
+      if (isLocal(url) && method !== "proxy") {
+        loadFrame(url, true);
+        remember("local");
+        return;
+      }
+
+      if (isFetchable(url) || method === "fetch" || method === "blob" || method === "dataurl") {
+        tryFetch(url).catch(function () {
+          if (proxy) {
+            loadFrame(routeProxy(url, proxy), false);
+            remember("proxy");
+          } else {
+            showMsg("Blocked without a proxy", "This page is not hosted here and could not be fetched. Add a proxy instead of opening the blocked site.");
+          }
+        });
+        return;
+      }
+
+      if (proxy) {
+        loadFrame(routeProxy(url, proxy), false);
+        remember("proxy");
+        return;
+      }
+
+      showMsg("Needs a proxy", "Opening the real game address is how filters catch this tab. Host the game on this site or add a proxy.");
+    }
+
+    function accept(data) {
+      if (settled || !data || !data.url) return;
+      settled = true;
+      payload = data;
+      cloak(data.cloakTitle, data.cloakIcon);
+      runChain();
+    }
+
+    var params = new URLSearchParams(location.search);
+    var k = params.get("k");
+    if (k) {
+      try {
+        var raw = localStorage.getItem("chalkle-play-" + k);
+        if (raw) {
+          localStorage.removeItem("chalkle-play-" + k);
+          accept(JSON.parse(raw));
+        }
+      } catch (e) { /* ignore */ }
+    }
+
+    window.addEventListener("message", function (e) {
+      if (!e.data || e.data.type !== "chalkle-play") return;
+      accept(e.data.payload);
+    });
+
+    document.getElementById("play-msg-back").addEventListener("click", function () {
+      window.close();
+      location.href = "index.html";
+    });
+
+    window.addEventListener("keydown", function (e) {
+      if (e.key !== "`" || e.ctrlKey || e.metaKey || e.altKey) return;
+      e.preventDefault();
+      var dest = "https://classroom.google.com/";
+      try { dest = localStorage.getItem("chalkle-panic-url") || dest; } catch (err) { /* ignore */ }
+      location.replace(dest);
+    });
+  })();
+  </script>
+</body>
+</html>
