@@ -15,9 +15,18 @@
   var WRAP_ICON = "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2064%2064%22%3E%3Cdefs%3E%3Cstyle%3E%40font-face%7Bfont-family%3A%22Boogaloo%22%3Bsrc%3Aurl(data%3Afont%2Fttf%3Bbase64%2CAAEAAAAPAIAAAwBwR0RFRgARAAIAAAEgAAAAFkdQT1NEdEx1AAABOAAAAB5HU1VCuPy46gAAAbwAAAAoT1MvMly0bagAAAJYAAAAYGNtYXAAeABaAAACHAAAADxnYXNwAAAAEAAAAQQAAAAIZ2x5ZvV2BCYAAAK4AAAAaGhlYWQDB5o1AAAB5AAAADZoaGVhB1YCvgAAAZgAAAAkaG10eAUsABoAAAEUAAAADGxvY2EAAAA0AAABDAAAAAhtYXhwAEwAQwAAAVgAAAAgbmFtZTEHTZ0AAAMgAAACUnBvc3T%2FYgBPAAABeAAAACBwcmVwaAaMhQAAAPwAAAAHuAH%2FhbAEjQAAAQAB%2F%2F8ADwAAAAAAAAA0AlgAAADyAAAB4gAaAAEAAAAMAAAAAAAAAAEAAQACAAEAAQAAAAEAAAAKABwAHAABREZMVAAIAAQAAAAA%2F%2F8AAAAAAAAAAQAAAAMAQAAHAAAAAAACAAAAAQABAAAAQAAAAAAAAAADAAAAAAAA%2F18ATwAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAOv%2FwoAAAP0%2F7v%2FvAPpAAEAAAAAAAAAAAAAAAAAAAADAAEAAAAKACYAJgACREZMVAASbGF0bgAOAAAAAAAEAAAAAP%2F%2FAAAAAAABAAAAAQCDBwPtyV8PPPUACwPoAAAAAMsTTJQAAAAA1TEJgP%2B7%2FwoD6QOvAAAACAACAAAAAAAAAAAAAgAAAAMAAAAUAAMAAQAAABQABAAoAAAABgAEAAEAAgAgAEP%2F%2FwAAACAAQ%2F%2F%2F%2F%2BH%2FvwABAAAAAAAAAAIBVgGQAAUAAAKUAlgAAP9EApQCWAAAAPsAMgD6CgYDBgkCAwICAgIDAAAAIwAAAAAAAAAAAAAAAE1ZRk8AQAAgAEMDr%2F8KAAADrwD2AAAAAQAAAAABUgHVAAAAIAACAAEAGv%2FiAdgCvwAgAAABIgYVFDMyNjY3FwYGIyImNTQ3NjYzMhcWFhcWFyc0JyYBDSxCXBonEQx%2FGmdcbHU6HGVBUCQSFwUJAoEYCwI%2F2VSwLTAqCnuCo36Ti0VZNRo2KkNNDIEhEQAAAAAIAGYAAwABBAkAAAEKAOIAAwABBAkAAQAQANIAAwABBAkAAgAOAMQAAwABBAkAAwA2AI4AAwABBAkABAAgAG4AAwABBAkABQAaAFQAAwABBAkABgAgADQAAwABBAkADgA0AAAAaAB0AHQAcAA6AC8ALwBzAGMAcgBpAHAAdABzAC4AcwBpAGwALgBvAHIAZwAvAE8ARgBMAEIAbwBvAGcAYQBsAG8AbwAtAFIAZQBnAHUAbABhAHIAVgBlAHIAcwBpAG8AbgAgADEALgAwADAAMgBCAG8AbwBnAGEAbABvAG8AIABSAGUAZwB1AGwAYQByADEALgAwADAAMgA7AE0AWQBGAE8AOwBCAG8AbwBnAGEAbABvAG8ALQBSAGUAZwB1AGwAYQByAFIAZQBnAHUAbABhAHIAQgBvAG8AZwBhAGwAbwBvAEMAbwBwAHkAcgBpAGcAaAB0ACAAKABjACkAIAAyADAAMQAxACwAIABKAG8AaABuACAAVgBhAHIAZwBhAHMAIABCAGUAbAB0AHIAYQBuACAAKAB3AHcAdwAuAGoAbwBoAG4AdgBhAHIAZwBhAHMAYgBlAGwAdAByAGEAbgAuAGMAbwBtAHwAagBvAGgAbgAuAHYAYQByAGcAYQBzAGIAZQBsAHQAcgBhAG4AQABnAG0AYQBpAGwALgBjAG8AbQApACwAIAB3AGkAdABoACAAUgBlAHMAZQByAHYAZQBkACAARgBvAG4AdAAgAE4AYQBtAGUAIAAiAEIAbwBvAGcAYQBsAG8AbwAiAC4AAA%3D%3D)%20format(%22truetype%22)%3B%7D%3C%2Fstyle%3E%3C%2Fdefs%3E%3Crect%20width%3D%2264%22%20height%3D%2264%22%20rx%3D%2214%22%20fill%3D%22%23111317%22%2F%3E%3Ctext%20x%3D%2232%22%20y%3D%2248%22%20font-family%3D%22Boogaloo%22%20font-size%3D%2234%22%20text-anchor%3D%22middle%22%20fill%3D%22%231557b0%22%3EC%3C%2Ftext%3E%3Ctext%20x%3D%2232%22%20y%3D%2244%22%20font-family%3D%22Boogaloo%22%20font-size%3D%2234%22%20text-anchor%3D%22middle%22%20fill%3D%22%234285f4%22%3EC%3C%2Ftext%3E%3C%2Fsvg%3E";
 
   var SANDBOX =
-    "allow-scripts allow-forms allow-popups " +
+    "allow-scripts allow-forms allow-same-origin allow-popups " +
     "allow-popups-to-escape-sandbox allow-downloads allow-modals " +
     "allow-presentation allow-pointer-lock";
+
+  /* Why allow-same-origin is here: without it the framed game runs as an
+     opaque/null origin, which kills IndexedDB, localStorage, cookies,
+     WebSockets, SharedArrayBuffer and service workers - the exact things
+     Unity/WASM and live games need to boot. Giving the frame its own origin
+     keeps those working while the iframe stays sandboxed (no top navigation,
+     no parent access: the wrapper is a fresh about:blank/blob document, so
+     there is nothing sensitive for the game to reach). Frame-blocking sites
+     are still caught by the refusal watcher below and bounced to a proxy. */
 
   /* Pages that already live on this site ( /game-builds/... ). Wrapping them
      in about:blank / blob iframes makes Chromium treat fetches as origin
@@ -93,9 +102,32 @@
     }
   }
 
+  /* The /uv/ rewriting proxy only exists when serve-chalk.py is actually
+     behind this origin. On the jsDelivr mirror (cdn/fastly.jsdelivr.net) or a
+     static host there is no server, so origin + "/uv" 404s - and blindly
+     claiming it produced URLs like cdn.jsdelivr.net/uv/<base64> that the
+     mirror can't serve. Probe once at startup (a same-origin fetch is fast)
+     and only advertise the built-in proxy when it really answers. */
+  var uvStatus = null; // null = probing, true = usable, false = unusable
+  var builtinTried = false;
+  function probeBuiltinProxy() {
+    if (builtinTried) return;
+    builtinTried = true;
+    var origin = usableOrigin();
+    if (!origin) { uvStatus = false; return; }
+    fetch(origin + "/uv/", { method: "GET", cache: "no-store" })
+      .then(function (r) { uvStatus = !!r.ok; })
+      .catch(function () { uvStatus = false; });
+  }
+  probeBuiltinProxy();
+
   function builtinProxy() {
     var origin = usableOrigin();
     if (!origin) return null;
+    /* Don't claim /uv/ exists while the probe is still in flight (first
+       moments of a load) or after it failed - those cases must fall back to
+       hosted proxies instead of building a dead origin+/uv URL. */
+    if (uvStatus !== true) return null;
     return { name: "Built-in", url: origin + "/uv", mode: "path", builtin: true };
   }
 
@@ -344,15 +376,17 @@
     var localPath = target.charAt(0) === "/" && target.charAt(1) !== "/";
     var base = String(proxyUrl).replace(/\/+$/, "");
     if (localPath) {
-      /* Local webroot path: must go through the same-origin /uv/ proxy so CDN
-         refs inside the page get rewritten. Hosted proxies can't fetch our
-         local files, so force the /uv/ route regardless of which proxy was
-         picked. With no server behind us (single-file build on file:// or an
-         opaque origin) there is no /uv/ to route through - hand the path back
-         unchanged so the embedded game loader or local folder can serve it. */
-      var origin = usableOrigin();
-      if (!origin) return target;
-      return origin + "/uv/" + b64url(target);
+      /* Local webroot path: goes through the same-origin /uv/ proxy ONLY when
+         that proxy actually exists (uaStatus === true - see builtinProxy).
+         Hosted proxies can't fetch our local files, and on mirrors/static
+         hosts /uv/ doesn't exist at all - so without a live built-in, hand the
+         path back unchanged (the same-origin static server or the cloak's
+         <base> then serves it directly) instead of building a dead
+         origin+/uv/<b64> URL. */
+      if (uvStatus === true) {
+        return base + "/" + b64url(target);
+      }
+      return target;
     }
     if (target.indexOf("//") === 0) target = location.protocol + target;
     if (target.indexOf("://") === -1) target = "https://" + target;
