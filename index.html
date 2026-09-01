@@ -615,6 +615,35 @@
             </div>
             <div class="game-filters" role="group" aria-label="Channel categories" id="livetv-cats"></div>
           </div>
+
+          <!-- Featured HD Theater Player -->
+          <div class="livetv-hero-stage" id="livetv-hero-stage">
+            <div class="livetv-hero-top">
+              <div class="livetv-hero-info">
+                <span class="livetv-hero-badge"><span class="livetv-live-dot"></span> LIVE HD</span>
+                <span class="livetv-hero-title" id="livetv-hero-title">Select a channel below to watch</span>
+                <span class="livetv-hero-cat" id="livetv-hero-cat">Theater Mode</span>
+              </div>
+              <button class="btn-ghost livetv-hero-fs" id="livetv-hero-fs-btn" type="button" title="Full screen">
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" stroke="currentColor" fill="none" stroke-width="2"/></svg>
+                <span>Full Screen</span>
+              </button>
+            </div>
+            <div class="livetv-hero-screen">
+              <video id="livetv-hero-video" controls playsinline></video>
+              <div class="livetv-hero-placeholder" id="livetv-hero-placeholder">
+                <div class="livetv-placeholder-content">
+                  <div class="livetv-placeholder-ico">
+                    <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="6.5" width="19" height="13" rx="2.5"/><path d="m10 10.5 5 2.75-5 2.75z" fill="currentColor" stroke="none"/></svg>
+                  </div>
+                  <h3>Live Broadcast Player</h3>
+                  <p>Pick any channel below for instant HD streaming</p>
+                </div>
+              </div>
+              <div class="livetv-player-msg" id="livetv-hero-msg" hidden></div>
+            </div>
+          </div>
+
           <div class="livetv-grid" id="livetv-grid"></div>
           <div class="empty" id="livetv-empty" hidden>
             <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="6.5" width="19" height="13" rx="2.5"/><path d="m10 10.5 5 2.75-5 2.75z"/></svg>
@@ -1165,8 +1194,13 @@
           </button>
         </div>
         <div class="launch-grid">
-          <button class="launch-opt launch-featured" data-launch-method="direct">
+          <button class="launch-opt launch-featured" data-launch-method="iframe">
             <span class="launch-badge">Recommended</span>
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4.5" width="18" height="15" rx="2.5"/><path d="M3 9h18"/></svg>
+            <span class="launch-opt-title">Iframe Here</span>
+            <span class="launch-opt-desc">Plays here - blocks can't touch it</span>
+          </button>
+          <button class="launch-opt" data-launch-method="direct">
             <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17L17 7M9 7h8v8"/></svg>
             <span class="launch-opt-title">Direct</span>
             <span class="launch-opt-desc">Opens in a new tab</span>
@@ -1239,6 +1273,22 @@
         <a class="btn" id="overlay-open-fallback" target="_blank" rel="noopener">Open game</a>
       </div>
       <iframe class="overlay-frame" id="proxy-frame" title="Proxy" allow="fullscreen" referrerpolicy="no-referrer"></iframe>
+    </div>
+
+    <div class="docs-viewer" id="docs-viewer" hidden>
+      <div class="docs-viewer-bar">
+        <span class="docs-viewer-title" id="docs-viewer-title"></span>
+        <div class="docs-viewer-actions">
+          <button class="btn-ghost" id="docs-viewer-tab" type="button" title="Open in a new tab">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17L17 7"/><path d="M9 7h8v8"/></svg>
+            <span>New tab</span>
+          </button>
+          <button class="launch-x" id="docs-viewer-close" aria-label="Close">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+          </button>
+        </div>
+      </div>
+      <iframe class="docs-viewer-frame" id="docs-viewer-frame" title="Doc"></iframe>
     </div>
 
     <div class="admin-modal" id="admin-modal" hidden>

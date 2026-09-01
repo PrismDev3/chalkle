@@ -46,6 +46,24 @@
     }
   }
 
+  /* iOS Safari (iPhone/iPad) is strict about opaque origins: games running
+     in an about:blank / blob / data cloak lose the ability to reach
+     cross-origin resources (their embedded loaders then fail with errors
+     like "Failed to fetch version info"). On iOS, self-hosted /game-builds/
+     games open as a plain same-origin tab so they keep a real origin. */
+  function isIOS() {
+    try {
+      var ua = String(navigator.userAgent || "");
+      if (/iPhone|iPad|iPod/i.test(ua)) return true;
+      if (navigator.userAgentData && navigator.userAgentData.platform) {
+        if (/^iOS$/i.test(navigator.userAgentData.platform)) return true;
+      }
+      /* iPadOS reports a Mac UA but has a touchscreen. */
+      if (/Macintosh/i.test(ua) && navigator.maxTouchPoints > 1) return true;
+    } catch (e) { /* ignore */ }
+    return false;
+  }
+
   function isDeadStubProxy(url) {
     var u = String(url || "").trim();
     if (!u || u.indexOf("your-proxy") !== -1) return true;
@@ -182,6 +200,15 @@
         try { win.location.replace(routeProxy(url, p.url, p.mode === "frame" || !!p.hashRoute)); return; } catch (e) { /* keep going */ }
       }
       if (opts.onBlocked) { try { opts.onBlocked(); } catch (e) { /* ignore */ } }
+      /* No proxy: instead of leaving the user on a dead "blocked" page,
+         pull the game into the in-app frame overlay (through the /uv/ relay
+         when one is live) so it still plays inside the Chalkle tab. */
+      try {
+        if (opts.iframeOnBlock !== false && inAppFrame(opts.iframeUrl || url, opts.title)) {
+          try { win.close(); } catch (e) { /* ignore */ }
+          return;
+        }
+      } catch (e) { /* keep going */ }
       try {
         var body = win.document.body;
         if (body) {
@@ -238,6 +265,9 @@
     if (!win && isLocalPlayUrl(url)) {
       try { window.location.href = url; return true; } catch (e) { return false; }
     }
+    /* Popup blocked (managed Chromebooks often block new tabs entirely):
+       play right here in the app instead of failing silently. */
+    if (!win && /^https?:/i.test(String(url || "").trim())) return inAppFrame(url, url);
     return !!win;
   }
 
@@ -265,7 +295,7 @@
   function openAboutBlank(url, watch) {
     if (shouldOpenDirect(url)) return openDirect(url);
     var win = window.open("about:blank", "_blank");
-    if (!win) return false;
+    if (!win) return inAppFrame(url, url);
     try {
       /* Build the wrapper as a complete HTML document in the new blank tab.
          Using document.open/write/close avoids navigating the top-level tab;
@@ -290,7 +320,7 @@
     var win = window.open(blobUrl, "_blank");
     if (!win) {
       URL.revokeObjectURL(blobUrl);
-      return false;
+      return inAppFrame(url, url);
     }
     setTimeout(function () { URL.revokeObjectURL(blobUrl); }, 60000);
     if (watch) watchGameTab(win, url);
@@ -339,17 +369,39 @@
     return openDirect(u);
   }
 
-  function openIframe(url, title) {
-    if (shouldOpenDirect(url)) return openDirect(url);
+  /* Open a URL in the in-app frame overlay. When a live proxy exists (the
+     built-in same-origin /uv/ relay first), the URL is routed through it:
+     the frame then only ever talks to this origin, so a school filter has
+     nothing to block and X-Frame-Options refusals get stripped by the relay.
+     Without a proxy the frame loads the raw URL (the refusal watcher /
+     overlay fallback still applies). This is the one launch method that
+     keeps everything inside the Chalkle tab - monitors and popup blockers
+     (managed Chromebooks) can't kill it, because nothing new ever opens. */
+  function inAppFrame(url, title) {
     var overlay = document.getElementById("proxy-overlay");
     var frame = document.getElementById("proxy-frame");
-    var label = document.getElementById("overlay-title");
     if (!overlay || !frame) return false;
+    var label = document.getElementById("overlay-title");
     if (label) label.textContent = title || "Playing";
-    frame.src = url;
+    var notice = document.getElementById("overlay-notice");
+    if (notice) notice.hidden = true;
+    var ext = document.getElementById("overlay-ext");
+    var target = String(url || "");
+    var p = liveProxy();
+    if (p && /^https?:/i.test(target) && !shouldOpenDirect(target)) {
+      target = routeProxy(target, p.url, p.mode === "frame" || !!p.hashRoute);
+    }
+    window.ChalkleLaunch.lastOpenUrl = target;
+    if (ext) ext.href = target;
+    frame.src = target;
     overlay.hidden = false;
     document.body.style.overflow = "hidden";
     return true;
+  }
+
+  function openIframe(url, title) {
+    if (shouldOpenDirect(url)) return openDirect(url);
+    return inAppFrame(url, title || url);
   }
 
   /* Base64url helper - the encoding Ultraviolet / Scramjet / Rammerhead style
@@ -619,8 +671,19 @@
 
   /* ---------- Public API ---------- */
 
+  /* The Most-recently opened URL (set by inAppFrame) - lets the overlay's
+     "New tab" button pop the current game out even when it was opened by
+     the launcher rather than a proxy card. */
+  window.ChalkleLaunch.lastOpenUrl = "";
+
   window.ChalkleLaunch = {
     open: function (url, title) {
+      /* iOS: self-hosted builds open as a real same-origin tab (never a
+         cloak). Their loaders' fetches then work normally. */
+      if (isIOS() && isLocalPlayUrl(url)) {
+        openDirect(url);
+        return;
+      }
       /* Local builds and Unity WebGL can't open direct when their CDNs are
          blocked, and wrapping them in about:blank/blob breaks asset loading.
          The /uv/ proxy is this same origin - it serves local files and

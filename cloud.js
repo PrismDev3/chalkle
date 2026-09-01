@@ -237,13 +237,16 @@
   }
 
   function pollQueue(uuid, tries) {
-    if (tries > 20) return Promise.reject(new Error("queue timed out"));
+    if (tries >= 5) return Promise.reject(new Error("Server busy or offline (queue timeout)"));
     return apiFetch("/cloud/v1/getQueue?uuid=" + encodeURIComponent(uuid), { method: "GET" })
-      .then(function (res) { return res.json(); })
+      .then(function (res) {
+        if (!res.ok) throw new Error("Server returned HTTP " + res.status);
+        return res.json();
+      })
       .then(function (j) {
         if (j.status === "finished_queue") return;
-        if (j.status === "queue") return sleep(3000).then(function () { return pollQueue(uuid, tries + 1); });
-        throw new Error((j.error || "queue error") + (j.queue_pos != null ? " (spot " + j.queue_pos + ")" : ""));
+        if (j.status === "queue") return sleep(1500).then(function () { return pollQueue(uuid, tries + 1); });
+        throw new Error((j.error || "Session ended") + (j.queue_pos != null ? " (spot " + j.queue_pos + ")" : ""));
       });
   }
 

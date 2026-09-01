@@ -325,8 +325,8 @@
         return p && String(p.name || "").toLowerCase() === name;
       });
     }
-    if (!has("gjsd")) { list.push({ name: "GJSD", url: "https://gjsd.yan.ch/", mode: "frame" }); dirty = true; }
-    if (!has("ovokee")) { list.push({ name: "Ovokee", url: "https://ovokee.sbs/", mode: "frame", credit: "kelvin9rant" }); dirty = true; }
+    if (!has("gjsd")) { list.push({ name: "GJSD", url: "https://gjsd.yan.ch/", mode: "frame", icon: "/assets/proxies/gjsd.png" }); dirty = true; }
+    if (!has("ovokee")) { list.push({ name: "Ovokee", url: "https://ovokee.sbs/", mode: "frame", credit: "kelvin9rant", icon: "/assets/proxies/ovokee.png" }); dirty = true; }
     /* SerumOS instances (hash route + service worker), credit c0mrade. */
     [
       "swiftnet8420", "clearzone8524", "litezone9637", "meganet1958", "brightlink8769",
@@ -336,9 +336,20 @@
     ].forEach(function (host, idx) {
       var nm = "serium " + (idx + 1);
       if (!has(nm)) {
-        list.push({ name: "Serium " + (idx + 1), url: "https://" + host + ".b-cdn.net/", mode: "frame", credit: "c0mrade" });
+        list.push({ name: "Serium " + (idx + 1), url: "https://" + host + ".b-cdn.net/", mode: "frame", credit: "c0mrade", icon: "/assets/proxies/serium.png" });
         dirty = true;
       }
+    });
+    /* Backfill brand icons onto earlier saved copies (they were seeded before
+       icons existed) so every card shows the real logo. */
+    list.forEach(function (p) {
+      if (!p) return;
+      var nm = String(p.name || "").trim().toLowerCase();
+      var want = null;
+      if (nm === "gjsd") want = "/assets/proxies/gjsd.png";
+      else if (nm === "ovokee") want = "/assets/proxies/ovokee.png";
+      else if (nm.indexOf("serium") === 0) want = "/assets/proxies/serium.png";
+      if (want && p.icon !== want) { p.icon = want; dirty = true; }
     });
     if (dirty) {
       try { localStorage.setItem(STORAGE_KEY, JSON.stringify(list)); } catch (e) { /* no storage */ }
@@ -367,7 +378,7 @@
           : "";
         return (
           '<a class="proxy-link" href="' + escapeAttr(p.url) + '" target="_blank" rel="noopener" title="' + escapeAttr(p.url) + '">' +
-          '<span class="proxy-link-mark">' + letter + "</span>" +
+          '<span class="proxy-link-mark">' + (p.icon && !isLocalFileUrl(p.icon) ? '<img class="proxy-link-ico" src="' + escapeAttr(p.icon) + '" alt="" loading="lazy" onerror="this.remove()">' : "") + letter + "</span>" +
           '<span class="proxy-link-txt"><span class="proxy-link-name">' + escapeHtml(p.name) + "</span>" +
           '<span class="proxy-link-url">' + escapeHtml(host || p.url) + credit + "</span></span>" +
           '<span class="proxy-link-open">Open &rsaquo;</span>' +
@@ -407,12 +418,18 @@
       try { host = new URL(item.url).hostname; } catch (e) { host = ""; }
     }
     var markLetter = escapeHtml((item.name || "?").charAt(0).toUpperCase());
-    /* Favicon via Google s2, falling back to DuckDuckGo's icon service (both
-       are commonly blocked on school networks, so a letter chip stays behind
-       the image either way). */
-    var mark = host
-      ? '<span>' + markLetter + '</span><img class="proxy-fav" src="https://www.google.com/s2/favicons?domain=' + escapeAttr(host) + '&sz=64" alt="" loading="lazy" referrerpolicy="no-referrer" data-fb="https://icons.duckduckgo.com/ip3/' + escapeAttr(host) + '.ico" onerror="var t=this; if(t.src.indexOf(\'duckduckgo\')===-1){ t.src=t.getAttribute(\'data-fb\'); } else { t.remove(); }">'
-      : markLetter;
+    var mark;
+    if (item.icon && !isLocalFileUrl(item.icon)) {
+      /* Real bundled brand logo (Serium / GJSD / Ovokee). */
+      mark = '<span>' + markLetter + '</span><img class="proxy-fav" src="' + escapeAttr(item.icon) + '" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">';
+    } else if (host) {
+      /* Favicon ladder: Google s2, then Google faviconV2, then DuckDuckGo.
+         All three are commonly blocked on school networks, so the letter
+         chip stays behind the image either way. */
+      mark = '<span>' + markLetter + '</span><img class="proxy-fav" src="https://www.google.com/s2/favicons?domain=' + escapeAttr(host) + '&sz=64" alt="" loading="lazy" referrerpolicy="no-referrer" data-host="' + escapeAttr(host) + '" data-i="0" onerror="var t=this;var h=t.getAttribute(\'data-host\')||\'\';var i=parseInt(t.getAttribute(\'data-i\')||\'0\',10)+1;var u=[\'https://www.google.com/s2/favicons?domain=\'+encodeURIComponent(h)+\'&sz=64\',\'https://t3.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=\'+encodeURIComponent(\'https://\'+h)+\'&size=128\',\'https://icons.duckduckgo.com/ip3/\'+encodeURIComponent(h)+\'.ico\'];if(!h||i>=u.length){t.remove();return;}t.setAttribute(\'data-i\',String(i));t.src=u[i];">';
+    } else {
+      mark = markLetter;
+    }
     var row =
       '<div class="card proxy-card">' +
       '<div class="proxy-card-top">' +
@@ -2030,7 +2047,7 @@
     }
     document.addEventListener("click", function (e) {
       if (!morePanel || !morePanel.classList.contains("is-open")) return;
-      if (e.target === moreBtn) return;
+      if (moreBtn.contains(e.target)) return;
       if (morePanel.contains(e.target)) return;
       closeMoreNav();
     });
@@ -2581,6 +2598,11 @@
     if (ext) {
       ext.addEventListener("click", function () {
         var url = currentProxy && currentProxy.url;
+        /* Launcher-opened games (in-app frame) have no currentProxy - pop
+           out whatever URL the launcher is showing instead. */
+        if (!url && window.ChalkleLaunch && window.ChalkleLaunch.lastOpenUrl) {
+          url = window.ChalkleLaunch.lastOpenUrl;
+        }
         closeOverlay();
         if (url) window.open(url, "_blank", "noopener");
       });

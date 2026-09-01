@@ -151,32 +151,38 @@
 
     grid.innerHTML = "";
     items.forEach(function (c) {
-      var card = el("button", "livetv-card" + (c.live ? " is-live" : ""));
+      var card = el("button", "livetv-card" + (c.live !== false ? " is-live" : ""));
       card.type = "button";
-      card.title = c.name || "";
+      card.title = "Stream " + (c.name || "Channel");
 
-      var logo = el("span", "livetv-card-logo");
+      var preview = el("div", "livetv-card-preview");
       if (c.logo) {
         var img = document.createElement("img");
         img.src = c.logo;
         img.alt = "";
         img.loading = "lazy";
-        logo.appendChild(img);
+        preview.appendChild(img);
       } else {
-        logo.textContent = letterOf(c.name);
+        var fallbackLetter = el("span", "livetv-preview-letter", letterOf(c.name));
+        preview.appendChild(fallbackLetter);
       }
 
-      var body = el("span", "livetv-card-body");
+      var liveBadge = el("span", "livetv-card-live-badge", "LIVE");
+      var playOverlay = el("div", "livetv-card-play-overlay");
+      playOverlay.innerHTML = '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z" fill="currentColor"/></svg>';
+      preview.append(liveBadge, playOverlay);
+
+      var meta = el("div", "livetv-card-meta");
       var name = el("span", "livetv-card-name", c.name || "Channel");
       var cat = el("span", "livetv-card-cat", c.category || "Other");
-      body.append(name, cat);
+      meta.append(name, cat);
 
-      var dot = el("span", "livetv-card-dot");
-      dot.title = c.live ? "Live now" : "Offline";
-      dot.innerHTML = '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.2" fill="currentColor" stroke="none"/></svg>';
-
-      card.append(logo, body, dot);
-      card.addEventListener("click", function () { openPlayer(c); });
+      card.append(preview, meta);
+      card.addEventListener("click", function () {
+        document.querySelectorAll(".livetv-card").forEach(function (x) { x.classList.remove("is-selected"); });
+        card.classList.add("is-selected");
+        openPlayer(c);
+      });
       grid.appendChild(card);
     });
   }
@@ -189,19 +195,25 @@
   /* ---------- player ---------- */
 
   function openPlayer(ch) {
-    var modal = document.getElementById("livetv-player");
-    var title = document.getElementById("livetv-player-title");
-    var video = document.getElementById("livetv-video");
-    var msg = document.getElementById("livetv-player-msg");
-    if (!modal || !video) return;
+    var heroTitle = document.getElementById("livetv-hero-title");
+    var heroCat = document.getElementById("livetv-hero-cat");
+    var video = document.getElementById("livetv-hero-video");
+    var placeholder = document.getElementById("livetv-hero-placeholder");
+    var msg = document.getElementById("livetv-hero-msg");
+    var stage = document.getElementById("livetv-hero-stage");
 
-    if (title) title.textContent = ch.name || "Live TV";
+    if (!video) return;
+
+    if (heroTitle) heroTitle.textContent = ch.name || "Live Channel";
+    if (heroCat) heroCat.textContent = ch.category || "Live Stream";
+    if (placeholder) placeholder.hidden = true;
     if (msg) msg.hidden = true;
-    modal.hidden = false;
-    document.body.style.overflow = "hidden";
+
+    if (stage) stage.scrollIntoView({ behavior: "smooth", block: "nearest" });
 
     var cleanup = function () { if (state.hls) { try { state.hls.destroy(); } catch (e) { /* ignore */ } state.hls = null; } };
 
+    var streamUrl = ch.stream || ch.streamUrl;
     if (window.Hls && Hls.isSupported()) {
       cleanup();
       var hls = new Hls({
@@ -211,7 +223,7 @@
         backBufferLength: 30
       });
       state.hls = hls;
-      hls.loadSource(ch.stream);
+      hls.loadSource(streamUrl);
       hls.attachMedia(video);
       hls.on(Hls.Events.ERROR, function (evt, data) {
         if (!data || !data.fatal) return;
@@ -220,18 +232,17 @@
         } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
           hls.recoverMediaError();
         } else {
-          showPlayerMsg(msg, "This channel could not be played.");
+          showPlayerMsg(msg, "This channel stream is currently unavailable.");
           cleanup();
         }
       });
-      video.play().catch(function () { /* autoplay may be blocked; user can hit play */ });
+      video.play().catch(function () { /* autoplay handled */ });
     } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
-      /* Native HLS (Safari) - play the relayed playlist directly. */
       cleanup();
-      video.src = ch.stream;
-      video.play().catch(function () { /* same as above */ });
+      video.src = streamUrl;
+      video.play().catch(function () { /* autoplay handled */ });
     } else {
-      showPlayerMsg(msg, "This browser can't play live streams.");
+      showPlayerMsg(msg, "This browser can't play HLS live streams directly.");
     }
   }
 
@@ -375,6 +386,17 @@
       search.addEventListener("input", function () {
         state.q = search.value;
         renderGrid();
+      });
+    }
+
+    var fsBtn = document.getElementById("livetv-hero-fs-btn");
+    if (fsBtn) {
+      fsBtn.addEventListener("click", function () {
+        var video = document.getElementById("livetv-hero-video");
+        if (!video) return;
+        if (video.requestFullscreen) video.requestFullscreen();
+        else if (video.webkitRequestFullscreen) video.webkitRequestFullscreen();
+        else if (video.msRequestFullscreen) video.msRequestFullscreen();
       });
     }
 
