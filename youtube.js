@@ -125,6 +125,19 @@
 
   /* ---------- rendering ---------- */
 
+  function channelIdOf(item) {
+    var u = item && (item.uploaderUrl || "");
+    if (!u) return "";
+    var parts = String(u).split("/");
+    var last = parts[parts.length - 1] || "";
+    return /^UC[\w-]{10,}$/.test(last) ? last : "";
+  }
+
+  /* Each video card is a div that holds a main play button plus a separate
+     clickable creator button - nested <button>s are invalid, so the card is
+     a <div> and both actions are sibling <button>s. Clicking the channel
+     name jumps to that creator's page (subs, uploads, shorts, playlists,
+     other channels). */
   function videoCard(item) {
     var id = vidId(item);
     if (!id) return "";
@@ -133,16 +146,22 @@
     var views = fmtCount(item.views);
     var title = esc(item.title || "Untitled");
     var chan = esc(item.uploaderName || "");
-    return '<button class="yt-video" data-yt-id="' + esc(id) + '" data-yt-json="' + esc(JSON.stringify(item).replace(/"/g, "&quot;")) + '" type="button">' +
+    var cid = channelIdOf(item);
+    var chanBtn = cid
+      ? '<button class="yt-video-chan" data-yt-chan="' + esc(cid) + '" data-yt-chan-name="' + chan + '" type="button" title="Go to ' + chan + '">' + chan + (views ? ' · ' + views + " views" : "") + "</button>"
+      : '<span class="yt-video-chan">' + chan + (views ? ' · ' + views + " views" : "") + "</span>";
+    return '<div class="yt-video" data-yt-id="' + esc(id) + '" data-yt-json="' + esc(JSON.stringify(item).replace(/"/g, "&quot;")) + '">' +
+      '<button class="yt-video-main" type="button" data-yt-play>' +
       '<span class="yt-video-thumb">' +
         '<img src="' + thumbUrl(id) + '" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display=\'none\'">' +
         (live ? '<span class="yt-video-live">LIVE</span>' : (dur ? '<span class="yt-video-dur">' + dur + "</span>" : "")) +
       "</span>" +
       '<span class="yt-video-body">' +
         '<span class="yt-video-title">' + title + "</span>" +
-        '<span class="yt-video-chan">' + chan + (views ? ' &middot; ' + views + " views" : "") + "</span>" +
       "</span>" +
-    "</button>";
+      "</button>" +
+      '<span class="yt-video-chanrow">' + chanBtn + "</span>" +
+    "</div>";
   }
 
   function row(title, note, items, max) {
@@ -152,6 +171,18 @@
       '<div class="yt-block-head"><h2 class="yt-block-title">' + esc(title) + "</h2>" +
       (note ? '<span class="yt-block-note">' + esc(note) + "</span>" : "") + "</div>" +
       '<div class="yt-grid">' + cards + "</div></section>";
+  }
+
+  /* Shorts get a horizontal snap-scroll strip - the grid would squash their
+     9:16 frames. Falls back to a plain grid when scroll containers aren't
+     needed (tiny screens). */
+  function shortsRow(title, items, max) {
+    if (!items || !items.length) return "";
+    var cards = items.slice(0, max || 12).map(videoCard).join("");
+    return '<section class="yt-block">' +
+      '<div class="yt-block-head"><h2 class="yt-block-title">' + esc(title) + "</h2>" +
+      '<span class="yt-block-note">quick vertical clips</span></div>' +
+      '<div class="yt-shorts-strip">' + cards + "</div></section>";
   }
 
   function channelCard(ch) {
@@ -233,6 +264,18 @@
         }
         if (live.length) html += row("Live now", "happening this very moment", live, 8);
         html += row("Trending", "what everyone's watching today", trend, 12);
+        /* Shorts row: only real shorts (<= 61s verticals). Most Piped
+           instances return none right now, so the strip hides itself - it
+           shows up the moment the relay feeds shorts. */
+        var allVids = forYou.concat(trend);
+        var shorts = [];
+        var seenSh = {};
+        allVids.forEach(function (it) {
+          var d = Number(it.duration) || 0;
+          var id = vidId(it);
+          if (d > 0 && d <= 61 && id && !seenSh[id]) { seenSh[id] = true; shorts.push(it); }
+        });
+        html += shorts.length ? shortsRow("Shorts", shorts, 10) : "";
         html += channelsRow();
         home.innerHTML = html || '<div class="empty"><p class="empty-title">YouTube is off-line.</p><p class="empty-hint">The relay isn\'t answering right now. Try again in a moment.</p></div>';
         wireHome();
@@ -243,37 +286,145 @@
     });
   }
 
-  function wireHome() {
-    var box = els.home;
-    box.querySelectorAll("[data-yt-id]").forEach(function (btn) {
-      btn.addEventListener("click", function () {
+  /* New card layout: the div is the whole card, the main button plays, the
+     channel button opens the creator page. Also collects channel cards and
+     playlist cards that can appear in the same rendered blocks. */
+  function wireCards(box) {
+    box.querySelectorAll(".yt-video[data-yt-id]").forEach(function (card) {
+      var play = card.querySelector("[data-yt-play]");
+      if (play) play.addEventListener("click", function () {
         var item = null;
-        try { item = JSON.parse(btn.dataset.ytJson || "null"); } catch (e) { /* bad */ }
-        openVideo(btn.dataset.ytId, item);
+        try { item = JSON.parse(card.dataset.ytJson || "null"); } catch (e) { /* bad */ }
+        openVideo(card.dataset.ytId, item);
+      });
+      card.querySelectorAll("[data-yt-chan]").forEach(function (b) {
+        b.addEventListener("click", function (ev) {
+          ev.stopPropagation();
+          openChannel(b.dataset.ytChan, b.dataset.ytChanName);
+        });
       });
     });
     box.querySelectorAll("[data-yt-channel]").forEach(function (btn) {
       btn.addEventListener("click", function () { openChannel(btn.dataset.ytChannel, btn.dataset.ytName); });
     });
+    box.querySelectorAll("[data-yt-playlist]").forEach(function (btn) {
+      btn.addEventListener("click", function () { openPlaylist(btn.dataset.ytPlaylist); });
+    });
+  }
+
+  function wireHome() {
+    wireCards(els.home);
   }
 
   /* ---------- channel view ---------- */
 
+  /* A full creator page: header with avatar + subs + description, then rows
+     for latest uploads, shorts, playlists and other channels from the same
+     creator. Every row degrades gracefully when the relay has nothing. */
   function openChannel(cid, name) {
+    if (!cid) return;
     state.cat = "channel:" + cid;
     state.channelName = name || "Channel";
     render();
     var box = els.home;
     box.innerHTML = loadingHtml();
-    search("channel:" + cid, "videos").then(function (j) {
-      var items = (j.items || []).filter(function (it) { return (it.uploaderUrl || "").indexOf(cid) !== -1; });
-      if (!items.length) items = (j.items || []).slice(0, 12);
-      box.innerHTML = row(state.channelName || "Channel", "latest uploads", items, 24) ||
-        '<div class="empty"><p class="empty-title">No uploads found.</p></div>';
+
+    var profile = null;
+    var uploads = [], shorts = [], playlists = [], other = [];
+
+    Promise.all([
+      api("/yt/channel/" + encodeURIComponent(cid)).then(function (d) { profile = d; }).catch(function () { /* optional */ }),
+      search("channel:" + cid, "videos").then(function (j) {
+        uploads = (j.items || []).filter(function (it) { return (it.uploaderUrl || "").indexOf(cid) !== -1; });
+        if (!uploads.length) uploads = (j.items || []).slice(0, 12);
+      }).catch(function () { /* nothing */ }),
+      search("channel:" + cid, "shorts").then(function (j) {
+        shorts = (j.items || []).filter(function (it) { return (it.uploaderUrl || "").indexOf(cid) !== -1; });
+      }).catch(function () { /* nothing */ }),
+      search(name || cid, "playlists").then(function (j) {
+        playlists = (j.items || []).filter(function (it) {
+          return !cid || (it.uploaderUrl || "").indexOf(cid) !== -1;
+        });
+      }).catch(function () { /* nothing */ }),
+      search(name || cid, "channels").then(function (j) {
+        other = (j.items || []).filter(function (it) {
+          var otherId = String(it.url || "").split("/").pop() || "";
+          return otherId !== cid && /^UC[\w-]{10,}$/.test(otherId);
+        });
+      }).catch(function () { /* nothing */ })
+    ]).then(function () {
+      var p = profile || {};
+      var pname = esc(p.name || state.channelName || "Channel");
+      var avatar = p.avatarUrl
+        ? '<img class="yt-profile-ava-img" src="' + esc(p.avatarUrl) + '" alt="" referrerpolicy="no-referrer" onerror="this.remove()">'
+        : '<span class="yt-profile-ava-letter">' + esc((p.name || state.channelName || "?").charAt(0).toUpperCase()) + "</span>";
+      var subs = fmtCount(p.subscriberCount);
+      var desc = p.description ? esc(String(p.description).slice(0, 300)) : "";
+
+      var html = '<div class="yt-channel-page">' +
+        '<div class="yt-profile">' +
+          '<span class="yt-profile-ava">' + avatar + "</span>" +
+          '<div class="yt-profile-info">' +
+            '<h2 class="yt-profile-name">' + pname + "</h2>" +
+            '<span class="yt-profile-subs">' + (subs ? subs + " subscribers" : "channel") + "</span>" +
+            (desc ? '<p class="yt-profile-desc">' + desc + "</p>" : "") +
+          "</div>" +
+        "</div>" +
+        (uploads.length ? row("Latest uploads", pname, uploads, 12) : "") +
+        (shorts.length ? row("Shorts", "quick vertical clips", shorts, 12) : "") +
+        (playlists.length ? playlistsRow(playlists) : "") +
+        (other.length ? otherChannelsRow(other) : "") +
+        "</div>";
+      box.innerHTML = html || '<div class="empty"><p class="empty-title">Couldn\'t load that channel.</p></div>';
       wireHome();
     }).catch(function () {
       box.innerHTML = '<div class="empty"><p class="empty-title">Couldn\'t load that channel.</p></div>';
     });
+  }
+
+  function playlistCard(pl) {
+    var list = String(pl.url || "").match(/list=([\w-]+)/);
+    var lid = list ? list[1] : "";
+    var thumb = pl.thumbnail
+      ? '<img src="' + esc(pl.thumbnail) + '" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display=\'none\'">'
+      : '<span class="yt-play-letter">' + esc((pl.name || "?").charAt(0).toUpperCase()) + "</span>";
+    return '<button class="yt-playlist" data-yt-playlist="' + esc(pl.url || "") + '" data-yt-playlist-name="' + esc(pl.name || "Playlist") + '" type="button">' +
+      '<span class="yt-play-thumb">' + thumb + "</span>" +
+      '<span class="yt-play-body">' +
+        '<span class="yt-play-name">' + esc(pl.name || "Playlist") + "</span>" +
+        '<span class="yt-play-chan">' + esc(pl.uploaderName || "") + "</span>" +
+      "</span>" +
+    "</button>";
+  }
+
+  function playlistsRow(playlists) {
+    var cards = playlists.slice(0, 8).map(playlistCard).join("");
+    return '<section class="yt-block">' +
+      '<div class="yt-block-head"><h2 class="yt-block-title">Playlists</h2>' +
+      '<span class="yt-block-note">from this creator</span></div>' +
+      '<div class="yt-play-grid">' + cards + "</div></section>";
+  }
+
+  function otherChannelsRow(chans) {
+    /* search() items are plain objects, not the channel objects channelCard
+       expects - build the row from the search payload shape. */
+    var cards = chans.slice(0, 8).map(function (c) {
+      var oid = String(c.url || "").split("/").pop() || "";
+      var thumb = c.thumbnail
+        ? '<img src="' + esc(c.thumbnail) + '" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display=\'none\'">'
+        : '<span class="yt-chan-letter">' + esc((c.name || "?").charAt(0).toUpperCase()) + "</span>";
+      return '<button class="yt-channel" data-yt-channel="' + esc(oid) + '" data-yt-name="' + esc(c.name || "") + '" type="button">' +
+        '<span class="yt-chan-ava">' + thumb + "</span>" +
+        '<span class="yt-chan-body">' +
+          '<span class="yt-chan-name">' + esc(c.name || "") + "</span>" +
+          '<span class="yt-chan-subs">' + (c.subscriberCount ? fmtCount(c.subscriberCount) + " subscribers" : "channel") + "</span>" +
+        "</span>" +
+      "</button>";
+    }).join("");
+    return '<section class="yt-block">' +
+      '<div class="yt-block-head"><h2 class="yt-block-title">More from</h2>' +
+      '<span class="yt-block-note">other channels by this creator</span></div>' +
+      '<div class="yt-chan-grid">' + cards + "</div></section>";
   }
 
   /* ---------- search / categories ---------- */
@@ -336,17 +487,7 @@
   }
 
   function wireResults() {
-    var box = els.results;
-    box.querySelectorAll("[data-yt-id]").forEach(function (btn) {
-      btn.addEventListener("click", function () {
-        var item = null;
-        try { item = JSON.parse(btn.dataset.ytJson || "null"); } catch (e) { /* bad */ }
-        openVideo(btn.dataset.ytId, item);
-      });
-    });
-    box.querySelectorAll("[data-yt-channel]").forEach(function (btn) {
-      btn.addEventListener("click", function () { openChannel(btn.dataset.ytChannel, btn.dataset.ytName); });
-    });
+    wireCards(els.results);
   }
 
   /* ---------- player ---------- */
@@ -363,6 +504,30 @@
       "?autoplay=1&rel=0&modestbranding=1";
     els.player.hidden = false;
     document.body.classList.add("no-scroll");
+  }
+
+  /* Playlists play through the official playlist embed (videoseries) - it
+     handles the list param same as the video embed, so no extra relay work. */
+  function openPlaylist(url) {
+    var list = String(url || "").match(/[?&]list=([\w-]+)/);
+    if (!list) { notice("That playlist can't be loaded right now."); return; }
+    els.playerTitle.textContent = "Playlist";
+    els.playerSub.textContent = "";
+    els.frame.src = "https://www.youtube-nocookie.com/embed/videoseries?list=" +
+      encodeURIComponent(list[1]) + "&autoplay=1&rel=0";
+    els.player.hidden = false;
+    document.body.classList.add("no-scroll");
+  }
+
+  function notice(msg) {
+    var box = document.getElementById("toast-box");
+    if (!box) return;
+    var t = document.createElement("div");
+    t.className = "toast";
+    t.textContent = msg;
+    box.appendChild(t);
+    setTimeout(function () { t.classList.add("is-out"); }, 2200);
+    setTimeout(function () { if (t.parentNode) t.parentNode.removeChild(t); }, 2700);
   }
 
   function closePlayer() {
