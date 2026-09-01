@@ -60,7 +60,8 @@
   }
 
   function thumbUrl(id) {
-    return "/yt/thumb?u=" + btoa("https://i.ytimg.com/vi/" + id + "/hqdefault.jpg").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+    var path = "/yt/thumb?u=" + btoa("https://i.ytimg.com/vi/" + id + "/hqdefault.jpg").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+    return window.ChalkleApi ? window.ChalkleApi.url(path) : path;
   }
 
   function isLive(item) {
@@ -109,7 +110,8 @@
   /* ---------- api ---------- */
 
   function api(path) {
-    return fetch(path, { cache: "no-store" }).then(function (r) {
+    var url = window.ChalkleApi ? window.ChalkleApi.url(path) : path;
+    return fetch(url, { cache: "no-store" }).then(function (r) {
       if (!r.ok) throw new Error("http " + r.status);
       return r.json();
     });

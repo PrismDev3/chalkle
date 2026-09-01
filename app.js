@@ -533,7 +533,7 @@
   function closeMoreNav() {
     var panel = document.getElementById("nav-more");
     var btn = document.getElementById("nav-more-btn");
-    if (panel) panel.classList.remove("is-open");
+    if (panel) { panel.classList.remove("is-open"); panel.hidden = true; }
     if (btn) { btn.classList.remove("is-open"); btn.setAttribute("aria-expanded", "false"); }
   }
 
