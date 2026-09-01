@@ -55,8 +55,13 @@
   }
 
   function api(p) {
-    var q = Object.keys(p).map(function (k) {
-      return encodeURIComponent(k) + "=" + encodeURIComponent(p[k]);
+    /* Non-Chinese provider: the relay's server=youtube path serves search /
+       url / pic from the Piped YouTube backend (the same one powering the
+       YouTube tab), so nothing here hits netease anymore. Search results
+       come back sorted most popular first (views desc). */
+    var params = Object.assign({ server: "youtube" }, p);
+    var q = Object.keys(params).map(function (k) {
+      return encodeURIComponent(k) + "=" + encodeURIComponent(params[k]);
     }).join("&");
     return "/music/api?" + q;
   }
@@ -166,13 +171,29 @@
     });
   }
 
+  // A few popular artists whose YouTube searches reliably return real songs
+  // (the relay filters out compilations, so "top hits" style queries are
+  // mostly >10min mixes and come back empty). Merged + sorted by views.
+  var CHART_QUERIES = ["drake", "taylor swift", "the weeknd", "kendrick lamar", "bad bunny", "billie eilish", "kanye west", "ariana grande"];
+
   function renderHome() {
     setPage("home");
     els.home.innerHTML = '<p class="empty-title">Loading…</p>';
-    // One playlist gates the home view (fast); the chart cards load on tap.
-    getJSON(api({ path: "playlist", id: "3778678" }))
-      .then(function (list) {
-        var tracks = Array.isArray(list) ? list : [];
+    Promise.all(CHART_QUERIES.map(function (q) {
+      return getJSON(api({ path: "search", q: q, limit: 10 })).catch(function () { return { items: [] }; });
+    }))
+      .then(function (replies) {
+        var seen = {};
+        var tracks = [];
+        replies.forEach(function (j) {
+          (j && j.items ? j.items : []).forEach(function (t) {
+            if (!t || !t.id || seen[t.id]) return;
+            seen[t.id] = 1;
+            tracks.push(t);
+          });
+        });
+        // Most popular to least, always - row 1 is the biggest track.
+        tracks.sort(function (a, b) { return (b.views || 0) - (a.views || 0); });
         if (!tracks.length) throw new Error("empty");
         var hot = tracks.slice(0, 20);
         hot.forEach(function (t, i) {
@@ -181,14 +202,7 @@
           metaIndex[t._key] = t;
         });
         var html =
-          '<div class="mstory-head"><span class="mstory-title">Charts</span><span class="mstory-sub">tap one to open</span></div>' +
-          '<div class="mrail">' + CHARTS.map(function (c) {
-            return '<div class="mpl-card" data-mpl="' + c.id + '">' +
-              '<div class="mpl-art"><span class="thumb-letter">\u266a</span></div>' +
-              '<div class="mpl-name">' + esc(c.name) + "</div>" +
-              '<div class="mpl-sub">chart</div></div>';
-          }).join("") + "</div>" +
-          '<div class="mstory-head"><span class="mstory-title">Hot right now</span><span class="mstory-sub">tap a song to play</span></div>' +
+          '<div class="mstory-head"><span class="mstory-title">Most popular</span><span class="mstory-sub">worldwide right now</span></div>' +
           hot.map(function (t, i) { return rowHtml(t, i, "chart"); }).join("");
         els.home.innerHTML = html;
         bindListClicks();
@@ -196,7 +210,7 @@
       })
       .catch(function () {
         els.home.innerHTML = "";
-        showEmpty("Music is off-line", "The netease source isn't answering right now - try again in a minute.");
+        showEmpty("Music is off-line", "The music source isn't answering right now - try again in a minute.");
       });
   }
 
@@ -245,8 +259,12 @@
   function showSearch(q) {
     setPage("search");
     els.results.innerHTML = '<p class="empty-title">Searching…</p>';
-    getJSON(api({ path: "search", q: q, limit: 40 })).then(function (list) {
-      if (!Array.isArray(list) || !list.length) {
+    getJSON(api({ path: "search", q: q, limit: 40 })).then(function (j) {
+      var list = (j && j.items) ? j.items.slice() : (Array.isArray(j) ? j.slice() : []);
+      /* Most popular to least, always - the relay sorts too, but re-sorting
+         here keeps the order correct even against a cached unsorted reply. */
+      list.sort(function (a, b) { return (b.views || 0) - (a.views || 0); });
+      if (!list.length) {
         els.results.innerHTML = "";
         showEmpty("Nothing found", "Try a different spelling or a shorter name.");
         return;
@@ -344,7 +362,7 @@
       .then(function (d) {
         var u = (d && d.url) || "";
         if (!u) {
-          toast('"' + meta.name + '" is not available on netease');
+          toast('"' + meta.name + '" is not available on YouTube music');
           setTimeout(function () { next(true); }, 1200);
           return;
         }
