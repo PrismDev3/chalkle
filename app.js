@@ -2259,6 +2259,33 @@
 
     /* Settings options */
 
+    /* Collapsible settings panels. Open state persists per panel. */
+    var SETTINGS_OPEN_KEY = "chalkle-settings-open-v1";
+    function settingsOpenMap() {
+      try { return JSON.parse(localStorage.getItem(SETTINGS_OPEN_KEY) || "{}"); }
+      catch (e) { return {}; }
+    }
+    document.querySelectorAll(".settings-panel").forEach(function (panel) {
+      var toggle = panel.querySelector(".settings-toggle");
+      var body = panel.querySelector(".settings-body");
+      if (!toggle || !body) return;
+      var key = panel.dataset.settingsPanel;
+      var openMap = settingsOpenMap();
+      var isOpen = openMap[key] !== undefined ? !!openMap[key] : toggle.getAttribute("aria-expanded") === "true";
+      toggle.setAttribute("aria-expanded", isOpen ? "true" : "false");
+      body.hidden = !isOpen;
+      panel.classList.toggle("is-open", isOpen);
+      toggle.addEventListener("click", function () {
+        var next = body.hidden;
+        body.hidden = !next;
+        panel.classList.toggle("is-open", next);
+        toggle.setAttribute("aria-expanded", next ? "true" : "false");
+        var m = settingsOpenMap();
+        m[key] = next;
+        try { localStorage.setItem(SETTINGS_OPEN_KEY, JSON.stringify(m)); } catch (e) { /* full */ }
+      });
+    });
+
     var motion = $("#opt-motion");
     if (motion) {
       motion.addEventListener("change", function () {

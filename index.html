@@ -11,8 +11,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Boogaloo&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
   <link rel="preload" as="image" href="bg-chalk.webp" fetchpriority="high">
-  <link rel="stylesheet" href="styles.css?v=20260830a">
-  <link rel="stylesheet" href="livetv-cards.css?v=1">
+  <link rel="stylesheet" href="styles.css?v=20260901a">
   <script src="theme.js"></script>
 </head>
 <body>
@@ -971,189 +970,213 @@
 
           <div class="settings-grid">
             <!-- Appearance: colors + quick themes (full width) -->
-            <div class="panel settings-card settings-card-wide">
-              <div class="settings-head">
-                <h2 class="panel-title">Appearance</h2>
-                <span class="panel-chip">make it yours</span>
-              </div>
-              <p class="settings-note">Pick your own colors and quick themes. Everything is saved on this device and applies instantly.</p>
-              <div class="settings-block">
-                <div class="settings-block-label">Colors</div>
-                <p class="settings-block-hint">Background + accent. Light backgrounds switch the whole theme to light mode</p>
-                <div class="theme-color-row">
-                  <label class="theme-color-field">
-                    <span>Background</span>
-                    <input type="color" id="opt-theme-bg" value="#0d0f12" aria-label="Background color">
-                  </label>
-                  <label class="theme-color-field">
-                    <span>Accent</span>
-                    <input type="color" id="opt-theme-accent" value="#34a853" aria-label="Accent color">
-                  </label>
-                  <div class="theme-actions">
-                    <button class="btn-theme" id="opt-theme-reset">Reset colors</button>
+            <div class="panel settings-card settings-card-wide settings-panel" data-settings-panel="appearance">
+              <button class="settings-toggle" type="button" aria-expanded="true" aria-controls="settings-body-appearance">
+                <span class="settings-toggle-txt">
+                  <span class="settings-toggle-title">Appearance</span>
+                  <span class="settings-toggle-sub">colors, wallpaper, cursor</span>
+                </span>
+                <svg class="icon settings-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9.5l6 6 6-6"/></svg>
+              </button>
+              <div class="settings-body" id="settings-body-appearance">
+                <p class="settings-note">Pick your own colors and quick themes. Everything is saved on this device and applies instantly.</p>
+                <div class="settings-block">
+                  <div class="settings-block-label">Colors</div>
+                  <p class="settings-block-hint">Background + accent. Light backgrounds switch the whole theme to light mode</p>
+                  <div class="theme-color-row">
+                    <label class="theme-color-field">
+                      <span>Background</span>
+                      <input type="color" id="opt-theme-bg" value="#0d0f12" aria-label="Background color">
+                    </label>
+                    <label class="theme-color-field">
+                      <span>Accent</span>
+                      <input type="color" id="opt-theme-accent" value="#34a853" aria-label="Accent color">
+                    </label>
+                    <div class="theme-actions">
+                      <button class="btn-theme" id="opt-theme-reset">Reset colors</button>
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div class="settings-block">
-                <div class="settings-block-label">Quick themes</div>
-                <p class="settings-block-hint">One-click palettes with background + accent together</p>
-                <div class="preset-grid" id="preset-grid"></div>
-              </div>
-            </div>
-
-            <!-- Wallpaper + cursor -->
-            <div class="panel settings-card">
-              <div class="settings-head">
-                <h2 class="panel-title">Wallpaper</h2>
-                <span class="panel-chip">backdrop</span>
-              </div>
-              <p class="settings-note">Gradient presets or your own image URL.</p>
-              <div class="wallpaper-grid" id="wallpaper-grid"></div>
-              <div class="theme-custom-row">
-                <input class="field" id="opt-wallpaper-url" type="url" placeholder="https://… image URL" aria-label="Custom wallpaper URL">
-                <button class="btn-theme" id="opt-wallpaper-apply">Apply</button>
-              </div>
-            </div>
-
-            <div class="panel settings-card">
-              <div class="settings-head">
-                <h2 class="panel-title">Cursor</h2>
-                <span class="panel-chip">personality</span>
-              </div>
-              <p class="settings-note">A little personality, everywhere.</p>
-              <div class="cursor-grid" id="cursor-grid"></div>
-            </div>
-
-            <!-- Cloud gaming -->
-            <div class="panel settings-card">
-              <div class="settings-head">
-                <h2 class="panel-title">Cloud gaming</h2>
-                <span class="panel-chip">stratus</span>
-              </div>
-              <p class="settings-note">Cloud games stream from a Stratus server. Blank server URL uses the built-in relay on this site, which forwards to a local Stratus.</p>
-              <div class="settings-block">
-                <div class="settings-block-label">Stratus server</div>
-                <p class="settings-block-hint">Full URL like http://localhost:3001, or empty for the built-in relay</p>
-                <input class="field" id="cloud-cfg-base" type="url" placeholder="http://localhost:3001" autocomplete="off" spellcheck="false" aria-label="Stratus server URL">
-              </div>
-              <div class="settings-block">
-                <div class="settings-block-label">API key</div>
-                <p class="settings-block-hint">Optional. The built-in relay sends its own key when this is empty</p>
-                <input class="field" id="cloud-cfg-key" type="password" placeholder="sk_..." autocomplete="off" spellcheck="false" aria-label="Stratus API key">
-              </div>
-              <div class="settings-block">
-                <button class="btn-theme" id="cloud-cfg-save">Save cloud settings</button>
-                <span class="cloud-cfg-saved" id="cloud-cfg-saved" hidden>Saved</span>
+                <div class="settings-block">
+                  <div class="settings-block-label">Quick themes</div>
+                  <p class="settings-block-hint">One-click palettes with background + accent together</p>
+                  <div class="preset-grid" id="preset-grid"></div>
+                </div>
+                <div class="settings-block">
+                  <div class="settings-block-label">Wallpaper</div>
+                  <p class="settings-block-hint">Gradient presets or your own image URL</p>
+                  <div class="wallpaper-grid" id="wallpaper-grid"></div>
+                  <div class="theme-custom-row">
+                    <input class="field" id="opt-wallpaper-url" type="url" placeholder="https://… image URL" aria-label="Custom wallpaper URL">
+                    <button class="btn-theme" id="opt-wallpaper-apply">Apply</button>
+                  </div>
+                </div>
+                <div class="settings-block">
+                  <div class="settings-block-label">Cursor</div>
+                  <p class="settings-block-hint">A little personality, everywhere</p>
+                  <div class="cursor-grid" id="cursor-grid"></div>
+                </div>
               </div>
             </div>
 
             <!-- Display -->
-            <div class="panel settings-card">
-              <div class="settings-head">
-                <h2 class="panel-title">Display</h2>
-                <span class="panel-chip">clock &amp; size</span>
-              </div>
-              <div class="settings-row">
-                <div class="settings-row-txt">
-                  <span class="setting-name">Reduce motion</span>
-                  <span class="setting-hint">Turn off animations</span>
+            <div class="panel settings-card settings-panel" data-settings-panel="display">
+              <button class="settings-toggle" type="button" aria-expanded="true" aria-controls="settings-body-display">
+                <span class="settings-toggle-txt">
+                  <span class="settings-toggle-title">Display</span>
+                  <span class="settings-toggle-sub">motion, card size, clock</span>
+                </span>
+                <svg class="icon settings-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9.5l6 6 6-6"/></svg>
+              </button>
+              <div class="settings-body" id="settings-body-display">
+                <div class="settings-row">
+                  <div class="settings-row-txt">
+                    <span class="setting-name">Reduce motion</span>
+                    <span class="setting-hint">Turn off animations</span>
+                  </div>
+                  <label class="switch">
+                    <input type="checkbox" id="opt-motion">
+                    <span class="track" aria-hidden="true"></span>
+                  </label>
                 </div>
-                <label class="switch">
-                  <input type="checkbox" id="opt-motion">
-                  <span class="track" aria-hidden="true"></span>
-                </label>
-              </div>
-              <div class="settings-row">
-                <div class="settings-row-txt">
-                  <span class="setting-name">Card size</span>
-                  <span class="setting-hint">How much each tile breathes</span>
+                <div class="settings-row">
+                  <div class="settings-row-txt">
+                    <span class="setting-name">Card size</span>
+                    <span class="setting-hint">How much each tile breathes</span>
+                  </div>
+                  <div class="seg" role="group" aria-label="Card size">
+                    <button class="seg-btn" data-size="comfortable">Comfortable</button>
+                    <button class="seg-btn" data-size="compact">Compact</button>
+                  </div>
                 </div>
-                <div class="seg" role="group" aria-label="Card size">
-                  <button class="seg-btn" data-size="comfortable">Comfortable</button>
-                  <button class="seg-btn" data-size="compact">Compact</button>
+                <div class="settings-row">
+                  <div class="settings-row-txt">
+                    <span class="setting-name">Military time (24h)</span>
+                    <span class="setting-hint">Top bar clock format</span>
+                  </div>
+                  <label class="switch">
+                    <input type="checkbox" id="opt-clock-military">
+                    <span class="track" aria-hidden="true"></span>
+                  </label>
                 </div>
-              </div>
-              <div class="settings-row">
-                <div class="settings-row-txt">
-                  <span class="setting-name">Military time (24h)</span>
-                  <span class="setting-hint">Top bar clock format</span>
-                </div>
-                <label class="switch">
-                  <input type="checkbox" id="opt-clock-military">
-                  <span class="track" aria-hidden="true"></span>
-                </label>
-              </div>
-              <div class="settings-row">
-                <div class="settings-row-txt">
-                  <span class="setting-name">Show time parts</span>
-                  <span class="setting-hint">Toggle hours, minutes, seconds</span>
-                </div>
-                <div class="chip-row" id="clock-parts">
-                  <label class="chip"><input type="checkbox" id="opt-clock-h" checked><span>Hours</span></label>
-                  <label class="chip"><input type="checkbox" id="opt-clock-m" checked><span>Minutes</span></label>
-                  <label class="chip"><input type="checkbox" id="opt-clock-s" checked><span>Seconds</span></label>
+                <div class="settings-row">
+                  <div class="settings-row-txt">
+                    <span class="setting-name">Show time parts</span>
+                    <span class="setting-hint">Toggle hours, minutes, seconds</span>
+                  </div>
+                  <div class="chip-row" id="clock-parts">
+                    <label class="chip"><input type="checkbox" id="opt-clock-h" checked><span>Hours</span></label>
+                    <label class="chip"><input type="checkbox" id="opt-clock-m" checked><span>Minutes</span></label>
+                    <label class="chip"><input type="checkbox" id="opt-clock-s" checked><span>Seconds</span></label>
+                  </div>
                 </div>
               </div>
             </div>
 
             <!-- Launches -->
-            <div class="panel settings-card">
-              <div class="settings-head">
-                <h2 class="panel-title">Launches</h2>
-                <span class="panel-chip">open &amp; cloak</span>
-              </div>
-              <div class="settings-row">
-                <div class="settings-row-txt">
-                  <span class="setting-name">Ask before launching</span>
-                  <span class="setting-hint">Pick a method each time</span>
+            <div class="panel settings-card settings-panel" data-settings-panel="launches">
+              <button class="settings-toggle" type="button" aria-expanded="true" aria-controls="settings-body-launches">
+                <span class="settings-toggle-txt">
+                  <span class="settings-toggle-title">Launches</span>
+                  <span class="settings-toggle-sub">open method, cloak title</span>
+                </span>
+                <svg class="icon settings-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9.5l6 6 6-6"/></svg>
+              </button>
+              <div class="settings-body" id="settings-body-launches">
+                <div class="settings-row">
+                  <div class="settings-row-txt">
+                    <span class="setting-name">Ask before launching</span>
+                    <span class="setting-hint">Pick a method each time</span>
+                  </div>
+                  <label class="switch">
+                    <input type="checkbox" id="opt-ask">
+                    <span class="track" aria-hidden="true"></span>
+                  </label>
                 </div>
-                <label class="switch">
-                  <input type="checkbox" id="opt-ask">
-                  <span class="track" aria-hidden="true"></span>
-                </label>
-              </div>
-              <div class="settings-row">
-                <div class="settings-row-txt">
-                  <span class="setting-name">Default open method</span>
-                  <span class="setting-hint">When you don&rsquo;t ask</span>
+                <div class="settings-row">
+                  <div class="settings-row-txt">
+                    <span class="setting-name">Default open method</span>
+                    <span class="setting-hint">When you don&rsquo;t ask</span>
+                  </div>
+                  <select class="field field-mode settings-select" id="opt-default-mode" aria-label="Default open method">
+                    <option value="ask">Ask each time</option>
+                    <option value="direct">Direct</option>
+                    <option value="aboutblank">About:blank</option>
+                    <option value="blob">Blob</option>
+                    <option value="dataurl">Data URL</option>
+                    <option value="iframe">This tab</option>
+                    <option value="proxy">Proxy</option>
+                  </select>
                 </div>
-                <select class="field field-mode settings-select" id="opt-default-mode" aria-label="Default open method">
-                  <option value="ask">Ask each time</option>
-                  <option value="direct">Direct</option>
-                  <option value="aboutblank">About:blank</option>
-                  <option value="blob">Blob</option>
-                  <option value="dataurl">Data URL</option>
-                  <option value="iframe">This tab</option>
-                  <option value="proxy">Proxy</option>
-                </select>
-              </div>
-              <div class="settings-row">
-                <div class="settings-row-txt">
-                  <span class="setting-name">Cloak tab title</span>
-                  <span class="setting-hint">Shown in the address bar trick</span>
+                <div class="settings-row">
+                  <div class="settings-row-txt">
+                    <span class="setting-name">Cloak tab title</span>
+                    <span class="setting-hint">Shown in the address bar trick</span>
+                  </div>
+                  <input class="field field-name settings-input" id="opt-cloak-title" type="text" placeholder="Classes" maxlength="40" aria-label="Cloak tab title">
                 </div>
-                <input class="field field-name settings-input" id="opt-cloak-title" type="text" placeholder="Classes" maxlength="40" aria-label="Cloak tab title">
               </div>
             </div>
 
-            <!-- Saved proxies -->
-            <div class="panel settings-card" id="settings-proxy-row">
-              <div class="settings-head">
-                <h2 class="panel-title">Saved proxies</h2>
-                <button class="btn-danger" id="opt-clear">Clear list</button>
+            <!-- Cloud gaming (advanced, collapsed by default) -->
+            <div class="panel settings-card settings-panel" data-settings-panel="cloud">
+              <button class="settings-toggle" type="button" aria-expanded="false" aria-controls="settings-body-cloud">
+                <span class="settings-toggle-txt">
+                  <span class="settings-toggle-title">Cloud gaming</span>
+                  <span class="settings-toggle-sub">Stratus server + API key</span>
+                </span>
+                <svg class="icon settings-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9.5l6 6 6-6"/></svg>
+              </button>
+              <div class="settings-body" id="settings-body-cloud" hidden>
+                <p class="settings-note">Cloud games stream from a Stratus server. Blank server URL uses the built-in relay on this site, which forwards to a local Stratus.</p>
+                <div class="settings-block">
+                  <div class="settings-block-label">Stratus server</div>
+                  <p class="settings-block-hint">Full URL like http://localhost:3001, or empty for the built-in relay</p>
+                  <input class="field" id="cloud-cfg-base" type="url" placeholder="http://localhost:3001" autocomplete="off" spellcheck="false" aria-label="Stratus server URL">
+                </div>
+                <div class="settings-block">
+                  <div class="settings-block-label">API key</div>
+                  <p class="settings-block-hint">Optional. The built-in relay sends its own key when this is empty</p>
+                  <input class="field" id="cloud-cfg-key" type="password" placeholder="sk_..." autocomplete="off" spellcheck="false" aria-label="Stratus API key">
+                </div>
+                <div class="settings-block">
+                  <button class="btn-theme" id="cloud-cfg-save">Save cloud settings</button>
+                  <span class="cloud-cfg-saved" id="cloud-cfg-saved" hidden>Saved</span>
+                </div>
               </div>
-              <p class="settings-note">Click a proxy to open it.</p>
-              <div class="proxy-links" id="settings-proxy-list"></div>
             </div>
 
-            <!-- Cloak tab -->
-            <div class="panel settings-card settings-card-wide">
-              <div class="settings-head">
-                <h2 class="panel-title">Cloak tab</h2>
-                <span class="panel-chip">quick disguise</span>
+            <!-- Saved proxies (advanced, collapsed by default) -->
+            <div class="panel settings-card settings-panel" id="settings-proxy-row" data-settings-panel="proxies">
+              <button class="settings-toggle" type="button" aria-expanded="false" aria-controls="settings-body-proxies">
+                <span class="settings-toggle-txt">
+                  <span class="settings-toggle-title">Saved proxies</span>
+                  <span class="settings-toggle-sub">your proxy list</span>
+                </span>
+                <svg class="icon settings-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9.5l6 6 6-6"/></svg>
+              </button>
+              <div class="settings-body" id="settings-body-proxies" hidden>
+                <p class="settings-note">Click a proxy to open it.</p>
+                <div class="proxy-links" id="settings-proxy-list"></div>
+                <div class="settings-block">
+                  <button class="btn-danger" id="opt-clear">Clear list</button>
+                </div>
               </div>
-              <p class="settings-note">Change this tab&rsquo;s title and icon with one click.</p>
-              <div class="cloak-grid" id="cloak-grid"></div>
+            </div>
+
+            <!-- Cloak tab (advanced, collapsed by default) -->
+            <div class="panel settings-card settings-card-wide settings-panel" data-settings-panel="cloak">
+              <button class="settings-toggle" type="button" aria-expanded="false" aria-controls="settings-body-cloak">
+                <span class="settings-toggle-txt">
+                  <span class="settings-toggle-title">Cloak tab</span>
+                  <span class="settings-toggle-sub">quick disguise</span>
+                </span>
+                <svg class="icon settings-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9.5l6 6 6-6"/></svg>
+              </button>
+              <div class="settings-body" id="settings-body-cloak" hidden>
+                <p class="settings-note">Change this tab&rsquo;s title and icon with one click.</p>
+                <div class="cloak-grid" id="cloak-grid"></div>
+              </div>
             </div>
 
             <!-- About -->
