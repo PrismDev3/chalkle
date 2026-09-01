@@ -20,6 +20,7 @@ echo [%date% %time%] Chalkle keeper starting >> "%LOG%"
 
 :LOOP
 call :check_server
+call :check_music
 call :check_tunnel
 timeout /t 20 /nobreak >nul 2>&1
 goto LOOP
@@ -31,6 +32,19 @@ set /p srv=<"%TEMP%\ck-srv.txt"
 if "%srv%"=="200" goto :eof
 echo [%date% %time%] server down (was %%srv%%), starting >> "%LOG%"
 start "Chalkle server" /MIN "%PY%" "%~dp0serve-chalk.py"
+goto :eof
+
+rem ---- music backend on :3004 (node, needed for the Music tab) ----
+:check_music
+curl -s -o nul -w "%%{http_code}" --max-time 3 http://127.0.0.1:3004/health > "%TEMP%\ck-mus.txt" 2>nul
+set /p mus=<"%TEMP%\ck-mus.txt"
+if "%mus%"=="200" goto :eof
+if not "%mus%"=="200" (
+  echo [%date% %time%] music backend down, starting >> "%LOG%"
+  cd /d "%~dp0music-backend"
+  start "Chalkle music" /MIN node server.mjs
+  cd /d "%~dp0"
+)
 goto :eof
 
 rem ---- named tunnel for lootline.xyz ----

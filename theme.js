@@ -37,12 +37,13 @@
     "cat-black": { label: "black cat", css: "url('/assets/cursors/cursor-cat-black.png') 32 32, auto", preview: "/assets/cursors/cursor-cat-black.png" },
     interference: { label: "interference", css: "url('/assets/cursors/cursor-interference.png') 15 2, auto", pointer: "url('/assets/cursors/cursor-interference-pointer.png') 5 2, pointer", preview: "/assets/cursors/cursor-interference.png" },
     kyro: { label: "kyro", css: "url('/assets/cursors/cursor-kyro.png') 24 24, auto", preview: "/assets/cursors/cursor-kyro.png" },
-    neoos: { label: "NEO OS", css: "url('/assets/cursors/cursor-neoos.png') 24 24, auto", preview: "/assets/cursors/cursor-neoos.png" },
-    godlylinks: { label: "Godly Links", css: "url('/assets/cursors/cursor-godlylinks.png') 24 23, auto", preview: "/assets/cursors/cursor-godlylinks.png" },
-    projectbugs: { label: "Project Bugs", css: "url('/assets/cursors/cursor-projectbugs.png') 24 24, auto", preview: "/assets/cursors/cursor-projectbugs.png" },
-    frosted: { label: "Frosted", css: "url('/assets/cursors/cursor-frosted.png') 24 24, auto", preview: "/assets/cursors/cursor-frosted.png" },
-    p2pgames: { label: "P2P Games", css: "url('/assets/cursors/cursor-p2pgames.png') 24 23, auto", preview: "/assets/cursors/cursor-p2pgames.png" },
-    sv: { label: "S.V", css: "url('/assets/cursors/cursor-sv.png') 24 24, auto", preview: "/assets/cursors/cursor-sv.png" },
+    neoos: { label: "neo os", css: "url('/assets/cursors/cursor-neoos.png') 24 24, auto", preview: "/assets/cursors/cursor-neoos.png" },
+    godlylinks: { label: "godly links", css: "url('/assets/cursors/cursor-godlylinks.png') 24 23, auto", preview: "/assets/cursors/cursor-godlylinks.png" },
+    projectbugs: { label: "project bugs", css: "url('/assets/cursors/cursor-projectbugs.png') 24 24, auto", preview: "/assets/cursors/cursor-projectbugs.png" },
+    frosted: { label: "frosted", css: "url('/assets/cursors/cursor-frosted.png') 24 24, auto", preview: "/assets/cursors/cursor-frosted.png" },
+    p2pgames: { label: "p2p games", css: "url('/assets/cursors/cursor-p2pgames.png') 24 23, auto", preview: "/assets/cursors/cursor-p2pgames.png" },
+    sv: { label: "s.v", css: "url('/assets/cursors/cursor-sv.png') 24 24, auto", preview: "/assets/cursors/cursor-sv.png" },
+    anko: { label: "anko", css: "url('/assets/cursors/cursor-anko.png') 24 24, auto", preview: "/assets/cursors/cursor-anko.png" },
     none: { label: "default", css: "auto", preview: null }
   };
 
