@@ -10,7 +10,12 @@
 import { readFileSync, existsSync } from "node:fs";
 
 const FILES = ["app.js", "music.js", "intro.js", "games.js", "proxies.js"];
-const DYNAMIC_IDS = new Set(["state-retry"]); /* created at runtime */
+const DYNAMIC_IDS = new Set([
+  "state-retry",       /* created at runtime */
+  "grid-show-more",    /* created at runtime (library render cap) */
+  "home-featured",     /* guarded block; container removed from home HTML */
+  "home-youtube-recs"  /* guarded block; container removed from home HTML */
+]);
 
 let ok = true;
 const report = (pass, msg) => {

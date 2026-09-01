@@ -777,20 +777,6 @@ body.sidebar-collapsed .collapse-btn:active { transform: scale(0.96); }
    stays below real phone widths. The rail state is never permanently stuck:
    the collapse button becomes a floating, labeled Expand pill that always
    juts out of the rail (see .sidebar-collapsed rules above). */
-@media (max-width: 768px) {
-  .sidebar { width: var(--side-w-collapsed); }
-  .brand { width: var(--side-w-collapsed); }
-  .brand-mark { display: none; }
-  .topbar-spacer { width: var(--side-w-collapsed); }
-  .nav-item, .collapse-btn { justify-content: center; padding: 0; }
-  .nav-label { display: none; }
-  .nav-socials { flex-direction: column; }
-  .nav-more-label { display: none; }
-  .nav-more .nav-item { justify-content: center; padding: 0; }
-  .nav-more .nav-label { display: none; }
-  .collapse-btn .icon { transform: rotate(180deg); }
-}
-
 @media (max-width: 480px) {
   .sidebar { width: var(--side-w-collapsed); }
   .brand { width: var(--side-w-collapsed); }
@@ -895,7 +881,7 @@ body.sidebar-collapsed .collapse-btn:active { transform: scale(0.96); }
   max-width: none;
   display: flex;
   flex-direction: column;
-  gap: 40px;
+  gap: 26px;
 }
 
 .home-hero {
@@ -916,10 +902,10 @@ body.sidebar-collapsed .collapse-btn:active { transform: scale(0.96); }
 
 .home-logo {
   display: block;
-  font-size: clamp(64px, 12vw, 128px);
+  font-size: clamp(42px, 6vw, 72px);
   line-height: 0.9;
   letter-spacing: 0.02em;
-  margin-bottom: 18px;
+  margin-bottom: 8px;
   -webkit-user-select: none;
   user-select: none;
   transform: rotate(-1.5deg);
@@ -935,45 +921,45 @@ body.sidebar-collapsed .collapse-btn:active { transform: scale(0.96); }
   display: inline-flex;
   align-items: center;
   font-family: var(--display);
-  font-size: 12px;
+  font-size: 11.5px;
   text-transform: uppercase;
   letter-spacing: 0.18em;
   color: var(--pink);
-  margin-bottom: 14px;
+  margin-bottom: 7px;
 }
 
 .home-title {
   margin: 0;
   font-family: var(--display);
-  font-size: clamp(34px, 5vw, 60px);
-  line-height: 1.02;
+  font-size: clamp(25px, 3.3vw, 40px);
+  line-height: 1.04;
   letter-spacing: -0.04em;
-  max-width: 11ch;
+  max-width: 16ch;
   padding-bottom: 2px;
 }
 
 .home-text {
-  margin: 16px 0 0;
+  margin: 10px 0 0;
   max-width: 56ch;
   color: var(--text-2);
-  font-size: 17px;
-  line-height: 1.6;
+  font-size: 15px;
+  line-height: 1.5;
 }
 
 .home-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
-  margin-top: 22px;
+  gap: 8px;
+  margin-top: 13px;
 }
 
 .home-primary,
 .home-secondary {
-  height: 42px;
-  padding: 0 16px;
+  height: 34px;
+  padding: 0 15px;
   border-radius: 999px;
   font-weight: 650;
-  font-size: 15px;
+  font-size: 14px;
 }
 
 .home-primary {
@@ -1023,12 +1009,12 @@ body.sidebar-collapsed .collapse-btn:active { transform: scale(0.96); }
 .home-metrics {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+  gap: 8px;
 }
 
 .home-metric {
-  padding: 12px 14px;
-  border-radius: 14px;
+  padding: 9px 12px;
+  border-radius: 10px;
   background: rgba(13, 16, 19, 0.55);
   border: 1px solid var(--line-soft);
 }
@@ -1036,17 +1022,17 @@ body.sidebar-collapsed .collapse-btn:active { transform: scale(0.96); }
 .home-metric-value {
   display: block;
   font-family: var(--display);
-  font-size: 28px;
+  font-size: 21px;
   line-height: 1;
   color: var(--text);
 }
 
 .home-metric-label {
   display: block;
-  margin-top: 6px;
+  margin-top: 3px;
   color: var(--text-3);
   font-family: var(--display);
-  font-size: 11px;
+  font-size: 10.5px;
   text-transform: uppercase;
   letter-spacing: 0.12em;
 }
@@ -1472,8 +1458,33 @@ body.sidebar-collapsed .collapse-btn:active { transform: scale(0.96); }
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(204px, 1fr));
+  gap: 14px;
+}
+
+.grid-more {
+  grid-column: 1 / -1;
+  display: grid;
+  place-items: center;
+  padding: 14px 0 4px;
+}
+
+.grid-more .btn {
+  height: 38px;
+  padding: 0 20px;
+  border-radius: 10px;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+  transition: border-color 140ms ease, background 140ms ease, transform 140ms ease;
+}
+
+.grid-more .btn:hover {
+  border-color: var(--va, var(--accent));
+  background: rgba(52, 168, 83, 0.12);
+  transform: translateY(-1px);
 }
 
 .card {
@@ -1771,7 +1782,7 @@ body.sidebar-collapsed .collapse-btn:active { transform: scale(0.96); }
 .card-title {
   margin: 0;
   font-family: var(--display-geo);
-  font-size: 19px;
+  font-size: 16px;
   font-weight: 700;
   letter-spacing: -0.01em;
   white-space: nowrap;
@@ -1788,7 +1799,7 @@ body.sidebar-collapsed .collapse-btn:active { transform: scale(0.96); }
   flex: none;
   max-width: 42%;
   color: var(--text-2);
-  font-size: 14.5px;
+  font-size: 13px;
   font-weight: 600;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
@@ -1797,7 +1808,7 @@ body.sidebar-collapsed .collapse-btn:active { transform: scale(0.96); }
 .card-side {
   display: grid;
   justify-items: end;
-  gap: 5px;
+  gap: 4px;
   flex: none;
   max-width: 46%;
 }
@@ -1810,7 +1821,7 @@ body.sidebar-collapsed .collapse-btn:active { transform: scale(0.96); }
   color: var(--text-3);
   background: rgba(12, 18, 16, 0.46);
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: 10px;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   white-space: nowrap;
@@ -1829,7 +1840,7 @@ body.sidebar-collapsed .collapse-btn:active { transform: scale(0.96); }
 }
 
 .game-card .card-count {
-  padding: 3px 7px;
+  padding: 2px 6px;
   border: 1px solid var(--line-soft);
   border-radius: 7px;
   background: rgba(12, 18, 16, 0.54);
@@ -5193,7 +5204,7 @@ html.motion-off *::after {
 .home-hero {
   display: grid;
   grid-template-columns: 1.35fr 0.95fr;
-  gap: 18px;
+  gap: 14px;
   align-items: stretch;
 }
 
@@ -5202,8 +5213,8 @@ html.motion-off *::after {
   background: var(--panel);
   border: 1px solid var(--line);
   box-shadow: 0 18px 40px rgba(0, 0, 0, 0.18);
-  border-radius: 22px;
-  padding: 26px;
+  border-radius: 18px;
+  padding: 18px 20px;
 }
 
 .home-hero-main {
@@ -5213,19 +5224,20 @@ html.motion-off *::after {
   flex-direction: column;
   justify-content: center;
 }
-.home-hero-main .home-logo { margin-bottom: 16px; }
+.home-hero-main .home-logo { margin-bottom: 10px; }
 
 .home-hero-side {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
+  justify-content: space-between;
 }
 
 .home-quick-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 10px;
 }
 .home-quick-label {
   font-family: var(--display);
@@ -5247,30 +5259,30 @@ html.motion-off *::after {
 .home-quick {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 9px;
+  gap: 8px;
 }
 .home-quick-card {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
-  padding: 11px 8px;
-  border-radius: 15px;
+  gap: 5px;
+  padding: 8px 6px;
+  border-radius: 10px;
   background: rgba(15, 18, 22, 0.6);
   border: 1px solid var(--line);
   color: var(--text);
   font-family: var(--display);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 650;
   transition: transform 140ms ease, border-color 140ms ease, background 140ms ease;
 }
 .home-quick-card:hover { transform: translateY(-2px); }
-.home-quick-ico { width: 30px; height: 30px; }
+.home-quick-ico { width: 24px; height: 24px; }
 .home-quick-ico .icon { width: 100%; height: 100%; stroke: currentColor; }
 .home-quick-ico .youtube-icon { fill: currentColor; stroke: none; }
 .home-quick-card.q-games .home-quick-ico { color: #34a853; }
 .home-quick-card.q-sites .home-quick-ico { color: #4285f4; }
-.home-quick-card.q-yt .home-quick-ico { color: #ea4335; width: 34px; height: 34px; filter: drop-shadow(0 2px 6px rgba(234, 67, 53, 0.35)); }
+.home-quick-card.q-yt .home-quick-ico { color: #ea4335; width: 28px; height: 28px; filter: drop-shadow(0 2px 6px rgba(234, 67, 53, 0.35)); }
 .home-quick-card.q-tools .home-quick-ico { color: #fbbc05; }
 .home-quick-card.q-proxy .home-quick-ico { color: #ff9a3c; }
 .home-quick-card.q-board .home-quick-ico { color: #ab47e8; }
@@ -5293,7 +5305,7 @@ html.motion-off *::after {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  margin-bottom: 9px;
+  margin-bottom: 7px;
 }
 .home-surface-title {
   font-family: var(--display);
@@ -5301,7 +5313,7 @@ html.motion-off *::after {
   font-weight: 650;
   color: var(--text);
 }
-.home-surface-text { display: block; margin-top: 12px; font-size: 13px; }
+.home-surface-text { display: block; margin-top: 8px; font-size: 12.5px; }
 
 /* Horizontal cover-card shelves for Continue / Popular / Watch next. */
 .home-shelf {

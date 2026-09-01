@@ -675,11 +675,6 @@
 
   /* ---------- Public API ---------- */
 
-  /* The Most-recently opened URL (set by inAppFrame) - lets the overlay's
-     "New tab" button pop the current game out even when it was opened by
-     the launcher rather than a proxy card. */
-  window.ChalkleLaunch.lastOpenUrl = "";
-
   window.ChalkleLaunch = {
     open: function (url, title) {
       /* iOS: self-hosted builds open as a real same-origin tab (never a
@@ -733,6 +728,12 @@
     shouldOpenDirect: shouldOpenDirect,
     close: pickerClose
   };
+
+  /* The most-recently opened URL (set by inAppFrame) - lets the overlay's
+     "New tab" button pop the current game out even when it was opened by
+     the launcher rather than a proxy card. Initialised AFTER the object so
+     the assignment above can never run before it exists. */
+  window.ChalkleLaunch.lastOpenUrl = "";
 
   /* In a cloak-injected page (learn-N.svg on jsDelivr), the app HTML and
      scripts are written into the iframe after the document has already
