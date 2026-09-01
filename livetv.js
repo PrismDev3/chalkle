@@ -173,8 +173,8 @@
       preview.append(liveBadge, playOverlay);
 
       var meta = el("div", "livetv-card-meta");
-      var name = el("span", "livetv-card-name", c.name || "Channel");
-      var cat = el("span", "livetv-card-cat", c.category || "Other");
+      var name = el("div", "livetv-card-name", c.name || "Channel");
+      var cat = el("div", "livetv-card-cat", c.category || "Other");
       meta.append(name, cat);
 
       card.append(preview, meta);
@@ -208,6 +208,7 @@
     if (heroCat) heroCat.textContent = ch.category || "Live Stream";
     if (placeholder) placeholder.hidden = true;
     if (msg) msg.hidden = true;
+    video.style.display = "block";
 
     if (stage) stage.scrollIntoView({ behavior: "smooth", block: "nearest" });
 
@@ -225,6 +226,20 @@
       state.hls = hls;
       hls.loadSource(streamUrl);
       hls.attachMedia(video);
+      /* Only start playback once the manifest is actually parsed - calling
+         play() before data exists can silently consume the autoplay grant. */
+      hls.on(Hls.Events.MANIFEST_PARSED, function () {
+        video.play().catch(function () { /* autoplay handled */ });
+      });
+      /* hls.js live-sync seeks to the live edge as it catches up; the seek can
+         leave the video paused with plenty of buffer ahead. Resume it so the
+         stream never dead-ends mid-playback. */
+      video.addEventListener("seeked", function resumeLive() {
+        if (!video.paused || video.ended) return;
+        if (video.buffered.length && video.buffered.end(video.buffered.length - 1) > video.currentTime + 1) {
+          video.play().catch(function () { /* handled */ });
+        }
+      });
       hls.on(Hls.Events.ERROR, function (evt, data) {
         if (!data || !data.fatal) return;
         if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
@@ -236,7 +251,6 @@
           cleanup();
         }
       });
-      video.play().catch(function () { /* autoplay handled */ });
     } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
       cleanup();
       video.src = streamUrl;

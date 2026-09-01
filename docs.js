@@ -386,6 +386,28 @@
        previous src first; clearing it avoids a flash of the old doc. */
     frame.removeAttribute("srcdoc");
     frame.srcdoc = rebaseListPaths(doc.content || "");
+
+    var bindFrameLinks = function () {
+      try {
+        var docDoc = frame.contentDocument;
+        if (!docDoc) return;
+        docDoc.querySelectorAll("a[href]").forEach(function (a) {
+          a.addEventListener("click", function (e) {
+            var href = a.getAttribute("href") || a.href;
+            if (href && !href.startsWith("javascript:")) {
+              e.preventDefault();
+              if (window.parent && window.parent.ChalkleLaunch) {
+                window.parent.ChalkleLaunch.openWithOptions(href, a.textContent || href);
+              } else {
+                window.open(href, "_blank");
+              }
+            }
+          });
+        });
+      } catch (e) { /* ignore */ }
+    };
+    frame.onload = bindFrameLinks;
+
     ov.hidden = false;
     document.body.style.overflow = "hidden";
     return true;
@@ -401,6 +423,7 @@
       viewerOpen(doc);
       return;
     }
+    try { win.opener = null; } catch (e) { /* ignore */ }
     if (isSvgDoc(content)) {
       /* SVG cloaks must render as a standalone SVG document (image/svg+xml),
          otherwise the browser parses it as HTML and the cloak breaks. */

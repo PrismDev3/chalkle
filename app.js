@@ -979,7 +979,10 @@
     return String((item && (item.url || item.title)) || "").toLowerCase();
   }
 
-  function render() {
+  var gridExpandAll = false;
+
+  function render(expandAll) {
+    gridExpandAll = !!expandAll;
     if (state.view === "music") return; /* owned by music.js */
     var items = (DATA[state.view] || []).slice().filter(Boolean);
 
@@ -1057,7 +1060,20 @@
     }
 
     empty.hidden = true;
-    grid.innerHTML = items.map(state.view === "apps-tools" ? toolCard : card).join("");
+    /* Big libraries (1,400+ games) cap the initial render so filter/sort
+       swaps stay fast; a "Show more" button expands to the full set. */
+    var GRID_CAP = 480;
+    var capped = items.length > GRID_CAP && !gridExpandAll;
+    var shown = capped ? items.slice(0, GRID_CAP) : items;
+    var html = shown.map(state.view === "apps-tools" ? toolCard : card).join("");
+    if (capped) {
+      html += '<div class="grid-more"><button class="btn" id="grid-show-more">Show all ' + (items.length - GRID_CAP) + " more</button></div>";
+    }
+    grid.innerHTML = html;
+    var moreBtn = document.getElementById("grid-show-more");
+    if (moreBtn) {
+      moreBtn.addEventListener("click", function () { render(true); });
+    }
   }
 
   /* Minecraft James Edition (26.2) ------------------------------------------------
@@ -2546,19 +2562,10 @@
             window.ChalkleLaunch.openProxyApp(launchUrl, launch.dataset.title || "");
             return;
           }
-          if (launchUrl && state.view === "sites") {
-            /* Sites always open through the launcher picker (About:blank /
-               Blob / Direct / This tab / Proxy) instead of auto-opening
-               direct - so users can pick about:blank for sites that refuse
-               embedding, or proxy them. The picker's Proxy option uses the
-               same routed URL openSiteProxied would have opened. */
+          if (launchUrl) {
+            /* Always open through the launcher picker (about:blank / Blob / Direct / iframe / Proxy)
+               so users can choose their preferred unblocked launch method for any game or site. */
             window.ChalkleLaunch.openWithOptions(launchUrl, launch.dataset.title || launchUrl);
-          } else if (launchUrl && window.ChalkleLaunch.isFetchableHtml && window.ChalkleLaunch.isFetchableHtml(launchUrl)) {
-            /* jsDelivr / raw.githubusercontent serve HTML as text/plain, so
-               fetch + inject it as a blob instead of iframing the link. */
-            window.ChalkleLaunch.openFetched(launchUrl, launch.dataset.title);
-          } else {
-            window.ChalkleLaunch.open(launchUrl, launch.dataset.title);
           }
           return;
         }
