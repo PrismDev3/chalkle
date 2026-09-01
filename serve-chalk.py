@@ -546,6 +546,216 @@ class _MusicRelay:
         self._music_json({"ok": ok, "backend": backend})
 
 
+# ---------------------------------------------------------------- /yt relay
+# YouTube tab backend. The page (youtube.js) only ever calls this origin:
+#   /yt/search?q=..&filter=..  -> video / channel search via Piped API
+#   /yt/trending               -> trending videos
+#   /yt/channel/<id>           -> channel profile + latest videos
+#   /yt/thumb?u=<b64>          -> image proxy for thumbnails/avatars
+# Search results come back with thumbnails rewritten to /yt/thumb so the
+# browser never hits a third-party host directly (school-friendly). Results
+# are cached briefly so repeated browsing doesn't hammer the upstream.
+
+YT_INSTANCES = [
+    "https://api.piped.private.coffee",
+    "https://pipedapi.kavin.rocks",
+    "https://pipedapi.adminforge.de",
+    "https://pipedapi.reallyaweso.me",
+]
+
+_yt_cache = {}          # route key -> (ts, payload)
+_YT_CACHE_TTL = 180     # seconds
+
+
+def _yt_b64u(s):
+    import base64
+    return base64.urlsafe_b64encode(s.encode("utf-8")).decode("ascii").rstrip("=")
+
+
+def _yt_unb64u(s):
+    import base64
+    return base64.urlsafe_b64decode((s + "=" * (-len(s) % 4)).encode("ascii")).decode("utf-8")
+
+
+def _yt_fetch_json(path, timeout=12):
+    """Try each Piped instance until one returns JSON. Returns (data, code)."""
+    import urllib.request, urllib.error, json as _json
+    last_err = None
+    for inst in YT_INSTANCES:
+        url = inst + path
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 ChalkleYT/1.0", "Accept": "application/json"})
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                body = resp.read()
+                try:
+                    data = _json.loads(body)
+                except Exception:
+                    last_err = "bad json from " + inst
+                    continue
+                if isinstance(data, (dict, list)):
+                    return data, resp.getcode() or 200
+                last_err = "unexpected payload from " + inst
+        except urllib.error.HTTPError as e:
+            last_err = "http " + str(e.code) + " from " + inst
+        except Exception as e:
+            last_err = type(e).__name__ + " from " + inst
+    return {"error": "all YouTube instances failed: " + str(last_err)}, 502
+
+
+class _YouTubeRelay:
+    """Mixin with the YouTube relay handlers; combined into Handler below."""
+
+    def _yt_json(self, obj, code=200, cacheable=False):
+        data = json.dumps(obj).encode("utf-8")
+        self.send_response(code)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Cache-Control", "public, max-age=60" if cacheable else "no-store")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
+    def _yt_rewrite_thumbs(self, obj):
+        """Rewrite piped thumbnail/avatar URLs to our /yt/thumb proxy."""
+        if isinstance(obj, dict):
+            for k in list(obj.keys()):
+                v = obj[k]
+                if isinstance(v, str) and v.startswith(("http://", "https://")):
+                    if k in ("thumbnail", "avatarUrl", "uploaderAvatar"):
+                        obj[k] = "/yt/thumb?u=" + _yt_b64u(v)
+                    else:
+                        obj[k] = v
+                else:
+                    self._yt_rewrite_thumbs(v)
+        elif isinstance(obj, list):
+            for it in obj:
+                self._yt_rewrite_thumbs(it)
+
+    def _yt_cached(self, key):
+        hit = _yt_cache.get(key)
+        if hit and (time.time() - hit[0]) < _YT_CACHE_TTL:
+            return hit[1]
+        return None
+
+    def _yt_cache_set(self, key, payload):
+        _yt_cache[key] = (time.time(), payload)
+        if len(_yt_cache) > 200:
+            now = time.time()
+            for k in [k for k, (ts, _) in _yt_cache.items() if now - ts > _YT_CACHE_TTL * 2]:
+                _yt_cache.pop(k, None)
+
+    def _yt_search(self):
+        from urllib.parse import urlparse, parse_qs
+        qs = parse_qs(urlparse(self.path).query)
+        q = (qs.get("q") or [""])[0].strip()
+        filt = (qs.get("filter") or ["videos"])[0].strip() or "videos"
+        if not q:
+            return self._yt_json({"error": "missing q"}, 400)
+        import urllib.parse
+        key = "search:" + q.lower() + ":" + filt
+        cached = self._yt_cached(key)
+        if cached is not None:
+            return self._yt_json(cached, 200, cacheable=True)
+        path = "/search?q=" + urllib.parse.quote(q) + "&filter=" + urllib.parse.quote(filt)
+        data, code = _yt_fetch_json(path)
+        if isinstance(data, dict) and data.get("error"):
+            return self._yt_json(data, code)
+        items = data.get("items") if isinstance(data, dict) else data
+        items = items if isinstance(items, list) else []
+        self._yt_rewrite_thumbs(items)
+        payload = {"items": items, "count": len(items)}
+        self._yt_cache_set(key, payload)
+        return self._yt_json(payload, 200, cacheable=True)
+
+    def _yt_trending(self):
+        from urllib.parse import urlparse, parse_qs
+        qs = parse_qs(urlparse(self.path).query)
+        region = (qs.get("region") or ["US"])[0].strip() or "US"
+        key = "trending:" + region
+        cached = self._yt_cached(key)
+        if cached is not None:
+            return self._yt_json(cached, 200, cacheable=True)
+        data, code = _yt_fetch_json("/trending?region=" + region)
+        if isinstance(data, dict) and data.get("error"):
+            return self._yt_json(data, code)
+        items = data if isinstance(data, list) else (data.get("items") if isinstance(data, dict) else [])
+        items = items if isinstance(items, list) else []
+        self._yt_rewrite_thumbs(items)
+        payload = {"items": items, "count": len(items)}
+        self._yt_cache_set(key, payload)
+        return self._yt_json(payload, 200, cacheable=True)
+
+    def _yt_channel(self, cid):
+        import urllib.parse
+        if not cid or "/" in cid or "?" in cid:
+            return self._yt_json({"error": "bad channel id"}, 400)
+        key = "channel:" + cid
+        cached = self._yt_cached(key)
+        if cached is not None:
+            return self._yt_json(cached, 200, cacheable=True)
+        data, code = _yt_fetch_json("/channel/" + urllib.parse.quote(cid))
+        if isinstance(data, dict) and data.get("error"):
+            return self._yt_json(data, code)
+        if isinstance(data, dict):
+            self._yt_rewrite_thumbs(data)
+            payload = {
+                "id": data.get("id"),
+                "name": data.get("name"),
+                "avatarUrl": data.get("avatarUrl"),
+                "subscriberCount": data.get("subscriberCount"),
+                "description": data.get("description"),
+                "relatedStreams": data.get("relatedStreams") or [],
+            }
+            self._yt_cache_set(key, payload)
+            return self._yt_json(payload, 200, cacheable=True)
+        return self._yt_json({"error": "channel not found"}, 404)
+
+    def _yt_thumb(self):
+        import urllib.parse, socket
+        from urllib.parse import urlparse
+        q = urllib.parse.parse_qs(urlparse(self.path).query)
+        raw = (q.get("u") or [""])[0].strip()
+        if not raw:
+            return self._yt_json({"error": "missing u"}, 400)
+        url = raw if raw.startswith(("http://", "https://")) else None
+        if not url:
+            try:
+                url = _yt_unb64u(raw)
+            except Exception:
+                return self._yt_json({"error": "bad u"}, 400)
+        if not url.startswith(("http://", "https://")):
+            return self._yt_json({"error": "bad u"}, 400)
+        host = urlparse(url).hostname or ""
+        try:
+            ip = socket.gethostbyname(host)
+        except Exception:
+            return self._yt_json({"error": "dns"}, 502)
+        if _is_private_ip(ip):
+            return self._yt_json({"error": "private target"}, 403)
+        import urllib.request, urllib.error
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 ChalkleYT/1.0", "Accept": "image/*"})
+        try:
+            with urllib.request.urlopen(req, timeout=15) as resp:
+                body = resp.read()
+                ctype = resp.headers.get("Content-Type", "").split(";")[0].strip().lower()
+                self.send_response(resp.getcode() or 200)
+                self.send_header("Content-Type", ctype or "image/jpeg")
+                self.send_header("Cache-Control", "public, max-age=86400")
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+        except urllib.error.HTTPError as e:
+            return self._yt_json({"error": "upstream http " + str(e.code)}, e.code)
+        except (BrokenPipeError, ConnectionResetError):
+            pass
+        except Exception as e:
+            try:
+                return self._yt_json({"error": type(e).__name__}, 502)
+            except Exception:
+                pass
+
+
 # ---------------------------------------------------------------- /api/live-tv
 # Live TV. Channels live in livetv.json on the server (never in the page),
 # so upstream URLs / referers / user-agents stay server-side:
@@ -1002,7 +1212,7 @@ class _SportsTV:
 
 
 
-class Handler(_CloudRelay, _MusicRelay, _LiveTV, _SportsTV, SimpleHTTPRequestHandler):
+class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, SimpleHTTPRequestHandler):
     def log_message(self, *a):  # quieter than the default per-request logger
         pass
 
@@ -1065,6 +1275,14 @@ class Handler(_CloudRelay, _MusicRelay, _LiveTV, _SportsTV, SimpleHTTPRequestHan
             return self._music_stream()
         if route == "/music/pic":
             return self._music_pic()
+        if route == "/yt/search":
+            return self._yt_search()
+        if route == "/yt/trending":
+            return self._yt_trending()
+        if route == "/yt/thumb":
+            return self._yt_thumb()
+        if route.startswith("/yt/channel/"):
+            return self._yt_channel(route[len("/yt/channel/"):])
         if route == "/api/livetv/sports":
             return self._sports_list()
         if route == "/api/livetv/matches":
