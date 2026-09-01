@@ -458,7 +458,7 @@
       : "No matches right now";
     if (empty) empty.hidden = items.length > 0;
     var meta = document.getElementById("livetv-meta");
-    if (meta) meta.textContent = (items.length ? items.length + (items.length === 1 ? " match" : " matches") + " + " : "") + state.channels.length + (state.channels.length === 1 ? " channel" : " channels");
+    if (meta) meta.textContent = items.length ? items.length + (items.length === 1 ? " live match" : " live matches") + " ready" : "live sports";
     grid.innerHTML = items.map(matchCard).join("");
     grid.querySelectorAll("[data-match]").forEach(function (btn) {
       btn.addEventListener("click", function () {
@@ -654,7 +654,8 @@
 
   function init() {
     var grid = document.getElementById("livetv-grid");
-    if (!grid) return;
+    var matches = document.getElementById("livetv-matches");
+    if (!grid && !matches) return;
 
     try { state.cat = localStorage.getItem(CAT_KEY) || "all"; } catch (e) { state.cat = "all"; }
     try { state.sport = localStorage.getItem(SPORT_KEY) || "all"; } catch (e) { state.sport = "all"; }

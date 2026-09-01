@@ -404,17 +404,26 @@ def _music_unb64u(s):
 class _MusicRelay:
     """Mixin with the music relay handlers; combined into Handler below."""
 
-    def _music_json(self, obj, code=200):
+    def _music_json(self, obj, code=200, cacheable=False):
         data = json.dumps(obj).encode("utf-8")
         self.send_response(code)
         self.send_header("Content-Type", "application/json")
-        self.send_header("Cache-Control", "no-store")
+        self.send_header("Cache-Control", "max-age=120" if cacheable else "no-store")
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Content-Length", str(len(data)))
         self.end_headers()
         self.wfile.write(data)
 
     def _music_api(self):
+        from urllib.parse import urlparse, parse_qs
+        qs = parse_qs(urlparse(self.path).query)
+        server = (qs.get("server") or [""])[0].strip()
+        # Non-Chinese provider: /music/api?server=youtube serves search / url /
+        # pic / lyric straight from Piped (same backend the YouTube tab uses).
+        # Search is ordered by popularity (views desc); streams come from Piped's
+        # muxed mp4, proxied through /music/stream so the page stays same-origin.
+        if server in ("youtube", "yt", "youtubemusic"):
+            return self._music_yt_api(qs)
         import urllib.request, urllib.error
         query = self.path.split("?", 1)[1] if "?" in self.path else ""
         url = _music_cfg() + "/api" + (("?" + query) if query else "")
@@ -451,6 +460,119 @@ class _MusicRelay:
             return self._music_json({"error": "backend http " + str(e.code)}, e.code)
         except Exception as e:
             return self._music_json({"error": type(e).__name__ + ": music backend unreachable"}, 502)
+
+    def _music_yt_api(self, qs):
+        """YouTube (Piped) music provider. Speaks the same API the music tab
+        expects from the old Meting backend:
+          search?q=..         -> songs, ordered by views (most popular first)
+          url?id=..           -> playable stream, rewritten to /music/stream
+          pic?id=..           -> cover art, rewritten to /music/pic
+          lyric?id=..         -> synced lyrics (best-effort, may be empty)
+        Streams are the muxed mp4 Piped serves for each video id, proxied
+        through /music/stream so the browser stays same-origin. Search results
+        carry real view counts, sorted desc = most popular to least. Piped
+        search filter=music_songs returns no view counts, so we query the
+        videos filter and keep music-length results (<= 9 min)."""
+        import urllib.parse
+
+        def val(name):
+            return (qs.get(name) or [""])[0].strip()
+
+        # Music tab sends ?type= (Meting-style); accept that or ?path=.
+        path = val("type") or val("path") or "search"
+        if path not in ("search", "url", "pic", "lyric", "playlist", "song"):
+            return self._music_json({"error": "unknown path: " + path}, 400)
+
+        # Search: Piped filter=videos, keep songs, sort by views desc.
+        if path == "search":
+            q = val("q")
+            limit = max(1, min(int(val("limit") or "30"), 60))
+            if not q:
+                return self._music_json({"error": "missing q"}, 400)
+            key = "music:search:" + q.lower()
+            cached = _yt_cache.get(key)
+            if cached and time.time() - cached[0] < 120:
+                return self._music_json(cached[1], 200, cacheable=True)
+            import urllib.request as _ur
+            path_url = "/search?q=" + urllib.parse.quote(q) + "&filter=videos"
+            data, code = _yt_fetch_json(path_url)
+            items = data.get("items") if isinstance(data, dict) else data
+            items = [i for i in (items or []) if isinstance(i, dict)]
+            # Keep music-length videos (<= 9 min, > 25 s), then most-viewed first.
+            songs = []
+            for it in items:
+                dur = it.get("duration") or 0
+                if not (25 < dur <= 540):
+                    continue
+                vid = ""
+                m = re.search(r"[?&]v=([\w-]{6,})", str(it.get("url") or ""))
+                if m:
+                    vid = m.group(1)
+                if not vid:
+                    continue
+                songs.append({
+                    "id": vid,
+                    "name": it.get("title") or "Untitled",
+                    "artist": [it.get("uploaderName") or ""],
+                    "album": it.get("uploaderName") or "",
+                    "pic_id": vid,
+                    "url_id": vid,
+                    "lyric_id": vid,
+                    "duration": dur,
+                    "views": int(it.get("views") or 0),
+                    "source": "youtube"
+                })
+            songs.sort(key=lambda s: s["views"], reverse=True)
+            payload = {"items": songs[:limit], "count": len(songs)}
+            _yt_cache[key] = (time.time(), payload)
+            return self._music_json(payload, 200, cacheable=True)
+
+        # Stream URL: Piped /streams/<id> -> m4a/mp4 with audio, proxied.
+        if path == "url":
+            vid = val("id")
+            if not vid:
+                return self._music_json({"error": "missing id"}, 400)
+            ckey = "music:stream:" + vid
+            ccached = _yt_cache.get(ckey)
+            if ccached and time.time() - ccached[0] < 3600:
+                return self._music_json(ccached[1], 200, cacheable=True)
+            data, code = _yt_fetch_json("/streams/" + urllib.parse.quote(vid), timeout=20, retries=3)
+            stream_url = ""
+            if isinstance(data, dict):
+                # Prefer a real audio stream (m4a/webm), else any muxed mp4.
+                audio = [s for s in (data.get("audioStreams") or []) if isinstance(s, dict) and (s.get("url") or "").startswith("http")]
+                video = [s for s in (data.get("videoStreams") or []) if isinstance(s, dict) and (s.get("url") or "").startswith("http") and "mp4" in (s.get("mimeType") or "")]
+                choice = None
+                for s in audio:
+                    if "m4a" in (s.get("mimeType") or "") or "mp4" in (s.get("mimeType") or ""):
+                        choice = s
+                        break
+                if not choice and audio:
+                    choice = audio[0]
+                if not choice and video:
+                    choice = video[-1]  # lowest res muxed mp4 = smallest download
+                if choice:
+                    stream_url = (choice.get("url") or "").strip()
+            if not stream_url:
+                return self._music_json({"url": "", "via": "youtube", "br": -1})
+            payload = {
+                "url": "/music/stream?u=" + _music_b64u(stream_url),
+                "via": "youtube",
+                "br": 320
+            }
+            _yt_cache[ckey] = (time.time(), payload)
+            return self._music_json(payload, 200, cacheable=True)
+
+        # Cover art: use the YouTube thumbnail (rewritten to /music/pic proxy).
+        if path in ("pic", "song", "playlist"):
+            vid = val("id")
+            if not vid:
+                return self._music_json({"error": "missing id"}, 400)
+            thumb = "https://i.ytimg.com/vi/" + vid + "/mqdefault.jpg"
+            return self._music_json({"url": "/music/pic?u=" + _music_b64u(thumb)})
+
+        # Lyrics: Piped exposes none per-song; return empty so the UI hides it.
+        return self._music_json({"lyric": "", "source": "youtube"})
 
     def _music_target(self, kind):
         """Decode + validate the ?u= target URL. Returns the url or None."""
@@ -577,28 +699,36 @@ def _yt_unb64u(s):
     return base64.urlsafe_b64decode((s + "=" * (-len(s) % 4)).encode("ascii")).decode("utf-8")
 
 
-def _yt_fetch_json(path, timeout=12):
-    """Try each Piped instance until one returns JSON. Returns (data, code)."""
+def _yt_fetch_json(path, timeout=12, retries=2):
+    """Try each Piped instance until one returns JSON. Returns (data, code).
+    Instances are flaky (streams especially), so do a couple of full rounds
+    before giving up."""
     import urllib.request, urllib.error, json as _json
     last_err = None
-    for inst in YT_INSTANCES:
-        url = inst + path
-        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 ChalkleYT/1.0", "Accept": "application/json"})
-        try:
-            with urllib.request.urlopen(req, timeout=timeout) as resp:
-                body = resp.read()
-                try:
-                    data = _json.loads(body)
-                except Exception:
-                    last_err = "bad json from " + inst
-                    continue
-                if isinstance(data, (dict, list)):
-                    return data, resp.getcode() or 200
-                last_err = "unexpected payload from " + inst
-        except urllib.error.HTTPError as e:
-            last_err = "http " + str(e.code) + " from " + inst
-        except Exception as e:
-            last_err = type(e).__name__ + " from " + inst
+    for _round in range(max(1, retries)):
+        for inst in YT_INSTANCES:
+            url = inst + path
+            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 ChalkleYT/1.0", "Accept": "application/json"})
+            try:
+                with urllib.request.urlopen(req, timeout=timeout) as resp:
+                    body = resp.read()
+                    try:
+                        data = _json.loads(body)
+                    except Exception:
+                        last_err = "bad json from " + inst
+                        continue
+                    if isinstance(data, dict) and isinstance(data.get("error"), (str, dict)):
+                        # Instance alive but refused (streams need a working extractor;
+                        # search can also fail this way). Skip to the next instance.
+                        last_err = "error reply from " + inst + ": " + str(data["error"])[:80]
+                        continue
+                    if isinstance(data, (dict, list)):
+                        return data, resp.getcode() or 200
+                    last_err = "unexpected payload from " + inst
+            except urllib.error.HTTPError as e:
+                last_err = "http " + str(e.code) + " from " + inst
+            except Exception as e:
+                last_err = type(e).__name__ + " from " + inst
     return {"error": "all YouTube instances failed: " + str(last_err)}, 502
 
 
