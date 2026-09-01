@@ -51,11 +51,15 @@
     if (txt) txt.textContent = text;
   }
 
+  function apiUrl(path) {
+    return window.ChalkleApi ? window.ChalkleApi.url(path) : path;
+  }
+
   /* ---------- data ---------- */
 
   function load() {
     setStatus("loading channels", "busy");
-    return fetch("/api/live-tv", { cache: "no-store" })
+    return fetch(apiUrl("/api/live-tv"), { cache: "no-store" })
       .then(function (r) { return r.json(); })
       .then(function (j) {
         state.channels = (j && Array.isArray(j.channels)) ? j.channels : [];
@@ -78,7 +82,7 @@
   }
 
   function loadAdmin() {
-    return fetch("/api/live-tv/admin", { cache: "no-store" })
+    return fetch(apiUrl("/api/live-tv/admin"), { cache: "no-store" })
       .then(function (r) { return r.json(); })
       .then(function (j) {
         state.admin = (j && Array.isArray(j.channels)) ? j.channels : [];
@@ -89,7 +93,7 @@
 
   function saveAdmin() {
     setStatus("saving channels", "busy");
-    return fetch("/api/live-tv/admin", {
+    return fetch(apiUrl("/api/live-tv/admin"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ channels: state.admin })
@@ -293,6 +297,11 @@
     var cleanup = function () { if (state.hls) { try { state.hls.destroy(); } catch (e) { /* ignore */ } state.hls = null; } };
 
     var streamUrl = ch.stream || ch.streamUrl;
+    if (!streamUrl) {
+      showPlayerMsg(msg, "This channel does not have a stream URL.");
+      return;
+    }
+    if (/^\//.test(streamUrl)) streamUrl = apiUrl(streamUrl);
     if (window.Hls && Hls.isSupported()) {
       cleanup();
       var hls = new Hls({
@@ -312,12 +321,12 @@
       /* hls.js live-sync seeks to the live edge as it catches up; the seek can
          leave the video paused with plenty of buffer ahead. Resume it so the
          stream never dead-ends mid-playback. */
-      video.addEventListener("seeked", function resumeLive() {
+      video.onseeked = function () {
         if (!video.paused || video.ended) return;
         if (video.buffered.length && video.buffered.end(video.buffered.length - 1) > video.currentTime + 1) {
           video.play().catch(function () { /* handled */ });
         }
-      });
+      };
       hls.on(Hls.Events.ERROR, function (evt, data) {
         if (!data || !data.fatal) return;
         if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
@@ -478,7 +487,7 @@
       if (grid) grid.innerHTML = '<div class="livetv-loading">Finding live matches…</div>';
       if (note) note.textContent = "Finding live matches…";
     }
-    var url = "/api/livetv/matches" + (state.sport && state.sport !== "all" ? "?sport=" + encodeURIComponent(state.sport) : "");
+    var url = apiUrl("/api/livetv/matches" + (state.sport && state.sport !== "all" ? "?sport=" + encodeURIComponent(state.sport) : ""));
     fetch(url, { cache: "no-store" })
       .then(function (r) { return r.json(); })
       .then(function (j) {
@@ -524,7 +533,7 @@
   }
 
   function loadSports() {
-    fetch("/api/livetv/sports", { cache: "no-store" })
+    fetch(apiUrl("/api/livetv/sports"), { cache: "no-store" })
       .then(function (r) { return r.json(); })
       .then(function (j) {
         state.sports = (j && Array.isArray(j.sports)) ? j.sports : [];

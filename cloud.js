@@ -55,7 +55,7 @@
      to the configured Stratus backend server-side. The browser never talks to
      the Stratus host directly, so no CORS or mixed-content ever appears. */
   function apiUrl(path) {
-    return path;
+    return window.ChalkleApi ? window.ChalkleApi.url(path) : path;
   }
 
   /* ---------------- Catalog rendering ---------------- */
@@ -152,7 +152,7 @@
   function checkServer() {
     var box = document.getElementById("cloud-status");
     if (!box) return;
-    fetch("/cloud/health", { cache: "no-store" })
+    fetch(apiUrl("/cloud/health"), { cache: "no-store" })
       .then(function (r) { return r.json(); })
       .then(function (j) {
         if (j && j.ok) setStatus("server online", "online");
@@ -265,12 +265,12 @@
        THIS origin (the signal ws is also rewritten on the server side). */
     var name = encodeURIComponent(g.title || "Cloud Play");
     return (
-      "/cloud-play.html?id=" + encodeURIComponent(uuid) +
+      apiUrl("/cloud-play.html") + "?id=" + encodeURIComponent(uuid) +
       "&name=" + name + "&host=" + encodeURIComponent(location.host)
     );
   }
 
-  function play(key) {
+  function play(key, playerWindow) {
     var g = byKey(key);
     if (!g) return;
     setStatus("Starting " + g.title, "busy");
@@ -279,10 +279,12 @@
         setStatus("Waiting in queue for " + g.title, "busy");
         return pollQueue(uuid, 0).then(function () { return startGame(uuid); }).then(function () {
           setStatus("Launching " + g.title, "online");
-          window.open(playerUrl(g, uuid), "_blank", "noopener");
+          if (playerWindow && !playerWindow.closed) playerWindow.location.replace(playerUrl(g, uuid));
+          else window.open(playerUrl(g, uuid), "_blank", "noopener");
         });
       })
       .catch(function (err) {
+        if (playerWindow && !playerWindow.closed) playerWindow.close();
         setStatus("Could not start: " + (err && err.message ? err.message : err), "offline");
       });
   }
@@ -302,7 +304,12 @@
           return;
         }
         var playBtn = e.target.closest ? e.target.closest("[data-cloud-play]") : null;
-        if (playBtn) play(playBtn.dataset.cloudPlay);
+        if (playBtn) {
+          /* Open synchronously from the user's click. Chromebook popup
+             policy otherwise blocks the window after the queue promises. */
+          var playerWindow = window.open("about:blank", "_blank");
+          play(playBtn.dataset.cloudPlay, playerWindow);
+        }
       });
     }
 
@@ -344,7 +351,7 @@
       save.addEventListener("click", function () {
         var payload = { base: (baseInput ? baseInput.value : "").trim(), key: (keyInput ? keyInput.value : "").trim() };
         var saved = document.getElementById("cloud-cfg-saved");
-        fetch("/cloud/config", {
+        fetch(apiUrl("/cloud/config"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload)

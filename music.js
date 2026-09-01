@@ -63,7 +63,8 @@
     var q = Object.keys(params).map(function (k) {
       return encodeURIComponent(k) + "=" + encodeURIComponent(params[k]);
     }).join("&");
-    return "/music/api?" + q;
+    var path = "/music/api?" + q;
+    return window.ChalkleApi ? window.ChalkleApi.url(path) : path;
   }
 
   function getJSON(url) {
@@ -759,4 +760,4 @@
   } else {
     init();
   }
-})();
+})();
