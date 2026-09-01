@@ -134,7 +134,7 @@ window.ChalkGames = [
   { title: "Papa's Wingeria", html: ruffleHtml(PAPAS_BASE + "papaswingeria.swf"), url: PAPAS_BASE + "papaswingeria.swf", thumb: "/assets/games/t_e8037e0b86.jpg",  },
   { title: "PVZ GOTY Edition", url: "https://unpkg.com/a-queer@2.1.9/index.html?__edurocks_app=%2Fa-queer%402.1.9%2Ffilestorage%2Flogn%2Fzones%2F842%2Findex.html", category: "Tower Defense", thumb: "/assets/games/t_388badcb5b.jpg" },
   { title: "2048", url: "https://2048game.com/", thumb: "/assets/games/t_8ab24193ba.jpg" },
-  { title: "Cookie Clicker", url: "https://orteil.dashnet.org/cookieclicker/", thumb: "/assets/games/t_c2b052d9ce.jpg", directOnly: true },
+  { title: "Cookie Clicker", url: "/game-builds/cookie-clicker/index.html", thumb: "/assets/games/t_c2b052d9ce.jpg", category: "Idle" },
   { title: "Slither.io", url: "https://slither.io/", thumb: "/assets/games/t_bd321fbc57.jpg" },
   { title: "Moto X3M", url: "https://motox3m.info/", thumb: "/assets/games/t_6593c6deb1.jpg" },
   { title: "1v1.LOL", url: "https://1v1.lol/", thumb: "/assets/games/t_14d4f7cd92.jpg" },
