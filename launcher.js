@@ -78,17 +78,22 @@
 
   function wrapHtml(url) {
     var safeUrl = String(url).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
-    /* Sandbox the iframe (no allow-same-origin, no allow-top-navigation) so a
-       hostile/refusing site can't frame-bust out of the cloak or navigate the
-       barrier window to its real origin. The knockout watcher then has to deal
-       with a contained frame instead of a full tab takeover. */
+    var b64 = "";
+    try { b64 = btoa(encodeURIComponent(url)); } catch (e) { b64 = ""; }
     return (
       '<!doctype html><html><head><meta charset="utf-8"><meta name="referrer" content="no-referrer"><title>' + WRAP_TITLE + "</title>" +
       '<link rel="icon" href="' + WRAP_ICON + '"></head>' +
       '<body style="margin:0;overflow:hidden;background:#0c1210;">' +
-      '<iframe id="game-frame" src="' + safeUrl + '" sandbox="' + SANDBOX + '" ' +
+      '<iframe id="game-frame" src="about:blank" sandbox="' + SANDBOX + '" ' +
       'style="width:100vw;height:100vh;border:none;display:block;" ' +
       'allow="fullscreen; gamepad; picture-in-picture" referrerpolicy="no-referrer"></iframe>' +
+      '<script>' +
+      'try { window.opener = null; } catch(e){}\n' +
+      'var f = document.getElementById("game-frame");\n' +
+      'var u = "' + safeUrl + '";\n' +
+      'if ("' + b64 + '") { try { u = decodeURIComponent(atob("' + b64 + '")); } catch(e){} }\n' +
+      'if (f) f.src = u;\n' +
+      '</script>' +
       "</body></html>"
     );
   }
@@ -297,9 +302,7 @@
     var win = window.open("about:blank", "_blank");
     if (!win) return inAppFrame(url, url);
     try {
-      /* Build the wrapper as a complete HTML document in the new blank tab.
-         Using document.open/write/close avoids navigating the top-level tab;
-         only the inner browsing context receives the destination URL. */
+      try { win.opener = null; } catch (e) { /* ignore */ }
       win.document.open();
       win.document.write(wrapHtml(url));
       win.document.close();
@@ -322,6 +325,7 @@
       URL.revokeObjectURL(blobUrl);
       return inAppFrame(url, url);
     }
+    try { win.opener = null; } catch (e) { /* ignore */ }
     setTimeout(function () { URL.revokeObjectURL(blobUrl); }, 60000);
     if (watch) watchGameTab(win, url);
     return true;
