@@ -481,11 +481,22 @@
                 <button class="home-quick-card q-sites" data-home-go="sites"><span class="home-quick-ico"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.4"/><polygon points="15.6 8.4 13.85 13.85 8.4 15.6 10.15 10.15 15.6 8.4"/></svg></span><span class="home-quick-t">Sites</span></button>
                 <button class="home-quick-card q-yt" data-home-go="music"><span class="home-quick-ico"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z"/></svg></span><span class="home-quick-t">Music</span></button>
                 <button class="home-quick-card q-tools" data-home-go="apps-tools"><span class="home-quick-ico"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.75" y="3.75" width="6.9" height="6.9" rx="1.6"/><rect x="13.35" y="3.75" width="6.9" height="6.9" rx="1.6"/><rect x="3.75" y="13.35" width="6.9" height="6.9" rx="1.6"/><rect x="13.35" y="13.35" width="6.9" height="6.9" rx="1.6"/></svg></span><span class="home-quick-t">Tools</span></button>
-                <button class="home-quick-card q-proxy" data-home-go="proxies"><span class="home-quick-ico"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 9.3l3.6-3.6a2.9 2.9 0 0 1 4.1 4.1l-3.6 3.6a2.9 2.9 0 0 1-4.1 0"/><path d="M9 14.7l-3.6 3.6a2.9 2.9 0 0 1-4.1-4.1l3.6-3.6a2.9 2.9 0 0 1 4.1 0"/><path d="M8.3 15.7l7.4-7.4"/></svg></span><span class="home-quick-t">Proxy</span></button>
-                <button class="home-quick-card q-board" data-home-go="board"><span class="home-quick-ico"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.2" y="4" width="17.6" height="12" rx="1.5"/><path d="M7 7.7h10M7 10.2h7M7 12.7h4"/></svg></span><span class="home-quick-t">Board</span></button>
-                <button class="home-quick-card q-docs" data-home-go="docs"><span class="home-quick-ico"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3.5h8l4 4.5v12.5a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-16a1 1 0 0 1 1-1z"/><path d="M14 3.5v4.5h4.5"/><path d="M8.5 11.5h7M8.5 14.7h7M8.5 17.9h4"/></svg></span><span class="home-quick-t">Docs</span></button>
-                <button class="home-quick-card q-partners" data-home-go="partners"><span class="home-quick-ico"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m11 17 2 2a1 1 0 1 0 3-3"/><path d="m14 14 2.5 2.5a1 1 0 1 0 3-3l-3.88-3.88a3 3 0 0 0-4.24 0l-.88.88a1 1 0 1 1-3-3l2.81-2.81a5.79 5.79 0 0 1 7.06-.87l.47.28a2 2 0 0 0 1.42.25L21 4"/><path d="m21 3 1 11h-2"/><path d="M3 3 2 14l6.5 6.5a1 1 0 1 0 3-3"/><path d="M3 4h8"/></svg></span><span class="home-quick-t">Partners</span></button>
-                <button class="home-quick-card q-settings" data-home-go="settings"><span class="home-quick-ico"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h8M18 7h2"/><circle cx="16" cy="7" r="2"/><path d="M4 12h2M10 12h10"/><circle cx="8" cy="12" r="2"/><path d="M4 17h9M17 17h3"/><circle cx="14" cy="17" r="2"/></svg></span><span class="home-quick-t">Settings</span></button>
+                <button class="home-quick-card q-tv" data-home-go="livetv"><span class="home-quick-ico"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="6.5" width="19" height="13" rx="2.5"/><path d="m10 10.5 5 2.75-5 2.75z" fill="currentColor" stroke="none"/><path d="M8.5 3.5 12 6l3.5-2.5"/></svg></span><span class="home-quick-t">Live TV</span></button>
+                <div class="home-quick-more">
+                  <button class="home-quick-card home-quick-more-btn" id="home-quick-more-btn" type="button" aria-haspopup="true" aria-expanded="false">
+                    <span class="home-quick-ico"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9.5l8 7 8-7"/></svg></span>
+                    <span class="home-quick-t">All tabs</span>
+                  </button>
+                  <div class="home-quick-menu" id="home-quick-menu" hidden>
+                    <button class="home-quick-menu-item" data-home-go="proxies"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 9.3l3.6-3.6a2.9 2.9 0 0 1 4.1 4.1l-3.6 3.6a2.9 2.9 0 0 1-4.1 0"/><path d="M9 14.7l-3.6 3.6a2.9 2.9 0 0 1-4.1-4.1l3.6-3.6a2.9 2.9 0 0 1 4.1 0"/><path d="M8.3 15.7l7.4-7.4"/></svg><span>Proxies</span></button>
+                    <button class="home-quick-menu-item" data-home-go="ai"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5c.9 3.4 2.6 5.1 6 6-3.4.9-5.1 2.6-6 6-.9-3.4-2.6-5.1-6-6 3.4-.9 5.1-2.6 6-6z"/><path d="M18.5 13c.5 1.9 1.4 2.8 3.3 3.3-1.9.5-2.8 1.4-3.3 3.3-.5-1.9-1.4-2.8-3.3-3.3 1.9-.5 2.8-1.4 3.3-3.3z"/></svg><span>AI</span></button>
+                    <button class="home-quick-menu-item" data-home-go="cloud"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/><path d="M9.9 9.4l5.4 3.1-5.4 3.1z" fill="currentColor" stroke="none"/></svg><span>Cloud</span></button>
+                    <button class="home-quick-menu-item" data-home-go="board"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.2" y="4" width="17.6" height="12" rx="1.5"/><path d="M7 7.7h10M7 10.2h7M7 12.7h4"/></svg><span>Board</span></button>
+                    <button class="home-quick-menu-item" data-home-go="docs"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3.5h8l4 4.5v12.5a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-16a1 1 0 0 1 1-1z"/><path d="M14 3.5v4.5h4.5"/><path d="M8.5 11.5h7M8.5 14.7h7M8.5 17.9h4"/></svg><span>Docs</span></button>
+                    <button class="home-quick-menu-item" data-home-go="partners"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m11 17 2 2a1 1 0 1 0 3-3"/><path d="m14 14 2.5 2.5a1 1 0 1 0 3-3l-3.88-3.88a3 3 0 0 0-4.24 0l-.88.88a1 1 0 1 1-3-3l2.81-2.81a5.79 5.79 0 0 1 7.06-.87l.47.28a2 2 0 0 0 1.42.25L21 4"/><path d="m21 3 1 11h-2"/><path d="M3 3 2 14l6.5 6.5a1 1 0 1 0 3-3"/><path d="M3 4h8"/></svg><span>Partners</span></button>
+                    <button class="home-quick-menu-item" data-home-go="settings"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h8M18 7h2"/><circle cx="16" cy="7" r="2"/><path d="M4 12h2M10 12h10"/><circle cx="8" cy="12" r="2"/><path d="M4 17h9M17 17h3"/><circle cx="14" cy="17" r="2"/></svg><span>Settings</span></button>
+                  </div>
+                </div>
               </div>
 
               <div class="home-surface">
@@ -644,7 +655,7 @@
                 <div class="livetv-hero-info">
                   <span class="livetv-hero-badge"><span class="livetv-live-dot"></span> LIVE HD</span>
                   <span class="livetv-hero-title" id="livetv-hero-title">Select a channel to watch</span>
-                  <span class="livetv-hero-cat" id="livetv-hero-cat">Theater Mode</span>
+                  <span class="livetv-hero-cat" id="livetv-hero-cat">24/7 streams</span>
                 </div>
                 <button class="btn-ghost livetv-hero-fs" id="livetv-hero-fs-btn" type="button" title="Full screen">
                   <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" stroke="currentColor" fill="none" stroke-width="2"/></svg>
@@ -658,8 +669,8 @@
                     <div class="livetv-placeholder-ico">
                       <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="6.5" width="19" height="13" rx="2.5"/><path d="m10 10.5 5 2.75-5 2.75z" fill="currentColor" stroke="none"/></svg>
                     </div>
-                    <h3>Live Broadcast Player</h3>
-                    <p>Pick any channel below for instant HD streaming</p>
+                    <h3>Chalkle TV</h3>
+                    <p>Pick any channel below and it starts streaming here in seconds.</p>
                   </div>
                 </div>
                 <div class="livetv-player-msg" id="livetv-hero-msg" hidden></div>

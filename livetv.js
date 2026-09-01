@@ -61,6 +61,15 @@
         state.channels = (j && Array.isArray(j.channels)) ? j.channels : [];
         if (!state.channels.length && j && j.error) setStatus("no channels yet", "offline");
         render();
+        /* Jump straight back to the last channel watched (hero player only -
+           no popup, autoplay just won't start until the browser allows it). */
+        var last = null;
+        try { last = localStorage.getItem("chalkle-livetv-last") || ""; } catch (e) { /* no storage */ }
+        if (last) {
+          for (var i = 0; i < state.channels.length; i++) {
+            if (state.channels[i].id === last) { openPlayer(state.channels[i]); break; }
+          }
+        }
       })
       .catch(function () {
         setStatus("could not load channels", "offline");
@@ -133,6 +142,75 @@
     });
   }
 
+  /* Per-category presentation: tinted gradient + a quick blurb, so the TV
+     grid reads like channels instead of a row of initials. */
+  function catStyle(cat) {
+    var c = String(cat || "Other").toLowerCase();
+    if (c.indexOf("news") !== -1) return { cls: "is-news", blurb: "Live news coverage, 24/7" };
+    if (c.indexOf("sport") !== -1) return { cls: "is-sport", blurb: "Live sport, all day long" };
+    if (c.indexOf("movie") !== -1 || c.indexOf("film") !== -1) return { cls: "is-movie", blurb: "Free movie streams" };
+    if (c.indexOf("music") !== -1) return { cls: "is-music", blurb: "Live music & radio" };
+    if (c.indexOf("kid") !== -1) return { cls: "is-kids", blurb: "Kid-safe cartoons & shows" };
+    if (c.indexOf("demo") !== -1 || c.indexOf("test") !== -1) return { cls: "is-demo", blurb: "Test feed" };
+    return { cls: "is-other", blurb: "24/7 live stream" };
+  }
+
+  function channelBlurb(c) {
+    if (c && c.desc && String(c.desc).trim()) return String(c.desc).trim();
+    return catStyle(c.category).blurb;
+  }
+
+  function channelCard(c) {
+    var style = catStyle(c.category);
+    var card = el("button", "livetv-card" + (c.live !== false ? " is-live" : "") + " " + style.cls);
+    card.type = "button";
+    card.title = "Stream " + (c.name || "Channel");
+
+    var preview = el("div", "livetv-card-preview");
+    if (c.logo) {
+      var img = document.createElement("img");
+      img.src = c.logo;
+      img.alt = "";
+      img.loading = "lazy";
+      preview.appendChild(img);
+    } else {
+      var fallbackLetter = el("span", "livetv-preview-letter", letterOf(c.name));
+      preview.appendChild(fallbackLetter);
+    }
+
+    var liveBadge = el("span", "livetv-card-live-badge", "LIVE");
+    var sub = el("span", "livetv-card-preview-sub", c.category || "Live");
+    var bars = document.createElement("span");
+    bars.className = "livetv-card-bars";
+    bars.setAttribute("aria-hidden", "true");
+    for (var i = 0; i < 3; i++) {
+      var b = document.createElement("i");
+      b.setAttribute("style", "animation-delay:" + (i * 0.18) + "s");
+      bars.appendChild(b);
+    }
+    var playOverlay = el("div", "livetv-card-play-overlay");
+    playOverlay.innerHTML = '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z" fill="currentColor"/></svg>';
+    preview.append(liveBadge, sub, bars, playOverlay);
+
+    var meta = el("div", "livetv-card-meta");
+    var name = el("div", "livetv-card-name", c.name || "Channel");
+    var cat = el("div", "livetv-card-cat", c.category || "Other");
+    var desc = el("div", "livetv-card-desc", channelBlurb(c));
+    meta.append(name, cat, desc);
+
+    card.append(preview, meta);
+    card.addEventListener("click", function () {
+      document.querySelectorAll(".livetv-card").forEach(function (x) { x.classList.remove("is-selected"); });
+      card.classList.add("is-selected");
+      try { localStorage.setItem("chalkle-livetv-last", c.id || ""); } catch (e) { /* no storage */ }
+      openPlayer(c);
+    });
+    return card;
+  }
+
+  /* The grid groups channels under their category when the filter is "All",
+     so the section reads as a real channel guide. Choosing one category
+     returns to a flat grid of just that row. */
   function renderGrid() {
     var grid = document.getElementById("livetv-grid");
     var empty = document.getElementById("livetv-empty");
@@ -140,7 +218,7 @@
     if (!grid) return;
 
     var items = filtered();
-    if (meta) meta.textContent = (state.matches.length ? state.matches.length + (state.matches.length === 1 ? " match" : " matches") + "+ " : "") + items.length + (items.length === 1 ? " channel" : " channels");
+    if (meta) meta.textContent = (state.matches.length ? state.matches.length + (state.matches.length === 1 ? " match" : " matches") + " + " : "") + items.length + (items.length === 1 ? " channel" : " channels");
 
     if (!items.length) {
       grid.innerHTML = "";
@@ -151,42 +229,40 @@
     if (empty) empty.hidden = true;
     setStatus("live now", "online");
 
+    function gridRow(cs) {
+      var row = document.createElement("div");
+      row.className = "livetv-row";
+      cs.forEach(function (c) { row.appendChild(channelCard(c)); });
+      return row;
+    }
+
     grid.innerHTML = "";
-    items.forEach(function (c) {
-      var card = el("button", "livetv-card" + (c.live !== false ? " is-live" : ""));
-      card.type = "button";
-      card.title = "Stream " + (c.name || "Channel");
-
-      var preview = el("div", "livetv-card-preview");
-      if (c.logo) {
-        var img = document.createElement("img");
-        img.src = c.logo;
-        img.alt = "";
-        img.loading = "lazy";
-        preview.appendChild(img);
-      } else {
-        var fallbackLetter = el("span", "livetv-preview-letter", letterOf(c.name));
-        preview.appendChild(fallbackLetter);
-      }
-
-      var liveBadge = el("span", "livetv-card-live-badge", "LIVE");
-      var playOverlay = el("div", "livetv-card-play-overlay");
-      playOverlay.innerHTML = '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z" fill="currentColor"/></svg>';
-      preview.append(liveBadge, playOverlay);
-
-      var meta = el("div", "livetv-card-meta");
-      var name = el("div", "livetv-card-name", c.name || "Channel");
-      var cat = el("div", "livetv-card-cat", c.category || "Other");
-      meta.append(name, cat);
-
-      card.append(preview, meta);
-      card.addEventListener("click", function () {
-        document.querySelectorAll(".livetv-card").forEach(function (x) { x.classList.remove("is-selected"); });
-        card.classList.add("is-selected");
-        openPlayer(c);
+    if (state.cat === "all") {
+      var order = [], seen = {};
+      items.forEach(function (c) {
+        var cat = c.category || "Other";
+        if (!seen[cat]) { seen[cat] = true; order.push(cat); }
       });
-      grid.appendChild(card);
-    });
+      order.sort(function (a, b) { return a.localeCompare(b); });
+      order.forEach(function (cat) {
+        var group = document.createElement("div");
+        group.className = "livetv-group";
+        var head = document.createElement("div");
+        head.className = "livetv-group-head";
+        var h = document.createElement("h3");
+        h.className = "livetv-group-title";
+        h.textContent = cat;
+        var n = document.createElement("span");
+        n.className = "livetv-group-note";
+        n.textContent = items.filter(function (x) { return (x.category || "Other") === cat; }).length + (items.filter(function (x) { return (x.category || "Other") === cat; }).length === 1 ? " channel" : " channels");
+        head.append(h, n);
+        group.appendChild(head);
+        group.appendChild(gridRow(items.filter(function (x) { return (x.category || "Other") === cat; })));
+        grid.appendChild(group);
+      });
+    } else {
+      grid.appendChild(gridRow(items));
+    }
   }
 
   function render() {
@@ -322,6 +398,15 @@
       '<span class="livetv-match-team-name">' + esc(a.name || "") + "</span></span></div>";
   }
 
+  function matchDesc(m) {
+    var cats = m.category ? sportLabel(m.category) : "";
+    var s = cats ? cats + " · " : "";
+    if (m.league) s += "League feed, matches back to back";
+    else if (m.teams && m.teams.home && m.teams.home.name && m.teams.away && m.teams.away.name) s += "Live event coverage";
+    else s += "Live event coverage";
+    return s;
+  }
+
   function matchCard(m) {
     var live = (m.date || 0) <= Date.now();
     var tags = '<span class="livetv-match-tag' + (live ? " is-live" : " is-up") + '">' +
@@ -329,11 +414,15 @@
     if (m.hd) tags += '<span class="livetv-match-tag is-hd">HD</span>';
     if (m.lang) tags += '<span class="livetv-match-tag is-lang">' + esc(m.lang) + "</span>";
     var cats = m.category ? sportLabel(m.category) : "";
+    var chip = cats ? '<span class="livetv-match-cat-chip"><span class="livetv-match-cat-dot" aria-hidden="true"></span>' + esc(cats.toUpperCase()) + "</span>" : "";
     return '<button class="livetv-match" type="button" data-match="' + esc(m.id || "") + '" title="Watch\n' + esc((m.title || "").replace(/\n/g, " ")) + '">' +
       '<span class="livetv-match-art">' + matchArt(m) +
+      (chip ? chip : "") +
+      (live ? '<span class="livetv-match-live-pill">LIVE</span>' : "") +
       '<span class="livetv-match-blink"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z" fill="currentColor"/></svg><span>Watch</span></span></span>' +
       '<span class="livetv-match-body">' +
       '<span class="livetv-match-title">' + esc(m.title || "") + "</span>" +
+      '<span class="livetv-match-desc">' + esc(matchDesc(m)) + "</span>" +
       '<span class="livetv-match-meta">' +
       '<span class="livetv-match-time">' + esc(kickoffLabel(m.date)) + "</span>" +
       (cats ? '<span class="livetv-match-cat">' + esc(cats) + "</span>" : "") +

@@ -2080,9 +2080,39 @@
       });
     });
 
+    /* Jump back in: the headline quick cards stay on the hero, the rest fold
+       into the All tabs dropdown so a growing tab list never stacks the hero
+       into a wall of tiles. */
+    var quickMoreBtn = document.getElementById("home-quick-more-btn");
+    var quickMenu = document.getElementById("home-quick-menu");
+    if (quickMoreBtn && quickMenu) {
+      quickMoreBtn.addEventListener("click", function (e) {
+        e.stopPropagation();
+        var open = quickMenu.hidden;
+        quickMenu.hidden = !open;
+        quickMoreBtn.setAttribute("aria-expanded", open ? "true" : "false");
+      });
+      document.addEventListener("click", function (e) {
+        if (quickMenu.hidden) return;
+        if (e.target && (quickMoreBtn.contains(e.target) || quickMenu.contains(e.target))) return;
+        quickMenu.hidden = true;
+        quickMoreBtn.setAttribute("aria-expanded", "false");
+      });
+      document.addEventListener("keydown", function (e) {
+        if (e.key !== "Escape") return;
+        quickMenu.hidden = true;
+        quickMoreBtn.setAttribute("aria-expanded", "false");
+      });
+    }
+
     document.querySelectorAll("[data-home-go]").forEach(function (btn) {
       btn.addEventListener("click", function () {
         setView(btn.dataset.homeGo);
+        /* A tab picked from the All tabs menu: close it after navigating. */
+        if (quickMenu && !quickMenu.hidden) {
+          quickMenu.hidden = true;
+          if (quickMoreBtn) quickMoreBtn.setAttribute("aria-expanded", "false");
+        }
       });
     });
 
