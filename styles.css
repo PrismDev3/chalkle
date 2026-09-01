@@ -878,6 +878,18 @@ body.sidebar-collapsed .collapse-btn:active { transform: scale(0.96); }
   background-position: center;
 }
 
+/* Live TV: mint-tinted backdrop so the tab reads as its own section. */
+.view[data-view="livetv"]::before {
+  background-color: #0d1a15;
+  background-image: none;
+}
+
+/* YouTube: red-tinted backdrop. */
+.view[data-view="youtube"]::before {
+  background-color: #1a0d0f;
+  background-image: none;
+}
+
 /* ---------- View headers ---------- */
 
 .view-head {
@@ -1369,6 +1381,8 @@ button.home-panel-chip:hover {
 .view[data-view="docs"] .view-meta.has-content { color: var(--cyan); }
 .view[data-view="ai"] .view-meta.has-content { color: #b06bff; }
 .view[data-view="partners"] .view-meta.has-content { color: var(--brown); }
+.view[data-view="livetv"] .view-meta.has-content { color: var(--tv); }
+.view[data-view="youtube"] .view-meta.has-content { color: #ff0033; }
 
 .game-command {
   display: grid;
@@ -2195,15 +2209,15 @@ button.home-panel-chip:hover {
   transition: all 120ms ease;
 }
 
-.chip:hover { border-color: var(--accent); color: var(--text); }
+.chip:hover { border-color: var(--va, var(--accent)); color: var(--text); }
 
 .chip input { display: none; }
 
 .chip:has(input:checked),
 .chip.is-active {
-  background: var(--accent-soft);
-  border-color: var(--accent);
-  color: var(--accent);
+  background: var(--va-soft, var(--accent-soft));
+  border-color: var(--va, var(--accent));
+  color: var(--va, var(--accent));
 }
 
 /* Docs type filter (All / Lists / SVGs / HTMLs). Sits in the view header next
@@ -7535,7 +7549,7 @@ input[type="submit"]:not([disabled]), input[type="range"]:not([disabled]) {
   font-family: var(--display);
   font-size: 21px;
   line-height: 1.1;
-  color: var(--text);
+  color: var(--va, var(--text));
 }
 
 .livetv-block-note {
@@ -8541,7 +8555,7 @@ input[type="submit"]:not([disabled]), input[type="range"]:not([disabled]) {
   font-family: var(--display);
   font-size: 21px;
   line-height: 1.1;
-  color: var(--text);
+  color: var(--va, var(--text));
 }
 
 .yt-block-note {
