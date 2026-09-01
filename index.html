@@ -966,6 +966,9 @@
               <h1 class="view-title">Settings</h1>
               <span class="view-meta">local to this device</span>
             </div>
+            <div class="view-actions">
+              <button class="home-panel-chip" id="opt-make-yours" type="button">Make it yours</button>
+            </div>
           </div>
 
           <div class="settings-grid">
@@ -1020,7 +1023,7 @@
             </div>
 
             <!-- Display -->
-            <div class="panel settings-card settings-panel" data-settings-panel="display">
+            <div class="panel settings-card settings-card-wide settings-panel" data-settings-panel="display">
               <button class="settings-toggle" type="button" aria-expanded="true" aria-controls="settings-body-display">
                 <span class="settings-toggle-txt">
                   <span class="settings-toggle-title">Display</span>
@@ -1073,16 +1076,17 @@
               </div>
             </div>
 
-            <!-- Launches -->
-            <div class="panel settings-card settings-panel" data-settings-panel="launches">
-              <button class="settings-toggle" type="button" aria-expanded="true" aria-controls="settings-body-launches">
+            <!-- Behavior: launch method + cloak (collapsed by default) -->
+            <div class="panel settings-card settings-card-wide settings-panel" data-settings-panel="behavior">
+              <button class="settings-toggle" type="button" aria-expanded="false" aria-controls="settings-body-behavior">
                 <span class="settings-toggle-txt">
-                  <span class="settings-toggle-title">Launches</span>
+                  <span class="settings-toggle-title">Behavior</span>
                   <span class="settings-toggle-sub">open method, cloak title</span>
                 </span>
+                <span class="settings-count">3 options</span>
                 <svg class="icon settings-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9.5l6 6 6-6"/></svg>
               </button>
-              <div class="settings-body" id="settings-body-launches">
+              <div class="settings-body" id="settings-body-behavior" hidden>
                 <div class="settings-row">
                   <div class="settings-row-txt">
                     <span class="setting-name">Ask before launching</span>
@@ -1115,16 +1119,22 @@
                   </div>
                   <input class="field field-name settings-input" id="opt-cloak-title" type="text" placeholder="Classes" maxlength="40" aria-label="Cloak tab title">
                 </div>
+                <div class="settings-block">
+                  <div class="settings-block-label">Quick disguise</div>
+                  <p class="settings-block-hint">Swap this tab&rsquo;s title and icon with one click</p>
+                  <div class="cloak-grid" id="cloak-grid"></div>
+                </div>
               </div>
             </div>
 
-            <!-- Cloud gaming (advanced, collapsed by default) -->
-            <div class="panel settings-card settings-panel" data-settings-panel="cloud">
+            <!-- Cloud gaming (collapsed by default) -->
+            <div class="panel settings-card settings-card-wide settings-panel" data-settings-panel="cloud">
               <button class="settings-toggle" type="button" aria-expanded="false" aria-controls="settings-body-cloud">
                 <span class="settings-toggle-txt">
                   <span class="settings-toggle-title">Cloud gaming</span>
                   <span class="settings-toggle-sub">Stratus server + API key</span>
                 </span>
+                <span class="settings-count" id="cloud-cfg-status">offline</span>
                 <svg class="icon settings-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9.5l6 6 6-6"/></svg>
               </button>
               <div class="settings-body" id="settings-body-cloud" hidden>
@@ -1146,36 +1156,44 @@
               </div>
             </div>
 
-            <!-- Saved proxies (advanced, collapsed by default) -->
-            <div class="panel settings-card settings-panel" id="settings-proxy-row" data-settings-panel="proxies">
-              <button class="settings-toggle" type="button" aria-expanded="false" aria-controls="settings-body-proxies">
+            <!-- Advanced: proxies, import/export, reset, debug (collapsed by default) -->
+            <div class="panel settings-card settings-card-wide settings-panel" data-settings-panel="advanced">
+              <button class="settings-toggle" type="button" aria-expanded="false" aria-controls="settings-body-advanced">
                 <span class="settings-toggle-txt">
-                  <span class="settings-toggle-title">Saved proxies</span>
-                  <span class="settings-toggle-sub">your proxy list</span>
+                  <span class="settings-toggle-title">Advanced</span>
+                  <span class="settings-toggle-sub">proxies, import/export, reset</span>
                 </span>
+                <span class="settings-count" id="settings-adv-count">…</span>
                 <svg class="icon settings-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9.5l6 6 6-6"/></svg>
               </button>
-              <div class="settings-body" id="settings-body-proxies" hidden>
-                <p class="settings-note">Click a proxy to open it.</p>
-                <div class="proxy-links" id="settings-proxy-list"></div>
+              <div class="settings-body" id="settings-body-advanced" hidden>
                 <div class="settings-block">
-                  <button class="btn-danger" id="opt-clear">Clear list</button>
+                  <div class="settings-block-label">Saved proxies</div>
+                  <p class="settings-block-hint">Click a proxy to open it</p>
+                  <div class="proxy-links" id="settings-proxy-list"></div>
+                  <div class="settings-block-inline">
+                    <button class="btn-danger" id="opt-clear">Clear list</button>
+                  </div>
                 </div>
-              </div>
-            </div>
-
-            <!-- Cloak tab (advanced, collapsed by default) -->
-            <div class="panel settings-card settings-card-wide settings-panel" data-settings-panel="cloak">
-              <button class="settings-toggle" type="button" aria-expanded="false" aria-controls="settings-body-cloak">
-                <span class="settings-toggle-txt">
-                  <span class="settings-toggle-title">Cloak tab</span>
-                  <span class="settings-toggle-sub">quick disguise</span>
-                </span>
-                <svg class="icon settings-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9.5l6 6 6-6"/></svg>
-              </button>
-              <div class="settings-body" id="settings-body-cloak" hidden>
-                <p class="settings-note">Change this tab&rsquo;s title and icon with one click.</p>
-                <div class="cloak-grid" id="cloak-grid"></div>
+                <div class="settings-block">
+                  <div class="settings-block-label">Backup</div>
+                  <p class="settings-block-hint">Save your settings to a file or restore them on another device</p>
+                  <div class="theme-custom-row">
+                    <button class="btn-theme" id="opt-export">Export settings</button>
+                    <button class="btn-theme" id="opt-import">Import settings</button>
+                    <input type="file" id="opt-import-file" accept="application/json,.json" hidden>
+                  </div>
+                </div>
+                <div class="settings-block">
+                  <div class="settings-block-label">Reset</div>
+                  <p class="settings-block-hint">Wipe every saved preference, favorite, and history on this device</p>
+                  <button class="btn-danger" id="opt-reset">Reset to defaults</button>
+                </div>
+                <div class="settings-block">
+                  <div class="settings-block-label">Debug info</div>
+                  <p class="settings-block-hint">What this device has stored locally</p>
+                  <div class="debug-box" id="debug-info"></div>
+                </div>
               </div>
             </div>
 
