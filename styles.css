@@ -5304,6 +5304,65 @@ html.motion-off *::after {
 .home-quick-card.q-docs:hover { border-color: #26c6da; background: rgba(38, 198, 218, 0.12); }
 .home-quick-card.q-partners:hover { border-color: #d8a368; background: rgba(216, 163, 104, 0.12); }
 .home-quick-card.q-settings:hover { border-color: #a970ff; background: rgba(169, 112, 255, 0.12); }
+.home-quick-card.q-tv .home-quick-ico { color: var(--red); }
+.home-quick-card.q-tv:hover { border-color: var(--red); background: rgba(234, 67, 53, 0.12); }
+
+/* All tabs dropdown - the Jump back in grid keeps the headline tabs and
+   folds the rest into a menu so the hero never turns into a wall of tiles. */
+.home-quick-more {
+  position: relative;
+}
+.home-quick-more-btn .home-quick-ico .icon {
+  stroke-width: 2.2;
+  color: var(--text-2);
+  transition: transform 150ms ease;
+}
+.home-quick-more-btn[aria-expanded="true"] .home-quick-ico .icon {
+  transform: rotate(180deg);
+}
+.home-quick-more-btn:hover,
+.home-quick-more-btn[aria-expanded="true"] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.home-quick-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 40;
+  min-width: 210px;
+  padding: 8px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+  background: var(--panel);
+  border: 1px solid var(--line-2);
+  border-radius: 12px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+}
+.home-quick-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 10px;
+  border-radius: 8px;
+  color: var(--text-2);
+  font-size: 13px;
+  font-weight: 650;
+  text-align: left;
+  white-space: nowrap;
+}
+.home-quick-menu-item .icon {
+  width: 17px;
+  height: 17px;
+  flex: none;
+  color: var(--text-3);
+}
+.home-quick-menu-item:hover {
+  background: var(--panel-2);
+  color: var(--text);
+}
+.home-quick-menu-item:hover .icon { color: var(--accent); }
 
 .home-surface { margin-top: auto; }
 .home-surface-head {
@@ -7787,7 +7846,224 @@ input[type="submit"]:not([disabled]), input[type="range"]:not([disabled]) {
 
 .livetv-card-cat {
   font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   color: var(--text-3);
+}
+
+/* Card blurb line - channels get a one-line description under the name so
+   the grid reads like a real guide instead of a list of titles. */
+.livetv-card-desc {
+  font-size: 12px;
+  color: var(--text-2);
+  line-height: 1.35;
+  margin-top: 2px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Per-category preview tints, matching each tab accent so the TV grid feels
+   part of the site. The letter + blurbs follow the same color story. */
+.livetv-card.is-news .livetv-card-preview {
+  background: linear-gradient(135deg, #14263f, #0a1421);
+}
+.livetv-card.is-news .livetv-preview-letter { color: #7aa7f7; text-shadow: 0 0 22px rgba(66, 133, 244, 0.55); }
+.livetv-card.is-news:hover { border-color: rgba(66, 133, 244, 0.55); }
+.livetv-card.is-news.is-selected, .livetv-card.is-news.is-selected:hover {
+  border-color: #4285f4;
+  box-shadow: 0 0 0 2px rgba(66, 133, 244, 0.35), 0 10px 26px rgba(0, 0, 0, 0.45);
+}
+
+.livetv-card.is-sport .livetv-card-preview {
+  background: linear-gradient(135deg, #322016, #150a08);
+}
+
+.livetv-card.is-sport .livetv-preview-letter { color: var(--red-ink); text-shadow: 0 0 22px rgba(234, 67, 53, 0.5); }
+.livetv-card.is-sport:hover { border-color: rgba(234, 67, 53, 0.55); }
+.livetv-card.is-sport.is-selected, .livetv-card.is-sport.is-selected:hover {
+  border-color: var(--red);
+  box-shadow: 0 0 0 2px rgba(234, 67, 53, 0.35), 0 10px 26px rgba(0, 0, 0, 0.45);
+}
+
+.livetv-card.is-movie .livetv-card-preview {
+  background: linear-gradient(135deg, #241436, #12081e);
+}
+.livetv-card.is-movie .livetv-preview-letter { color: #c79bff; text-shadow: 0 0 22px rgba(176, 107, 255, 0.5); }
+.livetv-card.is-movie:hover { border-color: rgba(176, 107, 255, 0.55); }
+.livetv-card.is-movie.is-selected, .livetv-card.is-movie.is-selected:hover {
+  border-color: #b06bff;
+  box-shadow: 0 0 0 2px rgba(176, 107, 255, 0.35), 0 10px 26px rgba(0, 0, 0, 0.45);
+}
+
+.livetv-card.is-music .livetv-card-preview {
+  background: linear-gradient(135deg, #2b1224, #150a12);
+}
+.livetv-card.is-music .livetv-preview-letter { color: #ff7ab8; text-shadow: 0 0 22px rgba(255, 64, 129, 0.5); }
+.livetv-card.is-music:hover { border-color: rgba(255, 64, 129, 0.55); }
+.livetv-card.is-music.is-selected, .livetv-card.is-music.is-selected:hover {
+  border-color: #ff4081;
+  box-shadow: 0 0 0 2px rgba(255, 64, 129, 0.35), 0 10px 26px rgba(0, 0, 0, 0.45);
+}
+
+.livetv-card.is-kids .livetv-card-preview {
+  background: linear-gradient(135deg, #2b2412, #151006);
+}
+.livetv-card.is-kids .livetv-preview-letter { color: #ffd45e; text-shadow: 0 0 22px rgba(251, 188, 5, 0.5); }
+.livetv-card.is-kids:hover { border-color: rgba(251, 188, 5, 0.55); }
+
+.livetv-card.is-demo .livetv-card-preview {
+  background: linear-gradient(135deg, #0f2b22, #07160f);
+}
+.livetv-card.is-demo .livetv-preview-letter { color: #4ab88c; text-shadow: 0 0 22px rgba(74, 184, 140, 0.5); }
+.livetv-card.is-demo:hover { border-color: rgba(74, 184, 140, 0.55); }
+
+.livetv-card.is-other .livetv-card-preview {
+  background: linear-gradient(135deg, #1b2320, #0d1210);
+}
+.livetv-card.is-other .livetv-preview-letter { color: #8fd3b4; text-shadow: 0 0 22px rgba(74, 184, 140, 0.4); }
+.livetv-card.is-other:hover { border-color: rgba(74, 184, 140, 0.5); }
+
+/* Tiny live-signal equalizer, bottom-right of each preview. */
+.livetv-card-bars {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 16px;
+  opacity: 0.9;
+  pointer-events: none;
+}
+.livetv-card-bars i {
+  display: block;
+  width: 3px;
+  border-radius: 2px;
+  background: currentColor;
+  animation: livetv-eq 1.1s ease-in-out infinite;
+}
+.livetv-card-bars i:nth-child(1) { height: 6px; }
+.livetv-card-bars i:nth-child(2) { height: 14px; }
+.livetv-card-bars i:nth-child(3) { height: 9px; animation-delay: 0.35s; }
+.livetv-card.is-news .livetv-card-bars { color: #7aa7f7; }
+.livetv-card.is-sport .livetv-card-bars { color: var(--red-ink); }
+.livetv-card.is-movie .livetv-card-bars { color: #c79bff; }
+.livetv-card.is-music .livetv-card-bars { color: #ff7ab8; }
+.livetv-card.is-kids .livetv-card-bars { color: #ffd45e; }
+.livetv-card.is-demo .livetv-card-bars { color: #4ab88c; }
+.livetv-card.is-other .livetv-card-bars { color: #8fd3b4; }
+
+@keyframes livetv-eq {
+  0%, 100% { transform: scaleY(0.4); }
+  50% { transform: scaleY(1); }
+}
+
+/* Category label inside the preview, bottom-left. */
+.livetv-card-preview-sub {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.75);
+  background: rgba(0, 0, 0, 0.42);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 5px;
+  padding: 2px 7px;
+  pointer-events: none;
+}
+
+/* Grouped channel sections - each category gets a heading + its own row. */
+.livetv-group {
+  margin-bottom: 22px;
+}
+.livetv-group:last-child { margin-bottom: 0; }
+.livetv-group-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding-bottom: 8px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--line-soft);
+}
+.livetv-group-title {
+  margin: 0;
+  font-family: var(--display-geo);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+}
+.livetv-group-note {
+  font-size: 12px;
+  color: var(--text-3);
+}
+.livetv-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 16px;
+}
+
+/* Match cards: sport chip + live pill on the art, description under title. */
+.livetv-match-cat-chip {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #fff;
+  background: rgba(10, 11, 13, 0.66);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 6px;
+  padding: 3px 8px;
+  pointer-events: none;
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
+}
+.livetv-match-cat-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--red);
+  box-shadow: 0 0 7px var(--red);
+  animation: livetv-pulse 1.5s ease infinite;
+}
+.livetv-match-live-pill {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  color: #fff;
+  background: rgba(234, 67, 53, 0.92);
+  border-radius: 5px;
+  padding: 3px 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+}
+.livetv-match-desc {
+  font-size: 12px;
+  color: var(--text-2);
+  line-height: 1.35;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Player overlay */
