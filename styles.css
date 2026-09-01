@@ -2070,6 +2070,34 @@ button.home-panel-chip:hover {
   filter: brightness(1.15);
 }
 
+/* AdSense slots: quiet, site-styled, never loud. A small muted "Sponsored"
+   label above a responsive unit. Slots stay hidden until configured, so an
+   unconfigured page shows nothing at all. */
+.ad-slot {
+  margin: 20px auto 8px;
+  max-width: 760px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ad-slot-label {
+  font-family: var(--display);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  opacity: 0.7;
+}
+
+.ad-slot ins.adsbygoogle {
+  display: block;
+  min-height: 90px;
+  background: rgba(20, 24, 29, 0.55);
+  border: 1px solid var(--line-soft);
+  border-radius: 12px;
+}
+
 /* ---------- Panels ---------- */
 
 .panel {

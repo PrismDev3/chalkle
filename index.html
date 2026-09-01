@@ -12,6 +12,17 @@
   <link href="https://fonts.googleapis.com/css2?family=Boogaloo&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
   <link rel="preload" as="image" href="bg-chalk.webp" fetchpriority="high">
   <link rel="stylesheet" href="styles.css?v=20260901a">
+  <!-- AdSense. Slots stay hidden until real ad-unit IDs are pasted into the
+       CHALKLE_ADS config below (AdSense dashboard → Ad units → create). -->
+  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3031332925462724" crossorigin="anonymous"></script>
+  <meta name="google-adsense-account" content="ca-pub-3031332925462724">
+  <script>
+  window.CHALKLE_ADS = {
+    client: "ca-pub-3031332925462724",
+    /* Paste your real ad-unit slot IDs here (AdSense → Ad units). */
+    slots: { home: "", games: "" }
+  };
+  </script>
   <script src="theme.js"></script>
 </head>
 <body>
@@ -520,6 +531,11 @@
             </div>
           </div>
 
+          <div class="ad-slot" id="ad-slot-home" data-slot-key="home" hidden>
+            <span class="ad-slot-label">Sponsored</span>
+            <ins class="adsbygoogle" data-ad-client="ca-pub-3031332925462724" data-ad-slot="" data-ad-format="auto" data-full-width-responsive="true"></ins>
+          </div>
+
           <div class="home-recents" id="home-recents" hidden></div>
 
           <section class="home-block">
@@ -573,6 +589,10 @@
             </div>
           </div>
           <div class="genre-filters" id="genre-filters" role="group" aria-label="Filter by genre" hidden></div>
+          <div class="ad-slot" id="ad-slot-games" data-slot-key="games" hidden>
+            <span class="ad-slot-label">Sponsored</span>
+            <ins class="adsbygoogle" data-ad-client="ca-pub-3031332925462724" data-ad-slot="" data-ad-format="auto" data-full-width-responsive="true"></ins>
+          </div>
           <div class="grid" id="games-grid"></div>
           <div class="empty" id="games-empty" hidden>
             <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
@@ -1803,6 +1823,29 @@
   <script src="livetv.js"></script>
   <script src="youtube.js"></script>
   <script src="intro.js"></script>
+  <script>
+  /* AdSense boot: fill each slot's data-ad-slot from the CHALKLE_ADS config
+     and request the unit. Slots with no configured ID stay hidden, so an
+     unconfigured page never shows an empty ad box. One gentle "Sponsored"
+     label per placement, responsive format, no interstitials. */
+  (function () {
+    var cfg = (window.CHALKLE_ADS && window.CHALKLE_ADS.slots) || {};
+    var slots = document.querySelectorAll(".ad-slot");
+    for (var i = 0; i < slots.length; i++) {
+      var box = slots[i];
+      var key = box.getAttribute("data-slot-key") || "";
+      var slotId = (cfg[key] || "").trim();
+      if (!slotId) continue;
+      var ins = box.querySelector("ins.adsbygoogle");
+      if (!ins) continue;
+      ins.setAttribute("data-ad-slot", slotId);
+      box.hidden = false;
+      try {
+        (window.adsbygoogle = window.adsbygoogle || []).push({});
+      } catch (e) { /* ad blocked or not ready */ }
+    }
+  })();
+  </script>
   <script src="app.js"></script>
 </body>
 </html>
