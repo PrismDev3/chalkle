@@ -10,7 +10,9 @@
   var ADMIN_KEY = "chalkle-admin-unlocked"; /* same key app.js uses for the admin panel */
   var CAT_KEY = "chalkle-livetv-cat";       /* remembered category filter */
 
-  var state = { channels: [], admin: [], cat: "all", q: "", hls: null };
+  var state = { channels: [], admin: [], cat: "all", q: "", hls: null, sports: [], sport: "all", matches: [] };
+
+  var SPORT_KEY = "chalkle-livetv-sport"; /* remembered sport filter */
 
   function isAdmin() {
     try { return localStorage.getItem(ADMIN_KEY) === "1"; } catch (e) { return false; }
@@ -138,7 +140,7 @@
     if (!grid) return;
 
     var items = filtered();
-    if (meta) meta.textContent = items.length + (items.length === 1 ? " channel" : " channels");
+    if (meta) meta.textContent = (state.matches.length ? state.matches.length + (state.matches.length === 1 ? " match" : " matches") + "+ " : "") + items.length + (items.length === 1 ? " channel" : " channels");
 
     if (!items.length) {
       grid.innerHTML = "";
@@ -269,10 +271,167 @@
   function closePlayer() {
     var modal = document.getElementById("livetv-player");
     var video = document.getElementById("livetv-video");
+    var frame = document.getElementById("livetv-embed-frame");
     if (state.hls) { try { state.hls.destroy(); } catch (e) { /* ignore */ } state.hls = null; }
     if (video) { try { video.pause(); } catch (e) { /* ignore */ } video.removeAttribute("src"); video.load(); }
+    if (frame) { frame.removeAttribute("src"); frame.style.display = "none"; }
     if (modal) modal.hidden = true;
     document.body.style.overflow = "";
+  }
+
+  /* ---------- live sports (streamed.pk via this server) ---------- */
+
+  function kickoffLabel(ts) {
+    if (!ts) return "";
+    var d = new Date(ts);
+    if (isNaN(d.getTime())) return "";
+    var now = new Date();
+    var sameDay = d.toDateString() === now.toDateString();
+    var tom = new Date(now);
+    tom.setDate(now.getDate() + 1);
+    var sameTom = d.toDateString() === tom.toDateString();
+    var time = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    if (sameDay) return "Today " + time;
+    if (sameTom) return "Tomorrow " + time;
+    return d.toLocaleDateString([], { month: "short", day: "numeric" }) + " " + time;
+  }
+
+  function sportLabel(id) {
+    for (var i = 0; i < state.sports.length; i++) {
+      if (state.sports[i].id === id) return state.sports[i].name || id;
+    }
+    return id;
+  }
+
+  function matchArt(m) {
+    if (m.poster) {
+      return '<img class="livetv-match-post" src="' + esc(m.poster) + '" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.onerror=null;this.remove()">';
+    }
+    var h = m.teams && m.teams.home ? m.teams.home : { name: "?", badge: null };
+    var a = m.teams && m.teams.away ? m.teams.away : { name: "?", badge: null };
+    var hb = h.badge
+      ? '<img class="livetv-match-badge" src="' + esc(h.badge) + '" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.onerror=null;this.remove()">'
+      : '<span class="livetv-match-badge livetv-match-badge-letter">' + esc((h.name || "?").charAt(0).toUpperCase()) + "</span>";
+    var ab = a.badge
+      ? '<img class="livetv-match-badge" src="' + esc(a.badge) + '" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.onerror=null;this.remove()">'
+      : '<span class="livetv-match-badge livetv-match-badge-letter">' + esc((a.name || "?").charAt(0).toUpperCase()) + "</span>";
+    return '<div class="livetv-match-badges"><span class="livetv-match-badge-wrap">' + hb +
+      '<span class="livetv-match-team-name">' + esc(h.name || "") + "</span></span>" +
+      '<span class="livetv-match-vs">vs</span>' +
+      '<span class="livetv-match-badge-wrap">' + ab +
+      '<span class="livetv-match-team-name">' + esc(a.name || "") + "</span></span></div>";
+  }
+
+  function matchCard(m) {
+    var live = (m.date || 0) <= Date.now();
+    var tags = '<span class="livetv-match-tag' + (live ? " is-live" : " is-up") + '">' +
+      (live ? "LIVE" : "UP NEXT") + "</span>";
+    if (m.hd) tags += '<span class="livetv-match-tag is-hd">HD</span>';
+    if (m.lang) tags += '<span class="livetv-match-tag is-lang">' + esc(m.lang) + "</span>";
+    var cats = m.category ? sportLabel(m.category) : "";
+    return '<button class="livetv-match" type="button" data-match="' + esc(m.id || "") + '" title="Watch\n' + esc((m.title || "").replace(/\n/g, " ")) + '">' +
+      '<span class="livetv-match-art">' + matchArt(m) +
+      '<span class="livetv-match-blink"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z" fill="currentColor"/></svg><span>Watch</span></span></span>' +
+      '<span class="livetv-match-body">' +
+      '<span class="livetv-match-title">' + esc(m.title || "") + "</span>" +
+      '<span class="livetv-match-meta">' +
+      '<span class="livetv-match-time">' + esc(kickoffLabel(m.date)) + "</span>" +
+      (cats ? '<span class="livetv-match-cat">' + esc(cats) + "</span>" : "") +
+      "</span>" +
+      '<span class="livetv-match-tags">' + tags + "</span>" +
+      "</span></button>";
+  }
+
+  function openMatch(m) {
+    if (!m || !m.embed) { notice("No playable stream for that match right now."); return; }
+    var modal = document.getElementById("livetv-player");
+    var frame = document.getElementById("livetv-embed-frame");
+    var video = document.getElementById("livetv-video");
+    var title = document.getElementById("livetv-player-title");
+    if (!modal || !frame) return;
+    if (title) title.textContent = m.title || "Live match";
+    if (state.hls) { try { state.hls.destroy(); } catch (e) { /* ignore */ } state.hls = null; }
+    if (video) { try { video.pause(); } catch (e) { /* ignore */ } video.removeAttribute("src"); video.load(); }
+    frame.style.display = "block";
+    frame.src = m.embed;
+    modal.hidden = false;
+    document.body.style.overflow = "hidden";
+  }
+
+  function renderMatches() {
+    var grid = document.getElementById("livetv-matches");
+    var empty = document.getElementById("livetv-matches-empty");
+    var note = document.getElementById("livetv-sports-note");
+    if (!grid) return;
+    var items = state.matches;
+    if (note) note.textContent = items.length
+      ? items.length + (items.length === 1 ? " live match" : " live matches") + " ready to watch"
+      : "No matches right now";
+    if (empty) empty.hidden = items.length > 0;
+    var meta = document.getElementById("livetv-meta");
+    if (meta) meta.textContent = (items.length ? items.length + (items.length === 1 ? " match" : " matches") + " + " : "") + state.channels.length + (state.channels.length === 1 ? " channel" : " channels");
+    grid.innerHTML = items.map(matchCard).join("");
+    grid.querySelectorAll("[data-match]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var m = null;
+        for (var i = 0; i < state.matches.length; i++) {
+          if (state.matches[i].id === btn.dataset.match) { m = state.matches[i]; break; }
+        }
+        if (m) openMatch(m);
+      });
+    });
+  }
+
+  function loadMatches() {
+    var grid = document.getElementById("livetv-matches");
+    var note = document.getElementById("livetv-sports-note");
+    if (grid) grid.innerHTML = '<div class="livetv-loading">Finding live matches…</div>';
+    if (note) note.textContent = "Finding live matches…";
+    var url = "/api/livetv/matches" + (state.sport && state.sport !== "all" ? "?sport=" + encodeURIComponent(state.sport) : "");
+    fetch(url, { cache: "no-store" })
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        state.matches = (j && Array.isArray(j.matches)) ? j.matches : [];
+        renderMatches();
+      })
+      .catch(function () {
+        state.matches = [];
+        renderMatches();
+      });
+  }
+
+  function renderSportChips() {
+    var box = document.getElementById("livetv-sports-cats");
+    if (!box) return;
+    var html = '<button class="chip' + (state.sport === "all" ? " is-active" : "") + '" data-sport="all">All</button>';
+    state.sports.forEach(function (s) {
+      var id = s.id || "";
+      html += '<button class="chip' + (state.sport === id ? " is-active" : "") + '" data-sport="' + esc(id) + '">' + esc(s.name || id) + "</button>";
+    });
+    box.innerHTML = html;
+    box.querySelectorAll("[data-sport]").forEach(function (chip) {
+      chip.addEventListener("click", function () {
+        state.sport = chip.dataset.sport;
+        try { localStorage.setItem(SPORT_KEY, state.sport); } catch (e) { /* ignore */ }
+        renderSportChips();
+        loadMatches();
+      });
+    });
+  }
+
+  function loadSports() {
+    fetch("/api/livetv/sports", { cache: "no-store" })
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        state.sports = (j && Array.isArray(j.sports)) ? j.sports : [];
+        renderSportChips();
+        loadMatches();
+      })
+      .catch(function () {
+        state.sports = [];
+        renderSportChips();
+        loadMatches();
+      });
   }
 
   /* ---------- admin ---------- */
@@ -394,6 +553,7 @@
     if (!grid) return;
 
     try { state.cat = localStorage.getItem(CAT_KEY) || "all"; } catch (e) { state.cat = "all"; }
+    try { state.sport = localStorage.getItem(SPORT_KEY) || "all"; } catch (e) { state.sport = "all"; }
 
     var search = document.getElementById("livetv-search");
     if (search) {
@@ -439,6 +599,7 @@
 
     applyAdminUI();
     load();
+    loadSports();
   }
 
   if (document.readyState === "loading") {

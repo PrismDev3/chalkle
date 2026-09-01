@@ -602,54 +602,77 @@
           <div class="view-head">
             <div class="view-heading">
               <h1 class="view-title">Live TV</h1>
-              <span class="view-meta" id="livetv-meta">channels, no account</span>
+              <span class="view-meta" id="livetv-meta">sports + channels</span>
             </div>
             <div class="view-actions">
               <input class="field field-search" id="livetv-search" type="search" placeholder="Search channels" autocomplete="off" spellcheck="false" aria-label="Search channels">
             </div>
           </div>
-          <div class="game-command">
-            <div class="cloud-status" id="livetv-status">
-              <span class="cloud-dot" id="livetv-status-dot" aria-hidden="true"></span>
-              <span class="cloud-status-txt" id="livetv-status-txt">loading channels</span>
-            </div>
-            <div class="game-filters" role="group" aria-label="Channel categories" id="livetv-cats"></div>
-          </div>
 
-          <!-- Featured HD Theater Player -->
-          <div class="livetv-hero-stage" id="livetv-hero-stage">
-            <div class="livetv-hero-top">
-              <div class="livetv-hero-info">
-                <span class="livetv-hero-badge"><span class="livetv-live-dot"></span> LIVE HD</span>
-                <span class="livetv-hero-title" id="livetv-hero-title">Select a channel below to watch</span>
-                <span class="livetv-hero-cat" id="livetv-hero-cat">Theater Mode</span>
-              </div>
-              <button class="btn-ghost livetv-hero-fs" id="livetv-hero-fs-btn" type="button" title="Full screen">
-                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" stroke="currentColor" fill="none" stroke-width="2"/></svg>
-                <span>Full Screen</span>
-              </button>
+          <!-- Live Sports: real matches, resolved server-side -->
+          <section class="livetv-block" id="livetv-sports-block">
+            <div class="livetv-block-head">
+              <h2 class="livetv-block-title">Live Sports</h2>
+              <span class="livetv-block-note" id="livetv-sports-note">Finding live matches&hellip;</span>
             </div>
-            <div class="livetv-hero-screen">
-              <video id="livetv-hero-video" controls playsinline style="display:none;"></video>
-              <div class="livetv-hero-placeholder" id="livetv-hero-placeholder">
-                <div class="livetv-placeholder-content">
-                  <div class="livetv-placeholder-ico">
-                    <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="6.5" width="19" height="13" rx="2.5"/><path d="m10 10.5 5 2.75-5 2.75z" fill="currentColor" stroke="none"/></svg>
-                  </div>
-                  <h3>Live Broadcast Player</h3>
-                  <p>Pick any channel below for instant HD streaming</p>
+            <div class="livetv-sports-cats" id="livetv-sports-cats"></div>
+            <div class="livetv-match-grid" id="livetv-matches"></div>
+            <div class="empty" id="livetv-matches-empty" hidden>
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/></svg>
+              <p class="empty-title">No live matches right now.</p>
+              <p class="empty-hint">Pick a sport above, or keep watching the channels below.</p>
+            </div>
+          </section>
+
+          <!-- Channels: 24/7 streams through the server relay -->
+          <section class="livetv-block" id="livetv-channels-block">
+            <div class="livetv-block-head">
+              <h2 class="livetv-block-title">Channels</h2>
+              <span class="livetv-block-note">24/7 streams, relayed through this server</span>
+            </div>
+            <div class="game-command">
+              <div class="cloud-status" id="livetv-status">
+                <span class="cloud-dot" id="livetv-status-dot" aria-hidden="true"></span>
+                <span class="cloud-status-txt" id="livetv-status-txt">loading channels</span>
+              </div>
+              <div class="game-filters" role="group" aria-label="Channel categories" id="livetv-cats"></div>
+            </div>
+
+            <!-- Featured HD Theater Player -->
+            <div class="livetv-hero-stage" id="livetv-hero-stage">
+              <div class="livetv-hero-top">
+                <div class="livetv-hero-info">
+                  <span class="livetv-hero-badge"><span class="livetv-live-dot"></span> LIVE HD</span>
+                  <span class="livetv-hero-title" id="livetv-hero-title">Select a channel to watch</span>
+                  <span class="livetv-hero-cat" id="livetv-hero-cat">Theater Mode</span>
                 </div>
+                <button class="btn-ghost livetv-hero-fs" id="livetv-hero-fs-btn" type="button" title="Full screen">
+                  <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" stroke="currentColor" fill="none" stroke-width="2"/></svg>
+                  <span>Full Screen</span>
+                </button>
               </div>
-              <div class="livetv-player-msg" id="livetv-hero-msg" hidden></div>
+              <div class="livetv-hero-screen">
+                <video id="livetv-hero-video" controls playsinline style="display:none;"></video>
+                <div class="livetv-hero-placeholder" id="livetv-hero-placeholder">
+                  <div class="livetv-placeholder-content">
+                    <div class="livetv-placeholder-ico">
+                      <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="6.5" width="19" height="13" rx="2.5"/><path d="m10 10.5 5 2.75-5 2.75z" fill="currentColor" stroke="none"/></svg>
+                    </div>
+                    <h3>Live Broadcast Player</h3>
+                    <p>Pick any channel below for instant HD streaming</p>
+                  </div>
+                </div>
+                <div class="livetv-player-msg" id="livetv-hero-msg" hidden></div>
+              </div>
             </div>
-          </div>
 
-          <div class="livetv-grid" id="livetv-grid"></div>
-          <div class="empty" id="livetv-empty" hidden>
-            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="6.5" width="19" height="13" rx="2.5"/><path d="m10 10.5 5 2.75-5 2.75z"/></svg>
-            <p class="empty-title">No channels found.</p>
-            <p class="empty-hint" id="livetv-empty-hint">Try another category or search.</p>
-          </div>
+            <div class="livetv-grid" id="livetv-grid"></div>
+            <div class="empty" id="livetv-empty" hidden>
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="6.5" width="19" height="13" rx="2.5"/><path d="m10 10.5 5 2.75-5 2.75z"/></svg>
+              <p class="empty-title">No channels found.</p>
+              <p class="empty-hint" id="livetv-empty-hint">Try another category or search.</p>
+            </div>
+          </section>
         </section>
 
         <section class="view" data-view="sites">
@@ -1373,7 +1396,10 @@
         </button>
       </div>
       <div class="livetv-player-stage">
-        <video id="livetv-video" controls playsinline autoplay muted></video>
+        <video id="livetv-video" controls playsinline autoplay muted style="display:none;"></video>
+        <iframe id="livetv-embed-frame" class="livetv-embed-frame" title="Live stream player"
+          allow="autoplay; fullscreen; encrypted-media; picture-in-picture" allowfullscreen
+          referrerpolicy="no-referrer-when-downgrade" scrolling="no" style="display:none;"></iframe>
         <div class="livetv-player-msg" id="livetv-player-msg" hidden></div>
       </div>
     </div>
