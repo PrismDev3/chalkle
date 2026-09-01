@@ -270,7 +270,7 @@
 
     var h = '<div class="ai-head">';
     h += '<div class="ai-heading"><h1 class="view-title">AI</h1>';
-    h += '<span class="view-meta' + (S.server ? " has-content" : "") + '">' + (S.server ? S.models.length + " models online" : "offline · needs serve-chalk.py") + "</span></div>";
+    h += '<span class="view-meta' + (S.server ? " has-content" : "") + '">' + (S.server ? S.models.length + " models online" : "offline, needs serve-chalk.py") + "</span></div>";
     h += '<div class="ai-head-actions">';
     h += '<select class="field field-mode ai-model" id="ai-model" aria-label="Pick a model"><option value="">Pick a model…</option>' + modelOptions() + "</select>";
     h += '<button class="btn ai-new" id="ai-new" type="button">＋ New chat</button>';
@@ -288,7 +288,7 @@
         var c = S.convos[id];
         h += '<button class="ai-convo' + (id === S.active ? " is-active" : "") + '" data-ai-open="' + id + '" type="button">' +
           '<span class="ai-convo-t">' + esc(c.title || "New chat") + "</span>" +
-          '<span class="ai-convo-m">' + esc(displayName(c.model) || "no model") + " · " + c.messages.length + " msgs</span></button>";
+          '<span class="ai-convo-m">' + esc(displayName(c.model) || "no model") + ", " + c.messages.length + " msgs</span></button>";
       });
     }
     h += "</aside>";

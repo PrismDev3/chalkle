@@ -257,17 +257,20 @@ body[data-view="youtube"] .topbar { border-bottom-color: #ff0033; }
   opacity: 0;
   transition: opacity 300ms ease;
 }
+/* Flat tint, no gradient wash - the tab color sits on the bar as a solid
+   low-opacity fill and the border carries the signal. */
 body[data-view="home"] .topbar::after { background: transparent; opacity: 1; }
-body[data-view="games"] .topbar::after { background: linear-gradient(180deg, rgba(52,168,83,0.14), transparent); opacity: 1; }
-body[data-view="sites"] .topbar::after { background: linear-gradient(180deg, rgba(66,133,244,0.16), transparent); opacity: 1; }
-body[data-view="music"] .topbar::after { background: linear-gradient(180deg, rgba(230,0,115,0.16), transparent); opacity: 1; }
-body[data-view="apps-tools"] .topbar::after { background: linear-gradient(180deg, rgba(251,188,5,0.14), transparent); opacity: 1; }
-body[data-view="proxies"] .topbar::after { background: linear-gradient(180deg, rgba(38,187,165,0.16), transparent); opacity: 1; }
-body[data-view="docs"] .topbar::after { background: linear-gradient(180deg, rgba(38,198,218,0.16), transparent); opacity: 1; }
-body[data-view="board"] .topbar::after { background: linear-gradient(180deg, rgba(251,140,0,0.16), transparent); opacity: 1; }
-body[data-view="partners"] .topbar::after { background: linear-gradient(180deg, rgba(216,163,104,0.16), transparent); opacity: 1; }
-body[data-view="settings"] .topbar::after { background: linear-gradient(180deg, rgba(168,85,247,0.16), transparent); opacity: 1; }body[data-view="livetv"] .topbar::after { background: linear-gradient(180deg, rgba(74, 184, 140, 0.16), transparent); opacity: 1; }
-body[data-view="youtube"] .topbar::after { background: linear-gradient(180deg, rgba(255, 0, 51, 0.16), transparent); opacity: 1; }
+body[data-view="games"] .topbar::after { background: rgba(52, 168, 83, 0.10); opacity: 1; }
+body[data-view="sites"] .topbar::after { background: rgba(66, 133, 244, 0.12); opacity: 1; }
+body[data-view="music"] .topbar::after { background: rgba(230, 0, 115, 0.12); opacity: 1; }
+body[data-view="apps-tools"] .topbar::after { background: rgba(251, 188, 5, 0.10); opacity: 1; }
+body[data-view="proxies"] .topbar::after { background: rgba(38, 187, 165, 0.12); opacity: 1; }
+body[data-view="docs"] .topbar::after { background: rgba(38, 198, 218, 0.12); opacity: 1; }
+body[data-view="board"] .topbar::after { background: rgba(251, 140, 0, 0.12); opacity: 1; }
+body[data-view="partners"] .topbar::after { background: rgba(216, 163, 104, 0.12); opacity: 1; }
+body[data-view="settings"] .topbar::after { background: rgba(168, 85, 247, 0.12); opacity: 1; }
+body[data-view="livetv"] .topbar::after { background: rgba(74, 184, 140, 0.12); opacity: 1; }
+body[data-view="youtube"] .topbar::after { background: rgba(255, 0, 51, 0.12); opacity: 1; }
 
 .brand {
   width: var(--side-w);
@@ -3751,8 +3754,8 @@ button.home-panel-chip:hover {
   position: fixed;
   inset: 0;
   z-index: 80;
-  /* Depth without extra elements: darker green-tinted gradient backdrop. */
-  background: radial-gradient(130% 120% at 50% 0%, rgba(74, 184, 140, 0.09), rgba(8, 9, 11, 0.88) 55%);
+  /* Flat dark backdrop with a faint green tint, no gradient. */
+  background: rgba(10, 12, 14, 0.94);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -7612,7 +7615,7 @@ input[type="submit"]:not([disabled]), input[type="range"]:not([disabled]) {
 .livetv-match-art {
   position: relative;
   aspect-ratio: 16 / 8;
-  background: linear-gradient(160deg, #0e1c16, #101115 60%);
+  background: #0f1518;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -7910,7 +7913,7 @@ input[type="submit"]:not([disabled]), input[type="range"]:not([disabled]) {
   inset: 0;
   display: grid;
   place-items: center;
-  background: radial-gradient(circle at 50% 50%, rgba(20, 30, 26, 0.95), rgba(6, 8, 10, 0.98));
+  background: #0c100e;
   text-align: center;
   padding: 24px;
 }
@@ -7988,7 +7991,7 @@ input[type="submit"]:not([disabled]), input[type="range"]:not([disabled]) {
   position: relative;
   width: 100%;
   aspect-ratio: 16 / 9;
-  background: linear-gradient(135deg, rgba(20, 32, 28, 0.9), rgba(12, 18, 24, 0.95));
+  background: #121a1c;
   display: grid;
   place-items: center;
   overflow: hidden;
@@ -8096,7 +8099,7 @@ input[type="submit"]:not([disabled]), input[type="range"]:not([disabled]) {
 /* Per-category preview tints, matching each tab accent so the TV grid feels
    part of the site. The letter + blurbs follow the same color story. */
 .livetv-card.is-news .livetv-card-preview {
-  background: linear-gradient(135deg, #14263f, #0a1421);
+  background: #0e1a2c;
 }
 .livetv-card.is-news .livetv-preview-letter { color: #7aa7f7; text-shadow: 0 0 22px rgba(66, 133, 244, 0.55); }
 .livetv-card.is-news:hover { border-color: rgba(66, 133, 244, 0.55); }
@@ -8106,7 +8109,7 @@ input[type="submit"]:not([disabled]), input[type="range"]:not([disabled]) {
 }
 
 .livetv-card.is-sport .livetv-card-preview {
-  background: linear-gradient(135deg, #322016, #150a08);
+  background: #21130d;
 }
 
 .livetv-card.is-sport .livetv-preview-letter { color: var(--red-ink); text-shadow: 0 0 22px rgba(234, 67, 53, 0.5); }
@@ -8117,7 +8120,7 @@ input[type="submit"]:not([disabled]), input[type="range"]:not([disabled]) {
 }
 
 .livetv-card.is-movie .livetv-card-preview {
-  background: linear-gradient(135deg, #241436, #12081e);
+  background: #1a0f26;
 }
 .livetv-card.is-movie .livetv-preview-letter { color: #c79bff; text-shadow: 0 0 22px rgba(176, 107, 255, 0.5); }
 .livetv-card.is-movie:hover { border-color: rgba(176, 107, 255, 0.55); }
@@ -8127,7 +8130,7 @@ input[type="submit"]:not([disabled]), input[type="range"]:not([disabled]) {
 }
 
 .livetv-card.is-music .livetv-card-preview {
-  background: linear-gradient(135deg, #2b1224, #150a12);
+  background: #1d0d19;
 }
 .livetv-card.is-music .livetv-preview-letter { color: #ff7ab8; text-shadow: 0 0 22px rgba(255, 64, 129, 0.5); }
 .livetv-card.is-music:hover { border-color: rgba(255, 64, 129, 0.55); }
@@ -8137,19 +8140,19 @@ input[type="submit"]:not([disabled]), input[type="range"]:not([disabled]) {
 }
 
 .livetv-card.is-kids .livetv-card-preview {
-  background: linear-gradient(135deg, #2b2412, #151006);
+  background: #1d180b;
 }
 .livetv-card.is-kids .livetv-preview-letter { color: #ffd45e; text-shadow: 0 0 22px rgba(251, 188, 5, 0.5); }
 .livetv-card.is-kids:hover { border-color: rgba(251, 188, 5, 0.55); }
 
 .livetv-card.is-demo .livetv-card-preview {
-  background: linear-gradient(135deg, #0f2b22, #07160f);
+  background: #0b1d16;
 }
 .livetv-card.is-demo .livetv-preview-letter { color: #4ab88c; text-shadow: 0 0 22px rgba(74, 184, 140, 0.5); }
 .livetv-card.is-demo:hover { border-color: rgba(74, 184, 140, 0.55); }
 
 .livetv-card.is-other .livetv-card-preview {
-  background: linear-gradient(135deg, #1b2320, #0d1210);
+  background: #141a17;
 }
 .livetv-card.is-other .livetv-preview-letter { color: #8fd3b4; text-shadow: 0 0 22px rgba(74, 184, 140, 0.4); }
 .livetv-card.is-other:hover { border-color: rgba(74, 184, 140, 0.5); }
@@ -8987,7 +8990,7 @@ input[type="submit"]:not([disabled]), input[type="range"]:not([disabled]) {
   border-left-color: #4285f4;
 }
 .livetv-card.is-news .livetv-card-preview {
-  background: linear-gradient(135deg, rgba(66, 133, 244, 0.15), rgba(66, 133, 244, 0.08));
+  background: rgba(66, 133, 244, 0.12);
   border-bottom-color: rgba(66, 133, 244, 0.2);
 }
 .livetv-card.is-news .livetv-preview-letter {
@@ -8999,7 +9002,7 @@ input[type="submit"]:not([disabled]), input[type="range"]:not([disabled]) {
   box-shadow: 0 14px 32px rgba(66, 133, 244, 0.2), 0 0 24px rgba(66, 133, 244, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 .livetv-card.is-news:hover .livetv-card-preview {
-  background: linear-gradient(135deg, rgba(66, 133, 244, 0.2), rgba(66, 133, 244, 0.12));
+  background: rgba(66, 133, 244, 0.18);
 }
 .livetv-card.is-news.is-selected {
   border-color: #4285f4;
@@ -9011,7 +9014,7 @@ input[type="submit"]:not([disabled]), input[type="range"]:not([disabled]) {
   border-left-color: #ea4335;
 }
 .livetv-card.is-sport .livetv-card-preview {
-  background: linear-gradient(135deg, rgba(234, 67, 53, 0.15), rgba(234, 67, 53, 0.08));
+  background: rgba(234, 67, 53, 0.12);
   border-bottom-color: rgba(234, 67, 53, 0.2);
 }
 .livetv-card.is-sport .livetv-preview-letter {
@@ -9023,7 +9026,7 @@ input[type="submit"]:not([disabled]), input[type="range"]:not([disabled]) {
   box-shadow: 0 14px 32px rgba(234, 67, 53, 0.2), 0 0 24px rgba(234, 67, 53, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 .livetv-card.is-sport:hover .livetv-card-preview {
-  background: linear-gradient(135deg, rgba(234, 67, 53, 0.2), rgba(234, 67, 53, 0.12));
+  background: rgba(234, 67, 53, 0.18);
 }
 .livetv-card.is-sport.is-selected {
   border-color: #ea4335;
@@ -9035,7 +9038,7 @@ input[type="submit"]:not([disabled]), input[type="range"]:not([disabled]) {
   border-left-color: #b06bff;
 }
 .livetv-card.is-movie .livetv-card-preview {
-  background: linear-gradient(135deg, rgba(176, 107, 255, 0.15), rgba(176, 107, 255, 0.08));
+  background: rgba(176, 107, 255, 0.12);
   border-bottom-color: rgba(176, 107, 255, 0.2);
 }
 .livetv-card.is-movie .livetv-preview-letter {
@@ -9047,7 +9050,7 @@ input[type="submit"]:not([disabled]), input[type="range"]:not([disabled]) {
   box-shadow: 0 14px 32px rgba(176, 107, 255, 0.2), 0 0 24px rgba(176, 107, 255, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 .livetv-card.is-movie:hover .livetv-card-preview {
-  background: linear-gradient(135deg, rgba(176, 107, 255, 0.2), rgba(176, 107, 255, 0.12));
+  background: rgba(176, 107, 255, 0.18);
 }
 .livetv-card.is-movie.is-selected {
   border-color: #b06bff;
@@ -9059,7 +9062,7 @@ input[type="submit"]:not([disabled]), input[type="range"]:not([disabled]) {
   border-left-color: #f340a1;
 }
 .livetv-card.is-music .livetv-card-preview {
-  background: linear-gradient(135deg, rgba(243, 64, 161, 0.15), rgba(243, 64, 161, 0.08));
+  background: rgba(243, 64, 161, 0.12);
   border-bottom-color: rgba(243, 64, 161, 0.2);
 }
 .livetv-card.is-music .livetv-preview-letter {
@@ -9071,7 +9074,7 @@ input[type="submit"]:not([disabled]), input[type="range"]:not([disabled]) {
   box-shadow: 0 14px 32px rgba(243, 64, 161, 0.2), 0 0 24px rgba(243, 64, 161, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 .livetv-card.is-music:hover .livetv-card-preview {
-  background: linear-gradient(135deg, rgba(243, 64, 161, 0.2), rgba(243, 64, 161, 0.12));
+  background: rgba(243, 64, 161, 0.18);
 }
 .livetv-card.is-music.is-selected {
   border-color: #f340a1;
@@ -9083,7 +9086,7 @@ input[type="submit"]:not([disabled]), input[type="range"]:not([disabled]) {
   border-left-color: #fbbf24;
 }
 .livetv-card.is-kids .livetv-card-preview {
-  background: linear-gradient(135deg, rgba(251, 191, 36, 0.15), rgba(251, 191, 36, 0.08));
+  background: rgba(251, 191, 36, 0.12);
   border-bottom-color: rgba(251, 191, 36, 0.2);
 }
 .livetv-card.is-kids .livetv-preview-letter {
@@ -9095,7 +9098,7 @@ input[type="submit"]:not([disabled]), input[type="range"]:not([disabled]) {
   box-shadow: 0 14px 32px rgba(251, 191, 36, 0.2), 0 0 24px rgba(251, 191, 36, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 .livetv-card.is-kids:hover .livetv-card-preview {
-  background: linear-gradient(135deg, rgba(251, 191, 36, 0.2), rgba(251, 191, 36, 0.12));
+  background: rgba(251, 191, 36, 0.18);
 }
 .livetv-card.is-kids.is-selected {
   border-color: #fbbf24;
@@ -9107,7 +9110,7 @@ input[type="submit"]:not([disabled]), input[type="range"]:not([disabled]) {
   border-left-color: #4ab88c;
 }
 .livetv-card.is-demo .livetv-card-preview {
-  background: linear-gradient(135deg, rgba(74, 184, 140, 0.15), rgba(74, 184, 140, 0.08));
+  background: rgba(74, 184, 140, 0.12);
   border-bottom-color: rgba(74, 184, 140, 0.2);
 }
 .livetv-card.is-demo .livetv-preview-letter {
@@ -9119,7 +9122,7 @@ input[type="submit"]:not([disabled]), input[type="range"]:not([disabled]) {
   box-shadow: 0 14px 32px rgba(74, 184, 140, 0.2), 0 0 24px rgba(74, 184, 140, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 .livetv-card.is-demo:hover .livetv-card-preview {
-  background: linear-gradient(135deg, rgba(74, 184, 140, 0.2), rgba(74, 184, 140, 0.12));
+  background: rgba(74, 184, 140, 0.18);
 }
 .livetv-card.is-demo.is-selected {
   border-color: #4ab88c;
@@ -9131,7 +9134,7 @@ input[type="submit"]:not([disabled]), input[type="range"]:not([disabled]) {
   border-left-color: #5ad3a5;
 }
 .livetv-card.is-other .livetv-card-preview {
-  background: linear-gradient(135deg, rgba(90, 211, 165, 0.12), rgba(90, 211, 165, 0.06));
+  background: rgba(90, 211, 165, 0.1);
   border-bottom-color: rgba(90, 211, 165, 0.15);
 }
 .livetv-card.is-other .livetv-preview-letter {
@@ -9143,7 +9146,7 @@ input[type="submit"]:not([disabled]), input[type="range"]:not([disabled]) {
   box-shadow: 0 14px 32px rgba(90, 211, 165, 0.2), 0 0 24px rgba(90, 211, 165, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 .livetv-card.is-other:hover .livetv-card-preview {
-  background: linear-gradient(135deg, rgba(90, 211, 165, 0.18), rgba(90, 211, 165, 0.1));
+  background: rgba(90, 211, 165, 0.16);
 }
 .livetv-card.is-other.is-selected {
   border-color: #5ad3a5;

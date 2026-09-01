@@ -110,7 +110,7 @@
           presult.dns = d.dns && d.dns.resolved ? "RESOLVED" : "FAILED";
           presult.https = (d.http && d.http.status) ? "OK" : "FAILED";
           presult.tls = d.tls && d.tls.valid ? "VALID" : "INVALID";
-          presult.server = d.http && d.http.status ? ("ONLINE" + (d.http.status ? " · " + d.http.status : "")) : "OFFLINE";
+          presult.server = d.http && d.http.status ? ("ONLINE" + (d.http.status ? " / " + d.http.status : "")) : "OFFLINE";
           presult.latencyMs = d.latencyMs;
           return presult;
         })
@@ -413,7 +413,7 @@
     return '<div class="dh-domrow" data-dh-open-dom="' + esc(d.id) + '">' +
       '<div class="dh-dom-left"><div class="dh-dom-name">' + esc(d.name) + "</div>" +
       '<div class="dh-dom-meta"><span>DNS ' + dns + "</span><span>HTTPS " + https + "</span><span>Destination " + esc(d.dest || "Not set") + "</span></div>" +
-      '<div class="dh-dom-sub">Endpoints: ' + epCount + " · Last checked: " + ago(d.lastCheck) + "</div></div>" +
+      '<div class="dh-dom-sub">Endpoints: ' + epCount + ", last checked: " + ago(d.lastCheck) + "</div></div>" +
       '<div class="dh-dom-right">' + badge(sm) +
       '<div class="dh-dom-actions"><button class="dh-linkbtn" data-dh-manage="' + esc(d.id) + '" type="button">Manage</button>' +
       '<button class="dh-linkbtn" data-dh-checkdom="' + esc(d.id) + '" type="button">' + action + "</button>" +
