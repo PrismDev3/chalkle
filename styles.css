@@ -238,6 +238,7 @@ body[data-view="board"] .topbar { border-bottom-color: var(--orange); }
 body[data-view="partners"] .topbar { border-bottom-color: var(--brown); }
 body[data-view="settings"] .topbar { border-bottom-color: var(--purple); }
 body[data-view="cloud"] .topbar { border-bottom-color: var(--lime); }
+body[data-view="livetv"] .topbar { border-bottom-color: var(--red); }
 
 /* A soft wash of the tab color across the top bar, fading as it goes down. */
 .topbar::after {
@@ -262,6 +263,7 @@ body[data-view="docs"] .topbar::after { background: linear-gradient(180deg, rgba
 body[data-view="board"] .topbar::after { background: linear-gradient(180deg, rgba(251,140,0,0.16), transparent); opacity: 1; }
 body[data-view="partners"] .topbar::after { background: linear-gradient(180deg, rgba(216,163,104,0.16), transparent); opacity: 1; }
 body[data-view="settings"] .topbar::after { background: linear-gradient(180deg, rgba(168,85,247,0.16), transparent); opacity: 1; }
+body[data-view="livetv"] .topbar::after { background: linear-gradient(180deg, rgba(234,67,53,0.18), transparent); opacity: 1; }
 
 .brand {
   width: var(--side-w);
@@ -4734,6 +4736,10 @@ html.motion-off *::after {
 }
 
 @media (max-width: 640px) {
+  .livetv-block-head { flex-direction: column; align-items: flex-start; gap: 5px; }
+  .livetv-block-note { white-space: normal; }
+  .livetv-match-grid { grid-template-columns: 1fr; }
+  .livetv-match-badge { width: 44px; height: 44px; }
   .home-copy,
   .home-panel { padding: 22px; }
   .home-title { font-size: clamp(38px, 13vw, 52px); }
@@ -7221,6 +7227,298 @@ input[type="submit"]:not([disabled]), input[type="range"]:not([disabled]) {
 }
 
 /* ---------- Live TV ---------- */
+
+.livetv-block {
+  margin-bottom: 34px;
+}
+
+.livetv-block-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.livetv-block-title {
+  margin: 0;
+  font-family: var(--display);
+  font-size: 21px;
+  line-height: 1.1;
+  color: var(--text);
+}
+
+.livetv-block-note {
+  font-size: 13px;
+  color: var(--text-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.livetv-sports-cats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.livetv-sports-cats .chip {
+  height: 30px;
+  padding: 0 13px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--text-2);
+  font-size: 13px;
+  font-weight: 600;
+  transition: border-color 140ms ease, color 140ms ease, background 140ms ease;
+}
+
+.livetv-sports-cats .chip:hover {
+  border-color: var(--red);
+  color: var(--text);
+}
+
+.livetv-sports-cats .chip.is-active {
+  border-color: rgba(234, 67, 53, 0.55);
+  background: rgba(234, 67, 53, 0.14);
+  color: #ff6b5e;
+}
+
+.livetv-loading {
+  grid-column: 1 / -1;
+  padding: 30px 0;
+  text-align: center;
+  color: var(--text-3);
+  font-size: 14px;
+}
+
+/* Sports match cards: poster-led, or badge-vs-badge when no poster. */
+.livetv-match-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 14px;
+}
+
+.livetv-match {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  overflow: hidden;
+  position: relative;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 6px 18px rgba(0, 0, 0, 0.3);
+  transition: transform 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
+}
+
+.livetv-match:hover {
+  transform: translateY(-3px);
+  border-color: rgba(234, 67, 53, 0.5);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 12px 30px rgba(0, 0, 0, 0.42);
+}
+
+.livetv-match:active { transform: translateY(-1px) scale(0.99); }
+
+.livetv-match-art {
+  position: relative;
+  aspect-ratio: 16 / 8;
+  background: linear-gradient(160deg, #1a1214, #101115 60%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.livetv-match-post {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.livetv-match-badges {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px;
+  width: 100%;
+}
+
+.livetv-match-badge-wrap {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.livetv-match-badge {
+  width: 52px;
+  height: 52px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 5px;
+  object-fit: contain;
+}
+
+.livetv-match-badge-letter {
+  display: grid;
+  place-items: center;
+  font-family: var(--display-geo);
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--red-ink);
+}
+
+.livetv-match-team-name {
+  max-width: 100%;
+  font-size: 12.5px;
+  font-weight: 650;
+  color: var(--text-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.livetv-match-vs {
+  font-family: var(--display);
+  font-size: 15px;
+  color: var(--text-3);
+  flex: none;
+}
+
+.livetv-match-blink {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: rgba(8, 9, 11, 0.62);
+  color: #fff;
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  opacity: 0;
+  transition: opacity 150ms ease;
+}
+
+.livetv-match-blink .icon {
+  width: 26px;
+  height: 26px;
+  color: var(--red-ink);
+}
+
+.livetv-match:hover .livetv-match-blink { opacity: 1; }
+
+.livetv-match-body {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 12px 14px 13px;
+  min-width: 0;
+}
+
+.livetv-match-title {
+  font-family: var(--display-geo);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.15;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.livetv-match-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.livetv-match-time {
+  font-size: 12.5px;
+  color: var(--text-2);
+  font-weight: 600;
+}
+
+.livetv-match-cat {
+  font-size: 11.5px;
+  color: var(--text-3);
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: var(--panel-2);
+  border: 1px solid var(--line-soft);
+}
+
+.livetv-match-tags {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.livetv-match-tag {
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  padding: 3px 8px;
+  border-radius: 6px;
+}
+
+.livetv-match-tag.is-live {
+  background: rgba(234, 67, 53, 0.16);
+  border: 1px solid rgba(234, 67, 53, 0.4);
+  color: var(--red-ink);
+}
+
+.livetv-match-tag.is-live::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--red);
+  margin-right: 5px;
+  box-shadow: 0 0 6px var(--red);
+  animation: livetv-pulse 1.6s ease infinite;
+}
+
+.livetv-match-tag.is-up {
+  background: var(--blue-soft);
+  border: 1px solid rgba(66, 133, 244, 0.3);
+  color: #7aa7f7;
+}
+
+.livetv-match-tag.is-hd {
+  background: var(--yellow-soft);
+  border: 1px solid rgba(251, 188, 5, 0.3);
+  color: #ffd45e;
+}
+
+.livetv-match-tag.is-lang {
+  background: var(--panel-2);
+  border: 1px solid var(--line-soft);
+  color: var(--text-2);
+  letter-spacing: 0.04em;
+  font-weight: 600;
+}
+
+.livetv-embed-frame {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: #000;
+}
 
 .livetv-hero-stage {
   margin-bottom: 24px;

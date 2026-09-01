@@ -801,7 +801,198 @@ class _LiveTV:
         self._livetv_json({"ok": True, "count": len(clean)})
 
 
-class Handler(_CloudRelay, _MusicRelay, _LiveTV, SimpleHTTPRequestHandler):
+# ---------------------------------------------------------------- /api/livetv
+# Sports feed from the Streamed API (streamed.pk). Everything the page sees
+# is served from this origin: match lists are enriched server-side with a
+# working embed player URL, and badge/poster images are relayed here so the
+# upstream API never has to be reachable from the school network.
+#   GET /api/livetv/sports              -> available sports [{id, name}]
+#   GET /api/livetv/matches?sport=<id>  -> upcoming matches (embed resolved)
+#   GET /api/livetv/img/<token>         -> badge/poster image proxy
+
+SPORTS_API = "https://streamed.pk"
+_sports_cache = {}   # key -> (ts, value)
+_sports_img_cache = {}  # token -> (ts, (ctype, bytes))
+
+
+class _SportsTV:
+    """Mixin: sports matches from streamed.pk, resolved to playable embeds."""
+
+    _SPORTS_UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                  "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36")
+    _SPORTS_TTL = 45          # seconds to cache the enriched match feed
+    _SPORTS_LIST_TTL = 600
+    _SPORTS_IMG_TTL = 3600
+
+    def _sports_fetch(self, url, timeout=12):
+        import urllib.request, urllib.error
+        req = urllib.request.Request(url, headers={
+            "User-Agent": self._SPORTS_UA,
+            "Accept": "application/json, */*",
+            "Referer": SPORTS_API + "/",
+        })
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            return resp.getcode(), resp.read()
+
+    def _sports_cached(self, key, ttl, loader):
+        import time
+        now = time.time()
+        hit = _sports_cache.get(key)
+        if hit and now - hit[0] < ttl:
+            return hit[1]
+        val = loader()
+        _sports_cache[key] = (now, val)
+        return val
+
+    def _sports_list(self):
+        def load():
+            try:
+                code, body = self._sports_fetch(SPORTS_API + "/api/sports")
+                if code == 200:
+                    data = json.loads(body.decode("utf-8", "replace"))
+                    if isinstance(data, list):
+                        return data
+            except Exception:
+                pass
+            return []
+        self._livetv_json({"ok": True, "sports": self._sports_cached("sports:list", self._SPORTS_LIST_TTL, load)})
+
+    def _sports_image(self, token):
+        import time
+        if not re.match(r"^[A-Za-z0-9+/=_.-]+$", token or ""):
+            return self._livetv_json({"ok": False, "error": "bad-token"}, 400)
+        now = time.time()
+        hit = _sports_img_cache.get(token)
+        if hit and now - hit[0] < self._SPORTS_IMG_TTL:
+            ctype, body = hit[1]
+        else:
+            try:
+                code, body = self._sports_fetch(
+                    SPORTS_API + "/api/images/proxy/" + token + ".webp", timeout=10)
+                if code != 200:
+                    return self._livetv_json({"ok": False, "error": "img-%d" % code}, 502)
+                ctype = "image/webp"
+                _sports_img_cache[token] = (now, (ctype, body))
+            except Exception:
+                return self._livetv_json({"ok": False, "error": "img-fail"}, 502)
+        self.send_response(200)
+        self.send_header("Content-Type", ctype)
+        self.send_header("Cache-Control", "public, max-age=3600")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    @staticmethod
+    def _sports_resolve(source, sid):
+        """Query /api/stream/<source>/<id> and return the first embed entry."""
+        import urllib.request
+        try:
+            req = urllib.request.Request(
+                SPORTS_API + "/api/stream/%s/%s" % (source, sid),
+                headers={"User-Agent": _SportsTV._SPORTS_UA,
+                         "Accept": "application/json", "Referer": SPORTS_API + "/"})
+            with urllib.request.urlopen(req, timeout=6) as resp:
+                data = json.loads(resp.read().decode("utf-8", "replace"))
+            if isinstance(data, list):
+                for it in data:
+                    if isinstance(it, dict) and it.get("embedUrl"):
+                        return it
+        except Exception:
+            pass
+        return None
+
+    def _sports_matches(self, sport):
+        import urllib.parse, threading
+        qs = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+        requested = (qs.get("sport") or [""])[0].strip().lower()
+
+        def load():
+            import concurrent.futures
+            sports = [{"id": requested}] if requested else None
+            if sports is None:
+                try:
+                    code, body = self._sports_fetch(SPORTS_API + "/api/sports")
+                    sports = json.loads(body.decode("utf-8", "replace")) if code == 200 else []
+                except Exception:
+                    sports = []
+            # Keep the feed bounded: nearest-kickoff matches per sport.
+            all_matches = []
+            for s in sports[:12]:
+                sid = s.get("id") if isinstance(s, dict) else str(s)
+                if not sid:
+                    continue
+                try:
+                    code, body = self._sports_fetch(
+                        SPORTS_API + "/api/matches/" + urllib.parse.quote(sid))
+                    if code == 200:
+                        arr = json.loads(body.decode("utf-8", "replace"))
+                        if isinstance(arr, list):
+                            arr.sort(key=lambda m: m.get("date") or 0)
+                            all_matches.extend(arr[:10])
+                except Exception:
+                    pass
+
+            lock = threading.Lock()
+            out = []
+
+            def work(m):
+                for src in (m.get("sources") or []):
+                    s = src.get("source") if isinstance(src, dict) else None
+                    i = src.get("id") if isinstance(src, dict) else None
+                    if not s or not i:
+                        continue
+                    hit = self.__class__._sports_resolve(s, i)
+                    if not hit:
+                        continue
+                    with lock:
+                        out.append({
+                            "id": m.get("id"),
+                            "title": m.get("title"),
+                            "category": m.get("category"),
+                            "date": m.get("date"),
+                            "popular": bool(m.get("popular")),
+                            "league": (m.get("poster") is not None),
+                            "poster": (self._sports_img_path(m.get("poster"))
+                                        if m.get("poster") else None),
+                            "teams": {
+                                "home": self._sports_team(m.get("teams") and m.get("teams").get("home")),
+                                "away": self._sports_team(m.get("teams") and m.get("teams").get("away")),
+                            },
+                            "embed": hit.get("embedUrl"),
+                            "hd": bool(hit.get("hd")),
+                            "lang": (hit.get("language") or "").strip(),
+                            "source": s,
+                        })
+                    return
+
+            with concurrent.futures.ThreadPoolExecutor(max_workers=12) as ex:
+                list(ex.map(work, all_matches))
+            out.sort(key=lambda m: m.get("date") or 0)
+            return out[:48]
+
+        self._livetv_json({"ok": True, "matches": self._sports_cached(
+            "sports:matches:" + requested, self._SPORTS_TTL, load)})
+
+    @staticmethod
+    def _sports_img_path(rel):
+        if not rel:
+            return None
+        tok = rel.rsplit("/", 1)[-1]
+        if tok.endswith(".webp"):
+            tok = tok[:-5]
+        return "/api/livetv/img/" + tok if tok else None
+
+    @staticmethod
+    def _sports_team(t):
+        if not isinstance(t, dict):
+            return {"name": "", "badge": None}
+        return {"name": str(t.get("name") or ""),
+                "badge": _SportsTV._sports_img_path(t.get("badge") or "")}
+
+
+
+class Handler(_CloudRelay, _MusicRelay, _LiveTV, _SportsTV, SimpleHTTPRequestHandler):
     def log_message(self, *a):  # quieter than the default per-request logger
         pass
 
@@ -864,6 +1055,12 @@ class Handler(_CloudRelay, _MusicRelay, _LiveTV, SimpleHTTPRequestHandler):
             return self._music_stream()
         if route == "/music/pic":
             return self._music_pic()
+        if route == "/api/livetv/sports":
+            return self._sports_list()
+        if route == "/api/livetv/matches":
+            return self._sports_matches("")
+        if route.startswith("/api/livetv/img/"):
+            return self._sports_image(route[len("/api/livetv/img/"):])
         if route == "/api/live-tv":
             return self._livetv_list()
         if route == "/api/live-tv/admin":
