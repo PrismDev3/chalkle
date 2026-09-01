@@ -382,11 +382,13 @@
     });
   }
 
-  function loadMatches() {
+  function loadMatches(silent) {
     var grid = document.getElementById("livetv-matches");
     var note = document.getElementById("livetv-sports-note");
-    if (grid) grid.innerHTML = '<div class="livetv-loading">Finding live matches…</div>';
-    if (note) note.textContent = "Finding live matches…";
+    if (!silent) {
+      if (grid) grid.innerHTML = '<div class="livetv-loading">Finding live matches…</div>';
+      if (note) note.textContent = "Finding live matches…";
+    }
     var url = "/api/livetv/matches" + (state.sport && state.sport !== "all" ? "?sport=" + encodeURIComponent(state.sport) : "");
     fetch(url, { cache: "no-store" })
       .then(function (r) { return r.json(); })
@@ -398,6 +400,19 @@
         state.matches = [];
         renderMatches();
       });
+  }
+
+  /* Keep the LIVE list current: matches start and end all day, so silently
+     re-fetch every few minutes in the background. Only the chips bar and the
+     grid re-render; an open player modal is left alone. */
+  var refreshTimer = null;
+  function armRefresh() {
+    if (refreshTimer) clearInterval(refreshTimer);
+    refreshTimer = setInterval(function () {
+      var player = document.getElementById("livetv-player");
+      if (player && !player.hidden) return;  // don't yank a stream out from under them
+      loadMatches(true);
+    }, 3 * 60 * 1000);
   }
 
   function renderSportChips() {
@@ -600,6 +615,7 @@
     applyAdminUI();
     load();
     loadSports();
+    armRefresh();
   }
 
   if (document.readyState === "loading") {

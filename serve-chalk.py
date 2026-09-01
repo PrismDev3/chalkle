@@ -916,12 +916,15 @@ class _SportsTV:
                     sports = json.loads(body.decode("utf-8", "replace")) if code == 200 else []
                 except Exception:
                     sports = []
-            # Keep the feed bounded: nearest-kickoff matches per sport.
-            all_matches = []
-            for s in sports[:12]:
+            # Keep the feed bounded: nearest-kickoff matches per sport. The
+            # per-sport fetches run in parallel (like the stream resolution
+            # below), otherwise the first cold load fans out 12 sequential
+            # network calls and the page sits on "Finding live matches..."
+            # for tens of seconds.
+            def fetch_sport(s):
                 sid = s.get("id") if isinstance(s, dict) else str(s)
                 if not sid:
-                    continue
+                    return []
                 try:
                     code, body = self._sports_fetch(
                         SPORTS_API + "/api/matches/" + urllib.parse.quote(sid))
@@ -929,9 +932,16 @@ class _SportsTV:
                         arr = json.loads(body.decode("utf-8", "replace"))
                         if isinstance(arr, list):
                             arr.sort(key=lambda m: m.get("date") or 0)
-                            all_matches.extend(arr[:10])
+                            return arr[:10]
                 except Exception:
                     pass
+                return []
+
+            all_matches = []
+            with concurrent.futures.ThreadPoolExecutor(max_workers=12) as pool:
+                batches = list(pool.map(fetch_sport, sports[:12]))
+            for arr in batches:
+                all_matches.extend(arr)
 
             lock = threading.Lock()
             out = []
