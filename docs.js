@@ -144,12 +144,20 @@
     if (state.filter !== "all") {
       docs = docs.filter(function (d) { return docType(d) === state.filter; });
     }
+    var TYPE_ORDER = { list: 0, html: 1, svg: 2, text: 3 };
     docs.sort(function (a, b) {
       switch (mode) {
         case "az": return String(a.title || "").localeCompare(b.title || "");
         case "za": return String(b.title || "").localeCompare(a.title || "");
         case "links": return linkCount(b.content) - linkCount(a.content);
-        default: return (b.created || 0) - (a.created || 0);
+        default:
+          /* Default view: group by kind first so the page reads link lists,
+             then HTML pages, then SVGs (newest first inside each group)
+             instead of interleaving them by upload time. */
+          var ta = TYPE_ORDER[docType(a)];
+          var tb = TYPE_ORDER[docType(b)];
+          if (ta !== tb) return ta - tb;
+          return (b.created || 0) - (a.created || 0);
       }
     });
     return docs;

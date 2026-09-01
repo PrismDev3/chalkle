@@ -6700,7 +6700,9 @@ body.ed-resizing iframe { pointer-events: none; }
 }
 
 /* ════════════════════ AI tab ════════════════════ */
-.ai-view { display: block; }
+/* NOTE: no bare .ai-view { display:block } here - .view {display:none} hides
+   inactive tabs and .is-visible shows the active one. An unconditional
+   display:block made the AI pane render on every page. */
 .ai-head {
   display: flex; align-items: flex-end; justify-content: space-between;
   gap: 12px; flex-wrap: wrap;
