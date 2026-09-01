@@ -2286,6 +2286,141 @@
       });
     });
 
+    /* Keyboard: arrow up/down moves between section headers, Enter toggles. */
+    var settingsToggles = Array.prototype.slice.call(document.querySelectorAll(".settings-toggle"));
+    settingsToggles.forEach(function (tog, idx) {
+      tog.addEventListener("keydown", function (e) {
+        if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+          e.preventDefault();
+          var step = e.key === "ArrowDown" ? 1 : -1;
+          var next = settingsToggles[(idx + step + settingsToggles.length) % settingsToggles.length];
+          if (next) next.focus();
+        }
+      });
+    });
+
+    /* Advanced group: live count chip + debug info. */
+    function refreshAdvancedSummary() {
+      var chip = $("#settings-adv-count");
+      if (chip) {
+        var n = (state.proxies ? state.proxies.length : 0) + (state.favs ? Object.keys(state.favs).length : 0);
+        chip.textContent = n + " saved";
+      }
+      var box = $("#debug-info");
+      if (box) {
+        var keys = [];
+        var bytes = 0;
+        for (var i = 0; i < localStorage.length; i++) {
+          var k = localStorage.key(i);
+          if (k && k.indexOf("chalkle") === 0) {
+            keys.push(k);
+            try { bytes += (k.length + (localStorage.getItem(k) || "").length) * 2; } catch (e) { /* noop */ }
+          }
+        }
+        var kb = (bytes / 1024).toFixed(1);
+        box.innerHTML =
+          '<div class="debug-row"><span>Settings keys</span><b>' + keys.length + '</b></div>' +
+          '<div class="debug-row"><span>Storage used</span><b>' + kb + ' KB</b></div>' +
+          '<div class="debug-row"><span>Saved proxies</span><b>' + (state.proxies ? state.proxies.length : 0) + '</b></div>' +
+          '<div class="debug-row"><span>Favorites</span><b>' + (state.favs ? Object.keys(state.favs).length : 0) + '</b></div>';
+      }
+    }
+    refreshAdvancedSummary();
+
+    /* Cloud chip: show configured / offline in the collapsed header. */
+    function refreshCloudStatus() {
+      var chip = $("#cloud-cfg-status");
+      if (!chip) return;
+      try {
+        var cfg = JSON.parse(localStorage.getItem("chalkle-cloud-cfg-v1") || "{}");
+        chip.textContent = cfg.base ? "configured" : "offline";
+        chip.classList.toggle("is-on", !!cfg.base);
+      } catch (e) { chip.textContent = "offline"; }
+    }
+    refreshCloudStatus();
+
+    /* Export: download every chalkle-* key as JSON. */
+    var exportBtn = $("#opt-export");
+    if (exportBtn) {
+      exportBtn.addEventListener("click", function () {
+        var data = {};
+        for (var i = 0; i < localStorage.length; i++) {
+          var k = localStorage.key(i);
+          if (k && k.indexOf("chalkle") === 0) data[k] = localStorage.getItem(k);
+        }
+        var blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+        var a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = "chalkle-settings.json";
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 800);
+      });
+    }
+
+    /* Import: restore chalkle-* keys from a JSON file, then reload. */
+    var importBtn = $("#opt-import");
+    var importFile = $("#opt-import-file");
+    if (importBtn && importFile) {
+      importBtn.addEventListener("click", function () { importFile.click(); });
+      importFile.addEventListener("change", function () {
+        var f = importFile.files && importFile.files[0];
+        if (!f) return;
+        var reader = new FileReader();
+        reader.onload = function () {
+          try {
+            var data = JSON.parse(reader.result);
+            var count = 0;
+            for (var k in data) {
+              if (Object.prototype.hasOwnProperty.call(data, k) && k.indexOf("chalkle") === 0) {
+                try { localStorage.setItem(k, String(data[k])); count++; } catch (e) { /* full */ }
+              }
+            }
+            if (count > 0) { location.reload(); return; }
+            alert("No Chalkle settings found in that file.");
+          } catch (e) {
+            alert("That file is not a valid settings backup.");
+          }
+        };
+        reader.readAsText(f);
+        importFile.value = "";
+      });
+    }
+
+    /* Reset: wipe all chalkle-* keys. */
+    var resetBtn = $("#opt-reset");
+    if (resetBtn) {
+      resetBtn.addEventListener("click", function () {
+        if (!confirm("Reset everything saved on this device? This clears favorites, recents, settings, and proxies.")) return;
+        var gone = [];
+        for (var i = localStorage.length - 1; i >= 0; i--) {
+          var k = localStorage.key(i);
+          if (k && k.indexOf("chalkle") === 0) { gone.push(k); localStorage.removeItem(k); }
+        }
+        location.reload();
+      });
+    }
+
+    /* "Make it yours": expand Appearance and scroll to it. */
+    var makeYours = $("#opt-make-yours");
+    if (makeYours) {
+      makeYours.addEventListener("click", function () {
+        var appPanel = document.querySelector('[data-settings-panel="appearance"]');
+        if (!appPanel) return;
+        var body = appPanel.querySelector(".settings-body");
+        if (body && body.hidden) {
+          body.hidden = false;
+          appPanel.classList.add("is-open");
+          var tog = appPanel.querySelector(".settings-toggle");
+          if (tog) tog.setAttribute("aria-expanded", "true");
+          var m = settingsOpenMap();
+          m.appearance = true;
+          try { localStorage.setItem(SETTINGS_OPEN_KEY, JSON.stringify(m)); } catch (e) { /* full */ }
+        }
+        appPanel.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    }
+
     var motion = $("#opt-motion");
     if (motion) {
       motion.addEventListener("change", function () {
