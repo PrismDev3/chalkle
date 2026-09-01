@@ -70,7 +70,738 @@ def _pruner():
         _prune()
 
 
-class Handler(SimpleHTTPRequestHandler):
+# ---------------------------------------------------------------- /cloud relay
+# Same-origin relay to the Stratus API (cloud gaming). The site is served over
+# an https quick-tunnel, so the browser can never call a local http:// Stratus
+# directly (mixed content) and remote visitors can't reach localhost at all.
+# Every /cloud/v1/* request is forwarded server-side to CLOUD_BACKEND, and the
+# WebRTC signaling websocket is tunneled through this origin too. The x-api-key
+# is injected here (never visible to the page) unless the client sends its own.
+
+CLOUD_BACKEND_DEFAULT = "http://127.0.0.1:3001"
+CLOUD_API_KEY_DEFAULT = "sk_chalkle_local_7f2c9a"
+CLOUD_CFG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cloud-relay.json")
+CLOUD_PATH_RE = re.compile(r"^/cloud/v1/(getQueue|embed-data)$")
+CLOUD_WS_RE = re.compile(r"^/cloud/v1/signal/([0-9a-f-]{36})$", re.I)
+CLOUD_CFG_LOOPBACK_RE = re.compile(r"^https?://(?:127\.0\.0\.1|localhost|\[::1\])(?::\d+)?$", re.I)
+
+_cloud_cfg_cache = {"m": 0, "cfg": {}}
+
+
+def _cloud_cfg():
+    """Relay configuration: cloud-relay.json (set from the site's Settings
+    panel) overrides the env vars, which override the defaults."""
+    try:
+        m = os.path.getmtime(CLOUD_CFG_PATH)
+    except OSError:
+        m = 0
+    cache = _cloud_cfg_cache
+    if m and m != cache["m"]:
+        try:
+            with open(CLOUD_CFG_PATH, "r", encoding="utf-8") as f:
+                cache["cfg"] = json.load(f) or {}
+        except Exception:
+            cache["cfg"] = {}
+        cache["m"] = m
+    cfg = cache.get("cfg") or {}
+    base = (str(cfg.get("base") or "").strip() or os.environ.get("STRATUS_BACKEND", "")).rstrip("/")
+    key = str(cfg.get("key") or "").strip() or os.environ.get("STRATUS_API_KEY", "")
+    return {"base": base or CLOUD_BACKEND_DEFAULT, "key": key or CLOUD_API_KEY_DEFAULT}
+
+
+def _cloud_ws_target(route):
+    """Map a same-origin /cloud/v1/signal/<uuid> upgrade to the backend."""
+    m = CLOUD_WS_RE.match(route)
+    if not m:
+        return None
+    backend = _cloud_cfg()["base"]
+    host = backend.replace("https://", "").replace("http://", "")
+    scheme = "wss" if backend.startswith("https") else "ws"
+    return f"{scheme}://{host}/cloud/v1/signal/{m.group(1)}"
+
+
+class _CloudRelay:
+    """Mixin with the cloud proxy handlers; combined into Handler below."""
+
+    def _cloud_json(self, obj, code=200):
+        data = json.dumps(obj).encode("utf-8")
+        self.send_response(code)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
+    def _cloud_scheme(self):
+        fwd = (self.headers.get("X-Forwarded-Proto") or "").strip().lower()
+        if fwd in ("https", "http"):
+            return fwd
+        # This python server is plain http; https only arrives via the tunnel's
+        # X-Forwarded-Proto header.
+        return "http"
+
+    def _cloud_forward(self, method, path, query, post_body=None, timeout=180):
+        """Forward one request to the Stratus backend. Returns a response dict
+        or writes it directly when it needs rewriting (startGame signaling)."""
+        import urllib.request, urllib.error
+        url = _cloud_cfg()["base"] + path
+        if query:
+            url += "?" + query
+        headers = {
+            "User-Agent": "Mozilla/5.0 ChalkleRelay/1.0",
+            "Accept": "*/*",
+        }
+        ctype = (self.headers.get("Content-Type") or "application/json").split(";")[0].strip()
+        if post_body is not None:
+            headers["Content-Type"] = ctype + "; charset=utf-8" if ctype else "application/json; charset=utf-8"
+        # The relay's configured API key is injected here, never the page's.
+        headers["x-api-key"] = _cloud_cfg()["key"]
+        req = urllib.request.Request(url, data=post_body, headers=headers, method=method)
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                raw = resp.read()
+                rtype = (resp.headers.get("Content-Type") or "application/octet-stream").split(";")[0].strip()
+                return {"code": resp.getcode() or 200, "type": rtype, "body": raw}
+        except urllib.error.HTTPError as e:
+            return {"code": e.code, "type": e.headers.get("Content-Type", "application/json").split(";")[0].strip(),
+                    "body": e.read()}
+        except Exception as e:
+            return {"code": 502, "type": "application/json",
+                    "body": json.dumps({"error": type(e).__name__ + ": backend unreachable"}).encode()}
+
+    def _cloud_send(self, r, extra=None):
+        self.send_response(r["code"])
+        self.send_header("Content-Type", r["type"] or "application/octet-stream")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        for k, v in (extra or {}).items():
+            self.send_header(k, v)
+        self.send_header("Content-Length", str(len(r["body"])))
+        self.end_headers()
+        try:
+            self.wfile.write(r["body"])
+        except Exception:
+            pass
+
+    def _cloud_health(self):
+        import socket
+        backend = _cloud_cfg()["base"]
+        ok = False
+        try:
+            host = backend.replace("https://", "").replace("http://", "").split("/")[0]
+            if ":" in host:
+                h, p = host.rsplit(":", 1)
+                p = int(p)
+            else:
+                h, p = host, 80 if backend.startswith("http://") else 443
+            s = socket.create_connection((h, p), timeout=4)
+            s.close()
+            ok = True
+        except Exception:
+            ok = False
+        self._cloud_json({"ok": ok, "backend": backend})
+
+    def _cloud_config_post(self):
+        """Save the relay backend config from the Cloud settings panel. The
+        backend is meant to be the site owner's local Stratus, so only loopback
+        hosts are accepted here; a hosted backend is set via STRATUS_BACKEND."""
+        length = int(self.headers.get("Content-Length", 0))
+        raw = self.rfile.read(length) if length > 0 else b"{}"
+        try:
+            payload = json.loads(raw or b"{}")
+        except Exception:
+            payload = {}
+        base = str(payload.get("base") or "").strip().rstrip("/")
+        key = str(payload.get("key") or "").strip()
+        if base and not CLOUD_CFG_LOOPBACK_RE.match(base):
+            return self._cloud_json({"ok": False, "error": "Use a loopback URL (localhost) for the relay"}, 400)
+        try:
+            with open(CLOUD_CFG_PATH, "w", encoding="utf-8") as f:
+                json.dump({"base": base, "key": key}, f)
+        except Exception as e:
+            return self._cloud_json({"ok": False, "error": type(e).__name__}, 500)
+        _cloud_cfg_cache["m"] = 0  # force reload on next request
+        self._cloud_json({"ok": True, "base": base, "keySet": bool(key)})
+
+    def _cloud_get(self, route):
+        m = CLOUD_PATH_RE.match(route)
+        if not m:
+            return None
+        query = self.path.split("?", 1)[1] if "?" in self.path else ""
+        r = self._cloud_forward("GET", route, query, timeout=20)
+        if route == "/cloud/v1/embed-data" and r["type"] and "json" in r["type"]:
+            # Same rewrite as startGame: the player tab must reach the signal
+            # websocket through THIS origin (tunnel), never the backend host.
+            try:
+                data = json.loads(r["body"])
+                ws = data.get("signaling_ws") or ""
+                if ws:
+                    scheme = "wss" if self._cloud_scheme() == "https" else "ws"
+                    host = (self.headers.get("Host") or "localhost:4173").strip()
+                    data["signaling_ws"] = re.sub(r"wss?://[^/]+", f"{scheme}://{host}", ws)
+                    r["body"] = json.dumps(data).encode("utf-8")
+            except Exception:
+                pass
+        self._cloud_send(r)
+        return True
+
+    def _cloud_post(self, route):
+        if route not in ("/cloud/v1/createSession", "/cloud/v1/startGame",
+                         "/cloud/v1/pingSession", "/cloud/v1/quitSession"):
+            return None
+        length = int(self.headers.get("Content-Length", 0))
+        body = self.rfile.read(length) if length > 0 else None
+        query = self.path.split("?", 1)[1] if "?" in self.path else ""
+        timeout = 180 if route == "/cloud/v1/createSession" else 20
+        r = self._cloud_forward("POST", route, query, post_body=body, timeout=timeout)
+        extra = None
+        if route == "/cloud/v1/startGame" and r["type"] and "json" in r["type"]:
+            # Point the signal websocket back at THIS origin so the player tab
+            # connects through the same tunnel/relay the page is served from.
+            try:
+                data = json.loads(r["body"])
+                ws = data.get("signaling_ws") or ""
+                if ws:
+                    scheme = "wss" if self._cloud_scheme() == "https" else "ws"
+                    host = (self.headers.get("Host") or "localhost:4173").strip()
+                    data["signaling_ws"] = re.sub(r"wss?://[^/]+", f"{scheme}://{host}", ws)
+                    r["body"] = json.dumps(data).encode("utf-8")
+            except Exception:
+                pass
+        self._cloud_send(r, extra)
+        return True
+
+    def _cloud_ws(self, route):
+        """Tunnel a WebSocket upgrade to the backend signal endpoint."""
+        target = _cloud_ws_target(route)
+        if not target:
+            return None
+        import urllib.parse
+        parts = urllib.parse.urlsplit(target)
+        host = parts.hostname or ""
+        port = parts.port or (443 if parts.scheme == "wss" else 80)
+        path = parts.path or "/"
+        if parts.query:
+            path += "?" + parts.query
+        try:
+            sock = socket.create_connection((host, port), timeout=15)
+            if parts.scheme == "wss":
+                ctx = ssl.create_default_context()
+                sock = ctx.wrap_socket(sock, server_hostname=host)
+            key = self.headers.get("Sec-WebSocket-Key", "").strip()
+            ver = self.headers.get("Sec-WebSocket-Version", "13").strip()
+            proto = self.headers.get("Sec-WebSocket-Protocol", "").strip()
+            lines = ["GET %s HTTP/1.1" % path, "Host: %s" % host, "Upgrade: websocket", "Connection: Upgrade"]
+            if key:
+                lines.append("Sec-WebSocket-Key: " + key)
+            if ver:
+                lines.append("Sec-WebSocket-Version: " + ver)
+            if proto:
+                lines.append("Sec-WebSocket-Protocol: " + proto)
+            origin = self.headers.get("Origin", "")
+            if origin:
+                lines.append("Origin: " + origin)
+            sock.sendall(("\r\n".join(lines) + "\r\n\r\n").encode())
+            head = b""
+            while b"\r\n\r\n" not in head:
+                chunk = sock.recv(4096)
+                if not chunk:
+                    break
+                head += chunk
+                if len(head) > 65536:
+                    break
+        except Exception as e:
+            try:
+                sock.close()
+            except Exception:
+                pass
+            self._cloud_json({"error": "ws connect failed: " + type(e).__name__}, 502)
+            return True
+        try:
+            self.connection.sendall(head)
+            self.close_connection = True
+        except Exception:
+            try:
+                sock.close()
+            except Exception:
+                pass
+            return True
+
+        def pump(src, dst):
+            try:
+                while True:
+                    data = src.recv(65536)
+                    if not data:
+                        break
+                    dst.sendall(data)
+            except Exception:
+                pass
+            finally:
+                try:
+                    dst.shutdown(socket.SHUT_WR)
+                except Exception:
+                    pass
+
+        t1 = threading.Thread(target=pump, args=(self.connection, sock), daemon=True)
+        t2 = threading.Thread(target=pump, args=(sock, self.connection), daemon=True)
+        t1.start()
+        t2.start()
+        t1.join()
+        t2.join()
+        try:
+            sock.close()
+        except Exception:
+            pass
+        return True
+
+
+
+
+# ---------------------------------------------------------------- /music relay
+# Same-origin relay to the local Meting music backend (music-backend/server.mjs
+# on 127.0.0.1:3004). Three jobs:
+#   /music/api    -> forwards search/playlist/url/lyric/pic to the backend;
+#                    the backend already rewrites CDN urls to /music/stream
+#                    and /music/pic, so the browser only talks to this origin.
+#   /music/stream -> Range-capable proxy for the mp3 CDN (seek needs 206).
+#   /music/pic    -> proxy for album-art images (cacheable).
+# Both media proxies refuse private/loopback targets (no SSRF).
+
+MUSIC_BACKEND_DEFAULT = "http://127.0.0.1:3004"
+MUSIC_CFG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "music-relay.json")
+
+_music_cfg_cache = {"m": 0, "cfg": {}}
+
+
+def _music_cfg():
+    try:
+        m = os.path.getmtime(MUSIC_CFG_PATH)
+    except OSError:
+        m = 0
+    cache = _music_cfg_cache
+    if m and m != cache["m"]:
+        try:
+            with open(MUSIC_CFG_PATH, "r", encoding="utf-8") as f:
+                cache["cfg"] = json.load(f) or {}
+        except Exception:
+            cache["cfg"] = {}
+        cache["m"] = m
+    base = str(cache["cfg"].get("backend") or "").strip() or os.environ.get("MUSIC_BACKEND", "")
+    return base.rstrip("/") or MUSIC_BACKEND_DEFAULT
+
+
+def _music_b64u(s):
+    import base64
+    return base64.urlsafe_b64encode(s.encode("utf-8")).decode("ascii").rstrip("=")
+
+
+def _music_unb64u(s):
+    import base64
+    return base64.urlsafe_b64decode((s + "=" * (-len(s) % 4)).encode("ascii")).decode("utf-8")
+
+
+class _MusicRelay:
+    """Mixin with the music relay handlers; combined into Handler below."""
+
+    def _music_json(self, obj, code=200):
+        data = json.dumps(obj).encode("utf-8")
+        self.send_response(code)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
+    def _music_api(self):
+        import urllib.request, urllib.error
+        query = self.path.split("?", 1)[1] if "?" in self.path else ""
+        url = _music_cfg() + "/api" + (("?" + query) if query else "")
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 ChalkleMusic/1.0"})
+        try:
+            with urllib.request.urlopen(req, timeout=60) as resp:
+                body = resp.read()
+                code = resp.getcode() or 200
+                try:
+                    data = json.loads(body)
+                except Exception:
+                    data = None
+                if isinstance(data, (dict, list)):
+                    def walk(o):
+                        if isinstance(o, dict):
+                            for k in list(o.keys()):
+                                v = o[k]
+                                if isinstance(v, str) and v.startswith(("http://", "https://")):
+                                    u = _music_b64u(v)
+                                    if k in ("url", "stream", "playUrl"):
+                                        o[k] = "/music/stream?u=" + u
+                                    elif k in ("pic", "cover", "pic_big", "pic_small"):
+                                        o[k] = "/music/pic?u=" + u
+                                else:
+                                    walk(v)
+                        elif isinstance(o, list):
+                            for it in o:
+                                walk(it)
+                    walk(data)
+                    body = json.dumps(data).encode("utf-8")
+                self._music_json(json.loads(body), code)
+                return
+        except urllib.error.HTTPError as e:
+            return self._music_json({"error": "backend http " + str(e.code)}, e.code)
+        except Exception as e:
+            return self._music_json({"error": type(e).__name__ + ": music backend unreachable"}, 502)
+
+    def _music_target(self, kind):
+        """Decode + validate the ?u= target URL. Returns the url or None."""
+        import urllib.parse, socket
+        from urllib.parse import urlparse
+        q = urllib.parse.parse_qs(urlparse(self.path).query)
+        raw = (q.get("u") or [""])[0].strip()
+        if not raw:
+            return None
+        url = None
+        if raw.startswith(("http://", "https://")):
+            url = raw
+        else:
+            try:
+                url = _music_unb64u(raw)
+            except Exception:
+                return None
+        if not url.startswith(("http://", "https://")):
+            return None
+        host = urlparse(url).hostname or ""
+        try:
+            ip = socket.gethostbyname(host)
+        except Exception:
+            return None
+        if _is_private_ip(ip):
+            return None
+        return url
+
+    def _music_proxy(self, kind):
+        import urllib.request, urllib.error
+        url = self._music_target(kind)
+        if not url:
+            return self._music_json({"error": "bad or private target"}, 403)
+        headers = {"User-Agent": "Mozilla/5.0 ChalkleMusic/1.0", "Accept": "*/*"}
+        rng = self.headers.get("Range")
+        if rng:
+            headers["Range"] = rng
+        req = urllib.request.Request(url, headers=headers)
+        try:
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                code = resp.getcode() or 200
+                self.send_response(code)
+                ctype = resp.headers.get("Content-Type", "").split(";")[0].strip().lower()
+                self.send_header("Content-Type", ctype or ("audio/mpeg" if kind == "stream" else "image/jpeg"))
+                clen = resp.headers.get("Content-Length")
+                if clen:
+                    self.send_header("Content-Length", clen)
+                self.send_header("Accept-Ranges", "bytes")
+                crange = resp.headers.get("Content-Range")
+                if crange:
+                    self.send_header("Content-Range", crange)
+                ctrl = "no-store" if kind == "stream" else "public, max-age=604800"
+                self.send_header("Cache-Control", ctrl)
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.end_headers()
+                while True:
+                    chunk = resp.read(65536)
+                    if not chunk:
+                        break
+                    self.wfile.write(chunk)
+        except urllib.error.HTTPError as e:
+            return self._music_json({"error": "upstream http " + str(e.code)}, e.code)
+        except (BrokenPipeError, ConnectionResetError):
+            pass
+        except Exception as e:
+            try:
+                return self._music_json({"error": type(e).__name__}, 502)
+            except Exception:
+                pass
+
+    def _music_stream(self):
+        self._music_proxy("stream")
+
+    def _music_pic(self):
+        self._music_proxy("pic")
+
+    def _music_health(self):
+        import socket
+        backend = _music_cfg()
+        ok = False
+        try:
+            host = backend.replace("https://", "").replace("http://", "").split("/")[0]
+            if ":" in host:
+                h, p = host.rsplit(":", 1)
+                p = int(p)
+            else:
+                h, p = host, 80 if backend.startswith("http://") else 443
+            s = socket.create_connection((h, p), timeout=4)
+            s.close()
+            ok = True
+        except Exception:
+            ok = False
+        self._music_json({"ok": ok, "backend": backend})
+
+
+# ---------------------------------------------------------------- /api/live-tv
+# Live TV. Channels live in livetv.json on the server (never in the page),
+# so upstream URLs / referers / user-agents stay server-side:
+#   GET  /api/live-tv            -> channel list with proxied stream paths
+#   GET  /api/live-tv/<id>       -> HLS proxy: fetches the channel playlist,
+#                                   rewrites every URI in it back through
+#                                   /api/live-tv/<id>?u=<encoded>, and streams
+#                                   segments through the same origin (no CORS /
+#                                   mixed-content, upstream URL never leaks).
+#   POST /api/live-tv/admin      -> save the channel list (admin panel)
+# The browser only ever sees this origin; hls.js plays the proxied playlist.
+
+LIVETV_CFG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "livetv.json")
+_livetv_cache = {"m": 0, "cfg": {"channels": []}}
+_livetv_live_cache = {}   # channel id -> (ts, True/False/None)
+
+
+def _livetv_cfg():
+    m = 0
+    try:
+        m = os.path.getmtime(LIVETV_CFG_PATH)
+    except OSError:
+        pass
+    if m and m != _livetv_cache["m"]:
+        try:
+            with open(LIVETV_CFG_PATH, "r", encoding="utf-8") as f:
+                _livetv_cache["cfg"] = json.load(f) or {}
+        except Exception:
+            _livetv_cache["cfg"] = {"channels": []}
+        _livetv_cache["m"] = m
+    return _livetv_cache["cfg"]
+
+
+class _LiveTV:
+    """Mixin with the live TV handlers; combined into Handler below."""
+
+    def _livetv_json(self, obj, code=200):
+        data = json.dumps(obj).encode("utf-8")
+        self.send_response(code)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
+    @staticmethod
+    def _livetv_ua(ch):
+        return (str(ch.get("userAgent") or "").strip()
+                or "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36")
+
+    def _livetv_headers(self, ch, extra=None):
+        h = {"User-Agent": self._livetv_ua(ch), "Accept": "*/*"}
+        ref = str(ch.get("referer") or "").strip()
+        if ref:
+            h["Referer"] = ref
+        if extra:
+            h.update(extra)
+        return h
+
+    def _livetv_channels(self):
+        return [c for c in (_livetv_cfg().get("channels") or []) if c.get("enabled", True)]
+
+    def _livetv_by_id(self, cid):
+        for c in self._livetv_channels():
+            if c.get("id") == cid:
+                return c
+        return None
+
+    def _livetv_live(self, ch):
+        """Cheap playlist probe, cached 30s, so the grid can show live/offline
+        dots without hammering the CDNs."""
+        import time
+        cid = ch.get("id") or ""
+        now = time.time()
+        hit = _livetv_live_cache.get(cid)
+        if hit and now - hit[0] < 30:
+            return hit[1]
+        ok = False
+        try:
+            import urllib.request, urllib.error
+            req = urllib.request.Request(ch.get("streamUrl", ""), headers=self._livetv_headers(ch))
+            with urllib.request.urlopen(req, timeout=6) as resp:
+                head = resp.read(64)
+                ok = resp.getcode() == 200 and b"#EXTM3U" in head
+        except Exception:
+            ok = False
+        _livetv_live_cache[cid] = (now, ok)
+        return ok
+
+    def _livetv_list(self):
+        out = []
+        for c in self._livetv_channels():
+            cid = c.get("id") or ""
+            out.append({
+                "id": cid,
+                "name": c.get("name") or cid,
+                "category": c.get("category") or "Other",
+                "logo": c.get("logo") or "",
+                "live": self._livetv_live(c),
+                "stream": "/api/live-tv/" + cid,
+            })
+        out.sort(key=lambda c: (c["name"] or "").lower())
+        self._livetv_json({"ok": True, "channels": out})
+
+    def _livetv_stream(self, cid):
+        """HLS proxy for one channel. No ?u= -> fetch + rewrite the channel
+        playlist. With ?u= -> fetch that exact upstream (variant playlist or
+        segment), pass Range through, stream it back with the upstream type.
+        URI rewriting resolves relative refs against the playlist's own URL, so
+        hls.js only ever talks to this origin."""
+        import urllib.request, urllib.error, urllib.parse
+        ch = self._livetv_by_id(cid)
+        if not ch:
+            return self._livetv_json({"ok": False, "error": "no-channel"}, 404)
+        q = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+        target = (q.get("u") or [""])[0].strip()
+        url = target or str(ch.get("streamUrl") or "")
+        if not url.startswith(("http://", "https://")):
+            return self._livetv_json({"ok": False, "error": "bad-url"}, 400)
+        try:
+            host = urllib.parse.urlparse(url).hostname or ""
+            ip = socket.gethostbyname(host)
+            if _is_private_ip(ip):
+                return self._livetv_json({"ok": False, "error": "private-ip"}, 403)
+        except Exception:
+            return self._livetv_json({"ok": False, "error": "dns-fail"}, 502)
+        headers = self._livetv_headers(ch)
+        rng = self.headers.get("Range")
+        if rng:
+            headers["Range"] = rng
+        try:
+            resp = urllib.request.urlopen(urllib.request.Request(url, headers=headers), timeout=30)
+        except urllib.error.HTTPError as e:
+            return self._livetv_json({"ok": False, "error": "upstream http " + str(e.code)}, e.code)
+        except Exception as e:
+            return self._livetv_json({"ok": False, "error": type(e).__name__}, 502)
+        code = resp.getcode() or 200
+        ctype = (resp.headers.get("Content-Type") or "application/octet-stream").split(";")[0].strip().lower()
+        # Decide playlist vs segment by what the upstream actually sent, not by
+        # whether a ?u= was given: variant playlists arrive WITH ?u= too (hls.js
+        # fetches them through the same proxy path) and must be rewritten just
+        # like the channel master, otherwise their relative segment URIs leak
+        # and 404.
+        is_playlist = "mpegurl" in ctype or "m3u8" in ctype or (not target)
+        self.send_response(code)
+        if is_playlist:
+            self.send_header("Content-Type", "application/vnd.apple.mpegurl")
+        else:
+            self.send_header("Content-Type", ctype or "application/octet-stream")
+            clen = resp.headers.get("Content-Length")
+            if clen:
+                self.send_header("Content-Length", clen)
+            crange = resp.headers.get("Content-Range")
+            if crange:
+                self.send_header("Content-Range", crange)
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Expose-Headers", "Content-Length, Content-Range, Accept-Ranges")
+        self.send_header("Accept-Ranges", "bytes")
+        self.end_headers()
+        if is_playlist:
+            raw = b""
+            while True:
+                chunk = resp.read(65536)
+                if not chunk:
+                    break
+                raw += chunk
+            self.wfile.write(self._livetv_rewrite(raw.decode("utf-8", "replace"), url, cid).encode("utf-8", "replace"))
+        else:
+            try:
+                while True:
+                    chunk = resp.read(65536)
+                    if not chunk:
+                        break
+                    self.wfile.write(chunk)
+            except Exception:
+                pass
+
+    def _livetv_rewrite(self, text, base, cid):
+        """Rewrite every URI in an m3u8 back through this proxy. Bare URI lines
+        and URI="..." attributes (EXT-X-MEDIA, EXT-X-MAP, I-FRAME-STREAM-INF)
+        both become /api/live-tv/<id>?u=<encoded absolute URL>."""
+        import urllib.parse
+
+        def wrap(uri):
+            uri = str(uri or "").strip()
+            if not uri or uri.startswith(("#", "data:", "blob:")):
+                return uri
+            absu = urllib.parse.urljoin(base, uri)
+            return "/api/live-tv/%s?u=%s" % (cid, urllib.parse.quote(absu, safe=""))
+
+        out = []
+        for line in text.splitlines():
+            s = line.strip()
+            if not s:
+                out.append(line)
+                continue
+            if s.startswith("#"):
+                if "URI=" in s:
+                    s = re.sub(r"URI=\"([^\"]*)\"", lambda m: 'URI="' + wrap(m.group(1)) + '"', s)
+                    s = re.sub(r"URI='([^']*)'", lambda m: "URI='" + wrap(m.group(1)) + "'", s)
+                out.append(s)
+            else:
+                out.append(wrap(s))
+        return "\n".join(out) + "\n"
+
+    def _livetv_raw(self):
+        """Admin GET: the full channel config (including streamUrl / referer /
+        userAgent), used to populate the Settings -> Live TV editor."""
+        self._livetv_json({"ok": True, "channels": _livetv_cfg().get("channels") or []})
+
+    def _livetv_save(self, body):
+        """Admin save: replace livetv.json wholesale with the submitted channel
+        list. Same trust model as the rest of this server (client-side admin
+        gate, personal server behind a tunnel)."""
+        import time
+        try:
+            payload = json.loads(body or b"{}")
+        except Exception:
+            payload = {}
+        channels = payload.get("channels")
+        if not isinstance(channels, list):
+            return self._livetv_json({"ok": False, "error": "bad-list"}, 400)
+        clean = []
+        seen = set()
+        for i, c in enumerate(channels):
+            if not isinstance(c, dict):
+                continue
+            cid = str(c.get("id") or "").strip().lower()
+            if not cid:
+                cid = "ch" + str(int(time.time() * 1000)) + str(i)
+            if cid in seen:
+                cid = cid + str(i)
+            seen.add(cid)
+            clean.append({
+                "id": cid,
+                "name": str(c.get("name") or cid).strip()[:80],
+                "category": str(c.get("category") or "Other").strip()[:40] or "Other",
+                "logo": str(c.get("logo") or "").strip(),
+                "streamUrl": str(c.get("streamUrl") or "").strip(),
+                "referer": str(c.get("referer") or "").strip(),
+                "userAgent": str(c.get("userAgent") or "").strip(),
+                "enabled": bool(c.get("enabled", True)),
+            })
+        try:
+            with open(LIVETV_CFG_PATH, "w", encoding="utf-8") as f:
+                json.dump({"channels": clean}, f, indent=2)
+        except Exception as e:
+            return self._livetv_json({"ok": False, "error": type(e).__name__}, 500)
+        _livetv_cache["m"] = 0
+        _livetv_live_cache.clear()
+        self._livetv_json({"ok": True, "count": len(clean)})
+
+
+class Handler(_CloudRelay, _MusicRelay, _LiveTV, SimpleHTTPRequestHandler):
     def log_message(self, *a):  # quieter than the default per-request logger
         pass
 
@@ -117,6 +848,28 @@ class Handler(SimpleHTTPRequestHandler):
             if (self.headers.get("Upgrade") or "").lower() == "websocket":
                 return self._uv_ws(route[len("/uv/"):])
             return self._uv_route(route[len("/uv/"):])
+        if route == "/cloud/health":
+            return self._cloud_health()
+        if route.startswith("/cloud/v1/signal/"):
+            if (self.headers.get("Upgrade") or "").lower() == "websocket":
+                return self._cloud_ws(route)
+        got = self._cloud_get(route)
+        if got is not None:
+            return got
+        if route == "/music/health":
+            return self._music_health()
+        if route == "/music/api":
+            return self._music_api()
+        if route == "/music/stream":
+            return self._music_stream()
+        if route == "/music/pic":
+            return self._music_pic()
+        if route == "/api/live-tv":
+            return self._livetv_list()
+        if route == "/api/live-tv/admin":
+            return self._livetv_raw()
+        if route.startswith("/api/live-tv/"):
+            return self._livetv_stream(route[len("/api/live-tv/"):])
         return super().do_GET()
 
     def do_POST(self):
@@ -138,6 +891,15 @@ class Handler(SimpleHTTPRequestHandler):
             if body is not None and "application/x-www-form-urlencoded" in ctype:
                 body = body.decode("utf-8", "replace")
             return self._uv_route(route[len("/uv/"):], body)
+        if route == "/cloud/config":
+            return self._cloud_config_post()
+        got = self._cloud_post(route)
+        if got is not None:
+            return got
+        if route == "/api/live-tv/admin":
+            length = int(self.headers.get("Content-Length", 0))
+            body = self.rfile.read(length) if length > 0 else b"{}"
+            return self._livetv_save(body)
         self.send_response(405)
         self.end_headers()
 

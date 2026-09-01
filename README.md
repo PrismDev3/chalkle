@@ -31,6 +31,30 @@ Run `node audit.mjs` to statically verify every screen state: duplicate ids, JS-
 | Music | `music.js` (full player, live mirrors) |
 | Apps/Tools | `apps.js` (create it) |
 | Proxies | `proxies.js` seeds, editable in-app, saved to localStorage |
+| Cloud Gaming | `cloudgames.js` (Stratus catalog import) + `cloud.js` |
+
+## Cloud gaming
+
+Games stream from a Stratus API server. The browser only ever talks to this
+site: serve-chalk.py relays `/cloud/v1/*` to the Stratus backend, injects the
+API key, and tunnels the WebRTC signaling websocket, so there is no CORS,
+mixed content, or key in the page.
+
+Run the vendored Stratus API on this machine:
+
+```
+cd stratus-api
+bun i
+taskkill //F //IM node.exe 2>/dev/null; bun api.js
+```
+
+The Cloud settings panel points the relay at a loopback URL (default
+`http://localhost:3001`) and stores it in `cloud-relay.json`. Regenerate the
+catalog from a Stratus cloud.json:
+
+```
+node tools/import-stratus.mjs <path-to-cloud.json>
+```
 
 ## Web ports
 

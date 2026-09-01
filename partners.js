@@ -382,7 +382,8 @@
     { name: "Godly Links", official: "", discord: "https://discord.gg/XZt4t8Jtk", icon: "assets/partners/godlylinks.png" },
     { name: "Project Bugs", official: "https://sites.google.com/view/intresting-history-facts/home", discord: "https://discord.gg/m5B7munZvn", icon: "assets/partners/projectbugs.jpg" },
     { name: "Frosted V2", official: "https://frostedbrowser.cfd/", discord: "https://discord.gg/w7J5auDhNm", icon: "assets/partners/frosted.png", renames: ["frosted"] },
-    { name: "P2P Games", official: "https://cdn.jsdelivr.net/gh/GreyLinks123/web-auto-1@main/web-fetch-1.svg", discord: "https://discord.gg/b6QRdA7bjR", icon: "assets/partners/p2pgames.png" }
+    { name: "P2P Games", official: "https://cdn.jsdelivr.net/gh/GreyLinks123/web-auto-1@main/web-fetch-1.svg", discord: "https://discord.gg/b6QRdA7bjR", icon: "assets/partners/p2pgames.png" },
+    { name: "S.V", official: "", discord: "https://discord.gg/FHmEqPgMVe", icon: "assets/partners/sv.webp" }
   ];
 
   function seedDefaults() {
