@@ -45,6 +45,10 @@
   --shadow-card: 0 10px 28px rgba(0, 0, 0, 0.18);
   --side-w: 232px;
   --side-w-collapsed: 64px;
+  /* Literal fallbacks for very old browsers: if CSS variables fail, the
+     sidebar keeps a real width instead of collapsing to 0 and vanishing. */
+  --side-w-fallback: 232px;
+  --side-w-collapsed-fallback: 64px;
   --topbar-h: 56px;
   --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --mono: ui-monospace, "Cascadia Mono", Consolas, monospace;
@@ -543,7 +547,9 @@ body[data-view="settings"] .topbar::after { background: linear-gradient(180deg, 
 /* ---------- Sidebar ---------- */
 
 .sidebar {
+  width: var(--side-w-fallback);
   width: var(--side-w);
+  min-width: var(--side-w-collapsed-fallback);
   flex: none;
   display: flex;
   flex-direction: column;
@@ -702,7 +708,11 @@ body[data-view="settings"] .topbar::after { background: linear-gradient(180deg, 
 
 /* Collapsed state (desktop) */
 
-body.sidebar-collapsed .sidebar { width: var(--side-w-collapsed); }
+body.sidebar-collapsed .sidebar {
+  width: var(--side-w-collapsed-fallback);
+  width: var(--side-w-collapsed);
+  min-width: 56px;
+}
 body.sidebar-collapsed .brand {
   width: var(--side-w-collapsed);
   overflow: visible;
@@ -767,6 +777,20 @@ body.sidebar-collapsed .collapse-btn:active { transform: scale(0.96); }
    stays below real phone widths. The rail state is never permanently stuck:
    the collapse button becomes a floating, labeled Expand pill that always
    juts out of the rail (see .sidebar-collapsed rules above). */
+@media (max-width: 768px) {
+  .sidebar { width: var(--side-w-collapsed); }
+  .brand { width: var(--side-w-collapsed); }
+  .brand-mark { display: none; }
+  .topbar-spacer { width: var(--side-w-collapsed); }
+  .nav-item, .collapse-btn { justify-content: center; padding: 0; }
+  .nav-label { display: none; }
+  .nav-socials { flex-direction: column; }
+  .nav-more-label { display: none; }
+  .nav-more .nav-item { justify-content: center; padding: 0; }
+  .nav-more .nav-label { display: none; }
+  .collapse-btn .icon { transform: rotate(180deg); }
+}
+
 @media (max-width: 480px) {
   .sidebar { width: var(--side-w-collapsed); }
   .brand { width: var(--side-w-collapsed); }
@@ -7186,64 +7210,266 @@ input[type="submit"]:not([disabled]), input[type="range"]:not([disabled]) {
 
 /* ---------- Live TV ---------- */
 
+.livetv-hero-stage {
+  margin-bottom: 24px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 16px;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.45);
+}
+
+.livetv-hero-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.livetv-hero-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.livetv-hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(234, 67, 53, 0.16);
+  border: 1px solid rgba(234, 67, 53, 0.35);
+  color: var(--red);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
+.livetv-live-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--red);
+  box-shadow: 0 0 8px var(--red);
+  animation: livetv-pulse 1.6s ease infinite;
+}
+
+@keyframes livetv-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.85); }
+}
+
+.livetv-hero-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.livetv-hero-cat {
+  font-size: 12px;
+  color: var(--text-3);
+  padding: 2px 8px;
+  background: var(--panel-2);
+  border-radius: 6px;
+}
+
+.livetv-hero-fs {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  color: var(--text-2);
+  cursor: pointer;
+}
+
+.livetv-hero-fs:hover { color: var(--text); background: var(--panel-2); }
+
+.livetv-hero-screen {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  max-height: 520px;
+  background: #000;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.livetv-hero-screen video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #000;
+  outline: none;
+}
+
+.livetv-hero-placeholder {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: radial-gradient(circle at 50% 50%, rgba(20, 30, 26, 0.95), rgba(6, 8, 10, 0.98));
+  text-align: center;
+  padding: 24px;
+}
+
+.livetv-placeholder-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.livetv-placeholder-ico {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: rgba(74, 184, 140, 0.12);
+  border: 1px solid rgba(74, 184, 140, 0.3);
+  color: #4ab88c;
+  display: grid;
+  place-items: center;
+  margin-bottom: 4px;
+}
+
+.livetv-placeholder-ico .icon { width: 28px; height: 28px; }
+
+.livetv-placeholder-content h3 {
+  font-size: 20px;
+  font-weight: 700;
+  margin: 0;
+  color: var(--text);
+}
+
+.livetv-placeholder-content p {
+  font-size: 13.5px;
+  color: var(--text-3);
+  margin: 0;
+  max-width: 360px;
+}
+
+/* Widescreen Live TV Cards Grid */
+
 .livetv-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
-  gap: 14px;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 16px;
 }
 
 .livetv-card {
   display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 14px;
-  text-align: left;
+  flex-direction: column;
+  appearance: none;
   background: var(--panel);
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: 14px;
+  overflow: hidden;
   cursor: pointer;
-  transition: transform 140ms ease, border-color 140ms ease, background 140ms ease;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 4px 16px rgba(0, 0, 0, 0.28);
+  text-align: left;
+  transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+  padding: 0;
 }
 
 .livetv-card:hover {
-  border-color: var(--va);
-  background: var(--panel-2);
-  transform: translateY(-1px);
+  transform: translateY(-3px);
+  border-color: rgba(74, 184, 140, 0.5);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(74, 184, 140, 0.2);
 }
 
-.livetv-card-logo {
-  flex: none;
-  width: 46px;
-  height: 46px;
+.livetv-card.is-selected {
+  border-color: #4ab88c;
+  box-shadow: 0 0 0 2px rgba(74, 184, 140, 0.4), 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+
+.livetv-card-preview {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: linear-gradient(135deg, rgba(20, 32, 28, 0.9), rgba(12, 18, 24, 0.95));
   display: grid;
   place-items: center;
-  border-radius: 10px;
-  font-family: var(--display-geo);
-  font-size: 18px;
-  font-weight: 800;
-  color: var(--va);
-  background: var(--va-soft);
   overflow: hidden;
 }
 
-.livetv-card-logo img {
+.livetv-card-preview img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
+  padding: 18px;
+  transition: transform 220ms ease;
 }
 
-.livetv-card-body {
-  flex: 1;
-  min-width: 0;
+.livetv-card:hover .livetv-card-preview img {
+  transform: scale(1.08);
+}
+
+.livetv-preview-letter {
+  font-family: var(--display-geo);
+  font-size: 36px;
+  font-weight: 800;
+  color: #4ab88c;
+  opacity: 0.85;
+}
+
+.livetv-card-live-badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: rgba(234, 67, 53, 0.9);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+
+.livetv-card-play-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: grid;
+  place-items: center;
+  opacity: 0;
+  transition: opacity 160ms ease;
+}
+
+.livetv-card-play-overlay .icon {
+  width: 44px;
+  height: 44px;
+  color: #fff;
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.6));
+  transform: scale(0.85);
+  transition: transform 160ms ease;
+}
+
+.livetv-card:hover .livetv-card-play-overlay {
+  opacity: 1;
+}
+
+.livetv-card:hover .livetv-card-play-overlay .icon {
+  transform: scale(1);
+}
+
+.livetv-card-meta {
+  padding: 12px 14px;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
+  background: var(--panel);
 }
 
 .livetv-card-name {
-  font-size: 13.5px;
+  font-size: 14px;
   font-weight: 700;
+  color: var(--text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -7251,26 +7477,7 @@ input[type="submit"]:not([disabled]), input[type="range"]:not([disabled]) {
 
 .livetv-card-cat {
   font-size: 11.5px;
-  color: var(--muted-2);
-}
-
-.livetv-card-dot {
-  flex: none;
-  width: 22px;
-  height: 22px;
-  display: grid;
-  place-items: center;
-  border-radius: 50%;
   color: var(--text-3);
-  background: rgba(255, 255, 255, 0.06);
-}
-
-.livetv-card-dot .icon { width: 12px; height: 12px; }
-
-.livetv-card.is-live .livetv-card-dot {
-  color: #fff;
-  background: var(--red);
-  box-shadow: 0 0 0 4px rgba(234, 67, 53, 0.18);
 }
 
 /* Player overlay */
@@ -7380,4 +7587,58 @@ input[type="submit"]:not([disabled]), input[type="range"]:not([disabled]) {
 @media (max-width: 640px) {
   .livetv-grid { grid-template-columns: 1fr; }
   .livetv-player { padding: 10px; }
+}
+
+/* ---------- In-app docs viewer ---------- */
+
+.docs-viewer {
+  position: fixed;
+  inset: var(--topbar-h) 0 0 0;
+  z-index: 62;
+  display: flex;
+  flex-direction: column;
+  background: #0c1210;
+}
+
+.docs-viewer-bar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 52px;
+  padding: 0 14px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+}
+
+.docs-viewer-title {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--display);
+  font-size: 17px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.docs-viewer-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.docs-viewer-frame {
+  flex: 1;
+  width: 100%;
+  border: none;
+  background: #0c1210;
+}
+
+/* Proxy brand logo inside the Settings proxy list marks. */
+.proxy-link-mark .proxy-link-ico {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 7px;
 }

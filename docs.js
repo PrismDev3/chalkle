@@ -260,10 +260,10 @@
       if (page || isList) {
         var htmlLine = el("div", "docs-line html-note");
         htmlLine.textContent = isList
-          ? "This is a searchable link list. Open it as a page to browse, search, and open the links."
+          ? "This is a searchable link list. It opens right here in Chalkle with search and the Open button."
           : svg
           ? "This is a single-file SVG cloak page. Open it in a fresh tab - no server needed."
-          : "This is a single-file HTML page. Open it in a fresh about:blank tab - no server needed.";
+          : "This is a single-file HTML page. It opens right here in Chalkle.";
         inner.appendChild(htmlLine);
       } else {
         var shown = linesOf(doc.content).slice(0, 6);
@@ -356,12 +356,51 @@
     });
   }
 
-  function openDocPage(id) {
-    var doc = getDoc(id);
-    if (!doc) return;
-    var content = rebaseListPaths(doc.content || "");
+  /* ---------- In-app doc viewer ---------- */
+
+  /* List docs (P2P Links, Crazy Cats, Cherri List, Noahs Hub, ...) now open
+     INSIDE the app in a srcdoc iframe instead of an about:blank tab. The doc
+     page and its /x.txt fetches stay on the Chalkle origin, so school
+     monitors and popup blockers (managed Chromebooks) can't blank the tab
+     and the lists always render. srcdoc inherits our base URL, so relative
+     and root-absolute fetches inside the doc still resolve here. */
+  var viewerDoc = null;
+
+  function viewerClose() {
+    viewerDoc = null;
+    var ov = document.getElementById("docs-viewer");
+    if (ov) ov.hidden = true;
+    document.body.style.overflow = "";
+    var frame = document.getElementById("docs-viewer-frame");
+    if (frame) frame.removeAttribute("srcdoc");
+  }
+
+  function viewerOpen(doc) {
+    var ov = document.getElementById("docs-viewer");
+    var frame = document.getElementById("docs-viewer-frame");
+    if (!ov || !frame) return false;
+    viewerDoc = doc;
+    var title = document.getElementById("docs-viewer-title");
+    if (title) title.textContent = doc.title || "Chalkle doc";
+    /* Setting srcdoc twice on the same element fires a reload of the
+       previous src first; clearing it avoids a flash of the old doc. */
+    frame.removeAttribute("srcdoc");
+    frame.srcdoc = rebaseListPaths(doc.content || "");
+    ov.hidden = false;
+    document.body.style.overflow = "hidden";
+    return true;
+  }
+
+  /* Open a doc as a standalone page in a new tab. SVG cloaks go here (they
+     must render as a standalone SVG document), and it's what the viewer's
+     "New tab" button uses to pop a list out. If the popup is blocked it
+     falls back to the in-app viewer. */
+  function openDocTab(doc, content) {
     var win = window.open("about:blank", "_blank");
-    if (!win) return;
+    if (!win) {
+      viewerOpen(doc);
+      return;
+    }
     if (isSvgDoc(content)) {
       /* SVG cloaks must render as a standalone SVG document (image/svg+xml),
          otherwise the browser parses it as HTML and the cloak breaks. */
@@ -374,7 +413,10 @@
         if (blobUrl) URL.revokeObjectURL(blobUrl);
         win.close();
         win = window.open("data:image/svg+xml;charset=utf-8," + encodeURIComponent(content), "_blank");
-        if (!win) return;
+        if (!win) {
+          viewerOpen(doc);
+          return;
+        }
       }
       return;
     }
@@ -385,6 +427,19 @@
       var title = doc.title || "Chalkle doc";
       win.document.title = title;
     } catch (e) { /* ignore */ }
+  }
+
+  function openDocPage(id) {
+    var doc = getDoc(id);
+    if (!doc) return;
+    var content = rebaseListPaths(doc.content || "");
+    /* Link lists and plain HTML/text docs open right here in Chalkle (in-app
+       viewer). SVG cloaks still open as a standalone tab. */
+    if (!isSvgDoc(content)) {
+      viewerOpen(doc);
+      return;
+    }
+    openDocTab(doc, content);
   }
 
   function downloadDoc(id) {
@@ -749,12 +804,23 @@
       })(filterBtns[fi]);
     }
 
+    /* In-app viewer: close on the X / backdrop, pop out via New tab. */
+    var viewerCloseBtn = document.getElementById("docs-viewer-close");
+    if (viewerCloseBtn) viewerCloseBtn.addEventListener("click", viewerClose);
+    var viewerTabBtn = document.getElementById("docs-viewer-tab");
+    if (viewerTabBtn) {
+      viewerTabBtn.addEventListener("click", function () {
+        if (!viewerDoc) return;
+        openDocTab(viewerDoc, rebaseListPaths(viewerDoc.content || ""));
+        viewerClose();
+      });
+    }
+
     modal = document.getElementById("docs-modal");
     if (modal) {
       var closers = modal.querySelectorAll("[data-docs-close]");
       for (var i = 0; i < closers.length; i++) {
-        closers[i    
-].addEventListener("click", close);
+        closers[i].addEventListener("click", close);
       }
       var saveBtn = document.getElementById("docs-edit-save");
       var cancelBtn = document.getElementById("docs-edit-cancel");
