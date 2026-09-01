@@ -6,3 +6,26 @@ sync.json
 _served_sync.json
 *.log
 _chrome*
+__pycache__/
+*.pyc
+node_modules/
+stratus-api/node_modules/
+music-backend/node_modules/
+pack-lock.json
+package-lock.json
+/tmp/
+_pack*
+*.zip
+/.vs/
+.DS_Store
+Thumbs.db
+
+# runtime data / local relay config (never needed by the site itself)
+ai_convos.json
+cloud-relay.json
+music-relay.json
+
+# local dev artifacts / temp profiles (never part of the site)
+/_*
+**/_*
+!/assets/

@@ -69,18 +69,18 @@
     #launch-screen {
       position: fixed; inset: 0; z-index: 2147483647;
       display: flex; align-items: center; justify-content: center;
-      background: rgba(13, 15, 18, 0.96);
       color: var(--text); font: 14px/1.5 var(--font);
-      padding: 24px; box-sizing: border-box;
-      overflow: auto;
+      padding: 24px; box-sizing: border-box; overflow: auto;
+      /* Depth without extra elements: darker green-tinted gradient backdrop. */
+      background: radial-gradient(130% 120% at 50% 0%, rgba(74, 184, 140, 0.1), rgba(9, 10, 12, 0.94) 55%);
     }
     #launch-screen * { box-sizing: border-box; }
     #launch-card {
       width: min(680px, 100%); max-height: 100%; overflow: auto;
       margin: auto; /* flexbox-safe centering: never clips the top when short */
-      background: var(--panel); border: 1px solid var(--line);
-      border-radius: var(--radius-lg); padding: 36px 30px 28px; text-align: center;
-      box-shadow: var(--shadow-card);
+      background: var(--panel); border: 1px solid rgba(74, 184, 140, 0.16);
+      border-radius: 16px; padding: 3rem; text-align: center;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(74, 184, 140, 0.06);
     }
     #launch-card .launch-logo {
       display: inline-block; font-family: var(--display);
@@ -88,38 +88,69 @@
       margin: 0 auto 18px; -webkit-user-select: none; user-select: none;
     }
     #launch-card .launch-logo .bubble-letter { display: inline-block; }
-    #launch-card h1 { margin: 0 0 6px; font-size: 22px; font-weight: 700; letter-spacing: -0.01em; }
-    #launch-card .launch-sub { margin: 0 0 24px; color: var(--text-2); font-size: 13px; }
-    #launch-options { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; text-align: left; }
+    #launch-card h1 { margin: 0 0 8px; font-size: 28px; font-weight: 500; letter-spacing: -0.02em; line-height: 1.15; }
+    #launch-card .launch-sub { margin: 0 0 1.75rem; color: var(--text-3); font-size: 15px; }
+    #launch-options { position: relative; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; text-align: left; }
     #launch-options button {
       appearance: none; cursor: pointer; text-align: left; color: var(--text);
-      background: var(--panel-2); border: 1px solid var(--line);
-      border-radius: var(--radius); padding: 13px 14px; font: inherit;
-      transition: background .15s, border-color .15s, transform .1s;
-      display: flex; gap: 12px; align-items: flex-start;
+      background: rgba(74, 184, 140, 0.04); border: 1px solid rgba(74, 184, 140, 0.18);
+      border-radius: 12px; padding: 20px 14px; font: inherit;
+      transition: background 180ms ease, border-color 180ms ease, transform 180ms ease, box-shadow 180ms ease;
+      display: flex; gap: 14px; align-items: flex-start;
+      position: relative; box-shadow: 0 12px 28px rgba(0, 0, 0, 0.22);
     }
-    #launch-options button:hover { background: var(--accent-soft); border-color: var(--accent); }
+    #launch-options button:hover {
+      background: rgba(74, 184, 140, 0.1); border-color: rgba(74, 184, 140, 0.55);
+      transform: translateY(-2px);
+      box-shadow: inset 0 0 0 1px rgba(74, 184, 140, 0.18), inset 0 0 18px rgba(74, 184, 140, 0.09), 0 16px 32px rgba(0, 0, 0, 0.32);
+    }
     #launch-options button:active { transform: scale(0.98); }
     #launch-options .opt-ico {
-      flex-shrink: 0; width: 34px; height: 34px; border-radius: var(--radius);
-      display: grid; place-items: center; color: var(--accent);
-      background: var(--accent-soft); border: 1px solid rgba(52, 168, 83, 0.28);
+      flex-shrink: 0; width: 38px; height: 38px; border-radius: 12px;
+      display: grid; place-items: center; color: #3db39a;
+      background: rgba(74, 184, 140, 0.08); border: 1px solid rgba(74, 184, 140, 0.22);
+      transition: color 180ms ease, background 180ms ease, border-color 180ms ease;
     }
+    #launch-options button:hover .opt-ico { color: #5dd1a6; }
     #launch-options .opt-ico svg { width: 18px; height: 18px; display: block; }
-    #launch-options .opt-txt strong { display: block; font-size: 14px; margin-bottom: 2px; }
-    #launch-options .opt-txt small { color: var(--text-2); font-size: 12px; line-height: 1.4; display: block; }
+    #launch-options .opt-txt strong { display: block; font-size: 15px; font-weight: 500; margin-bottom: 3px; }
+    #launch-options .opt-txt small { color: var(--text-2); font-size: 12px; line-height: 1.45; display: block; opacity: 0.85; transition: opacity 180ms ease; }
+    #launch-options button:hover .opt-txt small { opacity: 1; }
     #launch-options .opt-full { grid-column: 1 / -1; }
-    #launch-status { margin: 14px 0 0; min-height: 18px; color: var(--text-2); font-size: 12px; display: flex; gap: 8px; align-items: center; justify-content: center; }
+    /* Featured Direct option: 2px accent border + inner glow + floating badge. */
+    #launch-options #launch-direct {
+      border: 2px solid #4ab88c; background: rgba(74, 184, 140, 0.13);
+      box-shadow: inset 0 0 0 1px rgba(74, 184, 140, 0.22), inset 0 0 24px rgba(74, 184, 140, 0.12), 0 14px 34px rgba(0, 0, 0, 0.3);
+    }
+    #launch-options #launch-direct:hover {
+      border-color: #5dd1a6;
+      box-shadow: inset 0 0 0 1px rgba(74, 184, 140, 0.25), inset 0 0 26px rgba(74, 184, 140, 0.14), 0 0 26px rgba(74, 184, 140, 0.18), 0 18px 36px rgba(0, 0, 0, 0.35);
+    }
+    #launch-options #launch-direct .opt-ico { color: #4ab88c; }
+    #launch-options #launch-direct:hover .opt-ico { color: #5dd1a6; }
+    #launch-options .opt-badge {
+      position: absolute; top: -12px; left: 50%; transform: translateX(-50%);
+      background: #4ab88c; color: #08211a;
+      font-size: 10.5px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase;
+      padding: 4px 11px; border-radius: 999px; white-space: nowrap;
+      backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    }
+    #launch-status { margin: 16px 0 0; min-height: 18px; color: var(--text-2); font-size: 12px; display: flex; gap: 8px; align-items: center; justify-content: center; }
     #launch-status.is-err { color: var(--red); }
     #launch-status .spin {
       width: 13px; height: 13px; border-radius: 50%; flex-shrink: 0;
-      border: 2px solid var(--line-2); border-top-color: var(--accent);
+      border: 2px solid var(--line-2); border-top-color: #4ab88c;
       animation: launch-spin .8s linear infinite;
     }
     @keyframes launch-spin { to { transform: rotate(360deg); } }
-    #launch-hint { margin: 12px 0 0; color: var(--text-3); font-size: 11.5px; line-height: 1.5; }
+    #launch-hint { margin: 16px 0 0; color: var(--text-3); font-size: 11.5px; line-height: 1.5; }
     #launch-hint b { color: var(--text-2); font-weight: 600; }
-    @media (max-width: 560px) { #launch-options { grid-template-columns: 1fr; } }
+    @media (max-width: 560px) {
+      #launch-card { padding: 1.5rem; }
+      #launch-card h1 { font-size: 22px; }
+      #launch-options { grid-template-columns: 1fr; }
+    }
   </style>
   <div id="launch-screen" role="dialog" aria-modal="true" aria-label="Choose how to launch Chalkle">
     <div id="launch-card">
@@ -128,6 +159,7 @@
       <p class="launch-sub">Every option runs the real build. Pick the one that fits.</p>
       <div id="launch-options">
         <button id="launch-direct" type="button">
+          <span class="opt-badge">Recommended</span>
           <span class="opt-ico"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15l13-7.5Z"/></svg></span>
           <span class="opt-txt"><strong>Direct</strong><small>Run Chalkle right here in this tab.</small></span>
         </button>
@@ -307,20 +339,19 @@
             <span class="nav-label">Games</span>
           </button>
 
-          <button class="nav-item" data-view="sites" title="Sites">
+          <button class="nav-item" data-view="cloud" title="Cloud Gaming">
             <svg class="icon tab-ico" viewBox="0 0 24 24" aria-hidden="true">
-              <circle cx="12" cy="12" r="10"/>
-              <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/>
-              <path d="M2 12h20"/>
+              <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/>
+              <path d="M9.9 9.4l5.4 3.1-5.4 3.1z" fill="currentColor" stroke="none"/>
             </svg>
-            <span class="nav-label">Sites</span>
+            <span class="nav-label">Cloud</span>
           </button>
 
-          <button class="nav-item" data-view="music" title="YouTube">
-            <svg class="icon youtube-icon" viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M23.5 6.19a3.02 3.02 0 0 0-2.12-2.14C19.5 3.55 12 3.55 12 3.55s-7.5 0-9.38.5A3.02 3.02 0 0 0 .5 6.19C0 8.07 0 12 0 12s0 3.93.5 5.81a3.02 3.02 0 0 0 2.12 2.14c1.88.5 9.38.5 9.38.5s7.5 0 9.38-.5a3.02 3.02 0 0 0 2.12-2.14C24 15.93 24 12 24 12s0-3.93-.5-5.81z" fill="currentColor" stroke="none"/><path d="M9.55 15.57V8.43L15.82 12l-6.27 3.57z" fill="var(--base)" stroke="none"/>
+          <button class="nav-item" data-view="music" title="Music">
+            <svg class="icon tab-ico" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z"/>
             </svg>
-            <span class="nav-label">YouTube</span>
+            <span class="nav-label">Music</span>
           </button>
 
           <button class="nav-item" data-view="apps-tools" title="Apps/Tools">
@@ -339,6 +370,21 @@
             <span class="nav-label">Proxies</span>
           </button>
 
+          <button class="nav-item nav-more-btn" id="nav-more-btn" type="button" aria-haspopup="true" aria-expanded="false" title="More tabs">
+            <svg class="icon tab-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9.5l8 7 8-7"/></svg>
+            <span class="nav-label">More</span>
+          </button>
+        </nav>
+
+        <div class="nav-more" id="nav-more">
+          <span class="nav-more-label">More</span>
+          <button class="nav-item" data-view="sites" title="Sites">
+            <svg class="icon tab-ico" viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="12" cy="12" r="10"/>
+              <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/>
+            </svg>
+            <span class="nav-label">Sites</span>
+          </button>
           <button class="nav-item" data-view="ai" title="AI">
             <svg class="icon tab-ico" viewBox="0 0 24 24" aria-hidden="true">
               <path d="M12 3.5c.9 3.4 2.6 5.1 6 6-3.4.9-5.1 2.6-6 6-.9-3.4-2.6-5.1-6-6 3.4-.9 5.1-2.6 6-6z"/>
@@ -347,14 +393,12 @@
             </svg>
             <span class="nav-label">AI</span>
           </button>
-
           <button class="nav-item" data-view="docs" title="Docs">
             <svg class="icon tab-ico" viewBox="0 0 24 24" aria-hidden="true">
               <path d="M6 3.5h8l4 4.5v12.5a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-16a1 1 0 0 1 1-1z"/><path d="M14 3.5v4.5h4.5"/><path d="M8.5 11.5h7M8.5 14.7h7M8.5 17.9h4"/>
             </svg>
             <span class="nav-label">Docs</span>
           </button>
-
           <button class="nav-item" data-view="partners" title="Partners">
             <svg class="icon tab-ico" viewBox="0 0 24 24" aria-hidden="true">
               <path d="m11 17 2 2a1 1 0 1 0 3-3"/>
@@ -365,7 +409,21 @@
             </svg>
             <span class="nav-label">Partners</span>
           </button>
-        </nav>
+          <button class="nav-item" data-view="board" title="The Board">
+            <svg class="icon tab-ico" viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="3.4" y="4" width="17.2" height="12" rx="1.6"/><path d="M7 7.8h10M7 10.4h7M7 13h4"/><path d="M8.8 16l-1.8 4M15.2 16l1.8 4M6.4 20h11.2"/>
+            </svg>
+            <span class="nav-label">Board</span>
+          </button>
+          <button class="nav-item" data-view="livetv" title="Live TV">
+            <svg class="icon tab-ico" viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="2.5" y="6.5" width="19" height="13" rx="2.5"/>
+              <path d="m10 10.5 5 2.75-5 2.75z" fill="currentColor" stroke="none"/>
+              <path d="M8.5 3.5 12 6l3.5-2.5"/>
+            </svg>
+            <span class="nav-label">Live TV</span>
+          </button>
+        </div>
 
         <nav class="nav nav-bottom" aria-label="Board and settings">
           <div class="nav-socials" aria-label="Social links">
@@ -379,13 +437,6 @@
               <svg class="icon disc-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" stroke="none" d="M20.317 4.37a19.79 19.79 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.211.375-.445.865-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.319 13.58.099 18.058a.082.082 0 0 0 .031.056c2.053 1.507 4.041 2.423 5.993 3.03a.078.078 0 0 0 .084-.028c.462-.63.873-1.295 1.226-1.994a.076.076 0 0 0-.042-.106 13.11 13.11 0 0 1-1.872-.892.077.077 0 0 1-.008-.128c.126-.094.252-.192.372-.291a.074.074 0 0 1 .078-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.009c.12.099.246.198.373.292a.077.077 0 0 1-.007.128 12.3 12.3 0 0 1-1.873.891.076.076 0 0 0-.04.107c.36.698.772 1.363 1.225 1.993a.076.076 0 0 0 .084.029c1.961-.607 3.95-1.522 6.002-3.03a.077.077 0 0 0 .031-.055c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.029zM8.02 15.33c-1.183 0-2.157-1.086-2.157-2.42 0-1.333.956-2.418 2.157-2.418 1.211 0 2.176 1.095 2.157 2.418 0 1.334-.956 2.42-2.157 2.42zm7.975 0c-1.183 0-2.157-1.086-2.157-2.42 0-1.333.956-2.418 2.157-2.418 1.211 0 2.176 1.095 2.157 2.418 0 1.334-.946 2.42-2.157 2.42z"/></svg>
             </a>
           </div>
-          <button class="nav-item" data-view="board" title="The Board">
-            <svg class="icon tab-ico" viewBox="0 0 24 24" aria-hidden="true">
-              <rect x="3.4" y="4" width="17.2" height="12" rx="1.6"/><path d="M7 7.8h10M7 10.4h7M7 13h4"/><path d="M8.8 16l-1.8 4M15.2 16l1.8 4M6.4 20h11.2"/>
-            </svg>
-            <span class="nav-label">Board</span>
-          </button>
-
           <button class="nav-item" data-view="settings" title="Settings">
             <svg class="icon tab-ico" viewBox="0 0 24 24" aria-hidden="true">
               <path d="M4 7h8M18 7h2"/><circle cx="16" cy="7" r="2"/><path d="M4 12h2M10 12h10"/><circle cx="8" cy="12" r="2"/><path d="M4 17h9M17 17h3"/><circle cx="14" cy="17" r="2"/>
@@ -415,7 +466,7 @@
               <p class="home-text">Games, music, sites, and tools pulled together in one place. Pick one and go.</p>
               <div class="home-actions">
                 <button class="home-primary" data-home-go="games">Browse games</button>
-                <button class="home-secondary" data-home-go="music">Open YouTube</button>
+                <button class="home-secondary" data-home-go="music">Open Music</button>
                 <button class="home-secondary" data-home-go="apps-tools">Tools</button>
               </div>
             </div>
@@ -427,8 +478,8 @@
               </div>
               <div class="home-quick">
                 <button class="home-quick-card q-games" data-home-go="games"><span class="home-quick-ico"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7.55 6.15h8.9a4.55 4.55 0 0 1 4.5 5.05l-.42 3.95a3.05 3.05 0 0 1-5.37 1.75l-1.3-1.6h-3.72l-1.3 1.6a3.05 3.05 0 0 1-5.37-1.75l-.42-3.95A4.55 4.55 0 0 1 7.55 6.15z"/><path d="M8.45 9.7v2.3M7.3 10.85h2.3"/></svg></span><span class="home-quick-t">Games</span></button>
-                <button class="home-quick-card q-sites" data-home-go="sites"><span class="home-quick-ico"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.4"/><path d="M3.6 12h16.8"/><ellipse cx="12" cy="12" rx="3.7" ry="8.4"/></svg></span><span class="home-quick-t">Sites</span></button>
-                <button class="home-quick-card q-yt" data-home-go="music"><span class="home-quick-ico"><svg class="icon youtube-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M23.5 6.19a3.02 3.02 0 0 0-2.12-2.14C19.5 3.55 12 3.55 12 3.55s-7.5 0-9.38.5A3.02 3.02 0 0 0 .5 6.19C0 8.07 0 12 0 12s0 3.93.5 5.81a3.02 3.02 0 0 0 2.12 2.14c1.88.5 9.38.5 9.38.5s7.5 0 9.38-.5a3.02 3.02 0 0 0 2.12-2.14C24 15.93 24 12 24 12s0-3.93-.5-5.81zM9.55 15.57V8.43L15.82 12l-6.27 3.57z" fill="currentColor" stroke="none"/></svg></span><span class="home-quick-t">YouTube</span></button>
+                <button class="home-quick-card q-sites" data-home-go="sites"><span class="home-quick-ico"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.4"/><polygon points="15.6 8.4 13.85 13.85 8.4 15.6 10.15 10.15 15.6 8.4"/></svg></span><span class="home-quick-t">Sites</span></button>
+                <button class="home-quick-card q-yt" data-home-go="music"><span class="home-quick-ico"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z"/></svg></span><span class="home-quick-t">Music</span></button>
                 <button class="home-quick-card q-tools" data-home-go="apps-tools"><span class="home-quick-ico"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.75" y="3.75" width="6.9" height="6.9" rx="1.6"/><rect x="13.35" y="3.75" width="6.9" height="6.9" rx="1.6"/><rect x="3.75" y="13.35" width="6.9" height="6.9" rx="1.6"/><rect x="13.35" y="13.35" width="6.9" height="6.9" rx="1.6"/></svg></span><span class="home-quick-t">Tools</span></button>
                 <button class="home-quick-card q-proxy" data-home-go="proxies"><span class="home-quick-ico"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 9.3l3.6-3.6a2.9 2.9 0 0 1 4.1 4.1l-3.6 3.6a2.9 2.9 0 0 1-4.1 0"/><path d="M9 14.7l-3.6 3.6a2.9 2.9 0 0 1-4.1-4.1l3.6-3.6a2.9 2.9 0 0 1 4.1 0"/><path d="M8.3 15.7l7.4-7.4"/></svg></span><span class="home-quick-t">Proxy</span></button>
                 <button class="home-quick-card q-board" data-home-go="board"><span class="home-quick-ico"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.2" y="4" width="17.6" height="12" rx="1.5"/><path d="M7 7.7h10M7 10.2h7M7 12.7h4"/></svg></span><span class="home-quick-t">Board</span></button>
@@ -516,6 +567,62 @@
           </div>
         </section>
 
+        <section class="view" data-view="cloud">
+          <div class="view-head">
+            <div class="view-heading">
+              <h1 class="view-title">Cloud Gaming</h1>
+              <span class="view-meta" id="cloud-meta">streaming catalog</span>
+            </div>
+            <div class="view-actions">
+              <input class="field field-search" id="cloud-search" type="search" placeholder="Search cloud games" autocomplete="off" spellcheck="false" aria-label="Search cloud games">
+            </div>
+          </div>
+          <div class="game-command">
+            <div class="cloud-status" id="cloud-status">
+              <span class="cloud-dot" id="cloud-status-dot" aria-hidden="true"></span>
+              <span class="cloud-status-txt" id="cloud-status-txt">checking server</span>
+            </div>
+            <div class="game-filters" role="group" aria-label="Cloud game filters">
+              <button class="chip is-active" data-cloud-filter="all">All</button>
+              <button class="chip" data-cloud-filter="favorites">Saved</button>
+            </div>
+          </div>
+          <div class="genre-filters" id="cloud-genres" role="group" aria-label="Filter by genre" hidden></div>
+          <div class="grid" id="cloud-grid"></div>
+          <div class="empty" id="cloud-empty" hidden>
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M6.9 17.5a4.2 4.2 0 0 1-.74-8.34 5.6 5.6 0 0 1 10.9 1.15 4 4 0 0 1-.16 7.19z"/>
+            </svg>
+            <p class="empty-title">No cloud games match that.</p>
+            <p class="empty-hint">Clear search or switch filter.</p>
+          </div>
+        </section>
+
+        <section class="view" data-view="livetv">
+          <div class="view-head">
+            <div class="view-heading">
+              <h1 class="view-title">Live TV</h1>
+              <span class="view-meta" id="livetv-meta">channels, no account</span>
+            </div>
+            <div class="view-actions">
+              <input class="field field-search" id="livetv-search" type="search" placeholder="Search channels" autocomplete="off" spellcheck="false" aria-label="Search channels">
+            </div>
+          </div>
+          <div class="game-command">
+            <div class="cloud-status" id="livetv-status">
+              <span class="cloud-dot" id="livetv-status-dot" aria-hidden="true"></span>
+              <span class="cloud-status-txt" id="livetv-status-txt">loading channels</span>
+            </div>
+            <div class="game-filters" role="group" aria-label="Channel categories" id="livetv-cats"></div>
+          </div>
+          <div class="livetv-grid" id="livetv-grid"></div>
+          <div class="empty" id="livetv-empty" hidden>
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="6.5" width="19" height="13" rx="2.5"/><path d="m10 10.5 5 2.75-5 2.75z"/></svg>
+            <p class="empty-title">No channels found.</p>
+            <p class="empty-hint" id="livetv-empty-hint">Try another category or search.</p>
+          </div>
+        </section>
+
         <section class="view" data-view="sites">
           <div class="view-head">
             <div class="view-heading">
@@ -534,8 +641,7 @@
           <div class="empty" id="sites-empty" hidden>
             <svg class="icon tab-ico" viewBox="0 0 24 24" aria-hidden="true">
               <circle cx="12" cy="12" r="8.6"/>
-              <path d="M3.4 12h17.2"/>
-              <path d="M12 3.4a12.7 12.7 0 0 1 0 17.2M12 3.4a12.7 12.7 0 0 0 0 17.2"/>
+              <polygon points="15.7 8.3 13.9 13.9 8.3 15.7 10.1 10.1 15.7 8.3"/>
             </svg>
             <p class="empty-title">No sites yet.</p>
             <p class="empty-hint">Add one from the Admin panel.</p>
@@ -544,8 +650,8 @@
 
         <section class="view" data-view="music">
           <div class="view-head">
-            <h1 class="view-title">YouTube</h1>
-            <span class="view-meta">full songs, no cuts</span>
+            <h1 class="view-title">Music</h1>
+            <span class="view-meta" id="music-meta">real songs, netease</span>
           </div>
           <div class="panel music-toolbar">
             <div class="music-search">
@@ -553,27 +659,72 @@
                 <circle cx="11" cy="11" r="6.5"/>
                 <line x1="16" y1="16" x2="20.5" y2="20.5"/>
               </svg>
-              <input id="music-q" type="search" placeholder="Search YouTube videos" autocomplete="off" spellcheck="false" aria-label="Search YouTube videos">
-              <button class="music-search-clear" id="music-q-clear" type="button" aria-label="Clear video search" hidden>×</button>
+              <input id="music-q" type="search" placeholder="Search any song or artist" autocomplete="off" spellcheck="false" aria-label="Search music">
+              <button class="music-search-clear" id="music-q-clear" type="button" aria-label="Clear search" hidden>×</button>
             </div>
-            <div class="music-chips">
-              <button class="chip is-active" data-music-chip="trending">Trending</button>
-              <button class="chip" data-music-chip="recommended">Recommended</button>
-              <button class="chip" data-music-chip="channels">Channels</button>
-              <button class="chip" data-music-chip="favorites">Favorites</button>
-              <label class="chip chip-upload">Upload
-                <input type="file" id="music-upload" accept="audio/*" multiple hidden>
-              </label>
-            </div>
+            <span class="music-hint">click any song to play it</span>
           </div>
-          <div class="music-line">
-            <button class="chip channel-back" id="channel-back" hidden>&lsaquo;&nbsp;Back</button>
-            <h2 class="music-head" id="music-head">Trending videos</h2>
-            <span class="music-status" id="music-status"></span>
+
+          <div id="music-home"></div>
+          <div class="music-results" id="music-results" hidden></div>
+          <div class="music-profile" id="music-profile" hidden>
+            <button class="chip" id="mprofile-back" type="button" hidden>&lsaquo;&nbsp;Back</button>
+            <div id="mprofile-body" style="margin-top:12px"></div>
           </div>
-          <div class="grid" id="music-grid" hidden></div>
           <div class="empty" id="music-empty" hidden>
-            <p class="empty-hint">Search for a video or open your favorites.</p>
+            <p class="empty-title">Music is off-line.</p>
+            <p class="empty-hint" id="music-empty-hint">The music server isn't answering right now.</p>
+          </div>
+
+          <div class="music-player" id="music-player" hidden>
+            <div class="player-card">
+              <div class="player-art" id="player-art"><span class="thumb-letter">&#9835;</span></div>
+              <div class="player-now">
+                <div class="player-title" id="player-title">Nothing playing</div>
+                <div class="player-artist" id="player-artist">pick a song to start</div>
+              </div>
+              <div class="player-btns">
+                <button class="p-btn" id="p-shuffle" title="Shuffle" aria-label="Shuffle"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 4h5v5M21 4l-8 8M3 20h4.5M21 20l-9.5-9.5M3 4l4.5 4.5"/></svg></button>
+                <button class="p-btn" id="p-prev" title="Previous" aria-label="Previous"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5v14M18.5 5v14L7 12z"/></svg></button>
+                <button class="p-btn p-play" id="p-play" title="Play" aria-label="Play"><svg class="ico-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg><svg class="ico-pause" viewBox="0 0 24 24" aria-hidden="true" hidden><path d="M7 5h4v14H7zM13 5h4v14h-4z"/></svg></button>
+                <button class="p-btn" id="p-next" title="Next" aria-label="Next"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17 5v14M5.5 5v14l11.5-7z"/></svg></button>
+                <button class="p-btn" id="p-repeat" title="Repeat: off" aria-label="Repeat: off"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9a8 8 0 0 1 13.5-4M20 15a8 8 0 0 1-13.5 4"/><path d="M17.5 3.5V6h-2.5M6.5 20.5V18H9"/></svg></button>
+              </div>
+              <div class="player-seek">
+                <span class="p-time" id="p-cur">0:00</span>
+                <input type="range" class="p-slider" id="p-seek" min="0" max="1000" step="1" value="0" aria-label="Seek">
+                <span class="p-time pt-dur" id="p-dur">0:00</span>
+              </div>
+              <div class="player-side">
+                <button class="p-btn" id="p-lyrics" title="Lyrics" aria-label="Lyrics"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 10h16M4 14h10"/><circle cx="16.5" cy="16.5" r="2.5"/><path d="M19 14v2.6"/></svg></button>
+                <button class="p-btn" id="p-queue" title="Up next" aria-label="Up next"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 10h16M4 14h10M15 18h5M15 14.5h5"/></svg></button>
+                <button class="p-btn" id="p-tune" title="Speed &amp; pitch" aria-label="Speed &amp; pitch"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 4v2M12 18v2M4 12h2M18 12h2M6.3 6.3l1.4 1.4M16.3 16.3l1.4 1.4M17.7 6.3l-1.4 1.4M7.7 16.3l-1.4 1.4"/></svg></button>
+                <button class="p-btn" id="p-mute" title="Mute" aria-label="Mute"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16.5 9.5a4 4 0 0 1 0 5"/></svg></button>
+                <input type="range" class="p-slider p-vol" id="p-vol" min="0" max="100" step="1" value="80" aria-label="Volume">
+              </div>
+            </div>
+            <audio id="music-audio" preload="metadata"></audio>
+            <div class="p-pop p-tune-pop" id="p-tune-pop" hidden>
+              <div class="p-pop-head">Tune</div>
+              <label class="p-pop-row">Pitch
+                <input type="range" id="p-pitch" min="-12" max="12" step="1" value="0" aria-label="Pitch">
+                <span id="p-pitch-v">0 st</span>
+              </label>
+              <label class="p-pop-row">Speed
+                <input type="range" id="p-speed" min="50" max="200" step="5" value="100" aria-label="Speed">
+                <span id="p-speed-v">1.00x</span>
+              </label>
+              <button class="btn-theme" id="p-tune-reset" type="button">Reset</button>
+            </div>
+            <div class="p-pop p-lyrics-panel" id="p-lyrics-panel" hidden>
+              <div class="p-pop-head">Lyrics <button class="p-x" id="p-lyrics-x" type="button" aria-label="Close lyrics">&times;</button></div>
+              <div class="p-lyric-box" id="p-lyric-box"><p class="p-lyric-none">No lyrics loaded.</p></div>
+            </div>
+            <div class="p-pop p-queue-panel" id="p-queue-panel" hidden>
+              <div class="p-pop-head">Up next <button class="p-x" id="p-queue-x" type="button" aria-label="Close queue">&times;</button></div>
+              <div class="p-queue-list" id="p-queue-list"></div>
+            </div>
+            <div class="p-toast" id="p-toast" hidden></div>
           </div>
         </section>
 
@@ -770,6 +921,29 @@
               </div>
               <p class="settings-note">A little personality, everywhere.</p>
               <div class="cursor-grid" id="cursor-grid"></div>
+            </div>
+
+            <!-- Cloud gaming -->
+            <div class="panel settings-card">
+              <div class="settings-head">
+                <h2 class="panel-title">Cloud gaming</h2>
+                <span class="panel-chip">stratus</span>
+              </div>
+              <p class="settings-note">Cloud games stream from a Stratus server. Blank server URL uses the built-in relay on this site, which forwards to a local Stratus.</p>
+              <div class="settings-block">
+                <div class="settings-block-label">Stratus server</div>
+                <p class="settings-block-hint">Full URL like http://localhost:3001, or empty for the built-in relay</p>
+                <input class="field" id="cloud-cfg-base" type="url" placeholder="http://localhost:3001" autocomplete="off" spellcheck="false" aria-label="Stratus server URL">
+              </div>
+              <div class="settings-block">
+                <div class="settings-block-label">API key</div>
+                <p class="settings-block-hint">Optional. The built-in relay sends its own key when this is empty</p>
+                <input class="field" id="cloud-cfg-key" type="password" placeholder="sk_..." autocomplete="off" spellcheck="false" aria-label="Stratus API key">
+              </div>
+              <div class="settings-block">
+                <button class="btn-theme" id="cloud-cfg-save">Save cloud settings</button>
+                <span class="cloud-cfg-saved" id="cloud-cfg-saved" hidden>Saved</span>
+              </div>
             </div>
 
             <!-- Display -->
@@ -982,35 +1156,45 @@
     <div class="launch-modal" id="launch-modal" hidden>
       <div class="launch-card">
         <div class="launch-head">
-          <span class="launch-name" id="launch-name"></span>
+          <div class="launch-titles">
+            <span class="launch-name" id="launch-name"></span>
+            <span class="launch-sub">How do you want to open it?</span>
+          </div>
           <button class="launch-x" id="launch-close" aria-label="Close">
             <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
           </button>
         </div>
         <div class="launch-grid">
-          <button class="launch-opt" data-launch-method="direct">
+          <button class="launch-opt launch-featured" data-launch-method="direct">
+            <span class="launch-badge">Recommended</span>
             <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17L17 7M9 7h8v8"/></svg>
-            <span>Direct</span>
+            <span class="launch-opt-title">Direct</span>
+            <span class="launch-opt-desc">Opens in a new tab</span>
           </button>
           <button class="launch-opt" data-launch-method="aboutblank">
             <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3"/><circle cx="12" cy="12" r="2.5"/></svg>
-            <span>About Blank</span>
+            <span class="launch-opt-title">About Blank</span>
+            <span class="launch-opt-desc">Cloaked blank tab</span>
           </button>
           <button class="launch-opt" data-launch-method="blob">
             <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 8l8-4v12l-8 4z"/></svg>
-            <span>Blob</span>
+            <span class="launch-opt-title">Blob</span>
+            <span class="launch-opt-desc">Cloaked blob tab</span>
           </button>
           <button class="launch-opt" data-launch-method="dataurl">
             <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M8 9h8M8 13h8M8 17h5"/></svg>
-            <span>DataURL</span>
+            <span class="launch-opt-title">DataURL</span>
+            <span class="launch-opt-desc">Inline data page</span>
           </button>
           <button class="launch-opt" data-launch-method="iframe">
             <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4.5" width="18" height="15" rx="2.5"/><path d="M3 9h18"/></svg>
-            <span>Iframe Here</span>
+            <span class="launch-opt-title">Iframe Here</span>
+            <span class="launch-opt-desc">Plays on this page</span>
           </button>
           <button class="launch-opt" data-launch-method="proxy" id="launch-proxy">
             <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><ellipse cx="12" cy="12" rx="3.6" ry="8.5"/><path d="M3.5 12h17"/></svg>
-            <span>Proxy</span>
+            <span class="launch-opt-title">Proxy</span>
+            <span class="launch-opt-desc">Routed through a proxy</span>
           </button>
         </div>
         <div class="launch-foot">
@@ -1083,6 +1267,7 @@
             <button class="admin-tab" data-admin-tab="board">Board</button>
             <button class="admin-tab" data-admin-tab="docs">Docs</button>
             <button class="admin-tab" data-admin-tab="partners">Partners</button>
+            <button class="admin-tab" data-admin-tab="livetv">Live TV</button>
           </div>
           <div class="admin-scroll">
             <div class="admin-form-panel" data-admin-panel="games"><div id="admin-sheet-games"></div></div>
@@ -1115,8 +1300,31 @@
               <p class="empty-hint panel-note" style="margin-top:10px">Partners added here appear on the Partners tab.</p>
               <div class="admin-lib" id="admin-partners-list"></div>
             </div>
+            <div class="admin-form-panel" data-admin-panel="livetv" hidden>
+              <div class="field-stack">
+                <button class="btn" id="admin-livetv-add">
+                  <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+                  Add channel
+                </button>
+              </div>
+              <p class="empty-hint panel-note" style="margin-top:10px">Channels here show up on the Live TV tab. The player streams through this server&rsquo;s relay, so upstream URLs never reach the page.</p>
+              <div class="admin-lib" id="admin-livetv-list"></div>
+            </div>
           </div>
         </div>
+      </div>
+    </div>
+
+    <div class="livetv-player" id="livetv-player" hidden>
+      <div class="livetv-player-top">
+        <span class="livetv-player-title" id="livetv-player-title"></span>
+        <button class="launch-x" id="livetv-player-close" aria-label="Close">
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+      </div>
+      <div class="livetv-player-stage">
+        <video id="livetv-video" controls playsinline autoplay muted></video>
+        <div class="livetv-player-msg" id="livetv-player-msg" hidden></div>
       </div>
     </div>
 
@@ -1282,6 +1490,38 @@
       </div>
     </div>
 
+    <div class="admin-modal livetv-modal" id="livetv-edit-modal" hidden>
+      <div class="admin-cover" data-livetv-close></div>
+      <div class="admin-card livetv-card">
+        <div class="admin-head">
+          <span class="admin-title" id="livetv-edit-title">Add channel</span>
+          <button class="launch-x" data-livetv-close aria-label="Close">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+          </button>
+        </div>
+        <div class="livetv-edit-body">
+          <input class="field" id="livetv-edit-name" type="text" placeholder="Channel name" maxlength="80" spellcheck="false">
+          <div class="livetv-edit-row">
+            <input class="field" id="livetv-edit-category" type="text" placeholder="Category (News, Sports...)" maxlength="40" spellcheck="false">
+            <input class="field" id="livetv-edit-logo" type="text" placeholder="Logo URL (optional)" spellcheck="false">
+          </div>
+          <input class="field" id="livetv-edit-stream" type="text" placeholder="Stream URL (.m3u8, https://...)" spellcheck="false">
+          <input class="field" id="livetv-edit-referer" type="text" placeholder="Referer (optional)" spellcheck="false">
+          <input class="field" id="livetv-edit-ua" type="text" placeholder="User-Agent (optional - default is Chrome)" spellcheck="false">
+          <label class="livetv-edit-check">
+            <input type="checkbox" id="livetv-edit-enabled" checked>
+            <span>Channel enabled</span>
+          </label>
+          <div class="livetv-edit-foot">
+            <div class="livetv-edit-actions">
+              <button class="btn-ghost" id="livetv-edit-cancel">Cancel</button>
+              <button class="btn" id="livetv-edit-save">Save channel</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div class="admin-modal ua-modal" id="urlauditor-modal" hidden>
       <div class="admin-cover" data-ua-close></div>
       <div class="admin-card ua-card">
@@ -1356,12 +1596,14 @@
   <script src="runtime-config.js"></script>
   <script src="sync.js"></script>
   <script src="games.js"></script>
+  <script src="cloudgames.js"></script>
   <script src="webports.js"></script>
   <script src="sites.js"></script>
   <script src="proxies.js"></script>
   <script src="apps.js"></script>
   <script src="music.js"></script>
   <script src="launcher.js"></script>
+  <script src="cloud.js"></script>
   <script src="blanktab.js"></script>
   <script src="editor.js"></script>
   <script src="urlauditor.js"></script>
@@ -1370,6 +1612,8 @@
   <script src="ai.js"></script>
   <script src="docs.js"></script>
   <script src="partners.js"></script>
+  <script src="assets/hls.min.js"></script>
+  <script src="livetv.js"></script>
   <script src="intro.js"></script>
   <script src="app.js"></script>
 </body>

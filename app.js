@@ -513,8 +513,16 @@
     document.body.style.overflow = "";
   }
 
+  function closeMoreNav() {
+    var panel = document.getElementById("nav-more");
+    var btn = document.getElementById("nav-more-btn");
+    if (panel) panel.classList.remove("is-open");
+    if (btn) { btn.classList.remove("is-open"); btn.setAttribute("aria-expanded", "false"); }
+  }
+
   function setView(view) {
     state.view = view;
+    closeMoreNav();
     /* Mirror the active tab on <body> so the top bar + chrome can tint with
        the section's accent color. */
     document.body.setAttribute("data-view", view);
@@ -545,6 +553,12 @@
     } else if (view === "ai") {
       /* owned by ai.js */
       if (window.ChalkleAI && window.ChalkleAI.render) window.ChalkleAI.render();
+    } else if (view === "cloud") {
+      /* owned by cloud.js */
+      if (window.ChalkleCloud && window.ChalkleCloud.render) window.ChalkleCloud.render();
+    } else if (view === "music") {
+      /* owned by music.js */
+      if (window.ChalkleMusic && window.ChalkleMusic.render) window.ChalkleMusic.render();
     } else {
       render();
     }
@@ -1265,7 +1279,11 @@
   function applyCollapsed() {
     document.body.classList.toggle("sidebar-collapsed", state.collapsed);
     var btn = $("#collapse-btn");
-    if (btn) btn.setAttribute("aria-label", state.collapsed ? "Expand sidebar" : "Collapse sidebar");
+    if (btn) {
+      btn.setAttribute("aria-label", state.collapsed ? "Expand sidebar" : "Collapse sidebar");
+      var lbl = btn.querySelector(".nav-label");
+      if (lbl) lbl.textContent = state.collapsed ? "Expand" : "Collapse";
+    }
   }
 
   function toggleSidebar() {
@@ -1860,6 +1878,7 @@
       adminRenderAll();
       if (window.ChalkleDocs && window.ChalkleDocs.applyAdminUI) window.ChalkleDocs.applyAdminUI();
       if (window.ChalklePartners && window.ChalklePartners.applyAdminUI) window.ChalklePartners.applyAdminUI();
+      if (window.ChalkleLiveTV && window.ChalkleLiveTV.applyAdminUI) window.ChalkleLiveTV.applyAdminUI();
       return true;
     }
     return false;
@@ -1879,6 +1898,9 @@
     }
     if (tab === "partners" && window.ChalklePartners && window.ChalklePartners.refreshAdminList) {
       window.ChalklePartners.refreshAdminList();
+    }
+    if (tab === "livetv" && window.ChalkleLiveTV && window.ChalkleLiveTV.refreshAdminList) {
+      window.ChalkleLiveTV.refreshAdminList();
     }
   }
 
@@ -1959,8 +1981,9 @@
        color as its sidebar tab (Games=green, Sites=blue, YouTube=red, …). */
     var TITLE_COLORS = {
       games: ["#34a853", "#0d7734"],
+      cloud: ["#b7e63f", "#7f9f14"],
       sites: ["#4285f4", "#1557b0"],
-      music: ["#ea4335", "#b31412"],
+      music: ["#e60073", "#8c003d"],
       "apps-tools": ["#fbbc05", "#e37400"],
       proxies: ["#12b5a5", "#0a7f74"],
       settings: ["#a970ff", "#7a3fd0"],
@@ -1988,9 +2011,38 @@
        now; remove any stale saved selection. */
     try { localStorage.removeItem("chalkle-game-genre-filters"); } catch (e) { /* no storage */ }
 
+    /* The More button toggles the overflow panel; panels inside it are real
+       nav items (data-view) and ride the normal nav click path below. */
+    var moreBtn = document.getElementById("nav-more-btn");
+    var morePanel = document.getElementById("nav-more");
+    if (moreBtn && morePanel) {
+      moreBtn.addEventListener("click", function () {
+        /* More folds into the sidebar. When the sidebar is a 64px rail the
+           panel opens as an icon-only column inside it (CSS hides the labels
+           in collapsed mode), so it never forces the sidebar back open. */
+        var open = morePanel.classList.toggle("is-open");
+        /* The panel must not keep its [hidden] attribute or the global
+           [hidden]{display:none!important} rule beats .is-open's flex. */
+        morePanel.hidden = !open;
+        moreBtn.classList.toggle("is-open", open);
+        moreBtn.setAttribute("aria-expanded", open ? "true" : "false");
+      });
+    }
+    document.addEventListener("click", function (e) {
+      if (!morePanel || !morePanel.classList.contains("is-open")) return;
+      if (e.target === moreBtn) return;
+      if (morePanel.contains(e.target)) return;
+      closeMoreNav();
+    });
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape") closeMoreNav();
+    });
+
     document.querySelectorAll(".nav-item").forEach(function (btn) {
       btn.addEventListener("click", function () {
-        setView(btn.dataset.view);
+        var view = btn.dataset.view;
+        if (!view) return; /* the More toggle has no data-view */
+        setView(view);
         closeSidebar();
       });
     });
@@ -2589,6 +2641,10 @@
       var adminPartnersAdd = $("#admin-partners-add");
       if (adminPartnersAdd && window.ChalklePartners && window.ChalklePartners.addPartner) {
         adminPartnersAdd.addEventListener("click", function () { window.ChalklePartners.addPartner(); });
+      }
+      var adminLivetvAdd = $("#admin-livetv-add");
+      if (adminLivetvAdd && window.ChalkleLiveTV && window.ChalkleLiveTV.addChannel) {
+        adminLivetvAdd.addEventListener("click", function () { window.ChalkleLiveTV.addChannel(); });
       }
 
       var adminBody = $("#admin-body");

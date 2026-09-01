@@ -35,6 +35,14 @@
   var CURSORS = {
     cat: { label: "cat", css: "url('/assets/cursors/cursor-cat.png') 32 32, auto", preview: "/assets/cursors/cursor-cat.png" },
     "cat-black": { label: "black cat", css: "url('/assets/cursors/cursor-cat-black.png') 32 32, auto", preview: "/assets/cursors/cursor-cat-black.png" },
+    interference: { label: "interference", css: "url('/assets/cursors/cursor-interference.png') 15 2, auto", pointer: "url('/assets/cursors/cursor-interference-pointer.png') 5 2, pointer", preview: "/assets/cursors/cursor-interference.png" },
+    kyro: { label: "kyro", css: "url('/assets/cursors/cursor-kyro.png') 24 24, auto", preview: "/assets/cursors/cursor-kyro.png" },
+    neoos: { label: "NEO OS", css: "url('/assets/cursors/cursor-neoos.png') 24 24, auto", preview: "/assets/cursors/cursor-neoos.png" },
+    godlylinks: { label: "Godly Links", css: "url('/assets/cursors/cursor-godlylinks.png') 24 23, auto", preview: "/assets/cursors/cursor-godlylinks.png" },
+    projectbugs: { label: "Project Bugs", css: "url('/assets/cursors/cursor-projectbugs.png') 24 24, auto", preview: "/assets/cursors/cursor-projectbugs.png" },
+    frosted: { label: "Frosted", css: "url('/assets/cursors/cursor-frosted.png') 24 24, auto", preview: "/assets/cursors/cursor-frosted.png" },
+    p2pgames: { label: "P2P Games", css: "url('/assets/cursors/cursor-p2pgames.png') 24 23, auto", preview: "/assets/cursors/cursor-p2pgames.png" },
+    sv: { label: "S.V", css: "url('/assets/cursors/cursor-sv.png') 24 24, auto", preview: "/assets/cursors/cursor-sv.png" },
     none: { label: "default", css: "auto", preview: null }
   };
 
@@ -190,7 +198,11 @@
 
   function applyCursor(value) {
     var choice = CURSORS[value] ? value : "none";
-    document.documentElement.style.setProperty("--custom-cursor", CURSORS[choice].css);
+    var c = CURSORS[choice];
+    document.documentElement.style.setProperty("--custom-cursor", c.css);
+    /* Some cursors ship a hover/pointer state (e.g. interference); the rest
+       fall back to the system pointer on buttons and links. */
+    document.documentElement.style.setProperty("--custom-cursor-pointer", c.pointer || "pointer");
   }
 
   var ChalkleTheme = {
