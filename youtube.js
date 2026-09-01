@@ -227,7 +227,7 @@
         var html = "";
         if (watched.length) {
           var names = topChannels(3).map(function (c) { return c.name; }).filter(Boolean);
-          html += row("For you", names.length ? "because you watched " + names.slice(0, 2).join(" and ") : "based on what you watch", forYou, 12);
+          html += row("For you", names.length ? "from " + names.slice(0, 2).join(" and ") : "latest uploads", forYou, 12);
         } else {
           html += row("For you", "trending right now - start watching to tune it", forYou, 12);
         }

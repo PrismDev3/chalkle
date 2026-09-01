@@ -2041,7 +2041,9 @@
       board: ["#fb8c00", "#c25e00"],
       docs: ["#6ec6ff", "#1a6b9e"],
       partners: ["#d8a368", "#8a5a24"],
-      home: ["#ff4d8d", "#c2185b"]
+      home: ["#ff4d8d", "#c2185b"],
+      livetv: ["#4ab88c", "#1f7a5c"],
+      youtube: ["#ff0033", "#b30024"]
     };
     document.querySelectorAll(".view-title").forEach(function (el) {
       var label = (el.textContent || "").trim();
