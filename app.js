@@ -381,7 +381,7 @@
           '<span class="proxy-link-mark">' + (p.icon && !isLocalFileUrl(p.icon) ? '<img class="proxy-link-ico" src="' + escapeAttr(p.icon) + '" alt="" loading="lazy" onerror="this.remove()">' : "") + letter + "</span>" +
           '<span class="proxy-link-txt"><span class="proxy-link-name">' + escapeHtml(p.name) + "</span>" +
           '<span class="proxy-link-url">' + escapeHtml(host || p.url) + credit + "</span></span>" +
-          '<span class="proxy-link-open">Open &rsaquo;</span>' +
+          '<span class="proxy-link-open">Open</span>' +
           "</a>"
         );
       })
@@ -956,7 +956,7 @@
     var thumb = item.thumb && !isLocalFileUrl(item.thumb)
       ? '<img class="tool-tile-img" src="' + escapeAttr(item.thumb) + '" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.remove()">'
       : '<span class="tool-tile-letter" aria-hidden="true">' + escapeHtml(rawTitle.charAt(0).toUpperCase() || "?") + "</span>";
-    var via = isProxy ? '<span class="tool-tile-via" title="Opens through your configured proxy">proxy &rsaquo;</span>' : "";
+    var via = isProxy ? '<span class="tool-tile-via" title="Opens through your configured proxy">proxy</span>' : "";
     var cat = item.category ? '<span class="card-cat">' + escapeHtml(item.category) + "</span>" : "";
     var tileHref = (kind || isProxy) ? "#" : href;
     return (
@@ -965,7 +965,7 @@
       '<span class="tool-tile-art">' + thumb + "</span>" +
       '<span class="tool-tile-body">' +
       '<span class="tool-tile-title">' + title + "</span>" +
-      '<span class="tool-tile-meta">' + cat + via + '<span class="tool-tile-open">Open &rsaquo;</span></span>' +
+      '<span class="tool-tile-meta">' + cat + via + '<span class="tool-tile-open">Open</span></span>' +
       "</span>" +
       "</a>" +
       (kind || isProxy ? "" : '<button class="open-with open-with-tool" data-open-with data-url="' + escapeAttr(item.url || "") + '" data-title="' + escapeAttr(rawTitle) + '" aria-label="Choose how to open" title="Open with options">' +
@@ -1167,7 +1167,7 @@
         '<span class="home-featured-eyebrow">Play now &middot; Eaglercraft 26.2</span>' +
         '<span class="home-featured-title">Minecraft James Edition</span>' +
         '<span class="home-featured-desc">Survival, creative, and your friends&rsquo; servers on one self-hosted build. Runs in its own tab.</span>' +
-        '<span class="home-featured-cta">Launch &rsaquo;</span>' +
+        '<span class="home-featured-cta">Launch</span>' +
         "</span></button>";
       featured.querySelector("[data-featured-mc]").addEventListener("click", function () {
         openJamesEdition("Minecraft James Edition");
@@ -1529,7 +1529,7 @@
           } else {
             art = hvFallback(letter);
           }
-          return homeCard("home-game", item._id || gameKey(item), title, "Continue &rsaquo;", art);
+          return homeCard("home-game", item._id || gameKey(item), title, "Continue", art);
         })
         .join("") +
       '</div></div>';
