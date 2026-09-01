@@ -1479,6 +1479,68 @@ button.home-panel-chip:hover {
   padding: 10px;
 }
 
+/* Continue playing: horizontal snap-scroll strip with edge fade + arrows. */
+.home-recents-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.home-recents-arrow {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--text-2);
+  transition: color 140ms ease, border-color 140ms ease, background 140ms ease, opacity 140ms ease;
+}
+
+.home-recents-arrow .icon { width: 16px; height: 16px; }
+
+.home-recents-arrow:hover:not(:disabled) {
+  color: var(--text);
+  border-color: var(--pink);
+  background: var(--pink-soft);
+}
+
+.home-recents-arrow:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.home-recents-scroll {
+  position: relative;
+  margin-top: 4px;
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 22px, #000 calc(100% - 22px), transparent 100%);
+  mask-image: linear-gradient(90deg, transparent 0, #000 22px, #000 calc(100% - 22px), transparent 100%);
+}
+
+.home-recents-track {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  padding: 6px 22px 14px;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.home-recents-track::-webkit-scrollbar { display: none; }
+
+.home-recents-track .home-card {
+  flex: 0 0 auto;
+  width: 190px;
+  scroll-snap-align: start;
+}
+
+@media (max-width: 520px) {
+  .home-recents-track .home-card { width: 150px; }
+  .home-recents-arrow { display: none; }
+}
+
 /* ---------- Cards ---------- */
 
 .grid {
@@ -1967,6 +2029,28 @@ button.home-panel-chip:hover {
 
 .empty-hint {
   margin: 0;
+}
+
+/* Call-to-action button inside an empty state. */
+.empty-cta {
+  margin-top: 16px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 16px;
+  border-radius: 999px;
+  border: 1px solid var(--va, var(--accent));
+  background: var(--va-soft, var(--accent-soft));
+  color: var(--va, var(--accent));
+  font-family: var(--display);
+  font-size: 13px;
+  letter-spacing: 0.03em;
+  transition: transform 140ms ease, background 140ms ease, border-color 140ms ease;
+}
+
+.empty-cta:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.15);
 }
 
 /* ---------- Panels ---------- */

@@ -583,6 +583,7 @@
             </svg>
             <p class="empty-title">No games match that.</p>
             <p class="empty-hint">Clear search or switch filters.</p>
+            <button class="empty-cta" id="games-empty-cta" type="button">Browse all games &rsaquo;</button>
           </div>
         </section>
 
@@ -745,6 +746,7 @@
             </svg>
             <p class="empty-title">No sites yet.</p>
             <p class="empty-hint">Add one from the Admin panel.</p>
+            <button class="empty-cta" id="sites-empty-cta" type="button">Open the admin panel &rsaquo;</button>
           </div>
         </section>
 
@@ -772,8 +774,10 @@
             <div id="mprofile-body" style="margin-top:12px"></div>
           </div>
           <div class="empty" id="music-empty" hidden>
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18.5V6.8l10-2v11.7"/><circle cx="6.5" cy="18.5" r="2.5"/><circle cx="16.5" cy="16.5" r="2.5"/></svg>
             <p class="empty-title">Music is off-line.</p>
             <p class="empty-hint" id="music-empty-hint">The music server isn't answering right now.</p>
+            <button class="empty-cta" id="music-empty-cta" type="button">Try again &rsaquo;</button>
           </div>
 
           <div class="music-player" id="music-player" hidden>
@@ -1012,6 +1016,7 @@
                   <div class="theme-custom-row">
                     <input class="field" id="opt-wallpaper-url" type="url" placeholder="https://… image URL" aria-label="Custom wallpaper URL">
                     <button class="btn-theme" id="opt-wallpaper-apply">Apply</button>
+                    <button class="btn-ghost" id="opt-wallpaper-undo" type="button">Undo</button>
                   </div>
                 </div>
                 <div class="settings-block">

@@ -729,7 +729,11 @@
       if (state.idx < 0) renderHome();
       else highlightRows();
     },
-    play: playList
+    play: playList,
+    retry: function () {
+      state.idx = -1;
+      renderHome();
+    }
   };
 
   if (document.readyState === "loading") {
