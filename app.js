@@ -1504,10 +1504,13 @@
     box.hidden = false;
     box.innerHTML =
       '<div class="home-recents-head"><h2 class="home-recents-title">Continue playing</h2>' +
-      '<button class="home-recents-clear">Clear</button></div>' +
-      '<div class="home-shelf">' +
+      '<div class="home-recents-actions">' +
+      '<button class="home-recents-arrow" data-recents-prev aria-label="Scroll back"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>' +
+      '<button class="home-recents-arrow" data-recents-next aria-label="Scroll forward"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>' +
+      '<button class="home-recents-clear">Clear</button></div></div>' +
+      '<div class="home-recents-scroll"><div class="home-recents-track">' +
       recents
-        .slice(0, 8)
+        .slice(0, 6)
         .map(function (item) {
           var title = escapeHtml(item.title || "Untitled");
           var letter = escapeHtml((item.title || "?").charAt(0).toUpperCase() || "?");
@@ -1529,7 +1532,7 @@
           return homeCard("home-game", item._id || gameKey(item), title, "Continue &rsaquo;", art);
         })
         .join("") +
-      "</div>";
+      '</div></div>';
     box.querySelectorAll("[data-home-game]").forEach(function (btn) {
       btn.addEventListener("click", function () {
         var key = btn.dataset.homeGame;
@@ -1550,6 +1553,21 @@
         }
       });
     });
+    var track = box.querySelector(".home-recents-track");
+    var prev = box.querySelector("[data-recents-prev]");
+    var next = box.querySelector("[data-recents-next]");
+    function updateArrows() {
+      if (!track || !prev || !next) return;
+      var max = track.scrollWidth - track.clientWidth - 4;
+      prev.disabled = track.scrollLeft <= 4;
+      next.disabled = track.scrollLeft >= max;
+    }
+    if (track) {
+      track.addEventListener("scroll", updateArrows, { passive: true });
+      if (prev) prev.addEventListener("click", function () { track.scrollBy({ left: -track.clientWidth * 0.8, behavior: "smooth" }); });
+      if (next) next.addEventListener("click", function () { track.scrollBy({ left: track.clientWidth * 0.8, behavior: "smooth" }); });
+      window.setTimeout(updateArrows, 60);
+    }
     var clearBtn = box.querySelector(".home-recents-clear");
     if (clearBtn) clearBtn.addEventListener("click", function () {
       persist(RECENTS_KEY, JSON.stringify([]));
@@ -2510,6 +2528,7 @@
           btn.setAttribute("aria-label", "Wallpaper " + id);
           btn.addEventListener("click", function () {
             T.setWallpaper(id);
+            savedWallpaper = id; /* undo reverts to this */
             renderWallpaperGrid();
           });
           wallpaperGrid.appendChild(btn);
@@ -2523,11 +2542,51 @@
         if (curWall.indexOf("custom:") === 0) wallpaperUrl.value = curWall.slice(7);
       }
 
+      /* Live preview: typing a URL shows it instantly (debounced); Apply
+         saves it. Undo reverts to whatever was saved before this edit. */
+      var savedWallpaper = T.getWallpaper();
+      var previewTimer = null;
+
+      function previewWallpaper(value) {
+        if (!value) return;
+        var css;
+        if (/^(https?:|data:|blob:)/i.test(value)) {
+          css = "url('" + value.replace(/'/g, "%27") + "')";
+        } else if (T.wallpapers[value]) {
+          css = T.wallpapers[value];
+        } else {
+          return;
+        }
+        document.documentElement.style.setProperty("--wallpaper-image", css);
+        document.documentElement.style.setProperty("--wallpaper-scrim", value === "chalk" ? "0" : "0.45");
+      }
+
+      if (wallpaperUrl) {
+        wallpaperUrl.addEventListener("input", function () {
+          var url = wallpaperUrl.value.trim();
+          clearTimeout(previewTimer);
+          previewTimer = setTimeout(function () { previewWallpaper(url); }, 250);
+        });
+      }
+
       if (wallpaperApply) {
         wallpaperApply.addEventListener("click", function () {
           var url = (wallpaperUrl ? wallpaperUrl.value : "").trim();
           if (!url) return;
+          savedWallpaper = T.getWallpaper();
           T.setWallpaper("custom:" + url);
+          renderWallpaperGrid();
+        });
+      }
+
+      /* Undo: restore the wallpaper that was saved before the last change. */
+      var undoWallpaper = $("#opt-wallpaper-undo");
+      if (undoWallpaper) {
+        undoWallpaper.addEventListener("click", function () {
+          T.setWallpaper(savedWallpaper);
+          if (wallpaperUrl) {
+            wallpaperUrl.value = savedWallpaper.indexOf("custom:") === 0 ? savedWallpaper.slice(7) : "";
+          }
           renderWallpaperGrid();
         });
       }
@@ -2819,6 +2878,28 @@
       }
       var optAdmin = $("#opt-admin");
       if (optAdmin) optAdmin.addEventListener("click", openAdmin);
+
+      /* Empty-state CTAs: give every dead end a way forward. */
+      var gamesCta = $("#games-empty-cta");
+      if (gamesCta) {
+        gamesCta.addEventListener("click", function () {
+          state.query = "";
+          state.gameFilter = "all";
+          if (els.search) els.search.value = "";
+          document.querySelectorAll("[data-game-filter]").forEach(function (item) {
+            item.classList.toggle("is-active", item.dataset.gameFilter === "all");
+          });
+          render();
+        });
+      }
+      var sitesCta = $("#sites-empty-cta");
+      if (sitesCta) sitesCta.addEventListener("click", openAdmin);
+      var musicCta = $("#music-empty-cta");
+      if (musicCta) {
+        musicCta.addEventListener("click", function () {
+          if (window.ChalkleMusic && window.ChalkleMusic.retry) window.ChalkleMusic.retry();
+        });
+      }
 
       adminModal.querySelectorAll("[data-admin-close]").forEach(function (el) {
         el.addEventListener("click", function (e) {
