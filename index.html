@@ -12,6 +12,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Boogaloo&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
   <link rel="preload" as="image" href="bg-chalk.webp" fetchpriority="high">
   <link rel="stylesheet" href="styles.css?v=20260830a">
+  <link rel="stylesheet" href="livetv-cards.css?v=1">
   <script src="theme.js"></script>
 </head>
 <body>
@@ -423,6 +424,13 @@
             </svg>
             <span class="nav-label">Live TV</span>
           </button>
+          <button class="nav-item" data-view="youtube" title="YouTube">
+            <svg class="icon tab-ico yt-tab-ico" viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="2" y="4.5" width="20" height="15" rx="3.6"/>
+              <path d="M10 9.2v5.6l5-2.8z" fill="currentColor" stroke="none"/>
+            </svg>
+            <span class="nav-label">YouTube</span>
+          </button>
         </div>
 
         <nav class="nav nav-bottom" aria-label="Board and settings">
@@ -494,6 +502,7 @@
                     <button class="home-quick-menu-item" data-home-go="board"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.2" y="4" width="17.6" height="12" rx="1.5"/><path d="M7 7.7h10M7 10.2h7M7 12.7h4"/></svg><span>Board</span></button>
                     <button class="home-quick-menu-item" data-home-go="docs"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3.5h8l4 4.5v12.5a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-16a1 1 0 0 1 1-1z"/><path d="M14 3.5v4.5h4.5"/><path d="M8.5 11.5h7M8.5 14.7h7M8.5 17.9h4"/></svg><span>Docs</span></button>
                     <button class="home-quick-menu-item" data-home-go="partners"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m11 17 2 2a1 1 0 1 0 3-3"/><path d="m14 14 2.5 2.5a1 1 0 1 0 3-3l-3.88-3.88a3 3 0 0 0-4.24 0l-.88.88a1 1 0 1 1-3-3l2.81-2.81a5.79 5.79 0 0 1 7.06-.87l.47.28a2 2 0 0 0 1.42.25L21 4"/><path d="m21 3 1 11h-2"/><path d="M3 3 2 14l6.5 6.5a1 1 0 1 0 3-3"/><path d="M3 4h8"/></svg><span>Partners</span></button>
+                    <button class="home-quick-menu-item" data-home-go="youtube"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="4.5" width="20" height="15" rx="3.6"/><path d="M10 9.2v5.6l5-2.8z" fill="currentColor" stroke="none"/></svg><span>YouTube</span></button>
                     <button class="home-quick-menu-item" data-home-go="settings"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h8M18 7h2"/><circle cx="16" cy="7" r="2"/><path d="M4 12h2M10 12h10"/><circle cx="8" cy="12" r="2"/><path d="M4 17h9M17 17h3"/><circle cx="14" cy="17" r="2"/></svg><span>Settings</span></button>
                   </div>
                 </div>
@@ -684,6 +693,35 @@
               <p class="empty-hint" id="livetv-empty-hint">Try another category or search.</p>
             </div>
           </section>
+        </section>
+
+        <section class="view" data-view="youtube">
+          <div class="view-head">
+            <div class="view-heading">
+              <h1 class="view-title">YouTube</h1>
+              <span class="view-meta" id="yt-meta">live + for you</span>
+            </div>
+            <button class="chip yt-cat-chip" data-yt-cat="home" type="button">Home</button>
+          </div>
+          <div class="panel yt-toolbar">
+            <div class="yt-search">
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="11" cy="11" r="6.5"/>
+                <line x1="16" y1="16" x2="20.5" y2="20.5"/>
+              </svg>
+              <input id="yt-q" type="search" placeholder="Search videos or channels" autocomplete="off" spellcheck="false" aria-label="Search YouTube">
+              <button class="yt-search-clear" id="yt-q-clear" type="button" aria-label="Clear search" hidden>&times;</button>
+            </div>
+            <div class="game-filters" id="yt-cats" role="group" aria-label="YouTube categories"></div>
+          </div>
+
+          <div class="yt-home" id="yt-home"></div>
+          <div class="yt-results" id="yt-results" hidden></div>
+          <div class="empty" id="yt-empty" hidden>
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="4.5" width="20" height="15" rx="3.6"/><path d="M10 9.2v5.6l5-2.8z"/></svg>
+            <p class="empty-title" id="yt-empty-title">No videos found.</p>
+            <p class="empty-hint" id="yt-empty-hint">Try a different search or come back later.</p>
+          </div>
         </section>
 
         <section class="view" data-view="sites">
@@ -1415,6 +1453,22 @@
       </div>
     </div>
 
+    <div class="yt-player" id="yt-player" hidden>
+      <div class="yt-player-top">
+        <span class="yt-player-title" id="yt-player-title"></span>
+        <span class="yt-player-sub" id="yt-player-sub"></span>
+        <button class="launch-x" id="yt-player-close" aria-label="Close">
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+      </div>
+      <div class="yt-player-stage">
+        <iframe id="yt-frame" class="yt-embed-frame" title="YouTube player"
+          allow="autoplay; fullscreen; encrypted-media; picture-in-picture" allowfullscreen
+          referrerpolicy="no-referrer-when-downgrade" scrolling="no"></iframe>
+        <div class="yt-player-msg" id="yt-player-msg" hidden></div>
+      </div>
+    </div>
+
     <div class="admin-modal" id="blanktab-modal" hidden>
       <div class="admin-cover" data-blanktab-close></div>
       <div class="admin-card blanktab-card">
@@ -1701,6 +1755,7 @@
   <script src="partners.js"></script>
   <script src="assets/hls.min.js"></script>
   <script src="livetv.js"></script>
+  <script src="youtube.js"></script>
   <script src="intro.js"></script>
   <script src="app.js"></script>
 </body>
