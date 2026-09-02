@@ -148,7 +148,7 @@
   var DATA = {
     games: libs.games,
     sites: libs.sites,
-    "apps-tools": libs.tools,
+    "apps-tools": libs.tools, "cobalt": [],
     board: libs.board,
     music: window.ChalkMusic || [],
     proxies: window.ChalkProxies || []
@@ -161,7 +161,7 @@
     games: "games-grid",
     sites: "sites-grid",
     music: "music-grid",
-    "apps-tools": "apps-grid",
+    "apps-tools": "apps-grid", "cobalt": "cobalt-grid",
     proxies: "proxies-grid"
   };
 
