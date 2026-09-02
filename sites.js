@@ -70,6 +70,7 @@ window.ChalkSites = [
   { title: "Uranium", url: "https://script.google.com/macros/s/AKfycbzQz9WnL48W0kCYKEE_1oowmnObY9yFEQxfvAV3UB57llQjtyEj4lnEBvox_ugVXtoGWA/exec", thumb: "/assets/games/t_4d1dbf0792.jpg", category: "Games" },
   { title: "Velcro", url: "https://script.google.com/macros/s/AKfycbztsJYd44KvwW8ti-I9wQMsLRHBqMX_YYwtoZwJqvdnDGGFUDIiWeLDbFeqJ_YETbxo/exec?id=FGLKH", thumb: "/assets/games/t_9934434c66.jpg", category: "Games" },
   { title: "YukiOS", url: "/game-builds/yukios/index.html", thumb: "/assets/games/t_91c87f55bc.jpg", category: "OS" },
+  { title: "PS4 Greg", url: "https://ps4-greg.theropg20.workers.dev/", thumb: "/assets/ps4-banner.png", category: "Games" },
   { title: "Zaka 1", url: "https://cdn.jsdelivr.net/gh/Mtreasur0133-bit/zaka-auto-1@main/zaka-1.svg", thumb: "/assets/games/t_b8f42e72b0.jpg", category: "Zaka" , directOnly: true },
   { title: "Zaka 2", url: "https://cdn.jsdelivr.net/gh/Mtreasur0133-bit/zaka-auto-1@main/zaka-2.svg", thumb: "/assets/games/t_b8f42e72b0.jpg", category: "Zaka" , directOnly: true },
   { title: "Zaka 3", url: "https://cdn.jsdelivr.net/gh/Mtreasur0133-bit/zaka-auto-1@main/zaka-3.svg", thumb: "/assets/games/t_b8f42e72b0.jpg", category: "Zaka" , directOnly: true },
