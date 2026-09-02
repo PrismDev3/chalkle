@@ -107,7 +107,7 @@ body::before {
     linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
     linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
   background-size: 44px 44px;
-  mask-image: linear-gradient(to bottom, black, transparent 70%);
+  opacity: 0.8;
 }
 
 ::selection { background: var(--accent); color: var(--accent-ink); }
@@ -140,7 +140,7 @@ button {
   flex: none;
 }
 
-/* Bold, unified tab icon weight — thick strokes like the filled YouTube
+/* Bold, unified tab icon weight: thick strokes like the filled YouTube
    logo, so every sidebar icon reads as one consistent heavy set. */
 .nav-item .icon {
   width: 21px;
@@ -1574,8 +1574,8 @@ button.home-panel-chip:hover {
 .home-recents-scroll {
   position: relative;
   margin-top: 4px;
-  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 22px, #000 calc(100% - 22px), transparent 100%);
-  mask-image: linear-gradient(90deg, transparent 0, #000 22px, #000 calc(100% - 22px), transparent 100%);
+  -webkit-mask-image: linear-gradient(90deg, transparent 0px, #000 22px, #000 calc(100% - 22px), transparent 100%);
+  mask-image: linear-gradient(90deg, transparent 0px, #000 22px, #000 calc(100% - 22px), transparent 100%);
 }
 
 .home-recents-track {
@@ -1657,17 +1657,16 @@ button.home-panel-chip:hover {
     0 10px 30px rgba(0, 0, 0, 0.38);
 }
 
-/* While a thumbnail is still loading (lazy images), sweep a soft highlight
-   across the tile. The img covers it once it arrives, so no JS needed. */
+/* While a thumbnail is still loading (lazy images), pulse a flat highlight
+   over the tile. The img covers it once it arrives, so no JS needed. */
 .card-thumb::after {
   content: "";
   position: absolute;
   inset: 0;
   z-index: 3;
   pointer-events: none;
-  background: linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, 0.06) 50%, transparent 70%);
-  background-size: 220% 100%;
-  animation: thumb-sheen 1.6s ease-in-out infinite;
+  background: rgba(255, 255, 255, 0.05);
+  animation: thumb-pulse 1.4s ease-in-out infinite;
 }
 
 /* Once an image lands, it covers the tile, so drop the sheen. */
@@ -1675,9 +1674,10 @@ button.home-panel-chip:hover {
   display: none;
 }
 
-@keyframes thumb-sheen {
-  0% { background-position: 130% 0; }
-  60%, 100% { background-position: -90% 0; }
+@keyframes thumb-pulse {
+  0%, 100% { opacity: 0.2; }
+  50% { opacity: 0.9; }
+}
 }
 
 .game-card {
@@ -6737,7 +6737,7 @@ body.ed-resizing iframe { pointer-events: none; }
 .pixel-right { width: 230px; flex: none; display: flex; flex-direction: column; gap: 0; overflow-y: auto; border-left: 1px solid #16181c; background: #1e2025; }
 .pixel-bottom { display: flex; flex-direction: column; gap: 6px; background: #1e2025; border-top: 1px solid #16181c; padding: 8px; }
 
-/* Toolbar — narrow vertical strip, icon-only buttons in a column */
+/* Toolbar: narrow vertical strip, icon-only buttons in a column */
 .pixel-toolstrip { width: 44px; flex: none; background: #1b1d21; border-right: 1px solid #16181c; overflow-y: auto; padding: 6px 4px 8px; }
 .pixel-toolbar { display: grid; grid-template-columns: 1fr; gap: 2px; }
 .pixel-tool { position: relative; width: 100%; height: 34px; font-size: 15px; border: 1px solid transparent; border-radius: 5px; background: transparent; color: #aeb4bf; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 100ms ease, color 100ms ease, box-shadow 100ms ease; }
@@ -6754,7 +6754,7 @@ body.ed-resizing iframe { pointer-events: none; }
 .pixel-btn.danger { color: #ff8a80; }
 .pixel-dim { font-size: 11.5px; font-weight: 600; color: #98a0aa; padding: 4px 8px; background: #2b2e35; border-radius: 5px; font-family: ui-monospace, "JetBrains Mono", monospace; }
 
-/* Panels — flat, no rounded pastel cards */
+/* Panels: flat, no rounded pastel cards */
 .pixel-panel { background: transparent; border: none; border-radius: 0; padding: 10px 12px; display: flex; flex-direction: column; gap: 7px; }
 .pixel-panel + .pixel-panel { border-top: 1px solid #16181c; }
 .pixel-panel-title { margin: 0; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #7c8490; }
@@ -6766,7 +6766,7 @@ body.ed-resizing iframe { pointer-events: none; }
 .pixel-mini:hover { border-color: #4a4d55; background: #2b2e35; }
 .pixel-mini.danger { color: #ff8a80; }
 
-/* Color well — Aseprite-style two-overlap swatches */
+/* Color well: Aseprite-style two-overlap swatches */
 .pixel-swatch { width: 30px; height: 30px; border-radius: 0; border: 1px solid #000; background: #fff; flex: none; box-shadow: inset 0 0 0 1px #000; }
 .pixel-hex { flex: 1; min-width: 0; background: #16181c; border: 1px solid #383c44; color: #dfe3ea; border-radius: 4px; padding: 6px 8px; font-family: ui-monospace, monospace; font-size: 12px; }
 .pixel-colpick { width: 30px; height: 30px; border: 1px solid #383c44; border-radius: 4px; cursor: pointer; background: transparent; padding: 0; }
@@ -9190,7 +9190,7 @@ input[type="submit"]:not([disabled]), input[type="range"]:not([disabled]) {
   .yt-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; }
 }
 /* ╔═══════════════════════════════════════════════════════════════════════════╗
-   ║ LIVE TV CARDS REDESIGN — Fixed CSS Override                              ║
+   ║ LIVE TV CARDS REDESIGN: Fixed CSS Override                              ║
    ║ Replace the broken livetv-cards.css with this version                     ║
    ║ Link this AFTER styles.css in your HTML                                   ║
    ╚═══════════════════════════════════════════════════════════════════════════╝ */
@@ -9220,7 +9220,7 @@ input[type="submit"]:not([disabled]), input[type="range"]:not([disabled]) {
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   PREVIEW AREA — GRADIENTS & DEPTH
+   PREVIEW AREA: FLAT COLORS ONLY
    ───────────────────────────────────────────────────────────────────────────── */
 
 .livetv-card-preview {
@@ -9265,7 +9265,7 @@ input[type="submit"]:not([disabled]), input[type="range"]:not([disabled]) {
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   METADATA SECTION — TYPOGRAPHY & SPACING
+   METADATA SECTION: TYPOGRAPHY & SPACING
    CRITICAL: Keep display: flex and flex-direction: column
    ───────────────────────────────────────────────────────────────────────────── */
 

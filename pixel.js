@@ -1,4 +1,4 @@
-/* Chalkle Pixel — an Aseprite-grade pixel art editor, built in and offline.
+/* Chalkle Pixel: an Aseprite-grade pixel art editor, built in and offline.
    Matches the real Aseprite toolset: pencil (with pixel-perfect), eraser,
    eyedropper, hand, move, marquee + lasso + magic wand selections, paint
    bucket, line, rect/ellipse (outline + filled), contour, shading, blur.
@@ -1345,7 +1345,7 @@
     var app = document.getElementById("pixel-app");
     if (!app) return;
 
-    /* Toolbar — Aseprite's layout: a vertical icon strip on the left, with
+    /* Toolbar: Aseprite's layout: a vertical icon strip on the left, with
        the tool set ordered like the real app and monochrome line-art icons
        (drawn to mirror Aseprite's tool glyphs) instead of emoji. */
     var ICONS = {
@@ -1475,7 +1475,7 @@
     colorPanel.appendChild(alphaRow);
     colorPanel.appendChild(rgbRow);
 
-    /* Palette — click sets fg, right-click sets bg */
+    /* Palette: click sets fg, right-click sets bg */
     var paletteRow = el("div", "pixel-palette");
     var palette = [
       "#000000", "#1d1f27", "#ffffff", "#ff004d", "#ffa300", "#3ae0ff", "#7dff00",
@@ -1646,7 +1646,7 @@
     var pvHint = el("p", "pixel-preview-hint", "Nearest-neighbor preview of the current frame");
     rightCol.append(previewCanvas, pvHint);
 
-    /* Main layout — Aseprite style: slim icon toolbar far-left, color +
+    /* Main layout: Aseprite style: slim icon toolbar far-left, color +
        options sidebar beside it, canvas dead-center, layers + preview
        docked right, timeline + export along the bottom. */
     var main = el("div", "pixel-main");
@@ -1712,7 +1712,7 @@
       if (nd) nd.hidden = !show;
     }
 
-    /* Keyboard shortcuts — Aseprite defaults */
+    /* Keyboard shortcuts: Aseprite defaults */
     document.addEventListener("keydown", function (e) {
       var modal = document.getElementById("pixel-modal");
       if (!modal || modal.hidden) return;

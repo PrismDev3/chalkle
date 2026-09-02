@@ -192,7 +192,7 @@
     opts = opts || {};
     /* NEVER bounce the cloak tab to the real blocked origin. That summons the
        raw host (X-Frame-Options / CSP pages, or just a blocked site) and
-       undoes the whole point. Instead: if a proxy is configured, navigate the
+       undoes the whole point. Instead: if a proxy is configured, route the
        SAME barrier tab to the proxied URL (tab only talks to the proxy origin);
        otherwise swap the frame to a contained, purely-holding page and surface
        a tiny notice - never the live host. */
@@ -499,7 +499,7 @@
     if (!live) { ChalkleLaunch.open(target || "", title || target || ""); return target || ""; }
     /* A proxied URL is a service-worker / app origin - the tab must only talk
        to the proxy host, never an opaque about:blank wrapper (the SW can't run
-       there) and never the target origin. Navigate the encrypted route directly
+       there) and never the target origin. Send the encrypted route directly
        in a new top-level tab. */
     var url = routeProxy(target, live.url, live.mode === "frame" || !!live.hashRoute);
     window.open(url, "_blank", "noopener");
