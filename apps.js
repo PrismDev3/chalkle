@@ -7,8 +7,8 @@ window.ChalkApps = [
   {
     title: "Cobalt",
     url: "https://cobalt.tools/",
-    category: "Media",
-    thumb: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2334a853'/%3E%3Cpath d='M18 18h28v8H26v12h16v8H18z' fill='%230d0f12'/%3E%3C/svg%3E"
+    category: "Downloader",
+    thumb: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230047ab'/%3E%3Cpath d='M32 14v20' stroke='%23e8eaed' stroke-width='6' stroke-linecap='round'/%3E%3Cpath d='M22 26l10 10 10-10' fill='none' stroke='%23e8eaed' stroke-width='6' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M18 44h28' stroke='%23e8eaed' stroke-width='6' stroke-linecap='round'/%3E%3C/svg%3E"
   },
   {
     title: "Browser",
