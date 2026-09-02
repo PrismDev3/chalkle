@@ -44,6 +44,7 @@
     p2pgames: { label: "p2p games", css: "url('/assets/cursors/cursor-p2pgames.png') 24 23, auto", preview: "/assets/cursors/cursor-p2pgames.png" },
     sv: { label: "s.v", css: "url('/assets/cursors/cursor-sv.png') 24 24, auto", preview: "/assets/cursors/cursor-sv.png" },
     anko: { label: "anko", css: "url('/assets/cursors/cursor-anko.png') 24 24, auto", preview: "/assets/cursors/cursor-anko.png" },
+    ghostproxy: { label: "ghost proxy", css: "url('/assets/cursors/cursor-ghostproxy.png') 24 24, auto", preview: "/assets/cursors/cursor-ghostproxy.png" },
     none: { label: "default", css: "auto", preview: null }
   };
 

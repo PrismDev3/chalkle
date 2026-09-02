@@ -253,7 +253,9 @@ class _CloudRelay:
         length = int(self.headers.get("Content-Length", 0))
         body = self.rfile.read(length) if length > 0 else None
         query = self.path.split("?", 1)[1] if "?" in self.path else ""
-        timeout = 180 if route == "/cloud/v1/createSession" else 20
+        # Keep session pings short so a tunnel request cannot sit behind
+        # another long cloud request and miss Stratus' watchdog window.
+        timeout = 180 if route == "/cloud/v1/createSession" else (8 if route == "/cloud/v1/pingSession" else 20)
         r = self._cloud_forward("POST", route, query, post_body=body, timeout=timeout)
         extra = None
         if route == "/cloud/v1/startGame" and r["type"] and "json" in r["type"]:

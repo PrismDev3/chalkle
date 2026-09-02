@@ -37,6 +37,8 @@
   --purple-soft: rgba(169, 112, 255, 0.14);
   --lime: #b7e63f;
   --lime-soft: rgba(183, 230, 63, 0.16);
+  --cloud: #5fbeff;
+  --cloud-soft: rgba(95, 190, 255, 0.16);
   --magenta: #e60073;
   --magenta-soft: rgba(230, 0, 115, 0.16);
   --pink: #ff4d8d;
@@ -240,7 +242,7 @@ body[data-view="docs"] .topbar { border-bottom-color: var(--cyan); }
 body[data-view="board"] .topbar { border-bottom-color: var(--orange); }
 body[data-view="partners"] .topbar { border-bottom-color: var(--brown); }
 body[data-view="settings"] .topbar { border-bottom-color: var(--purple); }
-body[data-view="cloud"] .topbar { border-bottom-color: var(--lime); }
+body[data-view="cloud"] .topbar { border-bottom-color: var(--cloud); }
 body[data-view="livetv"] .topbar { border-bottom-color: var(--tv); }
 body[data-view="youtube"] .topbar { border-bottom-color: #ff0033; }
 
@@ -264,6 +266,7 @@ body[data-view="games"] .topbar::after { background: rgba(52, 168, 83, 0.10); op
 body[data-view="sites"] .topbar::after { background: rgba(66, 133, 244, 0.12); opacity: 1; }
 body[data-view="music"] .topbar::after { background: rgba(230, 0, 115, 0.12); opacity: 1; }
 body[data-view="apps-tools"] .topbar::after { background: rgba(251, 188, 5, 0.10); opacity: 1; }
+body[data-view="cloud"] .topbar::after { background: rgba(95, 190, 255, 0.14); opacity: 1; }
 body[data-view="proxies"] .topbar::after { background: rgba(38, 187, 165, 0.12); opacity: 1; }
 body[data-view="docs"] .topbar::after { background: rgba(38, 198, 218, 0.12); opacity: 1; }
 body[data-view="board"] .topbar::after { background: rgba(251, 140, 0, 0.12); opacity: 1; }
@@ -861,6 +864,24 @@ body.sidebar-collapsed .collapse-btn:active { transform: scale(0.96); }
 .view[data-view="apps-tools"]::before {
   background-image: url("tabs/apps-tools.webp");
 }
+.view[data-view="cloud"]::before {
+  /* Electric blue identity: reuse the chalk texture but recolor it without
+     adding a decorative gradient. */
+  background-color: #071a2b;
+  background-image: url("tabs/settings.webp");
+  background-blend-mode: screen;
+  filter: hue-rotate(165deg) saturate(1.35) brightness(.72);
+}
+.view[data-view="cloud"] .view-head,
+.view[data-view="cloud"] .panel,
+.view[data-view="cloud"] .card {
+  border-color: rgba(95, 190, 255, 0.34);
+}
+.view[data-view="cloud"] .view-title,
+.view[data-view="cloud"] .panel-title,
+.view[data-view="cloud"] .card-title { color: var(--cloud); }
+.view[data-view="cloud"] .chip.is-active,
+.view[data-view="cloud"] .cloud-play:hover { border-color: var(--cloud); color: var(--cloud); background: var(--cloud-soft); }
 .view[data-view="proxies"]::before {
   background-image: url("tabs/proxies.webp");
 }
@@ -883,16 +904,34 @@ body.sidebar-collapsed .collapse-btn:active { transform: scale(0.96); }
 }
 
 /* Live TV: mint-tinted backdrop so the tab reads as its own section. */
-.view[data-view="livetv"]::before {
-  background-color: #0d1a15;
-  background-image: none;
-}
+.view[data-view="livetv"]::before { background-color: #0d1a15; }
 
-/* YouTube: red-tinted backdrop. */
-.view[data-view="youtube"]::before {
-  background-color: #1a0d0f;
-  background-image: none;
+/* Music and YouTube share the red family but retain separate accents. */
+.view[data-view="music"]::before {
+  background-color: #260914;
+  background-image: url("tabs/music.webp");
+  filter: saturate(1.25) brightness(.78);
 }
+.view[data-view="music"] .view-head,
+.view[data-view="music"] .panel,
+.view[data-view="music"] .song-card {
+  border-color: rgba(230, 0, 115, 0.34);
+}
+.view[data-view="music"] .view-title,
+.view[data-view="music"] .panel-title,
+.view[data-view="music"] .song-title { color: var(--magenta); }
+.view[data-view="music"] .song-card:hover {
+  background: rgba(230, 0, 115, 0.12);
+  border-color: var(--magenta);
+}
+.view[data-view="music"] .song-art,
+.view[data-view="music"] .song-thumb,
+.view[data-view="music"] .song-card img {
+  border: 2px solid rgba(230, 0, 115, 0.42);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, .35);
+}
+/* YouTube: red-tinted backdrop. */
+.view[data-view="youtube"]::before { background-color: #1a0d0f; }
 
 /* ---------- View headers ---------- */
 
@@ -5919,6 +5958,20 @@ html.motion-off *::after {
   white-space: nowrap;
 }
 
+.docs-type-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--docs-line);
+  border-radius: 6px;
+  color: var(--docs-accent, #6ec6ff);
+  background: rgba(110, 198, 255, 0.10);
+  font-family: var(--font);
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1;
+}
 .docs-meta-chip {
   padding: 2px 8px;
   border-radius: 999px;
@@ -6240,6 +6293,24 @@ html.motion-off *::after {
   flex-direction: column;
   gap: 8px;
   margin-top: 2px;
+}
+
+.partner-btn {
+  position: relative;
+}
+.partner-btn.partner-coming::after {
+  content: "coming soon";
+  position: absolute;
+  right: 6px;
+  top: -9px;
+  padding: 1px 5px;
+  border: 1px solid var(--line-2);
+  border-radius: 4px;
+  background: var(--panel-2);
+  color: var(--text-2);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .02em;
 }
 
 .partner-btn {
@@ -7371,8 +7442,8 @@ body.ed-resizing iframe { pointer-events: none; }
 
 /* Cloud's own color (lime) - Proxies already owns teal, so every tab has a
    unique accent. */
-.view[data-view="cloud"] { --va: var(--lime); --va-ink: #202b00; --va-soft: var(--lime-soft); }
-.nav-item.is-active[data-view="cloud"] { color: var(--lime); background: var(--lime-soft); }
+.view[data-view="cloud"] { --va: var(--cloud); --va-ink: #061a2b; --va-soft: var(--cloud-soft); }
+.nav-item.is-active[data-view="cloud"] { color: var(--cloud); background: var(--cloud-soft); }
 
 /* "More" folds INTO the sidebar: an inline accordion right under the More
    button (never a floating window over the content). It pushes the rest of
@@ -7714,6 +7785,16 @@ input[type="submit"]:not([disabled]), input[type="range"]:not([disabled]) {
 }
 
 .livetv-match-badge-letter {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.livetv-match-badge-sport {
+  color: var(--tv);
+  background: rgba(74, 184, 140, 0.16);
+  font-size: 22px;
+  line-height: 1;
+}
   display: grid;
   place-items: center;
   font-family: var(--display-geo);
@@ -9437,3 +9518,54 @@ input[type="submit"]:not([disabled]), input[type="range"]:not([disabled]) {
   border-left-color: #fff;
 }
 .livetv-card.is-other .livetv-card-bars { color: #7be3b8; }
+
+/* Chalkle visual consistency overrides. Layout-neutral: only fallback art,
+   icon layering, and status treatment. */
+.tool-tile-art { position: relative; overflow: hidden; }
+.tool-tile-art .tool-tile-letter {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: var(--panel-2);
+  color: var(--va, var(--accent));
+  font-family: var(--display);
+  font-size: 42px;
+  font-weight: 800;
+}
+.tool-tile-art .tool-tile-img { position: relative; z-index: 1; }
+.proxy-mark { position: relative; }
+.proxy-mark-letter {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-family: var(--display);
+  font-size: 30px;
+  font-weight: 800;
+}
+.proxy-mark .proxy-fav { position: relative; z-index: 1; }
+.partner-btn.partner-coming { position: relative; }
+.partner-btn.partner-coming::after {
+  content: "coming soon";
+  position: absolute;
+  right: 6px;
+  top: -9px;
+  padding: 1px 5px;
+  border: 1px solid var(--line-2);
+  border-radius: 4px;
+  background: var(--panel-2);
+  color: var(--text-2);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .02em;
+}
+.livetv-match-badge-sport {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--tv);
+  background: rgba(74, 184, 140, .16);
+  font-size: 22px;
+  line-height: 1;
+}

@@ -418,15 +418,16 @@
       try { host = new URL(item.url).hostname; } catch (e) { host = ""; }
     }
     var markLetter = escapeHtml((item.name || "?").charAt(0).toUpperCase());
+    var markColor = ["#34a853", "#4285f4", "#e60073", "#26c6da", "#fb8c00", "#a970ff"][Math.abs(i) % 6];
     var mark;
     if (item.icon && !isLocalFileUrl(item.icon)) {
       /* Real bundled brand logo (Serium / GJSD / Ovokee). */
-      mark = '<span>' + markLetter + '</span><img class="proxy-fav" src="' + escapeAttr(item.icon) + '" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">';
+      mark = '<span class="proxy-mark-letter" style="color:' + markColor + '">' + markLetter + '</span><img class="proxy-fav" src="' + escapeAttr(item.icon) + '" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">';
     } else if (host) {
       /* Favicon ladder: Google s2, then Google faviconV2, then DuckDuckGo.
          All three are commonly blocked on school networks, so the letter
          chip stays behind the image either way. */
-      mark = '<span>' + markLetter + '</span><img class="proxy-fav" src="https://www.google.com/s2/favicons?domain=' + escapeAttr(host) + '&sz=64" alt="" loading="lazy" referrerpolicy="no-referrer" data-host="' + escapeAttr(host) + '" data-i="0" onerror="var t=this;var h=t.getAttribute(\'data-host\')||\'\';var i=parseInt(t.getAttribute(\'data-i\')||\'0\',10)+1;var u=[\'https://www.google.com/s2/favicons?domain=\'+encodeURIComponent(h)+\'&sz=64\',\'https://t3.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=\'+encodeURIComponent(\'https://\'+h)+\'&size=128\',\'https://icons.duckduckgo.com/ip3/\'+encodeURIComponent(h)+\'.ico\'];if(!h||i>=u.length){t.remove();return;}t.setAttribute(\'data-i\',String(i));t.src=u[i];">';
+      mark = '<span class="proxy-mark-letter" style="color:' + markColor + '">' + markLetter + '</span><img class="proxy-fav" src="https://www.google.com/s2/favicons?domain=' + escapeAttr(host) + '&sz=64" alt="" loading="lazy" referrerpolicy="no-referrer" data-host="' + escapeAttr(host) + '" data-i="0" onerror="var t=this;var h=t.getAttribute(\'data-host\')||\'\';var i=parseInt(t.getAttribute(\'data-i\')||\'0\',10)+1;var u=[\'https://www.google.com/s2/favicons?domain=\'+encodeURIComponent(h)+\'&sz=64\',\'https://t3.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=\'+encodeURIComponent(\'https://\'+h)+\'&size=128\',\'https://icons.duckduckgo.com/ip3/\'+encodeURIComponent(h)+\'.ico\'];if(!h||i>=u.length){t.remove();return;}t.setAttribute(\'data-i\',String(i));t.src=u[i];">';
     } else {
       mark = markLetter;
     }
@@ -953,9 +954,11 @@
     var kindAttr = kind ? ' data-tool-kind="' + kind + '"' : '';
     var isProxy = item.via === "proxy" && !!item.url;
     var proxyAttr = isProxy ? ' data-proxy-app="' + escapeAttr(item.url) + '"' : "";
+    var toolLetter = escapeHtml(rawTitle.charAt(0).toUpperCase() || "?");
+    var toolFallback = '<span class="tool-tile-letter" aria-hidden="true">' + toolLetter + '</span>';
     var thumb = item.thumb && !isLocalFileUrl(item.thumb)
-      ? '<img class="tool-tile-img" src="' + escapeAttr(item.thumb) + '" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.remove()">'
-      : '<span class="tool-tile-letter" aria-hidden="true">' + escapeHtml(rawTitle.charAt(0).toUpperCase() || "?") + "</span>";
+      ? toolFallback + '<img class="tool-tile-img" src="' + escapeAttr(item.thumb) + '" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.remove()">'
+      : toolFallback;
     var via = isProxy ? '<span class="tool-tile-via" title="Opens through your configured proxy">proxy</span>' : "";
     var cat = item.category ? '<span class="card-cat">' + escapeHtml(item.category) + "</span>" : "";
     var tileHref = (kind || isProxy) ? "#" : href;
@@ -1305,6 +1308,27 @@
     return escapeHtml(String(s));
   }
 
+  /* Shared non-blank fallback thumbnail. It is deterministic per item, so
+     repeated missing art still has a deliberate identity instead of a raw
+     stock image or a black square. */
+  function chalkFallbackSvg(label, seed) {
+    var palette = ["#34a853", "#4285f4", "#e60073", "#26c6da", "#fb8c00", "#a970ff"];
+    var n = 0;
+    String(seed || label || "chalkle").split("").forEach(function (c) { n = (n * 31 + c.charCodeAt(0)) >>> 0; });
+    var color = palette[n % palette.length];
+    var letter = String(label || "?").trim().charAt(0).toUpperCase() || "?";
+    var svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">' +
+      '<rect width="128" height="128" fill="#15181d"/>' +
+      '<path d="M0 96L32 64l24 20 22-28 50 44v28H0z" fill="' + color + '" opacity=".24"/>' +
+      '<circle cx="98" cy="28" r="14" fill="' + color + '" opacity=".35"/>' +
+      '<text x="64" y="80" text-anchor="middle" font-family="system-ui,sans-serif" font-size="52" font-weight="800" fill="' + color + '">' + letter + '</text>' +
+      '</svg>';
+    return "data:image/svg+xml," + encodeURIComponent(svg);
+  }
+
+  function fallbackThumb(label, seed) {
+    return chalkFallbackSvg(label, seed);
+  }
 
 
   /* ---------- Sidebar ---------- */

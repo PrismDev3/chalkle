@@ -231,7 +231,11 @@
       var chip = el("span", "docs-meta-chip", chipLabel);
       if (isList) chip.classList.add("is-list");
       else if (page) chip.classList.add("is-html");
+      var typeIcon = el("span", "docs-type-icon", isList ? "▤" : (svg ? "◇" : "‹›"));
+      typeIcon.title = isList ? "Link list" : (svg ? "SVG file" : "HTML file");
+      typeIcon.setAttribute("aria-label", typeIcon.title);
       titleRow.appendChild(title);
+      titleRow.appendChild(typeIcon);
       titleRow.appendChild(chip);
       head.appendChild(titleRow);
 
