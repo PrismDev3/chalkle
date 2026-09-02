@@ -253,14 +253,17 @@
   }
 
   /* ---------- render ---------- */
+  var probed = false;
   function render() {
     var root = el("ai-view");
     if (!root) return;
-    if (!S.models.length && !S.server) {
-      // First render: probe. Keep the shell visible immediately.
-    }
     buildShell();
-    probe().then(function () { buildShell(); });
+    /* Probe the relay once per page load, not on every tab switch - the
+       shell and chat history stay put instead of flashing/rebuilding. */
+    if (!probed) {
+      probed = true;
+      probe().then(function () { buildShell(); });
+    }
   }
 
   function buildShell() {
@@ -646,12 +649,19 @@
           var box2 = el("ai-msgs");
           if (box2) box2.scrollTop = box2.scrollHeight;
         }
-        save();
+        /* Persist at most every 1.5s during streaming; save() stringifies all
+           conversations and queues a server sync, and doing that per token
+           makes the stream stutter. finish() saves the final text anyway. */
+        var now = Date.now();
+        if (!append.lastSave || now - append.lastSave > 1500) {
+          append.lastSave = now;
+          save();
+        }
       }
       function finish() {
         var m = convo.messages[convo.messages.length - 1];
         if (!m || !m.content) m.content = "(empty reply)";
-        save();
+        save(); /* final save always runs, so nothing is lost */
         renderMsgs(); /* re-render so Copy / Save .txt actions appear */
         busy = false;
         setSendState(false);
