@@ -135,8 +135,13 @@ for (const rel of [...new Set(gameUrls)]) {
 console.log(`embedded ${Object.keys(embedMap).length} self-contained html games`);
 
 // ── 5. EMBED_STORE: fill the placeholder with the real body ──
+const embeddedRandomPath = path.join(root, 'random-gaming-websites-embedded.txt');
+const embeddedRandom = fs.existsSync(embeddedRandomPath) ? fs.readFileSync(embeddedRandomPath, 'utf8') : '';
+const embeddedRandomB64 = Buffer.from(embeddedRandom, 'utf8').toString('base64');
+
 const EMBED_STORE = `<script>
 window.__SINGLE_GAMES__ = ${JSON.stringify(embedMap)};
+window.__CHALKLE_RANDOM_GAMING_EMBEDDED__ = ${JSON.stringify(embeddedRandomB64)};
 (function(){
   var map = window.__SINGLE_GAMES__||{};
   function resolve(u){ var s=String(u); if(map[s]) return map[s]; return null; }

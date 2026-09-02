@@ -241,6 +241,14 @@
         ? (doc.count ? formatCount(doc.count) + " links" : "List")
         : (page ? (svg ? "SVG page" : "HTML page") : (links.length + " links"));
       var chip = el("span", "docs-meta-chip", chipLabel);
+      if (doc.fullCollection) {
+        var full = el("a", "docs-full-link", "Full " + formatCount(doc.fullCount || 0) + " link collection");
+        full.href = doc.fullCollection;
+        full.target = "_blank";
+        full.rel = "noopener";
+        full.title = "Open the complete collection";
+        titleRow.appendChild(full);
+      }
       if (isList) chip.classList.add("is-list");
       else if (page) chip.classList.add("is-html");
       var typeIcon = el("span", "docs-type-icon", isList ? "▤" : (svg ? "◇" : "‹›"));
@@ -718,7 +726,7 @@
 
   /* ---------- default docs (re-seeded if removed) ---------- */
 
-  var DEFAULT_DOCS = [    { title: "Random Gaming Websites", list: true, count: 43, content: "https://account.englishbridalcouture.com/\nhttps://mail.adriapartners.net/\nhttps://slnt.newlifesanctuarychurch.com/\nhttps://learn.englishbridalcouture.com/\nhttps://noterplus-157.firebaseapp.com/\nhttps://edu.worldplus-intl.org/\nhttps://velara.buzz\nhttps://velara.cc\nhttps://nave.jlengineering.se/\nhttps://noah.webs.vc/\nhttps://opal.benabood.com/\nhttps://pine.judysart.com/\nhttps://prom.tyden.name/\nhttps://quad.infe.com.br/\nhttps://raga.pestarini.com.ar/\nhttps://rate.papillon.cl/\nhttps://reds.robofan.ro/\nhttps://prageru-server.s3.amazonaws.com/mathematics.html\nhttps://canva.link/gn-math\nhttps://www.sololearn.com/en/compiler-playground/W6oaP0W77da1\nhttps://codehs.com/sandbox/id/html-ZhExDL/run\nhttps://gn-math-t.github.io/\nhttps://classlink-redirect.surge.sh\nhttps://math.st0ck.deno.net/\nhttps://gimmemcdonaldspls.web.app\nhttps://frogiesarcade.firebaseapp.com\nhttps://noblocc.co.uk/\nhttps://noblocc.uk\nhttps://luminal.click/\nhttps://the-math.pages.dev/\nhttps://bloxcraft-ubg-worker-js.rnkiddo.workers.dev/\nhttps://bloxcraft.vercel.app\nhttps://ubg-games.vercel.app\nhttps://studyhub.alexanderthegreater.com/\nhttps://mathnotes.online/\nhttps://childeducation.site/\nhttps://search.tungtung.cfd\nhttps://literacyadventures.com/\nhttps://www.msn.com/en-us/play\nhttps://frogieone.theworkpc.com/\nhttps://tetosarcade.win/\nhttps://phi.bz/" },
+  var DEFAULT_DOCS = [    { title: "Random Gaming Websites", list: true, count: 50000, contentB64: "__RANDOM_GAMING_EMBEDDED__", fullCollection: "random-gaming-websites-full.txt", fullCount: 7561100 },
     { title: "Velcro", html: true,
       content: "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"UTF-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n    <title>Velcro Production</title>\n    <style>\n        body, html {\n            margin: 0;\n            padding: 0;\n            height: 100%;\n            overflow: hidden;\n        }\n        iframe {\n            width: 100%;\n            height: 100%;\n            border: none;\n        }\n    </style>\n</head>\n<body>\n    <iframe src=\"https://velcro-production.up.railway.app/\"></iframe>\n</body>\n</html>"
     },
@@ -773,7 +781,13 @@
       });
       var content = def.content;
       if (def.contentB64) {
-        try { content = atob(def.contentB64); } catch (e) { content = ""; }
+        try {
+          var embedded = String(def.contentB64);
+          if (embedded === "__RANDOM_GAMING_EMBEDDED__") {
+            embedded = window.__CHALKLE_RANDOM_GAMING_EMBEDDED__ || "";
+          }
+          content = embedded ? atob(embedded) : (def.content || "");
+        } catch (e) { content = def.content || ""; }
       }
       if (!existing) {
         state.docs.push({
@@ -784,6 +798,8 @@
           svg: def.svg ? true : false,
           list: def.list ? true : false,
           count: def.count || 0,
+          fullCollection: def.fullCollection || "",
+          fullCount: def.fullCount || 0,
           created: Date.now()
         });
         dirty = true;
@@ -795,6 +811,8 @@
         existing.svg = def.svg ? true : false;
         existing.list = def.list ? true : false;
         existing.count = def.count || 0;
+        existing.fullCollection = def.fullCollection || existing.fullCollection || "";
+        existing.fullCount = def.fullCount || existing.fullCount || 0;
         dirty = true;
       } else if (def.count && existing.count !== def.count) {
         // Same type but the seed knows the link count now (e.g. a 10k list):
