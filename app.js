@@ -378,7 +378,7 @@
           : "";
         return (
           '<a class="proxy-link" href="' + escapeAttr(p.url) + '" target="_blank" rel="noopener" title="' + escapeAttr(p.url) + '">' +
-          '<span class="proxy-link-mark">' + (p.icon && !isLocalFileUrl(p.icon) ? '<img class="proxy-link-ico" src="' + escapeAttr(p.icon) + '" alt="" loading="lazy" onerror="this.remove()">' : "") + letter + "</span>" +
+          '<span class="proxy-link-mark">' + (p.icon && !isLocalFileUrl(p.icon) ? '<img class="proxy-link-ico" src="' + escapeAttr(p.icon) + '" alt="" loading="lazy" onerror="this.onerror=null;this.classList.add(\'proxy-link-ico-failed\');">' : "") + letter + "</span>" +
           '<span class="proxy-link-txt"><span class="proxy-link-name">' + escapeHtml(p.name) + "</span>" +
           '<span class="proxy-link-url">' + escapeHtml(host || p.url) + credit + "</span></span>" +
           '<span class="proxy-link-open">Open</span>' +
@@ -957,7 +957,7 @@
     var toolLetter = escapeHtml(rawTitle.charAt(0).toUpperCase() || "?");
     var toolFallback = '<span class="tool-tile-letter" aria-hidden="true">' + toolLetter + '</span>';
     var thumb = item.thumb && !isLocalFileUrl(item.thumb)
-      ? toolFallback + '<img class="tool-tile-img" src="' + escapeAttr(item.thumb) + '" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.remove()">'
+      ? toolFallback + '<img class="tool-tile-img" src="' + escapeAttr(item.thumb) + '" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.onerror=null;this.classList.add(\'tool-tile-img-failed\');">'
       : toolFallback;
     var via = isProxy ? '<span class="tool-tile-via" title="Opens through your configured proxy">proxy</span>' : "";
     var cat = item.category ? '<span class="card-cat">' + escapeHtml(item.category) + "</span>" : "";

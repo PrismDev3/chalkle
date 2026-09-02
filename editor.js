@@ -366,7 +366,7 @@
         win = window.open(wrapUrl, "_blank");
         setTimeout(function () { URL.revokeObjectURL(wrapUrl); }, 60000);
       } else if (method === "aboutblank") {
-        win = window.open("about:blank", "_blank");
+        win = window.open("about:blank", "_blank", "noopener,noreferrer");
         if (win) {
           try { win.document.open(); win.document.write(html); win.document.close(); }
           catch (er) { win.close(); win = null; }

@@ -84,11 +84,10 @@
       '<!doctype html><html><head><meta charset="utf-8"><meta name="referrer" content="no-referrer"><title>' + WRAP_TITLE + "</title>" +
       '<link rel="icon" href="' + WRAP_ICON + '"></head>' +
       '<body style="margin:0;overflow:hidden;background:#0c1210;">' +
-      '<iframe id="game-frame" src="about:blank" sandbox="' + SANDBOX + '" ' +
+      '<iframe id="game-frame" sandbox="' + SANDBOX + '" ' +
       'style="width:100vw;height:100vh;border:none;display:block;" ' +
       'allow="fullscreen; gamepad; picture-in-picture" referrerpolicy="no-referrer"></iframe>' +
       '<script>' +
-      'try { window.opener = null; } catch(e){}\n' +
       'var f = document.getElementById("game-frame");\n' +
       'var u = "' + safeUrl + '";\n' +
       'if ("' + b64 + '") { try { u = decodeURIComponent(atob("' + b64 + '")); } catch(e){} }\n' +
@@ -302,7 +301,6 @@
     var win = window.open("about:blank", "_blank");
     if (!win) return inAppFrame(url, url);
     try {
-      try { win.opener = null; } catch (e) { /* ignore */ }
       win.document.open();
       win.document.write(wrapHtml(url));
       win.document.close();
@@ -325,7 +323,6 @@
       URL.revokeObjectURL(blobUrl);
       return inAppFrame(url, url);
     }
-    try { win.opener = null; } catch (e) { /* ignore */ }
     setTimeout(function () { URL.revokeObjectURL(blobUrl); }, 60000);
     if (watch) watchGameTab(win, url);
     return true;

@@ -65,7 +65,6 @@ window.ChalkSites = [
   { title: "Lucide", url: "https://mathassets.s3.amazonaws.com/index.html", thumb: "/assets/games/t_5cf6ecea32.jpg", category: "Games" },
   { title: "Mizu", url: "https://studyhall.gr.al/", thumb: "/assets/games/t_8eba218f46.jpg", category: "Games" },
   { title: "Nexora", url: "https://notepad20-a-ssl-fastly-net.translate.goog/?_x_tr_sl=auto&_x_tr_tl=en", thumb: "/assets/games/t_429c2eaa6b.jpg", category: "Games" },
-  { title: "Nike Hub", url: "https://testingcf.jsdelivr.net/gh/avaisadev/github.com@latest/index.svg", thumb: "/assets/games/t_5bcb11503e.jpg", category: "Games" , directOnly: true , thumbCover: true },
   { title: "Noahs Tutoring", url: "https://script.google.com/a/macros/students.wcpss.net/s/AKfycbz_3CKzRKXyisc_WYcOIG6adYY2QUTS13-jO0XA70aPzmiNz23XNHGaU9LYBgRs8iZq/exec?url=https%3A%2F%2Foriginfastly.jsdelivr.net%2Fgh%2FNoahsAmazingTutoringHelp%2Freimagined-octo-winner%40main%2Fblahblahblah.html&id=7P95CZ", thumb: "/assets/games/t_c46b12186e.jpg", category: "Games" },
   { title: "Nocturne", url: "https://cdn.jsdelivr.net/gh/Mtreasur0133-bit/nocturn-auto-1@main/nocturneubg-code-2.svg", thumb: "/assets/games/t_b9fd37178e.jpg", category: "Games" , directOnly: true },
   { title: "Uranium", url: "https://script.google.com/macros/s/AKfycbzQz9WnL48W0kCYKEE_1oowmnObY9yFEQxfvAV3UB57llQjtyEj4lnEBvox_ugVXtoGWA/exec", thumb: "/assets/games/t_4d1dbf0792.jpg", category: "Games" },

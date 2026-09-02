@@ -927,7 +927,6 @@ window.ChalkGames = [
   { title: "Serial Experiments Lain", url: "https://gn-math.github.io/html/778.html", category: "Arcade", thumb: "/assets/games/gn778.jpg" },
   { title: "I Have No Mouth, and I Must Scream", url: "https://gn-math.github.io/html/779.html", category: "Arcade", thumb: "/assets/games/gn779.jpg" },
   { title: "Thing-Thing Arena 3", url: "https://gn-math.github.io/html/780.html", category: "Arcade", thumb: "/assets/games/gn780.jpg" },
-  { title: "Scratch Inc", url: "https://gn-math.github.io/html/781.html", category: "Arcade", thumb: "/assets/games/gn781.jpg" },
   { title: "Um Jammer Lammy", url: "https://gn-math.github.io/html/782ff.html", category: "Arcade", thumb: "/assets/games/gn782.jpg" },
   { title: "Apes vs Helium", url: "https://gn-math.github.io/html/783.html", category: "Arcade", thumb: "/assets/games/gn783.jpg" },
   { title: "Gabriel's Awesome Schoolhouse (GASH)", url: "https://gn-math.github.io/html/784.html", category: "Skill", thumb: "/assets/games/gn784.jpg" },
