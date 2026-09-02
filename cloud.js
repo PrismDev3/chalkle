@@ -237,7 +237,10 @@
   }
 
   function pollQueue(uuid, tries) {
-    if (tries >= 5) return Promise.reject(new Error("Server busy or offline (queue timeout)"));
+    /* Cloud queues can legitimately take more than a minute. Five 1.5s polls
+       made a healthy session look dead, especially through a Chromebook
+       tunnel. Keep polling for about five minutes, with a small backoff. */
+    if (tries >= 100) return Promise.reject(new Error("Server busy or offline (queue timeout)"));
     return apiFetch("/cloud/v1/getQueue?uuid=" + encodeURIComponent(uuid), { method: "GET" })
       .then(function (res) {
         if (!res.ok) throw new Error("Server returned HTTP " + res.status);
@@ -245,7 +248,9 @@
       })
       .then(function (j) {
         if (j.status === "finished_queue") return;
-        if (j.status === "queue") return sleep(1500).then(function () { return pollQueue(uuid, tries + 1); });
+        if (j.status === "queue" || j.status === "queued" || j.status === "pending") {
+          return sleep(Math.min(5000, 1200 + tries * 80)).then(function () { return pollQueue(uuid, tries + 1); });
+        }
         throw new Error((j.error || "Session ended") + (j.queue_pos != null ? " (spot " + j.queue_pos + ")" : ""));
       });
   }

@@ -86,6 +86,18 @@
     return String(name || "?").trim().charAt(0).toUpperCase() || "?";
   }
 
+  /* Relative icon paths ("assets/partners/x.webp") resolve against the site
+     root on the normal server build but break on CDN/single-file origins.
+     Normalize every stored icon to a leading-slash (site-absolute) path at
+     render time - the single-file build inlines leading-slash asset paths as
+     data URIs, and real origins serve /assets/... directly. */
+  function iconSrc(ic) {
+    ic = String(ic || "").trim();
+    if (!ic) return "";
+    if (/^(?:data:|https?:|blob:)/i.test(ic)) return ic;
+    return ic.charAt(0) === "/" ? ic : "/" + ic;
+  }
+
   function sorted() {
     return state.partners.slice().sort(function (a, b) {
       /* Partners with an official link come first; then the rest. Keeps the
@@ -124,10 +136,11 @@
       iconWrap.target = "_blank";
       iconWrap.rel = "noopener noreferrer";
       iconWrap.title = (p.name || "Partner") + (official ? " - official site" : "");
-      if (p.icon) {
+      var iconPath = iconSrc(p.icon);
+      if (iconPath) {
         var img = document.createElement("img");
         img.className = "partner-icon";
-        img.src = p.icon;
+        img.src = iconPath;
         img.alt = p.name || "Partner";
         img.loading = "lazy";
         iconWrap.appendChild(img);
@@ -226,8 +239,9 @@
     state.pendingIcon = p ? (p.icon || "") : "";
 
     var updatePreview = function () {
-      iconImg.style.display = state.pendingIcon ? "block" : "none";
-      iconImg.src = state.pendingIcon || "";
+      var pendIcon = iconSrc(state.pendingIcon);
+      iconImg.style.display = pendIcon ? "block" : "none";
+      iconImg.src = pendIcon || "";
       iconClear.hidden = !state.pendingIcon;
     };
     updatePreview();
@@ -377,14 +391,15 @@
   /* ---------- default partners (re-seeded if removed) ---------- */
 
   var DEFAULT_PARTNERS = [
-    { name: "Kyro", official: "", discord: "https://discord.gg/cmAjzkYKTc", icon: "assets/partners/kyro.png" },
-    { name: "NEO OS", official: "https://n-xcsxzutr6punfhylgg3xfr5mp4lfywjjxzqtrfq-0lu-script.googleusercontent.com/userCodeAppPanel", discord: "https://discord.gg/4TjwQagfN", icon: "assets/partners/neoos.jpg", renames: ["neoos"] },
-    { name: "Godly Links", official: "", discord: "https://discord.gg/XZt4t8Jtk", icon: "assets/partners/godlylinks.png" },
-    { name: "Project Bugs", official: "https://sites.google.com/view/intresting-history-facts/home", discord: "https://discord.gg/m5B7munZvn", icon: "assets/partners/projectbugs.jpg" },
-    { name: "Frosted V2", official: "https://frostedbrowser.cfd/", discord: "https://discord.gg/w7J5auDhNm", icon: "assets/partners/frosted.png", renames: ["frosted"] },
-    { name: "P2P Games", official: "https://cdn.jsdelivr.net/gh/GreyLinks123/web-auto-1@main/web-fetch-1.svg", discord: "https://discord.gg/b6QRdA7bjR", icon: "assets/partners/p2pgames.png" },
-    { name: "S.V", official: "", discord: "https://discord.gg/FHmEqPgMVe", icon: "assets/partners/sv.webp" },
-    { name: "Anko", official: "https://anko-6116.logans.projectbyod.com/", discord: "https://discord.gg/anko", icon: "assets/partners/anko.webp" }
+    { name: "Kyro", official: "", discord: "https://discord.gg/cmAjzkYKTc", icon: "/assets/partners/kyro.png" },
+    { name: "NEO OS", official: "https://n-xcsxzutr6punfhylgg3xfr5mp4lfywjjxzqtrfq-0lu-script.googleusercontent.com/userCodeAppPanel", discord: "https://discord.gg/4TjwQagfN", icon: "/assets/partners/neoos.jpg", renames: ["neoos"] },
+    { name: "Godly Links", official: "", discord: "https://discord.gg/XZt4t8Jtk", icon: "/assets/partners/godlylinks.png" },
+    { name: "Project Bugs", official: "https://sites.google.com/view/intresting-history-facts/home", discord: "https://discord.gg/m5B7munZvn", icon: "/assets/partners/projectbugs.jpg" },
+    { name: "Frosted V2", official: "https://frostedbrowser.cfd/", discord: "https://discord.gg/w7J5auDhNm", icon: "/assets/partners/frosted.png", renames: ["frosted"] },
+    { name: "P2P Games", official: "https://cdn.jsdelivr.net/gh/GreyLinks123/web-auto-1@main/web-fetch-1.svg", discord: "https://discord.gg/b6QRdA7bjR", icon: "/assets/partners/p2pgames.png" },
+    { name: "S.V", official: "", discord: "https://discord.gg/FHmEqPgMVe", icon: "/assets/partners/sv.webp" },
+    { name: "Anko", official: "https://anko-6116.logans.projectbyod.com/", discord: "https://discord.gg/anko", icon: "/assets/partners/anko.webp" },
+    { name: "Ghost Proxy", official: "https://ghostub.surge.sh/", discord: "https://dsc.gg/ghostub", icon: "/assets/partners/ghostproxy.webp" }
   ];
 
   function seedDefaults() {

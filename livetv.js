@@ -392,14 +392,14 @@
     if (m.poster) {
       return '<img class="livetv-match-post" src="' + esc(m.poster) + '" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.onerror=null;this.remove()">';
     }
-    var h = m.teams && m.teams.home ? m.teams.home : { name: "?", badge: null };
-    var a = m.teams && m.teams.away ? m.teams.away : { name: "?", badge: null };
+    var h = m.teams && m.teams.home ? m.teams.home : { name: "Home", badge: null };
+    var a = m.teams && m.teams.away ? m.teams.away : { name: "Away", badge: null };
     var hb = h.badge
       ? '<img class="livetv-match-badge" src="' + esc(h.badge) + '" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.onerror=null;this.remove()">'
-      : '<span class="livetv-match-badge livetv-match-badge-letter">' + esc((h.name || "?").charAt(0).toUpperCase()) + "</span>";
+      : '<span class="livetv-match-badge livetv-match-badge-letter livetv-match-badge-sport" aria-label="Sport">⚽</span>';
     var ab = a.badge
       ? '<img class="livetv-match-badge" src="' + esc(a.badge) + '" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.onerror=null;this.remove()">'
-      : '<span class="livetv-match-badge livetv-match-badge-letter">' + esc((a.name || "?").charAt(0).toUpperCase()) + "</span>";
+      : '<span class="livetv-match-badge livetv-match-badge-letter livetv-match-badge-sport" aria-label="Sport">⚽</span>';
     return '<div class="livetv-match-badges"><span class="livetv-match-badge-wrap">' + hb +
       '<span class="livetv-match-team-name">' + esc(h.name || "") + "</span></span>" +
       '<span class="livetv-match-vs">vs</span>' +

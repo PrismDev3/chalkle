@@ -184,16 +184,26 @@
         let _dc  = null;
         let sigWs = null;
         let pingTimer = null;
+        let pingUuid = null;
+        let reconnectTimer = null;
+        let reconnectAttempts = 0;
+        let sessionLive = false;
+        let ended = false;
         function sigSend(obj) {
             if (sigWs && sigWs.readyState === WebSocket.OPEN) sigWs.send(JSON.stringify(obj));
         }
         async function setupWebRTC(iceServers, signaling_ws) {
+            if (ended) return;
+            if (sigWs) {
+                try { sigWs.close(); } catch (e) {}
+            }
             sigWs = new WebSocket(signaling_ws);
             sigWs.onmessage = async (e) => {
                 let msg;
                 try { msg = JSON.parse(e.data); } catch { return; }
                 switch (msg.type) {
                     case "game_ready":
+                        if (pc) { try { pc.close(); } catch (e) {} }
                         pc = new RTCPeerConnection({ iceServers });
                         pc.addTransceiver("audio", { direction: "recvonly" });
                         pc.addTransceiver("video", { direction: "recvonly" });
@@ -209,8 +219,14 @@
                         };
                         pc.oniceconnectionstatechange = () => {
                             const s = pc.iceConnectionState;
-                            if (s === "connected" || s === "completed") onLive();
-                            if (s === "failed") showEnded();
+                            if (s === "connected" || s === "completed") {
+                                reconnectAttempts = 0;
+                                onLive();
+                            }
+                            /* ICE can briefly fail when a Chromebook changes
+                               network path. Give it time to recover/reconnect;
+                               do not destroy a valid session on the first blip. */
+                            if (s === "disconnected" || s === "failed") scheduleReconnect();
                         };
                         const offer = await pc.createOffer();
                         await pc.setLocalDescription(offer);
@@ -227,10 +243,12 @@
                         break;
                 }
             };
-            sigWs.onclose = () => showEnded();
-            sigWs.onerror = () => showEnded();
+            sigWs.onclose = () => scheduleReconnect();
+            sigWs.onerror = () => scheduleReconnect();
         }
         function onLive() {
+            sessionLive = true;
+            reconnectAttempts = 0;
             hideConnecting();
             streamEl.classList.add("visible");
             streamEl.play().catch(() => {});
@@ -242,12 +260,32 @@
                 audioOverlay.classList.remove("visible");
             }, { once: true });
         }
-        function showEnded() {
+        function scheduleReconnect() {
+            if (ended || reconnectTimer || reconnectAttempts >= 8) return;
+            reconnectAttempts++;
+            connectingOverlay.classList.remove("hidden");
+            const label = document.querySelector("#connecting-badge .label");
+            if (label) label.firstChild.textContent = "reconnecting";
+            reconnectTimer = setTimeout(async () => {
+                reconnectTimer = null;
+                try {
+                    if (pc) { pc.close(); pc = null; }
+                    await setupWebRTC(window.__cloudIceServers || [], window.__cloudSignalUrl);
+                } catch (e) {
+                    scheduleReconnect();
+                }
+            }, Math.min(12000, 1000 * Math.pow(1.5, reconnectAttempts - 1)));
+        }
+        function showEnded(message) {
+            if (ended) return;
+            ended = true;
             hideConnecting();
             streamEl.classList.remove("visible");
             stopAmbient();
+            endedOverlay.querySelector("span").textContent = message || "Session ended";
             endedOverlay.classList.add("visible");
             if (pc) pc.close();
+            if (sigWs) { try { sigWs.close(); } catch (e) {} }
             if (pingTimer) { clearInterval(pingTimer); pingTimer = null; }
         }
         function setupCursorHandling(dc) {
@@ -461,17 +499,31 @@
                     hideConnecting();
                     return;
                 }
-                await setupWebRTC(data.ice_servers, data.signaling_ws);
-                /* Keep the session alive: Stratus kills a session 30s after its
-                   last ping. Heartbeat every 12s through the same-origin relay
-                   (the relay injects the API key) as long as this tab is up. */
-                pingTimer = setInterval(() => {
-                    fetch("/cloud/v1/pingSession", {
+                /* Keep these available to reconnect attempts. */
+                window.__cloudIceServers = data.ice_servers || [];
+                window.__cloudSignalUrl = data.signaling_ws || "";
+                pingUuid = id;
+                /* Stratus kills a session after roughly 30s without a ping.
+                   Start immediately, then use an 8s heartbeat. A temporary
+                   failed ping must never end the player; the next ping retries. */
+                const ping = () => {
+                    if (ended || !pingUuid) return;
+                    fetch(`/cloud/v1/pingSession`, {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ uuid: id })
+                        body: JSON.stringify({ uuid: pingUuid }),
+                        cache: "no-store",
+                        keepalive: true
+                    }).then(function (r) {
+                        /* Only a definitive 404/410 means Stratus forgot the
+                           session. Network failures are transient and must not
+                           turn into the misleading "Session ended" screen. */
+                        if (r.status === 404 || r.status === 410) showEnded("Session expired");
                     }).catch(() => {});
-                }, 12_000);
+                };
+                ping();
+                pingTimer = setInterval(ping, 8_000);
+                await setupWebRTC(data.ice_servers, data.signaling_ws);
             } catch (e) {
                 endedOverlay.querySelector("span").textContent = "connection failed";
                 endedOverlay.classList.add("visible");
