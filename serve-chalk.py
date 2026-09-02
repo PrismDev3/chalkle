@@ -2206,6 +2206,23 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, Simpl
                 ctype = (probe.headers.get("Content-Type", "").split(";")[0].strip().lower())
                 if "text/html" in ctype:
                     is_html = True
+                elif "javascript" in ctype or ctype == "module" or target.lower().endswith(".js") or target.lower().endswith(".mjs"):
+                    # JS module: rewrite relative import specifiers to absolute
+                    # /uv/ routes, then send. Verbatim streaming would break
+                    # every `import"./chunk.js"` (they'd resolve against
+                    # /uv/<name>.js and lose the encoded target).
+                    raw = probe.read(40 * 1024 * 1024 + 1)
+                    probe.close()
+                    if len(raw) > 40 * 1024 * 1024:
+                        return self._uv_error(502, "file too large")
+                    text = _uv_rewrite_js(_uv_decode(raw), target)
+                    extra = {
+                        "Content-Security-Policy": "",
+                        "X-Frame-Options": "",
+                        "Content-Security-Policy-Report-Only": "",
+                    }
+                    self._uv_send(200, "text/javascript", text.encode("utf-8", "replace"), extra)
+                    return
                 else:
                     return self._uv_stream_resp(probe)
         if is_html or is_css:
@@ -2334,6 +2351,17 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, Simpl
                 "Content-Security-Policy-Report-Only": "",
             }
             self._uv_send(200, ctype, raw, extra)
+            return
+        if safe.lower().endswith((".js", ".mjs")):
+            # Local JS module: same import-specifier rewrite as remote JS.
+            try:
+                with open(safe, "rb") as f:
+                    raw = f.read()
+            except Exception as e:
+                return self._uv_error(500, type(e).__name__)
+            text = _uv_rewrite_js(_uv_decode(raw), path)
+            extra = {"Content-Security-Policy": "", "X-Frame-Options": "", "Content-Security-Policy-Report-Only": ""}
+            self._uv_send(200, "text/javascript", text.encode("utf-8", "replace"), extra)
             return
         # Binary / streaming path: stream the file with its real MIME so large
         # Unity .data / .wasm / game assets never get buffered or capped.
@@ -2560,8 +2588,8 @@ _UV_PATCH_JS = (
     "function wrap(u){var a=abs(u);if(a===u){"
     "if(typeof u==='string'&&/^(?:https?|wss?):\\/\\//i.test(u.trim()))return P+enc(u.trim());"
     "return u;}"
-    "if(a.indexOf(P)===0||a.indexOf(location.origin+P)===0)return u;"
-    "if(a.indexOf(location.origin)===0)return a;"
+    "if(a.indexOf(P)===0||a.indexOf(location.origin+P)===0)return a;"
+    "if(a.indexOf(location.origin)===0)return P+enc(a);"
     "return P+enc(a);}"
     "var of=window.fetch;"
     "if(of){window.fetch=function(input,init){"
@@ -2682,6 +2710,30 @@ def _uv_wrap_url(value, base_url):
     return "/uv/" + _uv_b64url_encode(v)
 
 
+# ES module import specifiers: import "./x.js" / import("./x.js") / export * from
+# "./x.js" / dynamic import('./x.js'). Only relative (./ ../) or root-absolute
+# (/) specifiers are rewritten; bare specifiers ("react") and full URLs are
+# left alone (full URLs are handled by the injected fetch/element patch).
+_UV_JS_IMPORT_RE = re.compile(
+    r"(\b(?:import|export)\s*(?:[\w$*{},\s]*?\s*from\s*|\(\s*)?['\"])"
+    r"((?:\.\.?/|/)[^'\"\n]+)"
+    r"(['\"])"
+)
+
+
+def _uv_rewrite_js(js, base_url):
+    """Rewrite module import specifiers inside streamed JS to absolute /uv/
+    routes. Without this, `import"./D7UGAqZr.js"` inside a proxied module
+    resolves against /uv/<name>.js and 404s (the encoded target is lost)."""
+    def rep(m):
+        pre, spec, quote = m.group(1), m.group(2), m.group(3)
+        # Skip already-rewritten routes
+        if spec.startswith("/uv/"):
+            return m.group(0)
+        return pre + _uv_wrap_url(spec, base_url) + quote
+    return _UV_JS_IMPORT_RE.sub(rep, str(js or ""))
+
+
 def _uv_rewrite_srcset(s, base_url):
     out = []
     for part in str(s or "").split(","):
@@ -2709,6 +2761,11 @@ def _uv_rewrite_attrs(chunk, base_url):
     def rep(m):
         name = m.group(1).lower()
         val = m.group(2)
+        # Subresource integrity can never match after rewriting - drop it
+        # instead of letting the browser block the asset (sha512 of a
+        # rewritten/streamed body will never equal the upstream hash).
+        if name in ("integrity", "nonce"):
+            return ""
         quote = val[:1] if val[:1] in ("'", '"') else ""
         inner = val[1:-1] if quote else val
         if name in ("srcset", "data-srcset"):
@@ -2818,11 +2875,20 @@ def _uv_rewrite_html(html, target):
         if name in _UV_RAW_TAGS:
             # Rewrite the opening tag (a <script src=...> must be proxied) but
             # keep the raw text content untouched - it's JS/HTML, not markup.
+            # Exception: inline <script> bodies get the module-import rewrite,
+            # because a root-absolute specifier like import("/_app/x.js")
+            # resolves against our origin, not the proxied target, and the
+            # fetch/XHR patches can't catch import() (it's syntax, not a
+            # method we can wrap).
             close = re.search(r"</\s*" + name + r"\s*>", html[end + 1:], re.I)
             opening = _uv_rewrite_attrs(tag_text, base_dir)
             if close:
                 out.append(opening)
-                out.append(html[end + 1:end + 1 + close.end()])
+                body = html[end + 1:end + 1 + close.start()]
+                if name == "script" and len(body) < 2 * 1024 * 1024:
+                    body = _uv_rewrite_js(body, base_dir)
+                out.append(body)
+                out.append(html[end + 1 + close.start():end + 1 + close.end()])
                 i = end + 1 + close.end()
             else:
                 out.append(opening)
