@@ -5,6 +5,12 @@
 
 window.ChalkApps = [
   {
+    title: "Cobalt",
+    url: "https://cobalt.tools/",
+    category: "Media",
+    thumb: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2334a853'/%3E%3Cpath d='M18 18h28v8H26v12h16v8H18z' fill='%230d0f12'/%3E%3C/svg%3E"
+  },
+  {
     title: "Browser",
     kind: "browser",
     category: "Built-in",
