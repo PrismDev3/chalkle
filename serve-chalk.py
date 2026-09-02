@@ -1799,18 +1799,33 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, Simpl
     AI_API_KEY = os.environ.get("AI_API_KEY", "").strip()
     _AI_CONVOS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ai_convos.json")
 
-    def _ai_upstreams(self):
-        import time
-        ups = []
-        if self.AI_UPSTREAM:
-            ups.append({"base": self.AI_UPSTREAM.rstrip("/"), "key": self.AI_API_KEY, "default": ""})
-        ups.append({"base": "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1", "key": "", "default": "Mistral-Small-3.2-24B-Instruct-2506"})
-        ups.append({"base": "https://api.llm7.io/v1", "key": "", "default": "mistral-Nemo-Instruct-2407"})
-        ups.append({"base": "http://45.32.114.54:8080/v1", "key": "", "default": "gpt-4o-mini"})
-        for u in ups:
-            u["down_until"] = 0
-            u["models"] = None
-        return ups
+    # Upstream state must persist across requests (the handler instance is
+    # recreated per connection): cached model lists, health markers and the
+    # models-refresh timestamp all live here. Without this, every request
+    # rebuilt the list from scratch - down-marking never stuck, and a picked
+    # model could never be matched to the upstream that hosts it, so chats
+    # silently fell back to each upstream's small default model.
+    _AI_UPS_CACHE = None
+    _AI_MODELS_TS = 0.0
+    _AI_MODELS_TTL = 600.0  # seconds before /models is refetched upstream
+
+    @classmethod
+    def _ai_upstreams(cls):
+        if cls._AI_UPS_CACHE is None:
+            ups = []
+            if cls.AI_UPSTREAM:
+                ups.append({"base": cls.AI_UPSTREAM.rstrip("/"), "key": cls.AI_API_KEY, "default": ""})
+            ups.append({"base": "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1", "key": "", "default": "Qwen3.5-397B-A17B"})
+            ups.append({"base": "https://api.llm7.io/v1", "key": "", "default": "mistral-Nemo-Instruct-2407"})
+            # Legacy gateway: answers, but its default model returns incoherent
+            # text, so it gets NO default (skipped in the last-resort fallback
+            # loop) - only used when the user explicitly picks one of its models.
+            ups.append({"base": "http://45.32.114.54:8080/v1", "key": "", "default": ""})
+            for u in ups:
+                u["down_until"] = 0
+                u["models"] = None
+            cls._AI_UPS_CACHE = ups
+        return cls._AI_UPS_CACHE
 
     @staticmethod
     def _is_vision(mid):
@@ -1825,30 +1840,43 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, Simpl
             h.update(extra)
         return h
 
-    def _ai_models(self):
+    def _ai_refresh_models(self, force=False):
+        """Refresh cached model lists in parallel. Cheap after the first hit:
+        results live on the persistent upstream dicts with a TTL."""
         import urllib.request, time
-        out = {"ok": False, "models": []}
-        seen = {}
-        first_err = None
-        for up in self._ai_upstreams():
+        from concurrent.futures import ThreadPoolExecutor
+        ups = self._ai_upstreams()
+        if not force and self._AI_MODELS_TS and (time.time() - self._AI_MODELS_TS) < self._AI_MODELS_TTL:
+            return
+        def fetch(up):
             if up["down_until"] and up["down_until"] > time.time():
-                continue
+                return
             try:
                 req = urllib.request.Request(up["base"] + "/models", headers=self._ai_headers(up["key"]))
-                with urllib.request.urlopen(req, timeout=8) as resp:
+                with urllib.request.urlopen(req, timeout=6) as resp:
                     data = json.loads(resp.read())
                 ids = [m.get("id") for m in (data.get("data") or []) if m.get("id")]
-                up["models"] = ids
-                for mid in ids:
-                    if mid not in seen:
-                        seen[mid] = up["base"]
-            except Exception as e:
-                if first_err is None:
-                    first_err = type(e).__name__
+                if ids:
+                    up["models"] = ids
+            except Exception:
+                pass
+        with ThreadPoolExecutor(max_workers=len(ups) or 1) as ex:
+            list(ex.map(fetch, ups))
+        type(self)._AI_MODELS_TS = time.time()  # class-level: survives per-request handler instances
+
+    def _ai_models(self):
+        import time
+        self._ai_refresh_models()
+        out = {"ok": False, "models": []}
+        seen = {}
+        for up in self._ai_upstreams():
+            for mid in (up.get("models") or []):
+                if mid not in seen:
+                    seen[mid] = up["base"]
         if seen:
             out = {"ok": True, "models": list(seen.keys()), "sources": seen, "default": next(iter(seen))}
-        elif first_err:
-            out = {"ok": False, "error": first_err}
+        else:
+            out = {"ok": False, "error": "no-upstreams"}
         data = json.dumps(out).encode()
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
@@ -1949,8 +1977,13 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, Simpl
                             wants_vision = True
                             break
         if not msgs or (msgs[0].get("role") != "system"):
-            msgs = [{"role": "system", "content": "You are a helpful assistant. Answer the user's question directly, correctly and concisely. No preambles, no vague clarifying questions - just give the answer."}] + msgs
+            msgs = [{"role": "system", "content": "You are a helpful assistant. Answer the user's question directly, correctly and concisely. No preambles, no vague clarifying questions - just give the answer. Write plain text: no markdown symbols like **, ###, or backtick fences."}] + msgs
         ups = self._ai_upstreams()
+        # Make sure we know who hosts what (cached + parallel, near-free)
+        try:
+            self._ai_refresh_models()
+        except Exception:
+            pass
         # Build an ordered candidate list of (upstream, model) pairs:
         #   1. the upstream(s) that own the requested model, with that model
         #   2. a vision model on any upstream that has one (image requests)
@@ -1958,13 +1991,27 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, Simpl
         #      unavailable/rate-limited somewhere still gets answered elsewhere
         cands = []
         seen = set()
+        hosted = False
         for u in ups:
             um = u.get("models") or []
             if um and model and model in um:
+                hosted = True
                 key = (u["base"], model)
                 if key not in seen:
                     seen.add(key)
                     cands.append((u, model))
+        # Requested model unknown to every cached list: still try it verbatim
+        # on the first healthy upstream (covers models added upstream after
+        # the last models refresh) before falling back to defaults.
+        if model and not hosted:
+            for u in ups:
+                if u["down_until"] and u["down_until"] > time.time():
+                    continue
+                key = (u["base"], model)
+                if key not in seen:
+                    seen.add(key)
+                    cands.append((u, model))
+                break
         if wants_vision:
             for u in ups:
                 um = u.get("models") or []
