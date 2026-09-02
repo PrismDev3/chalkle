@@ -123,7 +123,7 @@
     // endpoint (real, CORS-open), and a no-CORS reachability probe (opaque
     // response means the host answered; a network error means it didn't).
     // TLS certificate validity CANNOT be inspected from this browser context,
-    // so we never claim it — it is shown as "needs server".
+    // so we never claim it, it is shown as "needs server".
     return fetch("https://dns.google/resolve?name=" + encodeURIComponent(hostNoPort(label)) + "&type=A")
       .then(function (r) { return r.json(); })
       .then(function (dns) {

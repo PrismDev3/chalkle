@@ -202,7 +202,7 @@
     var cached = null;
     var busy = false;
     // When this page is injected by a cloak (learn-N.svg on jsdelivr), boot
-    // straight into the app — the chooser would try to fetch
+    // straight into the app: the chooser would try to fetch
     // chalkle-single.html relative to the cloak's origin.
     if (window.__CHALKLE_EMBED__ && screen && screen.parentNode) {
       screen.parentNode.removeChild(screen);
@@ -279,7 +279,7 @@
       });
     });
     document.getElementById('launch-frame').addEventListener('click', function () {
-      // iframe needs no popup permission — build it now, feed it after fetch
+      // iframe needs no popup permission: build it now, feed it after fetch
       var f = document.createElement('iframe');
       f.setAttribute('allowfullscreen', '');
       f.style.cssText = 'position:fixed;inset:0;width:100vw;height:100vh;border:0;z-index:2147483646;background:#000';
@@ -1390,7 +1390,7 @@
           <p class="empty-hint panel-note" style="text-align:center">Enter the admin code to manage games, sites, tools and proxies.</p>
           <form id="admin-lock-form" class="form-row" autocomplete="off">
             <input class="field field-name" id="admin-code" type="password" placeholder="Admin code" autocomplete="off">
-            <button class="btn" type="submit">Unlock</button>
+            <button class="btn" type="submit">Enter</button>
           </form>
           <label class="admin-check" style="margin-top:12px"><input type="checkbox" id="admin-remember" checked> Stay unlocked on this device</label>
         </div>
