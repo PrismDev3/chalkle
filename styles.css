@@ -3339,6 +3339,7 @@ button.home-panel-chip:hover {
 }
 
 .tool-tile-art {
+  position: relative;
   width: 46px;
   height: 46px;
   flex: none;
@@ -3413,6 +3414,7 @@ button.home-panel-chip:hover {
 }
 
 .tool-tile.is-proxy .tool-tile-art {
+  position: relative;
   outline: 2px solid var(--va-soft);
   outline-offset: 2px;
 }
@@ -5046,6 +5048,7 @@ html.motion-off *::after {
 .proxy-form { background: rgba(20, 24, 29, 0.94); }
 .proxy-card,
 .tool-tile-art {
+  position: relative;
   background: var(--panel);
 }
 .proxy-card:hover { background: #17271f; }
@@ -7789,6 +7792,10 @@ input[type="submit"]:not([disabled]), input[type="range"]:not([disabled]) {
   align-items: center;
   justify-content: center;
 }
+/* Preserve fallback glyphs when external icons fail. */
+.tool-tile-img-failed { opacity: 0; }
+.proxy-link-ico-failed { opacity: 0; }
+
 .livetv-match-badge-sport {
   color: var(--tv);
   background: rgba(74, 184, 140, 0.16);
@@ -9521,7 +9528,8 @@ input[type="submit"]:not([disabled]), input[type="range"]:not([disabled]) {
 
 /* Chalkle visual consistency overrides. Layout-neutral: only fallback art,
    icon layering, and status treatment. */
-.tool-tile-art { position: relative; overflow: hidden; }
+.tool-tile-art {
+  position: relative; position: relative; overflow: hidden; }
 .tool-tile-art .tool-tile-letter {
   position: absolute;
   inset: 0;
