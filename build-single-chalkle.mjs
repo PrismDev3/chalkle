@@ -66,7 +66,7 @@ idx = idx.replace(/<link[^>]*rel="stylesheet"[^>]*href="([^"]+)"[^>]*>/gi, (m, h
 
 // ── 2. inline JS ──────────────────────────────────────────────
 const SCRIPTS = ['theme.js','runtime-config.js','sync.js','games.js','cloudgames.js','webports.js','sites.js',
-  'proxies.js','apps.js','cobalt.js','music.js','launcher.js','cloud.js','blanktab.js','editor.js','urlauditor.js',
+  'proxies.js','apps.js','music.js','launcher.js','cloud.js','blanktab.js','editor.js','urlauditor.js',
   'pixel.js','domainhub.js','ai.js','docs.js','partners.js','intro.js','app.js'];
 const bodies = SCRIPTS.map((file) => {
   const fp = path.join(root, file);
