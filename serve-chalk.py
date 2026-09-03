@@ -556,6 +556,8 @@ class _MusicRelay:
                 if choice:
                     stream_url = (choice.get("url") or "").strip()
             if not stream_url:
+                stream_url = _invidious_video(vid)
+            if not stream_url:
                 return self._music_json({"url": "", "via": "youtube", "br": -1})
             payload = {
                 "url": "/music/stream?u=" + _music_b64u(stream_url),
@@ -687,6 +689,19 @@ YT_INSTANCES = [
     "https://pipedapi.reallyaweso.me",
 ]
 
+# Piped search is still useful, but its stream endpoints are increasingly
+# flaky. Keep a small fallback pool of maintained Invidious instances for the
+# actual playable URL. The browser never sees these hosts: their media URLs
+# are wrapped by /music/stream below.
+INVIDIOUS_INSTANCES = [
+    "https://inv.nadeko.net",
+    "https://invidious.nerdvpn.de",
+    "https://yt.chocolatemoo53.com",
+    "https://invidious.tiekoetter.com",
+    "https://inv.tux.pizza",
+    "https://invidious.private.coffee",
+]
+
 _yt_cache = {}          # route key -> (ts, payload)
 _YT_CACHE_TTL = 180     # seconds
 
@@ -732,6 +747,34 @@ def _yt_fetch_json(path, timeout=12, retries=2):
             except Exception as e:
                 last_err = type(e).__name__ + " from " + inst
     return {"error": "all YouTube instances failed: " + str(last_err)}, 502
+
+
+def _invidious_video(video_id, timeout=15):
+    """Resolve a playable YouTube URL when Piped's stream endpoint fails."""
+    import urllib.request, urllib.error, urllib.parse, json as _json
+    last_err = None
+    for inst in INVIDIOUS_INSTANCES:
+        url = inst + "/api/v1/videos/" + urllib.parse.quote(video_id)
+        req = urllib.request.Request(url, headers={
+            "User-Agent": "Mozilla/5.0 ChalkleMusic/1.0",
+            "Accept": "application/json",
+        })
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                data = _json.loads(resp.read().decode("utf-8", "replace"))
+            adaptive = [s for s in (data.get("adaptiveFormats") or [])
+                        if isinstance(s, dict) and (s.get("url") or "").startswith("http")]
+            audio = [s for s in adaptive if str(s.get("type") or "").startswith("audio/")]
+            audio.sort(key=lambda s: int(s.get("bitrate") or 0), reverse=True)
+            formats = [s for s in (data.get("formatStreams") or [])
+                       if isinstance(s, dict) and (s.get("url") or "").startswith("http")
+                       and "video/mp4" in str(s.get("type") or "")]
+            choice = audio[0] if audio else (formats[-1] if formats else None)
+            if choice:
+                return (choice.get("url") or "").strip()
+        except Exception as e:
+            last_err = type(e).__name__ + " from " + inst
+    return ""
 
 
 class _YouTubeRelay:
