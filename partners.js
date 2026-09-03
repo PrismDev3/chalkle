@@ -393,13 +393,14 @@
   var DEFAULT_PARTNERS = [
     { name: "Kyro", official: "", discord: "https://discord.gg/cmAjzkYKTc", icon: "/assets/partners/kyro.png" },
     { name: "NEO OS", official: "https://n-xcsxzutr6punfhylgg3xfr5mp4lfywjjxzqtrfq-0lu-script.googleusercontent.com/userCodeAppPanel", discord: "https://discord.gg/4TjwQagfN", icon: "/assets/partners/neoos.jpg", renames: ["neoos"] },
-    { name: "Godly Links", official: "", discord: "https://discord.gg/XZt4t8Jtk", icon: "/assets/partners/godlylinks.png" },
+    { name: "Godly Links", official: "https://discord.gg/XZt4t8Jtk", discord: "https://discord.gg/XZt4t8Jtk", icon: "/assets/partners/godlylinks.png" },
     { name: "Project Bugs", official: "https://sites.google.com/view/intresting-history-facts/home", discord: "https://discord.gg/m5B7munZvn", icon: "/assets/partners/projectbugs.jpg" },
     { name: "Frosted V2", official: "https://frostedbrowser.cfd/", discord: "https://discord.gg/w7J5auDhNm", icon: "/assets/partners/frosted.png", renames: ["frosted"] },
     { name: "P2P Games", official: "https://cdn.jsdelivr.net/gh/GreyLinks123/web-auto-1@main/web-fetch-1.svg", discord: "https://discord.gg/b6QRdA7bjR", icon: "/assets/partners/p2pgames.png" },
-    { name: "S.V", official: "", discord: "https://discord.gg/FHmEqPgMVe", icon: "/assets/partners/sv.webp" },
+    { name: "S.V", official: "https://sites.google.com/view/iwannaseeyoutonight/home", discord: "https://discord.gg/FHmEqPgMVe", icon: "/assets/partners/sv.webp" },
     { name: "Anko", official: "https://anko-6116.logans.projectbyod.com/", discord: "https://discord.gg/anko", icon: "/assets/partners/anko.webp" },
-    { name: "Ghost Proxy", official: "https://ghostub.surge.sh/", discord: "https://dsc.gg/ghostub", icon: "/assets/partners/ghostproxy.webp" }
+    { name: "Ghost Proxy", official: "https://ghostub.surge.sh/", discord: "https://dsc.gg/ghostub", icon: "/assets/partners/ghostproxy.webp" },
+    { name: "The Array", official: "https://discord.gg/Z9wJfZr7e", discord: "https://discord.gg/Z9wJfZr7e", icon: "/assets/partners/array.webp" }
   ];
 
   function seedDefaults() {

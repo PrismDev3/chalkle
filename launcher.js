@@ -116,6 +116,12 @@
      proxies instead of building a broken "null/uv" URL. */
   function usableOrigin() {
     try {
+      if (window.ChalkleApi && window.ChalkleApi.root) {
+        var apiRoot = String(window.ChalkleApi.root() || "").replace(/\/+$/, "");
+        if (apiRoot) return apiRoot;
+      }
+    } catch (e) { /* fall through to the page origin */ }
+    try {
       var o = String(location.origin || "");
       if (!o || o === "null") return "";
       return /^https?:/i.test(o) ? o.replace(/\/+$/, "") : "";

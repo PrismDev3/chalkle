@@ -724,6 +724,20 @@ function auth(req, res, next) {
 
 const app = express();
 
+// CORS: allow browser clients (FLARE OS on localhost:5174, chalkle relay, etc.)
+// to call /cloud/v1/* directly. The vendored copy ships without CORS headers;
+// chalkle works around it with a same-origin relay, FLARE talks to :3001 straight.
+app.use((req, res, next) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+  res.setHeader(
+    "Access-Control-Allow-Headers",
+    "Content-Type, Accept, X-API-Key, api_key",
+  );
+  if (req.method === "OPTIONS") return res.sendStatus(204);
+  next();
+});
+
 app.use(express.json({ limit: "1mb" }));
 
 app.use((req, res, next) => {
