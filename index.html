@@ -224,7 +224,9 @@
 
     function getPayload() {
       if (cached) return Promise.resolve(cached);
-      return fetch('chalkle-single.html?t=' + Date.now()).then(function (r) {
+      var payloadFile = window.ChalkleApi && window.ChalkleApi.isMirror && window.ChalkleApi.isMirror()
+        ? 'chalkle-single-cdn.html' : 'chalkle-single.html';
+      return fetch(payloadFile + '?t=' + Date.now()).then(function (r) {
         if (!r.ok) throw new Error('HTTP ' + r.status);
         return r.text();
       }).then(function (t) { cached = t; return t; });
@@ -232,7 +234,7 @@
     function fail(e) {
       if (!status) return;
       status.className = 'is-err';
-      status.textContent = 'Could not load chalkle-single.html (' + (e && e.message ? e.message : e) + '). Keep it next to this page, or use Direct.';
+      status.textContent = 'Could not load the Chalkle build (' + (e && e.message ? e.message : e) + '). Keep the build files together, or use Direct.';
       status.querySelectorAll('.spin').forEach(function (s) { s.remove(); });
     }
     function go(fn) {

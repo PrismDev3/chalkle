@@ -14,6 +14,7 @@ import path from 'node:path';
 
 const root = process.cwd();
 const out = path.join(root, 'chalkle-single.html');
+const cdnOut = path.join(root, 'chalkle-single-cdn.html');
 const CDN_SAFE = process.argv.includes('--cdn');
 
 const MIME = {
@@ -182,5 +183,7 @@ idx = idx.replace('<!--EMBED_STORE_PLACEHOLDER-->', EMBED_STORE);
 // ── 6. write ──────────────────────────────────────────────────
 fs.mkdirSync(path.dirname(out), {recursive:true});
 fs.writeFileSync(out, idx);
+if (CDN_SAFE) fs.writeFileSync(cdnOut, idx);
 const mb = (fs.statSync(out).size/1048576).toFixed(1);
 console.log(`wrote ${out} (${mb} MB)`);
+if (CDN_SAFE) console.log(`wrote ${cdnOut} (${(fs.statSync(cdnOut).size/1048576).toFixed(1)} MB)`);
