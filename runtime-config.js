@@ -10,7 +10,10 @@
     if (!value && meta) value = meta.getAttribute("content") || "";
     return String(value).trim().replace(/\/+$/, "");
   }
-  var main = configuredRoot();
+  /* Static mirrors cannot execute the Chalkle relay themselves. Keep the
+     public first-party relay as the default API origin so jsDelivr/GitHub
+     mirrors still have working cloud, music, live data and proxy routes. */
+  var main = configuredRoot() || "https://chalkle.lootline.xyz";
   window.SCHOOL_CENTER_CONFIG = {
     mainUrl: main,
     generatedAt: "2026-09-01"

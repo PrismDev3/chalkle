@@ -873,8 +873,7 @@
       host = item.url ? new URL(item.url).hostname.replace(/^www\./, "") : "";
     } catch (e) { /* bad URL, leave host empty */ }
 
-    /* Clean fallback tile: a soft brand gradient with a subtle controller icon.
-       No more big JS-letter blocks when a thumbnail is missing or broken. */
+    /* Clean fallback tile with a subtle controller icon. */
     var fallbackHtml = '<span class="thumb-fallback" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24"><rect x="2.25" y="5.25" width="19.5" height="12" rx="5.75"/><path d="M7.25 8.25v6M5.25 11.25h4"/><circle cx="15.75" cy="10.5" r=".9" fill="currentColor"/><circle cx="18.25" cy="12.75" r=".9" fill="currentColor"/></svg></span>';
     var faviconUrl = host ? "https://t0.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=" + encodeURIComponent("https://" + host) + "&size=128" : "";
     /* Only distrust a thumbnail when it is served straight off a dead host -

@@ -33,31 +33,32 @@
   }
 
   var CURSORS = {
-    cat: { label: "cat", css: "url('/assets/cursors/cursor-cat.png') 32 32, auto", preview: "/assets/cursors/cursor-cat.png" },
-    "cat-black": { label: "black cat", css: "url('/assets/cursors/cursor-cat-black.png') 32 32, auto", preview: "/assets/cursors/cursor-cat-black.png" },
-    interference: { label: "interference", css: "url('/assets/cursors/cursor-interference.png') 15 2, auto", pointer: "url('/assets/cursors/cursor-interference-pointer.png') 5 2, pointer", preview: "/assets/cursors/cursor-interference.png" },
-    kyro: { label: "kyro", css: "url('/assets/cursors/cursor-kyro.png') 24 24, auto", preview: "/assets/cursors/cursor-kyro.png" },
-    neoos: { label: "neo os", css: "url('/assets/cursors/cursor-neoos.png') 24 24, auto", preview: "/assets/cursors/cursor-neoos.png" },
-    godlylinks: { label: "godly links", css: "url('/assets/cursors/cursor-godlylinks.png') 24 23, auto", preview: "/assets/cursors/cursor-godlylinks.png" },
-    projectbugs: { label: "project bugs", css: "url('/assets/cursors/cursor-projectbugs.png') 24 24, auto", preview: "/assets/cursors/cursor-projectbugs.png" },
-    frosted: { label: "frosted", css: "url('/assets/cursors/cursor-frosted.png') 24 24, auto", preview: "/assets/cursors/cursor-frosted.png" },
-    p2pgames: { label: "p2p games", css: "url('/assets/cursors/cursor-p2pgames.png') 24 23, auto", preview: "/assets/cursors/cursor-p2pgames.png" },
-    sv: { label: "s.v", css: "url('/assets/cursors/cursor-sv.png') 24 24, auto", preview: "/assets/cursors/cursor-sv.png" },
-    anko: { label: "anko", css: "url('/assets/cursors/cursor-anko.png') 24 24, auto", preview: "/assets/cursors/cursor-anko.png" },
-    ghostproxy: { label: "ghost proxy", css: "url('/assets/cursors/cursor-ghostproxy.png') 24 24, auto", preview: "/assets/cursors/cursor-ghostproxy.png" },
+    cat: { label: "cat", css: "url('/assets/cursors/cursor-cat.png') 32 32, auto", preview: "/assets/cursors/cursor-cat.png", hover: "/assets/cursors/cursor-cat-hover.png" },
+    "cat-black": { label: "black cat", css: "url('/assets/cursors/cursor-cat-black.png') 32 32, auto", preview: "/assets/cursors/cursor-cat-black.png", hover: "/assets/cursors/cursor-cat-black-hover.png" },
+    puppy: { label: "puppy", css: "url('/assets/cursors/cursor-puppy.png') 32 32, auto", preview: "/assets/cursors/cursor-puppy.png", hover: "/assets/cursors/cursor-puppy-hover.png" },
+    kyro: { label: "kyro", css: "url('/assets/cursors/cursor-kyro.png') 24 24, auto", preview: "/assets/cursors/cursor-kyro.png", hover: "/assets/cursors/cursor-kyro-hover.png" },
+    neoos: { label: "neo os", css: "url('/assets/cursors/cursor-neoos.png') 24 24, auto", preview: "/assets/cursors/cursor-neoos.png", hover: "/assets/cursors/cursor-neoos-hover.png" },
+    godlylinks: { label: "godly links", css: "url('/assets/cursors/cursor-godlylinks.png') 24 23, auto", preview: "/assets/cursors/cursor-godlylinks.png", hover: "/assets/cursors/cursor-godlylinks-hover.png" },
+    projectbugs: { label: "project bugs", css: "url('/assets/cursors/cursor-projectbugs.png') 24 24, auto", preview: "/assets/cursors/cursor-projectbugs.png", hover: "/assets/cursors/cursor-projectbugs-hover.png" },
+    frosted: { label: "frosted", css: "url('/assets/cursors/cursor-frosted.png') 24 24, auto", preview: "/assets/cursors/cursor-frosted.png", hover: "/assets/cursors/cursor-frosted-hover.png" },
+    p2pgames: { label: "p2p games", css: "url('/assets/cursors/cursor-p2pgames.png') 24 23, auto", preview: "/assets/cursors/cursor-p2pgames.png", hover: "/assets/cursors/cursor-p2pgames-hover.png" },
+    sv: { label: "s.v", css: "url('/assets/cursors/cursor-sv.png') 24 24, auto", preview: "/assets/cursors/cursor-sv.png", hover: "/assets/cursors/cursor-sv-hover.png" },
+    anko: { label: "anko", css: "url('/assets/cursors/cursor-anko.png') 24 24, auto", preview: "/assets/cursors/cursor-anko.png", hover: "/assets/cursors/cursor-anko-hover.png" },
+    ghostproxy: { label: "ghost proxy", css: "url('/assets/cursors/cursor-ghostproxy.png') 24 24, auto", preview: "/assets/cursors/cursor-ghostproxy.png", hover: "/assets/cursors/cursor-ghostproxy-hover.png" },
+    array: { label: "array", css: "url('/assets/cursors/cursor-array.png') 24 24, auto", preview: "/assets/cursors/cursor-array.png", hover: "/assets/cursors/cursor-array-hover.png" },
     none: { label: "default", css: "auto", preview: null }
   };
 
   var WALLPAPERS = {
     chalk: "url('bg-chalk.webp')",
-    aurora: "linear-gradient(135deg, #0f2027, #203a43, #2c5364)",
-    sunset: "linear-gradient(135deg, #ff512f, #dd2476)",
-    citrus: "linear-gradient(135deg, #f7971e, #ffd200)",
-    candy: "linear-gradient(135deg, #ee9ca7, #ffdde1)",
-    dusk: "linear-gradient(135deg, #2c3e50, #4ca1af)",
-    grape: "linear-gradient(135deg, #41295a, #2f0743)",
-    night: "linear-gradient(135deg, #141e30, #243b55)",
-    forest: "linear-gradient(135deg, #134e5e, #71b280)"
+    aurora: "#20343b",
+    sunset: "#4a1d2d",
+    citrus: "#5a4514",
+    candy: "#4a2931",
+    dusk: "#263b45",
+    grape: "#302042",
+    night: "#182437",
+    forest: "#173525"
   };
 
   /* One-click theme presets (bg + accent). Palettes from the Interstellar /
@@ -202,9 +203,17 @@
     var choice = CURSORS[value] ? value : "none";
     var c = CURSORS[choice];
     document.documentElement.style.setProperty("--custom-cursor", c.css);
-    /* Some cursors ship a hover/pointer state (e.g. interference); the rest
-       fall back to the system pointer on buttons and links. */
-    document.documentElement.style.setProperty("--custom-cursor-pointer", c.pointer || "pointer");
+    /* Hovering never swaps the cursor to a different shape: interactive
+       elements reuse the same image, but a brightened copy of it, so the
+       cursor simply lightens. The brightened copy keeps the same hotspot,
+       read from the base cursor's url(). */
+    var m = /url\('([^']+)'\)\s*(\d+)\s+(\d+)/.exec(c.css || "");
+    var pointerCss = "pointer";
+    if (m) {
+      var hoverImg = c.hover || m[1].replace(/(\.\w+)$/, "-hover$1");
+      pointerCss = "url('" + hoverImg + "') " + m[2] + " " + m[3] + ", pointer";
+    }
+    document.documentElement.style.setProperty("--custom-cursor-pointer", pointerCss);
   }
 
   var ChalkleTheme = {

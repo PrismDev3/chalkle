@@ -97,19 +97,6 @@ body::after {
   background: rgba(0, 0, 0, var(--wallpaper-scrim, 0));
 }
 
-body::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  background-image:
-    linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
-  background-size: 44px 44px;
-  opacity: 0.8;
-}
-
 ::selection { background: var(--accent); color: var(--accent-ink); }
 
 a { color: inherit; text-decoration: none; }
@@ -1574,8 +1561,8 @@ button.home-panel-chip:hover {
 .home-recents-scroll {
   position: relative;
   margin-top: 4px;
-  -webkit-mask-image: linear-gradient(90deg, transparent 0px, #000 22px, #000 calc(100% - 22px), transparent 100%);
-  mask-image: linear-gradient(90deg, transparent 0px, #000 22px, #000 calc(100% - 22px), transparent 100%);
+  -webkit-mask-image: none;
+  mask-image: none;
 }
 
 .home-recents-track {
@@ -4341,6 +4328,64 @@ body.size-compact .card-title { font-size: 16.5px; }
 
 body.size-compact .card-source { display: none; }
 
+/* ---------- 2026 surface refresh ---------- */
+.topbar {
+  height: 60px;
+  padding: 0 18px;
+  background: #101419;
+  border-bottom-width: 2px;
+}
+.brand-name { font-size: 34px; }
+.search { max-width: 620px; }
+.search input {
+  height: 42px;
+  border-radius: 11px;
+  background: #171b21;
+  border-color: #303640;
+}
+.search input:focus { background: #1b2027; }
+.sidebar {
+  width: 244px;
+  background: #11151a;
+  border-right-color: #2b3139;
+}
+.nav { padding: 14px 12px 0; gap: 5px; }
+.nav-item { height: 42px; padding: 0 13px; border-radius: 10px; font-size: 15px; }
+.nav-item:hover { background: #1b2026; }
+.nav-item.is-active { font-weight: 700; }
+.nav-item.is-active::before { left: -12px; }
+.nav-bottom { padding: 12px 12px 0; }
+.nav-social { width: 38px; height: 38px; border-radius: 10px; }
+.collapse-btn { margin: 9px 12px; }
+.main { padding: 30px 32px 56px; }
+.view-head { margin-bottom: 18px; }
+.grid { gap: 14px; }
+.card { border-radius: 12px; border-color: #2b3138; background: #15191f; box-shadow: 0 8px 22px rgba(0,0,0,.18); }
+.card:hover { border-color: #3b444f; transform: translateY(-2px); }
+.card-body { padding: 11px 12px 13px; }
+.card-title { font-size: 16px; }
+.field, .select, input, textarea { border-radius: 10px; }
+.chip { border-radius: 999px; padding: 7px 11px; }
+.home-hero, .home-panel, .home-copy { border-color: #2b3138; background: #12171c; }
+.home-quick-card, .home-mini-card { border-radius: 12px; }
+
+@media (min-width: 481px) {
+  .sidebar { min-width: 244px; }
+  body.sidebar-collapsed .sidebar { min-width: 64px; }
+}
+@media (max-width: 860px) {
+  .topbar { padding: 0 12px; }
+  .search { max-width: none; }
+  .main { padding: 24px 20px 48px; }
+}
+@media (max-width: 480px) {
+  .topbar { height: 56px; }
+  .main { padding: 18px 14px 40px; }
+  .sidebar { width: 64px; min-width: 64px; }
+  .brand-name { font-size: 29px; }
+  .grid { gap: 10px; }
+}
+
 /* ---------- Reduced motion ---------- */
 
 @media (prefers-reduced-motion: reduce) {
@@ -6791,14 +6836,14 @@ body.ed-resizing iframe { pointer-events: none; }
 .pixel-blend { max-width: 110px; font-size: 11px; background: #16181c; color: #dfe3ea; border: 1px solid #383c44; border-radius: 4px; padding: 4px 5px; }
 
 /* Canvas viewport */
-.pixel-view { position: relative; flex: 1; display: flex; align-items: flex-start; justify-content: center; background-color: #2b2d31; background-image: linear-gradient(45deg, #34363b 25%, transparent 25%, transparent 75%, #34363b 75%), linear-gradient(45deg, #34363b 25%, #2b2d31 25%, #2b2d31 75%, #34363b 75%); background-size: 12px 12px; background-position: 0 0, 6px 6px; border: 1px solid #16181c; border-radius: 0; overflow: auto; cursor: crosshair; min-height: 220px; }
+.pixel-view { position: relative; flex: 1; display: flex; align-items: flex-start; justify-content: center; background: #2b2d31; border: 1px solid #16181c; border-radius: 0; overflow: auto; cursor: crosshair; min-height: 220px; }
 .pixel-canvas { position: absolute; top: 20px; left: 20px; image-rendering: pixelated; image-rendering: crisp-edges; box-shadow: 0 0 0 1px rgba(0,0,0,0.5); }
 .pixel-grid { position: absolute; top: 20px; left: 20px; image-rendering: pixelated; pointer-events: none; }
 
 .pixel-status { display: flex; gap: 16px; font-size: 11.5px; color: #7c8490; font-weight: 600; padding: 6px 10px; border-top: 1px solid #1a1c20; }
 .pixel-status span { font-family: ui-monospace, monospace; }
 
-.pixel-preview { width: 200px; height: 200px; image-rendering: pixelated; border: 1px solid #38303c; border-radius: 0; background: #2b2d31; background-image: linear-gradient(45deg, #34363b 25%, transparent 25%, transparent 75%, #34363b 75%), linear-gradient(45deg, #34363b 25%, #2b2d31 25%, #2b2d31 75%, #34363b 75%); background-size: 10px 10px; background-position: 0 0, 5px 5px; }
+.pixel-preview { width: 200px; height: 200px; image-rendering: pixelated; border: 1px solid #38303c; border-radius: 0; background: #2b2d31; }
 .pixel-preview-hint { margin: 0; font-size: 11px; color: #7c8490; }
 
 /* Timeline */
@@ -7636,9 +7681,10 @@ body.sidebar-collapsed .music-player { left: var(--side-w-collapsed); }
 .p-qsub { color: var(--text-3); font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .p-toast { position: fixed; left: 50%; bottom: 104px; transform: translateX(-50%); z-index: 62; background: var(--panel-2); border: 1px solid var(--line-2); color: var(--text); font-size: 13px; padding: 8px 16px; border-radius: 999px; }
 
-/* Custom cursor pointer state: when a cursor theme defines a hover/pointer
-   variant (e.g. interference), interactive elements use it; otherwise they
-   fall back to the system pointer. Text inputs/areas keep their I-beam. */
+/* Custom cursor pointer state: interactive elements reuse the same cursor
+   image as the base but a brightened copy of it, so hovering lightens the
+   cursor instead of swapping to a different shape. Text inputs/areas keep
+   their I-beam. */
 a:not([disabled]), button:not([disabled]), [role="button"]:not([disabled]),
 select:not([disabled]), summary, label[for],
 input[type="checkbox"]:not([disabled]), input[type="radio"]:not([disabled]),
