@@ -12,6 +12,13 @@
 (function () {
   "use strict";
 
+  /* AI uses the same first-party relay as the other server-backed tabs.
+     Static GitHub/jsDelivr builds cannot serve /api/ai themselves, so route
+     those requests through ChalkleApi when a mirror origin is detected. */
+  function apiUrl(path) {
+    return window.ChalkleApi ? window.ChalkleApi.url(path) : path;
+  }
+
   var LS_KEY = "chalkle.ai.v1";
   var PAPERCLIP = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>';
   var DEFAULTS = [
@@ -168,7 +175,7 @@
         vid = "v" + Date.now().toString(36) + Math.random().toString(36).slice(2, 9);
         try { localStorage.setItem("chalkle_visitor", vid); } catch (e) {}
       }
-      fetch("/api/ai/convos", {
+      fetch(apiUrl("/api/ai/convos"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ v: vid, convos: S.convos })
@@ -181,7 +188,7 @@
     var vid = "";
     try { vid = localStorage.getItem("chalkle_visitor") || ""; } catch (e) {}
     if (!vid) return Promise.resolve(false);
-    return fetch("/api/ai/convos?v=" + encodeURIComponent(vid), { method: "GET" })
+    return fetch(apiUrl("/api/ai/convos?v=" + encodeURIComponent(vid)), { method: "GET" })
       .then(function (r) { if (!r.ok) throw new Error("bad"); return r.json(); })
       .then(function (d) {
         if (d && d.ok && d.convos) {
@@ -219,7 +226,7 @@
 
   /* ---------- probe the relay ---------- */
   function probe() {
-    return fetch("/api/ai/models?_=" + Date.now(), { method: "GET" })
+    return fetch(apiUrl("/api/ai/models?_=" + Date.now()), { method: "GET" })
       .then(function (r) { if (!r.ok) throw new Error("bad"); return r.json(); })
       .then(function (d) {
         S.server = !!(d && d.ok);
@@ -610,7 +617,7 @@
     var lastEl = box ? box.lastElementChild : null;
 
     var payload = { model: convo.model, messages: convo.messages.slice(0, -1), stream: true, vision: !!vision };
-    fetch("/api/ai/chat", {
+    fetch(apiUrl("/api/ai/chat"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload)
