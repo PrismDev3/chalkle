@@ -39,6 +39,10 @@
   </noscript>
 
   <script>
+  /* Static mirrors use the first-party relay for server-backed features. */
+  window.CHALKLE_API_ROOT = window.CHALKLE_API_ROOT || "https://chalkle.lootline.xyz";
+  </script>
+  <script>
   /* Cloak fix: when Chalkle is injected by a learn-N.svg cloak, the loader
      rewrites /assets/ paths in the HTML and every script, but asset URLs that
      come from saved data (recents, synced libraries, user entries) are built

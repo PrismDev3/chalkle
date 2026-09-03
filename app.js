@@ -394,9 +394,20 @@
   }
 
   function syncProxies() {
-    window.ChalkleProxies = state.proxies.slice();
+    var list = state.proxies.slice();
+    /* Static mirrors cannot host /uv themselves. Add the first-party relay
+       as a normal proxy entry so older cached launcher.js builds can still
+       route games and sites through the working server. */
+    try {
+      var relay = window.ChalkleApi && window.ChalkleApi.root ? String(window.ChalkleApi.root() || "").replace(/\/+$/, "") : "";
+      if (relay && /^https?:/i.test(relay)) {
+        var hasRelay = list.some(function (p) { return p && p.builtin && p.url === relay + "/uv"; });
+        if (!hasRelay) list.unshift({ name: "Chalkle Relay", url: relay + "/uv", mode: "path", builtin: true, icon: "/favicon.svg" });
+      }
+    } catch (e) { /* keep the normal proxy list */ }
+    window.ChalkleProxies = list;
     window.ChalkleGetProxies = function () {
-      return state.proxies.slice();
+      return list.slice();
     };
   }
 
