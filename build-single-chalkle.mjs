@@ -14,6 +14,7 @@ import path from 'node:path';
 
 const root = process.cwd();
 const out = path.join(root, 'chalkle-single.html');
+const CDN_SAFE = process.argv.includes('--cdn');
 
 const MIME = {
   '.png':'image/png','.jpg':'image/jpeg','.jpeg':'image/jpeg','.webp':'image/webp',
@@ -94,6 +95,7 @@ const REWRITE_RE = new RegExp(
 );
 const cache = {};
 function rewriteAssets(text) {
+  if (CDN_SAFE) return text;
   return text.replace(REWRITE_RE, (m, rel) => {
     if (cache[rel]) return cache[rel];
     const fp = path.join(root, rel.replace(/^\//,''));
@@ -126,17 +128,19 @@ const isSelfContained = (rel) => {
       && !r.includes('://'));
   return refs.length === 0;
 };
-for (const rel of [...new Set(gameUrls)]) {
-  if (isSelfContained(rel)) {
-    const uri = dataURI(path.join(root, rel.replace(/^\//,'')));
-    if (uri) embedMap[rel] = uri;
+if (!CDN_SAFE) {
+  for (const rel of [...new Set(gameUrls)]) {
+    if (isSelfContained(rel)) {
+      const uri = dataURI(path.join(root, rel.replace(/^\//,'')));
+      if (uri) embedMap[rel] = uri;
+    }
   }
 }
-console.log(`embedded ${Object.keys(embedMap).length} self-contained html games`);
+console.log(`${CDN_SAFE ? 'CDN-safe build; external game/assets paths stay relative' : 'embedded self-contained html games'}: ${Object.keys(embedMap).length}`);
 
 // ── 5. EMBED_STORE: fill the placeholder with the real body ──
 const embeddedRandomPath = path.join(root, 'random-gaming-websites-embedded.txt');
-const embeddedRandom = fs.existsSync(embeddedRandomPath) ? fs.readFileSync(embeddedRandomPath, 'utf8') : '';
+const embeddedRandom = !CDN_SAFE && fs.existsSync(embeddedRandomPath) ? fs.readFileSync(embeddedRandomPath, 'utf8') : '';
 const embeddedRandomB64 = Buffer.from(embeddedRandom, 'utf8').toString('base64');
 
 const EMBED_STORE = `<script>
