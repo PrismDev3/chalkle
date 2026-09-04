@@ -17,12 +17,6 @@ window.ChalkApps = [
     thumb: "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2064%2064%22%3E%3Cdefs%3E%3ClinearGradient%20id%3D%22g%22%20x1%3D%220%22%20y1%3D%220%22%20x2%3D%221%22%20y2%3D%221%22%3E%3Cstop%20offset%3D%220%22%20stop-color%3D%22%234285f4%22%2F%3E%3Cstop%20offset%3D%221%22%20stop-color%3D%22%232a7d44%22%2F%3E%3C%2FlinearGradient%3E%3C%2Fdefs%3E%3Crect%20width%3D%2264%22%20height%3D%2264%22%20rx%3D%2214%22%20fill%3D%22url(%23g)%22%2F%3E%3Ccircle%20cx%3D%2232%22%20cy%3D%2232%22%20r%3D%2218%22%20fill%3D%22none%22%20stroke%3D%22%230c1210%22%20stroke-width%3D%223.5%22%2F%3E%3Cellipse%20cx%3D%2232%22%20cy%3D%2232%22%20rx%3D%227%22%20ry%3D%2218%22%20fill%3D%22none%22%20stroke%3D%22%230c1210%22%20stroke-width%3D%223%22%2F%3E%3Cpath%20d%3D%22M14%2032h36%22%20stroke%3D%22%230c1210%22%20stroke-width%3D%223%22%2F%3E%3C%2Fsvg%3E"
   },
   {
-    title: "Blank Tab",
-    kind: "launcher",
-    category: "Built-in",
-    thumb: "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2064%2064%22%3E%3Cdefs%3E%3ClinearGradient%20id%3D%22g%22%20x1%3D%220%22%20y1%3D%220%22%20x2%3D%221%22%20y2%3D%221%22%3E%3Cstop%20offset%3D%220%22%20stop-color%3D%22%2334a853%22%2F%3E%3Cstop%20offset%3D%221%22%20stop-color%3D%22%232a7d44%22%2F%3E%3C%2FlinearGradient%3E%3C%2Fdefs%3E%3Crect%20width%3D%2264%22%20height%3D%2264%22%20rx%3D%2214%22%20fill%3D%22url(%23g)%22%2F%3E%3Crect%20x%3D%2214%22%20y%3D%2214%22%20width%3D%2236%22%20height%3D%2236%22%20rx%3D%226%22%20fill%3D%22none%22%20stroke%3D%22%230c1210%22%20stroke-width%3D%223.5%22%2F%3E%3Cpath%20d%3D%22M26%2038l10-6-10-6z%22%20fill%3D%22%230c1210%22%2F%3E%3C%2Fsvg%3E"
-  },
-  {
     title: "HTML Editor",
     kind: "editor",
     category: "Built-in",
@@ -87,7 +81,8 @@ window.ChalkApps = [
     title: "Ruffle",
     url: "https://truffled.lol/tools/ruffle.html",
     thumb: "/assets/games/t_0e44d1c8b2.jpg",
-    category: "Emulator"
+    category: "Emulator",
+    note: "Flash player. Load your own .swf file"
   },
   {
     title: "GUST",
@@ -105,13 +100,15 @@ window.ChalkApps = [
     title: "N64",
     url: "https://truffled.lol/tools/n64.html",
     thumb: "/assets/games/t_5b609296df.jpg",
-    category: "Emulator"
+    category: "Emulator",
+    note: "Bring your own ROM (.z64/.n64)"
   },
   {
     title: "Azahar",
     url: "/game-builds/azahar/index.html",
     thumb: "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2064%2064%22%3E%0A%3Cdefs%3E%3ClinearGradient%20id%3D%22g%22%20x1%3D%220%22%20y1%3D%220%22%20x2%3D%221%22%20y2%3D%221%22%3E%3Cstop%20offset%3D%220%22%20stop-color%3D%22%23ff7a45%22%2F%3E%3Cstop%20offset%3D%221%22%20stop-color%3D%22%23e2378c%22%2F%3E%3C%2FlinearGradient%3E%0A%3ClinearGradient%20id%3D%22s%22%20x1%3D%220%22%20y1%3D%220%22%20x2%3D%221%22%20y2%3D%221%22%3E%3Cstop%20offset%3D%220%22%20stop-color%3D%22%237ff0e0%22%2F%3E%3Cstop%20offset%3D%221%22%20stop-color%3D%22%233aa0ff%22%2F%3E%3C%2FlinearGradient%3E%3C%2Fdefs%3E%0A%3Crect%20width%3D%2264%22%20height%3D%2264%22%20rx%3D%2214%22%20fill%3D%22url(%23g)%22%2F%3E%0A%3Crect%20x%3D%2214%22%20y%3D%229%22%20width%3D%2236%22%20height%3D%2223%22%20rx%3D%225%22%20fill%3D%22%23140c1e%22%20stroke%3D%22rgba(0%2C0%2C0%2C0.35)%22%20stroke-width%3D%222%22%2F%3E%0A%3Crect%20x%3D%2218%22%20y%3D%2213%22%20width%3D%2213%22%20height%3D%2210%22%20rx%3D%221.5%22%20fill%3D%22url(%23s)%22%2F%3E%0A%3Crect%20x%3D%2233%22%20y%3D%2213%22%20width%3D%2213%22%20height%3D%2210%22%20rx%3D%221.5%22%20fill%3D%22url(%23s)%22%2F%3E%0A%3Crect%20x%3D%2214%22%20y%3D%2235%22%20width%3D%2236%22%20height%3D%2215%22%20rx%3D%225%22%20fill%3D%22%23140c1e%22%20stroke%3D%22rgba(0%2C0%2C0%2C0.35)%22%20stroke-width%3D%222%22%2F%3E%0A%3Crect%20x%3D%2218%22%20y%3D%2239%22%20width%3D%2228%22%20height%3D%227%22%20rx%3D%222%22%20fill%3D%22url(%23s)%22%2F%3E%0A%3Ccircle%20cx%3D%2222%22%20cy%3D%2246%22%20r%3D%221.4%22%20fill%3D%22%23fff%22%2F%3E%3Ccircle%20cx%3D%2242%22%20cy%3D%2246%22%20r%3D%221.4%22%20fill%3D%22%23fff%22%2F%3E%0A%3Cpath%20d%3D%22M27%2035v-3M37%2035v-3%22%20stroke%3D%22%23140c1e%22%20stroke-width%3D%222.5%22%20stroke-linecap%3D%22round%22%2F%3E%0A%3C%2Fsvg%3E",
-    category: "Emulator"
+    category: "Emulator",
+    note: "3DS emulator. Bring your own ROM"
   },
 
   {

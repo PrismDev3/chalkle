@@ -123,7 +123,21 @@
     if (count) count.textContent = partners.length + (partners.length === 1 ? " partner" : " partners");
     if (empty) empty.hidden = partners.length > 0;
 
-    partners.forEach(function (p) {
+    /* Two headed sections: partners with a live official site first, then the
+       announced ones waiting on their site. Headers span the full grid row
+       (.partners-sect-head is grid-column 1 / -1) so cards flow beneath. */
+    var liveList = [], soonList = [];
+    partners.forEach(function (p) { (normalizeUrl(p.official) ? liveList : soonList).push(p); });
+    var sections = [];
+    if (liveList.length) sections.push(["Live partners", liveList, "up now"]);
+    if (soonList.length) sections.push(["Coming soon", soonList, "announced"]);
+
+    sections.forEach(function (sec) {
+      var head = el("div", "partners-sect-head");
+      head.appendChild(el("h3", "partners-sect-title", sec[0]));
+      head.appendChild(el("span", "partners-sect-chip", sec[2]));
+      grid.appendChild(head);
+      sec[1].forEach(function (p) {
       var official = normalizeUrl(p.official);
       var discord = normalizeUrl(p.discord);
 
@@ -211,7 +225,8 @@
         });
       }
 
-      grid.appendChild(card);
+        grid.appendChild(card);
+      });
     });
   }
 

@@ -109,11 +109,29 @@
 
   /* ---------- api ---------- */
 
+  var _gen = 0; /* bumped per view change; stale in-flight responses are dropped */
+
   function api(path) {
+    var gen = _gen;
     var url = window.ChalkleApi ? window.ChalkleApi.url(path) : path;
-    return fetch(url, { cache: "no-store" }).then(function (r) {
-      if (!r.ok) throw new Error("http " + r.status);
-      return r.json();
+    return new Promise(function (resolve, reject) {
+      var ctrl = window.AbortController ? new AbortController() : null;
+      var timer = setTimeout(function () {
+        if (ctrl) { try { ctrl.abort(); } catch (e) {} }
+        if (gen === _gen) reject(new Error("relay timed out"));
+      }, 15000);
+      fetch(url, { cache: "no-store", signal: ctrl ? ctrl.signal : undefined })
+        .then(function (r) {
+          if (!r.ok) throw new Error("http " + r.status);
+          return r.json();
+        })
+        .then(function (j) {
+          if (gen === _gen) resolve(j);
+        })
+        .catch(function (e) {
+          if (gen === _gen) reject(e);
+        })
+        .then(function () { clearTimeout(timer); });
     });
   }
 
@@ -216,6 +234,7 @@
   /* ---------- home feed ---------- */
 
   function loadHome() {
+    _gen++; /* a new view: drop anything still in flight from the old one */
     var home = els.home;
     home.innerHTML = loadingHtml();
 
@@ -444,6 +463,7 @@
   }
 
   function loadCat(cat) {
+    _gen++; /* a new view: drop anything still in flight from the old one */
     var box = els.results;
     els.home.hidden = true;
     els.results.hidden = false;
@@ -473,6 +493,7 @@
   }
 
   function doSearch(q) {
+    _gen++; /* a new view: drop anything still in flight from the old one */
     state.q = q;
     els.home.hidden = true;
     els.results.hidden = false;

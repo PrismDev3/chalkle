@@ -2586,17 +2586,37 @@ button.home-panel-chip:hover {
 }
 
 .theme-color-field input[type="color"] {
-  width: 64px;
-  height: 40px;
-  padding: 2px;
+  width: 68px;
+  height: 42px;
+  padding: 3px;
   border: 1px solid var(--line);
-  border-radius: 9px;
+  border-radius: 14px;
   background: var(--panel);
   cursor: pointer;
+  overflow: hidden;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+  transition: border-color 140ms ease, box-shadow 140ms ease, transform 140ms ease;
 }
-
-.theme-color-field input[type="color"]::-webkit-color-swatch-wrapper { padding: 2px; }
-.theme-color-field input[type="color"]::-webkit-color-swatch { border: 0; border-radius: 6px; }
+.theme-color-field input[type="color"]:hover { border-color: var(--text-3); }
+.theme-color-field input[type="color"]:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.theme-color-field input[type="color"]:active { transform: scale(0.96); }
+/* Round the native swatch itself so the colour chip follows the field's
+   rounded shape instead of showing a hard-edged square inside it. */
+.theme-color-field input[type="color"]::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+.theme-color-field input[type="color"]::-webkit-color-swatch {
+  border: 0;
+  border-radius: 10px;
+}
+.theme-color-field input[type="color"]::-moz-color-swatch {
+  border: 0;
+  border-radius: 10px;
+}
 
 .theme-actions {
   display: flex;
@@ -3010,20 +3030,6 @@ button.home-panel-chip:hover {
   .settings-select, .settings-input { width: 100%; }
 }
 
-/* ---------- Blank Tab app modal ---------- */
-
-.blanktab-card {
-  width: min(560px, 100%);
-}
-
-.blanktab-body {
-  padding: 20px;
-}
-
-.blanktab-body .form-row {
-  margin-top: 16px;
-}
-
 /* ---------- HTML Editor app modal ---------- */
 /* The editor is a full-page surface, not a window: it fills the viewport so
    there is real room to write and preview side by side. */
@@ -3400,6 +3406,20 @@ button.home-panel-chip:hover {
   white-space: nowrap;
 }
 
+/* Small disclaimer line under app tiles (e.g. emulators that need
+   you to bring your own ROM/.swf). Sits below the meta row. */
+.tool-tile-note {
+  display: block;
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--text-3);
+  margin-top: 2px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
 .tool-tile.is-proxy .tool-tile-art {
   position: relative;
   outline: 2px solid var(--va-soft);
@@ -3609,6 +3629,24 @@ button.home-panel-chip:hover {
   flex-wrap: wrap;
 }
 
+/* Empty board column: "N spots are open" + an Apply here CTA so
+   open roles read as an invitation instead of dead space. */
+.board-open {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 140px;
+  text-align: center;
+  color: var(--text-3);
+}
+.board-open-label {
+  font-size: 15px;
+  font-weight: 600;
+}
+.board-apply-btn { margin-top: 2px; }
+
 .board-person {
   width: min(132px, 42%);
   display: grid;
@@ -3781,55 +3819,6 @@ button.home-panel-chip:hover {
 }
 
 /* ---------- Launch picker ---------- */
-
-.video-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 80;
-  display: grid;
-  place-items: center;
-  padding: 24px;
-  background: rgba(10, 12, 15, 0.92);
-}
-
-.video-window {
-  width: min(1100px, 100%);
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  overflow: hidden;
-}
-
-.video-bar {
-  min-height: 46px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 0 12px 0 16px;
-  color: var(--text);
-  font-weight: 600;
-}
-
-#video-frame {
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  display: block;
-  border: 0;
-  background: #000;
-}
-
-.video-bar-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-#video-pip {
-  min-height: 30px;
-  padding: 5px 9px;
-  font-size: 11px;
-}
 
 .launch-modal {
   --launch-green: #4ab88c;
@@ -4698,314 +4687,6 @@ html.motion-off *::after {
 @media (hover: none) {
   .song-fav { opacity: 1; }
 }
-
-.pulse {
-  animation: count-pulse 1.4s ease-in-out infinite;
-}
-
-/* ---------- Audio dock ---------- */
-
-.audio-dock {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 55;
-  background: var(--panel);
-  border-top: 1px solid var(--line);
-  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.25);
-}
-
-.audio-eq {
-  height: 44px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-bottom: 1px solid var(--line-soft);
-  background: var(--base);
-}
-
-.audio-eq canvas {
-  width: 220px;
-  height: 40px;
-}
-
-.audio-row {
-  display: flex;
-  align-items: center;
-  gap: 18px;
-  padding: 10px 16px;
-}
-
-.audio-meta {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
-  flex: 1 1 0;
-}
-
-.audio-art {
-  position: relative;
-  width: 46px;
-  height: 46px;
-  flex: none;
-  border-radius: 8px;
-  overflow: hidden;
-  background: var(--panel-2);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid var(--line-soft);
-}
-
-.audio-art .fallback {
-  font-family: var(--display-geo);
-  font-size: 21px;
-  font-weight: 700;
-  color: #4a505a;
-}
-
-.audio-art .fallback.note .icon { width: 18px; height: 18px; color: #4a505a; }
-
-.audio-art img {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.audio-titles {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-.audio-title {
-  font-family: var(--display-geo);
-  font-size: 16px;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.audio-artist {
-  font-size: 14.5px;
-  color: var(--text-3);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.audio-btn {
-  width: 32px;
-  height: 32px;
-  flex: none;
-  border-radius: 8px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--text-2);
-  position: relative;
-  transition: color 140ms ease, background 140ms ease;
-}
-
-.audio-btn .icon { width: 18px; height: 18px; }
-
-.audio-btn:hover { color: var(--text); background: var(--panel-2); }
-
-.audio-btn.is-on { color: var(--accent); background: var(--accent-soft); }
-
-.audio-btn.heart.is-on { color: var(--accent); background: none; }
-.audio-btn.heart.is-on .icon { fill: var(--accent); stroke: var(--accent); }
-
-.audio-btn.play {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background: var(--accent);
-  color: var(--accent-ink);
-}
-
-.audio-btn.play:hover { background: #ff6a1f; color: var(--accent-ink); }
-
-.audio-btn.play .icon { width: 20px; height: 20px; }
-
-.audio-center {
-  flex: 1 1 auto;
-  max-width: 560px;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.audio-buttons {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-}
-
-.audio-track {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.audio-time {
-  font-family: var(--mono);
-  font-size: 12.5px;
-  color: var(--text-3);
-  font-variant-numeric: tabular-nums;
-  width: 34px;
-  text-align: center;
-  flex: none;
-}
-
-.audio-range {
-  appearance: auto;
-  -webkit-appearance: auto;
-  flex: 1;
-  height: 4px;
-  accent-color: var(--accent);
-  cursor: pointer;
-  min-width: 0;
-}
-
-.audio-range.vol {
-  width: 90px;
-  flex: none;
-}
-
-.audio-right {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex: 1 1 0;
-  justify-content: flex-end;
-  min-width: 0;
-}
-
-.queue-count {
-  position: absolute;
-  top: -3px;
-  right: -3px;
-  min-width: 15px;
-  height: 15px;
-  padding: 0 3px;
-  border-radius: 8px;
-  background: var(--accent);
-  color: var(--accent-ink);
-  font-size: 11px;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-variant-numeric: tabular-nums;
-}
-
-/* Queue panel */
-
-.audio-queue {
-  position: absolute;
-  bottom: calc(100% + 10px);
-  left: 16px;
-  right: 16px;
-  max-width: 480px;
-  margin: 0 auto;
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  overflow: hidden;
-  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.3);
-}
-
-.audio-queue-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 12px;
-  border-bottom: 1px solid var(--line-soft);
-  font-family: var(--display-geo);
-  font-size: 15.5px;
-  font-weight: 600;
-}
-
-.audio-queue-list {
-  max-height: 300px;
-  overflow-y: auto;
-}
-
-.queue-row {
-  display: grid;
-  grid-template-columns: 28px 1fr auto;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 12px;
-  cursor: pointer;
-}
-
-.queue-row:hover { background: var(--panel-2); }
-
-.queue-row.is-current { background: var(--accent-soft); }
-
-.queue-row.is-current .queue-title { color: var(--accent); }
-
-.queue-idx {
-  font-family: var(--mono);
-  font-size: 13px;
-  color: var(--text-3);
-  text-align: center;
-}
-
-.queue-row.is-current .queue-idx { color: var(--accent); }
-
-.queue-titles {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-.queue-title {
-  font-size: 15.5px;
-  font-weight: 600;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.queue-sub {
-  font-size: 14px;
-  color: var(--text-3);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.queue-dur {
-  font-family: var(--mono);
-  font-size: 13px;
-  color: var(--text-3);
-}
-
-.queue-none {
-  padding: 18px;
-  text-align: center;
-  color: var(--text-3);
-  font-size: 15.5px;
-}
-
-@media (max-width: 720px) {
-  .audio-art { display: none; }
-  .audio-right .audio-range.vol { display: none; }
-  .audio-row { gap: 10px; padding: 10px 12px; }
-  .audio-queue { left: 8px; right: 8px; }
-}
-
 /* Final surface pass: consistent depth, clean hierarchy, and better touch targets. */
 .topbar {
   background: rgba(12, 18, 16, 0.88);
@@ -5821,6 +5502,10 @@ html.motion-off *::after {
 }
 
 .home-block-feat { margin-top: 18px; }
+
+/* Editor's picks shelf inside the Games view sits flush under the
+   filter chips before the ad slot + grid. */
+.picks-on-games { margin-top: 2px; }
 
 /* Recents box: head + its own card grid. */
 .home-recents .home-shelf { margin-top: -4px; }
@@ -7681,6 +7366,37 @@ body.sidebar-collapsed .music-player { left: var(--side-w-collapsed); }
 .p-qsub { color: var(--text-3); font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .p-toast { position: fixed; left: 50%; bottom: 104px; transform: translateX(-50%); z-index: 62; background: var(--panel-2); border: 1px solid var(--line-2); color: var(--text); font-size: 13px; padding: 8px 16px; border-radius: 999px; }
 
+/* Shared toast host (docs, Live TV, YouTube): fixed column, bottom centre. */
+.toast-box {
+  position: fixed;
+  left: 50%;
+  bottom: 26px;
+  transform: translateX(-50%);
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
+  max-width: min(92vw, 460px);
+}
+.toast-box .toast {
+  background: rgba(18, 24, 21, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--text);
+  font-family: var(--display-geo);
+  font-size: 13.5px;
+  font-weight: 600;
+  padding: 9px 18px;
+  border-radius: 999px;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.42);
+  transition: opacity 260ms ease, transform 260ms ease;
+}
+.toast-box .toast.is-out {
+  opacity: 0;
+  transform: translateY(4px);
+}
+
 /* Custom cursor pointer state: interactive elements reuse the same cursor
    image as the base but a brightened copy of it, so hovering lightens the
    cursor instead of swapping to a different shape. Text inputs/areas keep
@@ -7724,12 +7440,19 @@ input[type="submit"]:not([disabled]), input[type="range"]:not([disabled]) {
 
 .livetv-sports-cats {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 8px;
-  margin-bottom: 16px;
+  margin-bottom: 14px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 6px;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
 }
+.livetv-sports-cats::-webkit-scrollbar { display: none; }
 
 .livetv-sports-cats .chip {
+  flex: 0 0 auto;
   height: 30px;
   padding: 0 13px;
   border-radius: 999px;
@@ -9623,4 +9346,532 @@ input[type="submit"]:not([disabled]), input[type="range"]:not([disabled]) {
   background: rgba(74, 184, 140, .16);
   font-size: 22px;
   line-height: 1;
+}
+
+/* ---------- polish pass (overhaul quick wins) ---------- */
+
+/* Home stat cards are buttons now: jump to the matching tab. */
+button.home-metric {
+  width: 100%;
+  display: block;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 120ms ease, border-color 120ms ease, background 120ms ease;
+}
+
+.home-metric[hidden] { display: none; }
+
+button.home-metric:hover {
+  border-color: var(--line-2);
+  background: rgba(74, 184, 140, 0.08);
+  transform: translateY(-1px);
+}
+
+button.home-metric:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* Home hero trust line under the tagline. */
+.home-trust {
+  margin: 10px 0 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-3);
+}
+
+/* Long titles wrap to two lines instead of cutting off mid-word. */
+.grid .card .card-main > .card-title {
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.3;
+}
+
+.home-card-title {
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Partners: headed Live / Coming soon sections inside the shared grid.
+   Headers span the full row; cards flow beneath in the auto-fill columns. */
+.partners-sect-head {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 16px;
+  padding: 0 2px 7px;
+  border-bottom: 1px solid var(--pline);
+}
+.partners-sect-head:first-child { margin-top: 0; }
+.partners-sect-title {
+  margin: 0;
+  font-family: var(--display);
+  font-size: 18px;
+  color: var(--ptxt);
+}
+.partners-sect-chip {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ptxt-soft);
+}
+
+/* ---------- Discord join banner on Home ---------- */
+.home-join {
+  display: flex;
+  align-items: center;
+  gap: 12px 16px;
+  flex-wrap: wrap;
+  margin: 0 0 20px;
+  padding: 12px 12px 12px 16px;
+  border-radius: 14px;
+  background: rgba(88, 101, 242, 0.13);
+  border: 1px solid rgba(114, 137, 218, 0.42);
+}
+.home-join-ico {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  border-radius: 10px;
+  background: #5865f2;
+  color: #fff;
+}
+.home-join-ico .icon { width: 18px; height: 18px; }
+.home-join-txt {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  flex: 1 1 240px;
+}
+.home-join-title { font-family: var(--display); font-size: 15px; color: var(--text); }
+.home-join-sub { font-size: 12.5px; color: var(--text-2); }
+.home-join-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 34px;
+  padding: 0 16px;
+  border-radius: 9px;
+  background: #5865f2;
+  color: #fff;
+  font-family: var(--display);
+  font-size: 13.5px;
+  font-weight: 700;
+  text-decoration: none;
+  transition: background 140ms ease, transform 140ms ease;
+}
+.home-join-btn:hover { background: #6b76f5; }
+.home-join-x {
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+  border-radius: 7px;
+}
+.home-join-x:hover { color: var(--text); background: var(--red-soft); }
+.home-join-x .icon { width: 14px; height: 14px; }
+@media (max-width: 560px) {
+  .home-join { gap: 10px; }
+  .home-join-sub { display: none; }
+}
+
+/* Continue playing: fade the right edge while the strip can scroll further. */
+.home-recents-scroll.is-masked {
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent 100%);
+  mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent 100%);
+}
+
+/* Settings: wallpaper apply feedback under the URL row. */
+.wallpaper-hint {
+  display: block;
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--red-ink);
+}
+.wallpaper-hint.is-ok { color: var(--accent); }
+
+/* Sidebar footer version text doubles as the What's-new trigger. */
+button.side-foot {
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+button.side-foot:hover { color: var(--text-2); }
+.side-foot.is-wn-new .side-foot-txt::after {
+  content: "";
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-left: 7px;
+  border-radius: 50%;
+  background: var(--pink);
+  box-shadow: 0 0 0 3px var(--pink-soft);
+  vertical-align: 1px;
+}
+
+/* What's new lightbox. */
+.whatsnew-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(6, 8, 10, 0.72);
+  backdrop-filter: blur(3px);
+}
+.whatsnew-card {
+  width: min(480px, 100%);
+  max-height: min(82vh, 640px);
+  overflow: auto;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+}
+.whatsnew-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 18px 10px;
+}
+.whatsnew-kicker {
+  display: block;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+.whatsnew-title { margin: 2px 0 0; font-family: var(--display); font-size: 22px; color: var(--text); }
+.whatsnew-list {
+  list-style: none;
+  margin: 0;
+  padding: 4px 18px 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+}
+.whatsnew-list li { font-size: 13.5px; line-height: 1.45; color: var(--text-2); }
+.wn-tag {
+  display: inline-block;
+  margin-right: 8px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--pink);
+  background: var(--pink-soft);
+  border: 1px solid var(--pink);
+  vertical-align: 1px;
+}
+.whatsnew-foot {
+  display: block;
+  margin: 10px 18px 16px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(88, 101, 242, 0.14);
+  border: 1px dashed rgba(114, 137, 218, 0.5);
+  color: #9aa4f5;
+  font-size: 12.5px;
+  text-align: center;
+  text-decoration: none;
+}
+.whatsnew-foot:hover { color: #c3c9ff; }
+
+/* Proxy pill variants: walled targets keep the default orange, plain
+   network-bypass targets switch to blue. */
+.tool-tile-via.is-bypass {
+  color: #4285f4;
+  background: rgba(66, 133, 244, 0.13);
+  border-color: #4285f4;
+}
+
+/* ---------- Home hero polish ---------- */
+/* The trust line under the hero copy had no styles at all - give it a
+   muted, inline look with a shield check so it reads as a real promise. */
+.home-trust {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 12px 0 0;
+  max-width: 56ch;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-3);
+}
+.home-trust .icon {
+  width: 15px;
+  height: 15px;
+  flex: none;
+  margin-top: 2px;
+  color: var(--accent);
+}
+
+/* Quick-launch shortcuts: equal-width tiles instead of ragged pill rows,
+   so the panel reads as a tidy launchpad. "All tabs" fills the 6th cell. */
+.home-quick {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+}
+.home-quick-card {
+  justify-content: center;
+  width: 100%;
+  min-width: 0;
+  padding: 9px 6px;
+  border-radius: 12px;
+}
+.home-quick-card .home-quick-t {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.home-quick-card.q-yt .home-quick-ico {
+  width: 20px;
+  height: 20px;
+  filter: none;
+}
+.home-quick-more {
+  width: 100%;
+}
+.home-quick-more .home-quick-more-btn {
+  justify-content: center;
+  width: 100%;
+}
+@media (max-width: 430px) {
+  .home-quick { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* CTA hover: the old rule flipped the pink button green on hover - keep the
+   accent family. Secondary buttons get a neutral lift instead of a green tint. */
+.home-primary:hover {
+  background: #f0558f;
+  border-color: rgba(255, 255, 255, 0.14);
+}
+.home-secondary:hover {
+  border-color: var(--accent);
+  background: rgba(255, 255, 255, 0.055);
+}
+
+/* Soft depth behind the hero copy - two blurred colour glows in the panel's
+   corners so the left card stops feeling empty next to the busy right one.
+   isolation + z-index:-1 keeps the glows behind the copy and buttons. */
+.home-hero-main { isolation: isolate; }
+.home-hero-main::before,
+.home-hero-main::after {
+  content: "";
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: -1;
+}
+.home-hero-main::before {
+  width: 320px;
+  height: 320px;
+  top: -150px;
+  left: -100px;
+  background: rgba(255, 77, 141, 0.09);
+  filter: blur(80px);
+}
+.home-hero-main::after {
+  width: 280px;
+  height: 280px;
+  bottom: -130px;
+  right: -70px;
+  background: rgba(66, 133, 244, 0.08);
+  filter: blur(80px);
+}
+
+/* ---------- Tab identity: every view wears its own color ----------
+   Titles, meta chips and active filter chips take the tab's accent, so text
+   and chrome always match the tab. Views without a chalk texture image
+   (Live TV, YouTube, AI, Cloud) get layered colour glows instead of a flat
+   dark scrim - each tuned to that tab's accent. */
+.view[data-view] .view-title { color: var(--va); }
+.view[data-view] .view-meta {
+  color: var(--va);
+  background: var(--va-soft);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+.view .chip.is-active {
+  border-color: var(--va);
+  color: var(--va);
+  background: var(--va-soft);
+}
+
+.view[data-view="livetv"]::before {
+  background-color: #04100c;
+  background-image:
+    radial-gradient(860px 500px at 88% -12%, rgba(74, 184, 140, 0.22), transparent 62%),
+    radial-gradient(700px 460px at -12% 112%, rgba(18, 181, 165, 0.12), transparent 60%);
+  background-blend-mode: normal;
+}
+.view[data-view="youtube"]::before {
+  background-color: #120506;
+  background-image:
+    radial-gradient(880px 520px at 16% -12%, rgba(255, 0, 51, 0.22), transparent 62%),
+    radial-gradient(640px 440px at 112% 104%, rgba(255, 77, 141, 0.10), transparent 60%);
+  background-blend-mode: normal;
+}
+.view[data-view="ai"]::before {
+  background-color: #0d0517;
+  background-image:
+    radial-gradient(860px 520px at 82% -10%, rgba(176, 107, 255, 0.20), transparent 62%),
+    radial-gradient(640px 420px at -8% 110%, rgba(66, 133, 244, 0.08), transparent 60%);
+  background-blend-mode: normal;
+}
+.view[data-view="cloud"]::before {
+  background-color: #04101c;
+  background-image:
+    radial-gradient(880px 520px at 20% -10%, rgba(95, 190, 255, 0.20), transparent 62%),
+    radial-gradient(680px 440px at 110% 108%, rgba(66, 133, 244, 0.10), transparent 60%);
+  background-blend-mode: normal;
+  filter: none;
+}
+
+/* ---------- Music: make it read as a music app ---------- */
+.view[data-view="music"] .mrow {
+  background: rgba(21, 8, 15, 0.72);
+  border-color: rgba(230, 0, 115, 0.22);
+  margin-bottom: 7px;
+  transition: border-color 140ms ease, background 140ms ease, transform 140ms ease;
+}
+.view[data-view="music"] .mrow:hover {
+  background: rgba(230, 0, 115, 0.12);
+  transform: translateX(3px);
+}
+.view[data-view="music"] .mrow.is-playing {
+  background: rgba(230, 0, 115, 0.16);
+  box-shadow: 0 0 0 1px rgba(230, 0, 115, 0.6), 0 4px 18px rgba(230, 0, 115, 0.25);
+}
+/* While a track plays, its art shows a dim overlay with a live-style EQ. */
+.view[data-view="music"] .mrow.is-playing .mrow-art::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(10, 2, 7, 0.45) url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%20fill='none'%20stroke='%23fff'%20stroke-width='2.4'%20stroke-linecap='round'%3E%3Cpath%20d='M5%2018v-9M9.5%2018V6M14%2018v-11M18.5%2018V9'/%3E%3C/svg%3E") center / 18px no-repeat;
+  animation: p-eq-breathe 1.6s ease-in-out infinite;
+}
+@keyframes p-eq-breathe {
+  0%, 100% { opacity: 0.85; }
+  50% { opacity: 0.45; }
+}
+.view[data-view="music"] .mrow.is-playing .mrow-play {
+  background: var(--magenta);
+  border-color: var(--magenta);
+  color: #fff;
+}
+/* The "Most popular" header doubles as the page banner. */
+.view[data-view="music"] .mstory-head {
+  margin: 2px 0 12px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: rgba(230, 0, 115, 0.13);
+  border: 1px solid rgba(230, 0, 115, 0.38);
+}
+.view[data-view="music"] .mstory-title {
+  color: var(--magenta);
+}
+.view[data-view="music"] .mrow:last-child { margin-bottom: 6px; }
+
+/* ---------- Editor's picks: numbered, framed, clearly editorial ---------- */
+#home-picks, #games-picks {
+  counter-reset: pick;
+  background: rgba(255, 77, 141, 0.05);
+  border: 1px solid rgba(255, 77, 141, 0.24);
+  border-radius: 16px;
+  padding: 12px 14px 4px;
+  margin-bottom: 18px;
+}
+#home-picks .home-block-title, #games-picks .home-block-title { color: var(--pink); }
+#home-picks .home-block-note, #games-picks .home-block-note { color: var(--text-2); }
+#home-picks .game-card, #games-picks .game-card { counter-increment: pick; }
+#home-picks .game-card .card-thumb::before, #games-picks .game-card .card-thumb::before {
+  content: counter(pick, decimal-leading-zero);
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 2;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--pink);
+  color: #2a0512;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 22px;
+  text-align: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
+/* --- Audit batch: a11y + polish ----------------------------------------- */
+
+/* Keyboard focus ring using the active tab accent. */
+:focus-visible {
+  outline: 2px solid var(--va, var(--accent));
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* Board member roles and bios. */
+.board-role {
+  margin-top: 2px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--va, var(--accent));
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.board-bio {
+  margin-top: 6px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text-2);
+}
+
+/* Long URLs / sources never blow out a card. */
+.card-source,
+.tool-tile-meta,
+.tool-tile-via {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+/* Honor reduced-motion for everything animated. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
