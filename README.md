@@ -1,35 +1,58 @@
 # Chalkle
 
-A fast, flat, dark game launcher: games, music, apps/tools and proxies. No framework, no build step, no fake content.
+A fast, flat, dark game launcher: games, cloud gaming, music, YouTube, Live TV,
+AI chat, sites, apps/tools and proxies. No framework, no sign-in, no fake
+content.
 
 ## Features
 
-- Bubble wordmark (Boogaloo) with Google colors, the one brand moment
-- Card grid with hover play button and live counts
-- Proxies tab with in-app frame or new-tab mode, saved per device
-- Settings: reduce motion, card size, clear saved proxies
-- Keyboard: Ctrl/Cmd+K to search, Alt+1..5 to jump sections, Space toggles music, Esc to close overlays
-- Topbar search routes into music search on the Music tab
-- Launcher: every game opens via a picker with Direct, About:blank, Blob, This tab, or Proxy
-- Settings: ask-on-launch toggle, default open method, cloak tab title
-- Apps/Tools: URL cloaker and a live HTML editor with syntax highlight, preview, open/download/copy/upload/reset
-- Boot intro: game-station splash with letter build, boot log, progress bar, skippable and motion-safe
+- 14 tabs: Home, Games, Cloud, Music, Apps/Tools, Proxies, Sites, AI, Docs,
+  Partners, Board, Live TV, YouTube, Settings
+- Launcher: every game/site/app opens as a plain new tab; explicitly proxied
+  items route through a configured proxy, and when a popup is blocked the item
+  falls back to the in-app frame overlay on this page
+- Tab cloak: disguise the whole tab as Google / Classroom / Docs / Drive /
+  Canvas / Clever / Khan / IXL; with no cloak the tab keeps the IXL look so it
+  matches the link preview everywhere
+- Panic key: press ` 3x fast (or Ctrl+Shift+`) to instantly jump to Google
+  Classroom
+- Music: full player with queue, shuffle, repeat, lyrics, speed/pitch,
+  equalizer, favorites; streams resolved through the relay
+- YouTube search + player and Live TV (HLS sports channels) through the relay
+- AI chat against the site's own relay (model list, streaming replies, file
+  attachments, saved conversations)
+- Board / Partners / Docs with in-app admin editing (code-gated)
+- Search everywhere (Ctrl/Cmd+K), genre/category chips, sort, favorites,
+  recents, Editor's Picks, "New this week" ribbons
+- Boot intro (skippable, motion-safe), themes, wallpapers, cursors, reduce
+  motion
 
 ## Run
 
-Open `index.html` in any browser. Works from a Chromebook with nothing installed.
+```
+python serve-chalk.py
+```
 
-## Playtest
+Then open http://127.0.0.1:4173. The relay on the same port backs the YouTube,
+music, AI, Live TV and cloud features; static mirrors (GitHub Pages) route
+those calls to `chalkle.lootline.xyz` instead (see `runtime-config.js`).
 
-Run `node audit.mjs` to statically verify every screen state: duplicate ids, JS-to-HTML id wiring, script assets, and hidden/display conflicts.
+## Playtest / audit workflow
+
+- `node audit.mjs` - static checks: duplicate ids, JS-to-HTML id wiring,
+  script assets, hidden/display conflicts, nav wiring
+- `python tools/checker.py` - copy/style gate: dashes, AI vocab, gradients
+- `node build-single-chalkle.mjs` (+ `--cdn`) - regenerate the two
+  single-file builds after any source change
+- Bump the `?v=` cache version in `index.html` (and rebuild) every release
 
 ## Sections
 
 | Section | Data file |
 | --- | --- |
 | Games | `webports.js` (wasm.rip ports) + `games.js` (Chud import) |
-| Music | `music.js` (full player, live mirrors) |
-| Apps/Tools | `apps.js` (create it) |
+| Music | `music.js` (full player, relay-resolved streams) |
+| Apps/Tools | `apps.js` |
 | Proxies | `proxies.js` seeds, editable in-app, saved to localStorage |
 | Cloud Gaming | `cloudgames.js` (Stratus catalog import) + `cloud.js` |
 
@@ -58,24 +81,25 @@ node tools/import-stratus.mjs <path-to-cloud.json>
 
 ## Web ports
 
-`webports.js` holds 29 full PC game ports from wasm.rip with cover art, descriptions, and porter credits. All URLs were verified live. genizy/web-port's builds have no reachable host right now (jsDelivr blocked the account, no Pages, gn-math repo is dead), so they are not hardcoded in until a working host exists.
+`webports.js` holds 29 full PC game ports from wasm.rip with cover art,
+descriptions, and porter credits. All URLs were verified live.
 
 ## Games from Chud
 
-`games.js` holds the 327 working games (absolute URLs) imported from Chud's list. They render after the web ports on the Games tab. Regenerate it anytime the source changes:
+`games.js` holds the working games (absolute URLs) imported from Chud's list.
+Regenerate it anytime the source changes:
 
 ```
 node tools/import-chud.mjs <path-to-chud-games.js>
 ```
 
-The rest of Chud's entries use relative files that are not in the Chud repo, so they are kept commented out at the bottom of `games.js` and stay out of the grid until the `games/` folder exists here.
-
 ## Music
 
-The Music tab streams full-length songs from public mirrors, no server and no accounts:
+The Music tab streams full-length songs through the relay (netease-compatible
+backend in `music-backend/`, YouTube fallback):
 
 - Search, trending, favorites, and local-file uploads
-- Streams resolved through rotating Piped instances, byte-verified before playback, Invidious as fallback
+- Streams resolved server-side, byte-verified before playback
 - Queue with shuffle, repeat (off / all / one), seek, volume, live equalizer
 - Favorites, volume, and modes persist per device
 
@@ -101,7 +125,10 @@ window.ChalkGames = [
 
 ## Proxies
 
-The Proxies tab ships seeded with Ultraviolet, Scramjet, Rammerhead, Nebula, Interstellar and Womginx. Each needs a URL from a deployment you host; see `PROXIES.md`. URLs are stored per-device in localStorage, never hardcoded into the page.
+The Proxies tab ships seeded with Ultraviolet, Scramjet, Rammerhead, Nebula,
+Interstellar and Womginx. Each needs a URL from a deployment you host; see
+`PROXIES.md`. URLs are stored per-device in localStorage, never hardcoded into
+the page.
 
 ## Design tokens
 
@@ -111,13 +138,19 @@ The Proxies tab ships seeded with Ultraviolet, Scramjet, Rammerhead, Nebula, Int
 - Wordmark: Boogaloo bubble letters in Google colors (the only brand moment)
 - Headings: Space Grotesk. UI: system fonts.
 - Flat fills only. No gradients, no glow, no shadows.
-- Settings persist to localStorage: reduce motion, card size, sidebar state.
+- Settings persist to localStorage: reduce motion, card size, sidebar state,
+  cloak, tab cloak choice.
 
 ## Files
 
-- `index.html` shell: top bar with search, sidebar nav, main views, proxy overlay
+- `serve-chalk.py` static server + relay (YouTube, music, AI, Live TV, cloud,
+  /uv/ proxy) - the single backend for the whole site
+- `index.html` shell: top bar with search, sidebar nav, main views, overlays
 - `styles.css` all styling, responsive sidebar and drawer
-- `app.js` rendering, search, nav, options, proxy list and overlay, HTML editor
-- `launcher.js` direct / about:blank / blob / iframe / proxy opening
-- `games.js` / `proxies.js` data
-- `PROXIES.md` hosting guide
+- `app.js` rendering, search, nav, cloak, admin panel, proxy list, recents
+- `launcher.js` new-tab launcher with proxy routing and in-app frame fallback
+- `music.js` / `youtube.js` / `livetv.js` / `ai.js` view modules (relay-backed)
+- `games.js` / `sites.js` / `apps.js` / `webports.js` / `cloudgames.js` data
+- `runtime-config.js` mirror/static-mode API root resolution
+- `build-single-chalkle.mjs` single-file build (local + CDN variants)
+- `tools/checker.py` + `audit.mjs` quality gates

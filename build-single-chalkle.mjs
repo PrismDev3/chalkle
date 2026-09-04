@@ -68,7 +68,7 @@ idx = idx.replace(/<link[^>]*rel="stylesheet"[^>]*href="([^"]+)"[^>]*>/gi, (m, h
 
 // ── 2. inline JS ──────────────────────────────────────────────
 const SCRIPTS = ['theme.js','runtime-config.js','sync.js','games.js','cloudgames.js','webports.js','sites.js',
-  'proxies.js','apps.js','music.js','launcher.js','cloud.js','blanktab.js','editor.js','urlauditor.js',
+  'proxies.js','apps.js','music.js','launcher.js','cloud.js','editor.js','urlauditor.js',
   'pixel.js','domainhub.js','ai.js','docs.js','partners.js','intro.js','app.js'];
 const bodies = SCRIPTS.map((file) => {
   const fp = path.join(root, file);
@@ -182,8 +182,10 @@ idx = idx.replace('<!--EMBED_STORE_PLACEHOLDER-->', EMBED_STORE);
 
 // ── 6. write ──────────────────────────────────────────────────
 fs.mkdirSync(path.dirname(out), {recursive:true});
-fs.writeFileSync(out, idx);
-if (CDN_SAFE) fs.writeFileSync(cdnOut, idx);
-const mb = (fs.statSync(out).size/1048576).toFixed(1);
-console.log(`wrote ${out} (${mb} MB)`);
-if (CDN_SAFE) console.log(`wrote ${cdnOut} (${(fs.statSync(cdnOut).size/1048576).toFixed(1)} MB)`);
+/* Write only the build this mode produces: a --cdn run must never clobber
+   the local build (which embeds ~30MB of self-contained games) with the
+   6.8MB CDN-safe variant, and vice versa. */
+const written = CDN_SAFE ? cdnOut : out;
+fs.writeFileSync(written, idx);
+const mb = (fs.statSync(written).size/1048576).toFixed(1);
+console.log(`wrote ${written} (${mb} MB)`);

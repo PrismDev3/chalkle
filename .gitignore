@@ -30,3 +30,8 @@ music-relay.json
 **/_*
 !/assets/
 random-gaming-websites-full.txt
+
+# local-only heavy dirs: flare/ is a 5GB local ruffle/flash experiment
+# (nothing in the shipped site links into it), screenshots/ is audit output
+flare/
+screenshots/

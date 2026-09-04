@@ -704,6 +704,7 @@ INVIDIOUS_INSTANCES = [
 
 _yt_cache = {}          # route key -> (ts, payload)
 _YT_CACHE_TTL = 180     # seconds
+_yt_down_until = {}     # instance -> ts; unreachable instances are skipped until then
 
 
 def _yt_b64u(s):
@@ -716,37 +717,72 @@ def _yt_unb64u(s):
     return base64.urlsafe_b64decode((s + "=" * (-len(s) % 4)).encode("ascii")).decode("utf-8")
 
 
-def _yt_fetch_json(path, timeout=12, retries=2):
-    """Try each Piped instance until one returns JSON. Returns (data, code).
-    Instances are flaky (streams especially), so do a couple of full rounds
-    before giving up."""
+def _yt_fetch_json(path, timeout=8, retries=2):
+    """Resolve a Piped API path by racing all instances in parallel so one
+    slow or dead instance can't stall the request for its whole timeout.
+    Instances that fail to connect get a short cooldown and are skipped on
+    later calls; instances that answer with an error reply are retried since
+    they respond fast and may be transiently broken. Returns (data, code)."""
     import urllib.request, urllib.error, json as _json
-    last_err = None
+    from concurrent.futures import ThreadPoolExecutor, wait, FIRST_COMPLETED
+
+    def try_one(inst):
+        url = inst + path
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 ChalkleYT/1.0", "Accept": "application/json"})
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                body = resp.read()
+        except urllib.error.HTTPError as e:
+            _yt_down_until[inst] = time.time() + 45
+            return None, "http " + str(e.code) + " from " + inst
+        except Exception as e:
+            _yt_down_until[inst] = time.time() + 45
+            return None, type(e).__name__ + " from " + inst
+        try:
+            data = _json.loads(body)
+        except Exception:
+            _yt_down_until[inst] = time.time() + 45
+            return None, "bad json from " + inst
+        if isinstance(data, dict) and isinstance(data.get("error"), (str, dict)):
+            # Instance alive but refused (streams need a working extractor;
+            # search can also fail this way). No cooldown: it may answer the
+            # next request fine, and error replies are fast.
+            return None, "error reply from " + inst + ": " + str(data["error"])[:80]
+        if isinstance(data, (dict, list)):
+            _yt_down_until.pop(inst, None)
+            return data, resp.getcode() or 200
+        _yt_down_until[inst] = time.time() + 45
+        return None, "unexpected payload from " + inst
+
+    last_err = [None]
+    insts = [i for i in YT_INSTANCES if _yt_down_until.get(i, 0) <= time.time()] or list(YT_INSTANCES)
     for _round in range(max(1, retries)):
-        for inst in YT_INSTANCES:
-            url = inst + path
-            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 ChalkleYT/1.0", "Accept": "application/json"})
+        if not insts:
+            break  # everything left is in cooldown; don't re-hammer dead hosts
+        if len(insts) == 1:
+            data, err = try_one(insts[0])
+            if data is not None:
+                return data, 200
+            if err:
+                last_err[0] = err
+        else:
+            ex = ThreadPoolExecutor(max_workers=len(insts))
             try:
-                with urllib.request.urlopen(req, timeout=timeout) as resp:
-                    body = resp.read()
-                    try:
-                        data = _json.loads(body)
-                    except Exception:
-                        last_err = "bad json from " + inst
-                        continue
-                    if isinstance(data, dict) and isinstance(data.get("error"), (str, dict)):
-                        # Instance alive but refused (streams need a working extractor;
-                        # search can also fail this way). Skip to the next instance.
-                        last_err = "error reply from " + inst + ": " + str(data["error"])[:80]
-                        continue
-                    if isinstance(data, (dict, list)):
-                        return data, resp.getcode() or 200
-                    last_err = "unexpected payload from " + inst
-            except urllib.error.HTTPError as e:
-                last_err = "http " + str(e.code) + " from " + inst
-            except Exception as e:
-                last_err = type(e).__name__ + " from " + inst
-    return {"error": "all YouTube instances failed: " + str(last_err)}, 502
+                pending = [ex.submit(try_one, i) for i in insts]
+                deadline = time.time() + timeout + 2
+                while pending and time.time() < deadline:
+                    done, pending = wait(pending, timeout=max(0.05, deadline - time.time()),
+                                         return_when=FIRST_COMPLETED)
+                    for f in done:
+                        data, err = f.result()
+                        if data is not None:
+                            return data, 200
+                        if err:
+                            last_err[0] = err
+            finally:
+                ex.shutdown(wait=False)  # stragglers finish on their own socket timeout
+        insts = [i for i in insts if _yt_down_until.get(i, 0) <= time.time()]
+    return {"error": "all YouTube instances failed: " + str(last_err[0])}, 502
 
 
 def _invidious_video(video_id, timeout=15):
@@ -1391,17 +1427,44 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, Simpl
     def log_message(self, *a):  # quieter than the default per-request logger
         pass
 
+    def send_header(self, keyword, value):
+        # Never send the CORS header twice: the blanket header added in
+        # send_response plus a relay handler's own header used to produce
+        # "Access-Control-Allow-Origin: *, *", which browsers reject outright
+        # and which killed music/YouTube/LiveTV/AI from the GitHub Pages and
+        # jsDelivr mirrors.
+        if keyword.lower() == "access-control-allow-origin" and getattr(self, "_cors_sent", False):
+            return
+        super().send_header(keyword, value)
+
     def send_response(self, code, message=None):
         super().send_response(code, message)
         # Ruffle SWF wrappers run in an opaque (blob:null) about:blank tab, so
-        # they must be able to fetch game assets cross-origin.
-        self.send_header("Access-Control-Allow-Origin", "*")
-        # The site is edited live and re-deployed constantly; browsers/CDNs
-        # must NEVER heuristically cache the text assets or users keep seeing
-        # stale versions (e.g. the old off-canvas sidebar CSS). No-store keeps
-        # every load fresh; images can still be cached normally.
-        route = self.path.split("?", 1)[0].lower()
-        if route.endswith((".html", ".htm", ".css", ".js", ".json", ".svg", ".mjs")):
+        # they must be able to fetch game assets cross-origin. Sent via super()
+        # directly so the dedupe guard below cannot eat it, then the guard is
+        # armed so any relay handler that sends the header again is skipped.
+        super().send_header("Access-Control-Allow-Origin", "*")
+        self._cors_sent = True
+        # Basic hardening: never sniff content types, and don't leak the
+        # referrer to mirror sites the launcher opens.
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("Referrer-Policy", "same-origin")
+        # Images and versioned (?v=...) js/css are safe to cache hard: a
+        # version bump changes the URL, so a stale copy can never be served.
+        # Everything else (html, unversioned js/css, api) stays no-store so
+        # live edits are picked up instantly.
+        bits = self.path.split("?", 1)
+        route = bits[0].lower()
+        q = bits[1] if len(bits) > 1 else ""
+        if route.endswith((".webp", ".png", ".jpg", ".jpeg", ".gif", ".ico", ".avif")):
+            self.send_header("Cache-Control", "public, max-age=86400")
+        elif route.endswith((".js", ".css", ".mjs")) and q.startswith("v="):
+            self.send_header("Cache-Control", "public, max-age=86400")
+        elif route.endswith((".html", ".htm", ".css", ".js", ".json", ".svg", ".mjs")):
+            self.send_header("Cache-Control", "no-store, max-age=0")
+        else:
+            # Safety net: anything not explicitly cacheable (the bare index
+            # route, api paths, unknown types) must never be stale-cached.
             self.send_header("Cache-Control", "no-store, max-age=0")
 
     def do_GET(self):

@@ -940,7 +940,7 @@
       '<button class="fav-btn ' + (fav ? "is-fav" : "") + '" data-fav="' + escapeAttr(key) + '" aria-label="' + (fav ? "Remove favorite" : "Add favorite") + '">' +
       '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.8l2.5 5 5.5.8-4 3.9.9 5.5-4.9-2.6L7.1 19l.9-5.5-4-3.9 5.5-.8z"/></svg>' +
       "</button>" +
-      '<button class="open-with" data-open-with data-url="' + escapeAttr(item.url || "") + '" data-title="' + escapeAttr(rawTitle) + '" aria-label="Choose how to open" title="Open with options">' +
+      '<button class="open-with" data-open-with data-url="' + escapeAttr(item.url || "") + '" data-title="' + escapeAttr(rawTitle) + '" aria-label="Open in a new tab" title="Open in a new tab">' +
       '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 6.5v.1M12 12v.1M12 17.5v.1"/></svg>' +
       "</button>" +
       '<a class="game-launch" href="' + href + '" data-launch="1" data-url="' + href + '" data-title="' + dataTitle + '"' + htmlAttr + directAttr + ' title="' + dataTooltip + '">' +
@@ -999,7 +999,7 @@
       '<span class="tool-tile-meta">' + cat + via + '<span class="tool-tile-open">Open</span></span>' + note +
       "</span>" +
       "</a>" +
-      (kind || isProxy ? "" : '<button class="open-with open-with-tool" data-open-with data-url="' + escapeAttr(item.url || "") + '" data-title="' + escapeAttr(rawTitle) + '" aria-label="Choose how to open" title="Open with options">' +
+      (kind || isProxy ? "" : '<button class="open-with open-with-tool" data-open-with data-url="' + escapeAttr(item.url || "") + '" data-title="' + escapeAttr(rawTitle) + '" aria-label="Open in a new tab" title="Open in a new tab">' +
         '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 6.5v.1M12 12v.1M12 17.5v.1"/></svg>' +
         "</button>") +
       "</article>"
@@ -1047,9 +1047,31 @@
   }
 
   var gridExpandAll = false;
+  /* Remember the expanded grid per view for this session (#155): once you
+     hit "Show all", coming back to the tab keeps the full grid instead of
+     silently re-capping it at 480. */
+  var EXPAND_KEY = "chalkle-grid-expanded";
+  function readExpand() {
+    try {
+      var d = JSON.parse(sessionStorage.getItem(EXPAND_KEY) || "{}");
+      return !!(d && d[state.view] === true);
+    } catch (e) { return false; }
+  }
+  function writeExpand(on) {
+    try {
+      var d = JSON.parse(sessionStorage.getItem(EXPAND_KEY) || "{}");
+      if (on) d[state.view] = true; else delete d[state.view];
+      sessionStorage.setItem(EXPAND_KEY, JSON.stringify(d));
+    } catch (e) { /* no storage */ }
+  }
 
   function render(expandAll) {
-    gridExpandAll = !!expandAll;
+    if (typeof expandAll === "boolean") {
+      gridExpandAll = expandAll;
+      writeExpand(expandAll);
+    } else {
+      gridExpandAll = readExpand();
+    }
     if (state.view === "music") return; /* owned by music.js */
     renderPicks(); /* fill the curated shelf; Home refreshes it in renderHome */
     var items = (DATA[state.view] || []).slice().filter(Boolean);
@@ -1789,8 +1811,7 @@
   /* ---------- Admin panel ----------
      Locked behind a code. Lets you add / edit / delete games, sites, tools
      and proxies - each game or site can be a link (URL) and/or raw HTML code,
-     and anything launches through the normal direct / about:blank / blob /
-     iframe picker. All changes persist to this device. */
+     and anything launches as a plain new tab (proxy-routed when needed). All changes persist to this device. */
 
   var ADMIN_CODE = "jamesypoo";
   var ADMIN_TABS = ["games", "sites", "tools", "proxies", "board", "docs", "partners"];
@@ -1943,7 +1964,7 @@
       '<div class="field-stack">' +
       '<input class="field field-name" name="title" placeholder="Title (required)" value="' + escapeAttr(eItem ? eItem.title : "") + '" required>' +
       '<input class="field" name="url" placeholder="Link &rsaquo; https://game.com" value="' + escapeAttr(eItem ? eItem.url : "") + '" spellcheck="false">' +
-      '<textarea class="field field-textarea" name="html" placeholder="&hellip;or paste HTML / code here - opens in about:blank, blob or this tab" spellcheck="false">' + escapeHtml(eItem && eItem.html ? eItem.html : "") + "</textarea>" +
+      '<textarea class="field field-textarea" name="html" placeholder="&hellip;or paste HTML / code here - opens in its own tab" spellcheck="false">' + escapeHtml(eItem && eItem.html ? eItem.html : "") + "</textarea>" +
       '<div class="form-row">' +
       '<input class="field" name="thumb" placeholder="Thumbnail image link (optional)" value="' + escapeAttr(eItem ? eItem.thumb : "") + '" spellcheck="false">' +
       '<input class="field field-cat" name="category" list="' + dl + '" placeholder="Category (PC Port, Web&hellip;)" value="' + escapeAttr(eItem ? eItem.category : "") + '">' +
@@ -2971,13 +2992,11 @@
           return;
         }
 
-        /* "How to open" button - always shows the method menu (about:blank,
-           blob, this tab, proxy) even when a default mode is saved. */
+        /* "How to open" button - opens the item as a plain new tab (the
+           launcher decides direct vs proxy routing and the popup-blocked
+           fallback). Kept as a separate affordance from the card click. */
         var openWith = e.target.closest("[data-open-with]");
         if (openWith && window.ChalkleLaunch) {
-          /* Always show the method picker (Direct / Data URL / About:blank /
-             Blob / This tab / Proxy) for every card, including sites. The
-             proxied route is one of the options inside the picker. */
           e.preventDefault();
           window.ChalkleLaunch.openWithOptions(openWith.dataset.url || "", openWith.dataset.title || "");
           return;

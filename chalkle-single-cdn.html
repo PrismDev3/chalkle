@@ -10839,7 +10839,7 @@ button.side-foot:hover { color: var(--text-2); }
           </div>
           <div class="panel proxy-form">
             <h2 class="panel-title">Add a proxy</h2>
-            <p class="empty-hint panel-note">Paste a proxy URL here. Once one is set, the <b>proxy apps</b> in Apps/Tools (TikTok, Discord, and so on) open through it in the iframe, about:blank, new tab, or whatever mode you pick.</p>
+            <p class="empty-hint panel-note">Paste a proxy URL here. Once one is set, the <b>proxy apps</b> in Apps/Tools (TikTok, Discord, and so on) open through it as a plain new tab - and blocked sites fall back to the in-app frame overlay.</p>
             <form id="proxy-form" class="form-row" autocomplete="off">
               <input class="field field-name" id="proxy-name" type="text" placeholder="Name" required>
               <input class="field field-url" id="proxy-url" type="text" placeholder="https://your-proxy.onrender.com" spellcheck="false" required>
@@ -14684,11 +14684,25 @@ window.ChalkProxyApps = [
     return true;
   }
 
+  /* Open a URL as a plain new tab and hand back the window handle. The
+     "noopener" feature string is NOT used: per spec it makes window.open
+     return null, which would break the popup-blocked fallback below and
+     make every caller report failure. We sever opener access manually
+     instead - cross-origin tabs cannot touch us either way, and a same-origin
+     wrapper page has nothing sensitive to reach. */
+  function openTab(url) {
+    var win = window.open(url, "_blank");
+    if (win) {
+      try { win.opener = null; } catch (e) { /* already cross-origin */ }
+    }
+    return win;
+  }
+
   function openDirect(url) {
     /* Local file paths can never open from a web page and would throw a
        security error - refuse them here. */
     if (/^(file:|javascript:)/i.test(String(url || "").trim())) return false;
-    var win = window.open(url, "_blank", "noopener");
+    var win = openTab(url);
     if (!win && isLocalPlayUrl(url)) {
       try { window.location.href = url; return true; } catch (e) { return false; }
     }
@@ -14731,7 +14745,7 @@ window.ChalkProxyApps = [
      configured. */
   function openProxy(url, proxyUrl) {
     if (!proxyUrl || isDeadStubProxy(proxyUrl)) return false;
-    var win = window.open(routeProxy(url, proxyUrl), "_blank", "noopener");
+    var win = openTab(routeProxy(url, proxyUrl));
     return !!win;
   }
 
@@ -14753,7 +14767,7 @@ window.ChalkProxyApps = [
       return (target || "");
     }
     var url = routeProxy(target, p.url, p.mode === "frame" || !!p.hashRoute);
-    window.open(url, "_blank", "noopener");
+    openTab(url);
     return url;
   }
 
@@ -14771,7 +14785,7 @@ window.ChalkProxyApps = [
     var live = liveProxy();
     if (!live) { ChalkleLaunch.open(target || "", title || target || ""); return target || ""; }
     var url = routeProxy(target, live.url, live.mode === "frame" || !!live.hashRoute);
-    window.open(url, "_blank", "noopener");
+    openTab(url);
     return url;
   }
 
@@ -21382,9 +21396,9 @@ window.ChalkProxyApps = [
   window.ChalklePartners = { render: render, refresh: render, applyAdminUI: applyAdminUI, addPartner: function () { openModal(null); }, editPartner: openModal, refreshAdminList: refreshAdminList };
 })();
 </script>
-  <script src="assets/hls.min.js?v=20260904a"></script>
-  <script src="livetv.js?v=20260904a"></script>
-  <script src="youtube.js?v=20260904a"></script>
+  <script src="assets/hls.min.js?v=20260904b"></script>
+  <script src="livetv.js?v=20260904b"></script>
+  <script src="youtube.js?v=20260904b"></script>
   <script data-inline="intro.js">/* Chalkle boot intro. Full-screen game-station boot, once per session, skippable,
    respectful of the user's reduced-motion setting. */
 
@@ -22589,9 +22603,31 @@ window.ChalkProxyApps = [
   }
 
   var gridExpandAll = false;
+  /* Remember the expanded grid per view for this session (#155): once you
+     hit "Show all", coming back to the tab keeps the full grid instead of
+     silently re-capping it at 480. */
+  var EXPAND_KEY = "chalkle-grid-expanded";
+  function readExpand() {
+    try {
+      var d = JSON.parse(sessionStorage.getItem(EXPAND_KEY) || "{}");
+      return !!(d && d[state.view] === true);
+    } catch (e) { return false; }
+  }
+  function writeExpand(on) {
+    try {
+      var d = JSON.parse(sessionStorage.getItem(EXPAND_KEY) || "{}");
+      if (on) d[state.view] = true; else delete d[state.view];
+      sessionStorage.setItem(EXPAND_KEY, JSON.stringify(d));
+    } catch (e) { /* no storage */ }
+  }
 
   function render(expandAll) {
-    gridExpandAll = !!expandAll;
+    if (typeof expandAll === "boolean") {
+      gridExpandAll = expandAll;
+      writeExpand(expandAll);
+    } else {
+      gridExpandAll = readExpand();
+    }
     if (state.view === "music") return; /* owned by music.js */
     renderPicks(); /* fill the curated shelf; Home refreshes it in renderHome */
     var items = (DATA[state.view] || []).slice().filter(Boolean);
@@ -23331,8 +23367,7 @@ window.ChalkProxyApps = [
   /* ---------- Admin panel ----------
      Locked behind a code. Lets you add / edit / delete games, sites, tools
      and proxies - each game or site can be a link (URL) and/or raw HTML code,
-     and anything launches through the normal direct / about:blank / blob /
-     iframe picker. All changes persist to this device. */
+     and anything launches as a plain new tab (proxy-routed when needed). All changes persist to this device. */
 
   var ADMIN_CODE = "jamesypoo";
   var ADMIN_TABS = ["games", "sites", "tools", "proxies", "board", "docs", "partners"];
@@ -23485,7 +23520,7 @@ window.ChalkProxyApps = [
       '<div class="field-stack">' +
       '<input class="field field-name" name="title" placeholder="Title (required)" value="' + escapeAttr(eItem ? eItem.title : "") + '" required>' +
       '<input class="field" name="url" placeholder="Link &rsaquo; https://game.com" value="' + escapeAttr(eItem ? eItem.url : "") + '" spellcheck="false">' +
-      '<textarea class="field field-textarea" name="html" placeholder="&hellip;or paste HTML / code here - opens in about:blank, blob or this tab" spellcheck="false">' + escapeHtml(eItem && eItem.html ? eItem.html : "") + "</textarea>" +
+      '<textarea class="field field-textarea" name="html" placeholder="&hellip;or paste HTML / code here - opens in its own tab" spellcheck="false">' + escapeHtml(eItem && eItem.html ? eItem.html : "") + "</textarea>" +
       '<div class="form-row">' +
       '<input class="field" name="thumb" placeholder="Thumbnail image link (optional)" value="' + escapeAttr(eItem ? eItem.thumb : "") + '" spellcheck="false">' +
       '<input class="field field-cat" name="category" list="' + dl + '" placeholder="Category (PC Port, Web&hellip;)" value="' + escapeAttr(eItem ? eItem.category : "") + '">' +

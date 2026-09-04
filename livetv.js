@@ -467,7 +467,7 @@
       : "No matches right now";
     if (empty) empty.hidden = items.length > 0;
     var meta = document.getElementById("livetv-meta");
-    if (meta) meta.textContent = items.length ? items.length + (items.length === 1 ? " live match" : " live matches") + " ready" : "live sports";
+    if (meta) meta.textContent = items.length ? items.length + (items.length === 1 ? " live match" : " live matches") + " ready" : "live channels from around the web";
     grid.innerHTML = items.map(matchCard).join("");
     grid.querySelectorAll("[data-match]").forEach(function (btn) {
       btn.addEventListener("click", function () {

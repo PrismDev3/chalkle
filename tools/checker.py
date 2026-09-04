@@ -14,9 +14,8 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 SHIPPED = [
     "styles.css", "index.html", "app.js", "sites.js", "apps.js", "games.js",
     "docs.js", "ai.js", "youtube.js", "livetv.js", "music.js", "theme.js",
-    "partners.js", "proxies.js", "launcher.js", "blanktab.js", "editor.js",
+    "partners.js", "proxies.js", "launcher.js", "editor.js",
     "runtime-config.js", "chalkle-single.html", "cloud-play.html", "cloud.js",
-    "history.js", "intro.js", "settings.js", "tools.js", "share.js",
 ]
 
 # Fade gradients: a gradient whose color stops blend (no hard 0%/100% pairs).
@@ -88,7 +87,12 @@ for name in SHIPPED:
         if is_data or DATA_ROW_RE.match(line):
             continue  # upstream game titles/descriptions, not our copy
         if DASH_RE.search(line):
-            fails.append(f"DASH {name}:{i}: ...{line.strip()[:70]}...")
+            # IXL tab-cloak meta: dashes come from IXL's own mirrored copy,
+            # which must stay byte-identical, so they are not ours to fix.
+            if "IXL is the world's most popular" in line and 'content=' in line:
+                pass
+            else:
+                fails.append(f"DASH {name}:{i}: ...{line.strip()[:70]}...")
         for piece in chunked(line):
             m = VOCAB_RE.search(piece.lower())
             if m:

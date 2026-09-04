@@ -215,6 +215,11 @@
     if (s < 86400) return Math.floor(s / 3600) + "h";
     return Math.floor(s / 86400) + "d";
   }
+  function clock(ts) {
+    var d = new Date(ts || Date.now());
+    function p(n) { return (n < 10 ? "0" : "") + n; }
+    return p(d.getHours()) + ":" + p(d.getMinutes());
+  }
   function toast(msg) {
     var d = document.createElement("div");
     d.className = "dh-toast ai-toast";
@@ -231,6 +236,7 @@
       .then(function (d) {
         S.server = !!(d && d.ok);
         S.models = (d && Array.isArray(d.models) && d.models.length) ? d.models : [];
+        S.lastCheck = Date.now();
         syncServer = S.server;
         if (S.server) fetchConvos();
         return S.server;
@@ -280,7 +286,7 @@
 
     var h = '<div class="ai-head">';
     h += '<div class="ai-heading"><h1 class="view-title">AI</h1>';
-    h += '<span class="view-meta' + (S.server ? " has-content" : "") + '">' + (S.server ? S.models.length + " models online" : "offline, needs serve-chalk.py") + "</span></div>";
+    h += '<span class="view-meta' + (S.server ? " has-content" : "") + '" title="' + (S.server ? "Model list comes from this site's AI relay" : "Start serve-chalk.py to light this tab up") + '">' + (S.server ? S.models.length + " models online · checked " + (S.lastCheck ? clock(S.lastCheck) : "just now") : "offline, needs serve-chalk.py") + "</span></div>";
     h += '<div class="ai-head-actions">';
     h += '<select class="field field-mode ai-model" id="ai-model" aria-label="Pick a model"><option value="">Pick a model…</option>' + modelOptions() + "</select>";
     h += '<button class="btn ai-new" id="ai-new" type="button">＋ New chat</button>';
