@@ -46,8 +46,8 @@
       key: "chalkle-boardlib-v1",
       seed: function () {
         return [
-          { title: "James Brown", category: "Owners" },
-          { title: "Ian Magadan", category: "Owners" }
+          { title: "James Brown", category: "Owners", role: "Founder", bio: "Started Chalkle. Handles the servers, the games, and the endless feature requests." },
+          { title: "Ian Magadan", category: "Owners", role: "Co-founder", bio: "Builds the tools and keeps the community running. Message him for board spots." }
         ];
       }
     }
@@ -102,6 +102,29 @@
       if (raw) {
         var parsed = JSON.parse(raw);
         if (Array.isArray(parsed)) {
+          /* Mirror-label migration (sites.js now names the numbered loaders
+             "Arctic Mirror N" / "Cherri Mirror N"). Rename already-saved rows
+             in place, guarded by their loader URL, so the seed merge below
+             refreshes their thumbs instead of adding duplicates. */
+          var MIRROR_URLS = ["articsvg-", "cherribydono-"];
+          var MIRROR_RENAME = {};
+          (function () {
+            var names = ["Arctic", "Cherri"], mi, mn;
+            for (mi = 0; mi < names.length; mi++)
+              for (mn = 1; mn <= 10; mn++)
+                MIRROR_RENAME[names[mi] + " " + mn] = names[mi] + " Mirror " + mn;
+          })();
+          parsed = parsed.map(function (it) {
+            if (it && MIRROR_RENAME[it.title] && it.url) {
+              for (var ui = 0; ui < MIRROR_URLS.length; ui++) {
+                if (String(it.url).indexOf(MIRROR_URLS[ui]) !== -1) {
+                  it.title = MIRROR_RENAME[it.title];
+                  break;
+                }
+              }
+            }
+            return it;
+          });
           /* Sync built-ins: refresh canonical fields (url, thumb, category, …)
              from the seed so edits to games.js / sites.js / apps.js always show
              up on every device, while keeping admin-added items and edits. */
@@ -190,6 +213,7 @@
     tool: "launcher",
     query: "",
     genreFilters: [],
+    appFilters: [],
     collapsed: readPref(COLLAPSED_KEY) === "1",
     motion: readPref(MOTION_KEY) === "1",
     size: readPref(SIZE_KEY) || "comfortable",
@@ -325,6 +349,13 @@
         return p && String(p.name || "").toLowerCase() === name;
       });
     }
+    /* Numbered per-mirror SerumOS mark (serium-NN.svg) when the entry carries
+       an index in 1-20; the plain brand PNG only as a fallback. */
+    function seriumIcon(n) {
+      n = parseInt(n, 10);
+      if (!n || n < 1 || n > 20) return "/assets/proxies/serium.png";
+      return "/assets/proxies/serium-" + ("0" + n).slice(-2) + ".svg";
+    }
     if (!has("gjsd")) { list.push({ name: "GJSD", url: "https://gjsd.yan.ch/", mode: "frame", icon: "/assets/proxies/gjsd.png" }); dirty = true; }
     if (!has("ovokee")) { list.push({ name: "Ovokee", url: "https://ovokee.sbs/", mode: "frame", credit: "kelvin9rant", icon: "/assets/proxies/ovokee.png" }); dirty = true; }
     /* SerumOS instances (hash route + service worker), credit c0mrade. */
@@ -336,7 +367,7 @@
     ].forEach(function (host, idx) {
       var nm = "serium " + (idx + 1);
       if (!has(nm)) {
-        list.push({ name: "Serium " + (idx + 1), url: "https://" + host + ".b-cdn.net/", mode: "frame", credit: "c0mrade", icon: "/assets/proxies/serium.png" });
+        list.push({ name: "Serium " + (idx + 1), url: "https://" + host + ".b-cdn.net/", mode: "frame", credit: "c0mrade", icon: seriumIcon(idx + 1) });
         dirty = true;
       }
     });
@@ -348,7 +379,10 @@
       var want = null;
       if (nm === "gjsd") want = "/assets/proxies/gjsd.png";
       else if (nm === "ovokee") want = "/assets/proxies/ovokee.png";
-      else if (nm.indexOf("serium") === 0) want = "/assets/proxies/serium.png";
+      else if (nm.indexOf("serium") === 0) {
+        var mSer = String(p.name || "").match(/serium\s*(\d{1,2})/i);
+        want = mSer ? seriumIcon(parseInt(mSer[1], 10)) : "/assets/proxies/serium.png";
+      }
       if (want && p.icon !== want) { p.icon = want; dirty = true; }
     });
     if (dirty) {
@@ -557,7 +591,10 @@
     document.body.setAttribute("data-view", view);
 
     document.querySelectorAll(".nav-item").forEach(function (btn) {
-      btn.classList.toggle("is-active", btn.dataset.view === view);
+      var active = btn.dataset.view === view;
+      btn.classList.toggle("is-active", active);
+      if (active) btn.setAttribute("aria-current", "page");
+      else btn.removeAttribute("aria-current");
     });
 
     document.querySelectorAll(".view").forEach(function (section) {
@@ -789,41 +826,10 @@
       /* Sites open through the launcher picker too - same as clicking a card
          on the Sites tab - so about:blank / blob / proxy are always on the
          table instead of auto-launching. */
-      if (view === "sites" && window.ChalkleLaunch.openWithOptions) {
-        window.ChalkleLaunch.openWithOptions(u, item.title || u);
-        return;
-      }
-      /* Prefer fetch-and-inject: pull the site's HTML through the same-origin
-         /_fetch relay and open it as a local blob so the tab never
-         hard-navigates to the blocked host. Sites get blocked easily in
-         about:blank because the cloak still loads the real URL - a blob of
-         the HTML doesn't. Falls back automatically if it can't fetch. */
-      if (window.ChalkleLaunch.openFetchedAny) {
-        window.ChalkleLaunch.openFetchedAny(u, item.title || "").then(function (used) {
-          if (used) return;
-          /* Couldn't fetch-and-inject. Prefer the proxy on the Sites tab, else
-             open through the normal picker (about:blank / blob / direct). */
-          if (view === "sites" && window.ChalkleLaunch.openSiteProxied) {
-            window.ChalkleLaunch.openSiteProxied(u, item.title || "");
-          } else {
-            window.ChalkleLaunch.open(u, item.title || "");
-          }
-        });
-        return;
-      }
-      if (window.ChalkleLaunch.isFetchableHtml && window.ChalkleLaunch.isFetchableHtml(u)) {
-        window.ChalkleLaunch.openFetched(u, item.title || "");
-      } else if (view === "sites" && window.ChalkleLaunch.openSiteProxied) {
-        /* Sites route through the configured proxy so the tab never touches
-           the blocked origin - about:blank / blob wrap the proxied URL. */
-        window.ChalkleLaunch.openSiteProxied(u, item.title || "");
-      } else {
-        window.ChalkleLaunch.open(u, item.title || "");
-      }
+      window.ChalkleLaunch.open(u, item.title || u);
       return;
     }
-    if (item.kind === "launcher" && window.ChalkleBlankTab) window.ChalkleBlankTab.open();
-    else if (item.kind === "editor" && window.ChalkleEditor) window.ChalkleEditor.open();
+    if (item.kind === "editor" && window.ChalkleEditor) window.ChalkleEditor.open();
     else if (item.kind === "urlauditor" && window.ChalkleUrlAuditor) window.ChalkleUrlAuditor.open();
     else if (item.kind === "pixel" && window.ChalklePixel) window.ChalklePixel.open();
     else if (item.kind === "domainhub" && window.ChalkleDomainHub) window.ChalkleDomainHub.open();
@@ -927,7 +933,7 @@
     var key = gameKey(item);
     var clicks = state.clicks[key] || 0;
     var fav = !!state.favs[key];
-    var countLabel = clicks === 1 ? "1 click" : clicks + " clicks";
+    var countLabel = clicks > 0 ? (clicks === 1 ? "1 click" : clicks + " clicks") : "";
 
     return (
       '<article class="card game-card">' +
@@ -952,6 +958,13 @@
   /* Apps/Tools get their own presentation: a clean app tile with a rounded
      icon, title, category chip and an open affordance - themed to match the
      rest of Chalkle instead of the generic game card. */
+  /* Walled targets (login-heavy socials/streaming) need the proxy to be
+     usable at all, unlike plain bypass targets that only need it on filtered
+     networks. Drives the proxy pill colour on app tiles. */
+  function proxyWalled(cat) {
+    return cat === "Social" || cat === "Streaming" || cat === "Music" || cat === "Video";
+  }
+
   function toolCard(item) {
     var rawTitle = item.title || "Untitled";
     var title = escapeHtml(rawTitle);
@@ -960,7 +973,7 @@
     /* Built-in apps (Blank tab launcher, HTML Editor) open their own modal
        instead of launching a URL - data-tool-kind handles that in the click
        handler. Everything else is a plain link tile. */
-    var kind = item.kind === "launcher" || item.kind === "editor" || item.kind === "urlauditor" || item.kind === "pixel" || item.kind === "domainhub" || item.kind === "iphone16" || item.kind === "browser" ? escapeAttr(item.kind) : "";
+    var kind = item.kind === "editor" || item.kind === "urlauditor" || item.kind === "pixel" || item.kind === "domainhub" || item.kind === "iphone16" || item.kind === "browser" ? escapeAttr(item.kind) : "";
     var kindAttr = kind ? ' data-tool-kind="' + kind + '"' : '';
     var isProxy = item.via === "proxy" && !!item.url;
     var proxyAttr = isProxy ? ' data-proxy-app="' + escapeAttr(item.url) + '"' : "";
@@ -969,8 +982,13 @@
     var thumb = item.thumb && !isLocalFileUrl(item.thumb)
       ? toolFallback + '<img class="tool-tile-img" src="' + escapeAttr(item.thumb) + '" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.onerror=null;this.classList.add(\'tool-tile-img-failed\');">'
       : toolFallback;
-    var via = isProxy ? '<span class="tool-tile-via" title="Opens through your configured proxy">proxy</span>' : "";
+    var via = isProxy
+      ? '<span class="tool-tile-via ' + (proxyWalled(item.category) ? "is-walled" : "is-bypass") + '" title="' + (proxyWalled(item.category)
+          ? "Walled site - opens through Chalkle's proxy so it works on school Wi-Fi"
+          : "Often blocked on school networks - opens through Chalkle's proxy") + '">proxy</span>'
+      : "";
     var cat = item.category ? '<span class="card-cat">' + escapeHtml(item.category) + "</span>" : "";
+    var note = item.note ? '<span class="tool-tile-note">' + escapeHtml(item.note) + "</span>" : "";
     var tileHref = (kind || isProxy) ? "#" : href;
     return (
       '<article class="tool-tile' + (isProxy ? " is-proxy" : "") + '">' +
@@ -978,7 +996,7 @@
       '<span class="tool-tile-art">' + thumb + "</span>" +
       '<span class="tool-tile-body">' +
       '<span class="tool-tile-title">' + title + "</span>" +
-      '<span class="tool-tile-meta">' + cat + via + '<span class="tool-tile-open">Open</span></span>' +
+      '<span class="tool-tile-meta">' + cat + via + '<span class="tool-tile-open">Open</span></span>' + note +
       "</span>" +
       "</a>" +
       (kind || isProxy ? "" : '<button class="open-with open-with-tool" data-open-with data-url="' + escapeAttr(item.url || "") + '" data-title="' + escapeAttr(rawTitle) + '" aria-label="Choose how to open" title="Open with options">' +
@@ -986,6 +1004,42 @@
         "</button>") +
       "</article>"
     );
+  }
+
+  /* Editor's picks: a curated shelf shown on Home and at the top of the
+     Games tab. Change PICK_TITLES here; titles must match games.js entries.
+     First match wins, so a duplicate title picks the earlier entry. */
+  var PICK_TITLES = [
+    "Undertale", "Deltarune", "Cookie Clicker", "1v1.LOL",
+    "Retro Bowl", "BitLife", "Slither.io", "Minecraft James Edition (26.2)"
+  ];
+  function pickItems() {
+    var list = DATA.games || [];
+    return PICK_TITLES.map(function (t) {
+      for (var i = 0; i < list.length; i++) {
+        if ((list[i].title || "") === t) return list[i];
+      }
+      return null;
+    }).filter(Boolean);
+  }
+  function renderPicks() {
+    var items = pickItems();
+    var home = document.getElementById("home-picks");
+    var games = document.getElementById("games-picks");
+    var homeGrid = document.getElementById("home-picks-grid");
+    var gamesGrid = document.getElementById("games-picks-grid");
+    if (home) home.hidden = items.length === 0;
+    if (homeGrid) homeGrid.innerHTML = items.map(card).join("");
+    /* On the Games tab the shelf is editorial browsing only - once the user
+       searches or filters the grid it steps aside instead of showing a
+       second, unrelated list of cards above the results. */
+    if (games) {
+      var browsing = !state.query &&
+        !(state.genreFilters && state.genreFilters.length) &&
+        (state.gameFilter === "all" || !state.gameFilter);
+      games.hidden = items.length === 0 || !browsing;
+      if (gamesGrid && !games.hidden) gamesGrid.innerHTML = items.map(card).join("");
+    }
   }
 
   function gameKey(item) {
@@ -997,6 +1051,7 @@
   function render(expandAll) {
     gridExpandAll = !!expandAll;
     if (state.view === "music") return; /* owned by music.js */
+    renderPicks(); /* fill the curated shelf; Home refreshes it in renderHome */
     var items = (DATA[state.view] || []).slice().filter(Boolean);
 
     if (state.query) {
@@ -1054,6 +1109,18 @@
         var bt = (b.title || "").toLowerCase();
         return state.sitesSort === "za" ? bt.localeCompare(at) : at.localeCompare(bt);
       });
+    }
+
+    if (state.view === "apps-tools") {
+      if (state.appFilters && state.appFilters.length) {
+        items = items.filter(function (item) {
+          for (var i = 0; i < state.appFilters.length; i++) {
+            if (itemCategory(item) === state.appFilters[i]) return true;
+          }
+          return false;
+        });
+      }
+      renderAppChips();
     }
 
     var grid = $(GRID_IDS[state.view]);
@@ -1165,7 +1232,13 @@
     if (g) g.textContent = (DATA.games || []).length;
     if (s) s.textContent = (DATA.sites || []).length;
     if (t) t.textContent = (DATA["apps-tools"] || []).length;
-    if (f) f.textContent = Object.keys(state.favs || {}).length;
+    if (f) {
+      f.textContent = Object.keys(state.favs || {}).length;
+      var favMetric = f.closest(".home-metric");
+      if (favMetric) favMetric.hidden = Object.keys(state.favs || {}).length === 0;
+    }
+
+    renderPicks();
 
     renderRecents();
 
@@ -1222,8 +1295,6 @@
             }
             if (item.html && window.ChalkleLaunch.htmlUrl) {
               window.ChalkleLaunch.open(window.ChalkleLaunch.htmlUrl(item.html), item.title || "");
-            } else if (item.url && window.ChalkleLaunch.isFetchableHtml && window.ChalkleLaunch.isFetchableHtml(item.url)) {
-              window.ChalkleLaunch.openFetched(item.url, item.title || "");
             } else {
               window.ChalkleLaunch.open(item.url || "", item.title || "");
             }
@@ -1456,6 +1527,44 @@
     });
   }
 
+  function toggleAppFilter(cat) {
+    var list = state.appFilters.slice();
+    var i = list.indexOf(cat);
+    if (i === -1) list.push(cat);
+    else list.splice(i, 1);
+    state.appFilters = list;
+    render();
+  }
+
+  function renderAppChips() {
+    var box = $("#apps-genres");
+    if (!box) return;
+    var seen = {};
+    var cats = [];
+    (DATA["apps-tools"] || []).forEach(function (a) {
+      if (!a) return;
+      var c = itemCategory(a);
+      if (c && !seen[c]) { seen[c] = 1; cats.push(c); }
+    });
+    if (!cats.length) { box.hidden = true; return; }
+    box.hidden = false;
+    box.innerHTML =
+      '<button class="chip' + (state.appFilters.length === 0 ? " is-active" : "") + '" data-app-all>All</button>' +
+      cats.map(function (c) {
+        return '<button class="chip' + (state.appFilters.indexOf(c) !== -1 ? " is-active" : "") + '" data-app-cat="' + escapeAttr(c) + '">' + escapeHtml(c) + "</button>";
+      }).join("");
+    box.querySelectorAll(".chip").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        if (btn.dataset.appAll !== undefined) {
+          state.appFilters = [];
+          render();
+        } else {
+          toggleAppFilter(btn.dataset.appCat);
+        }
+      });
+    });
+  }
+
   /* ---------- Recently played ----------
      Remember the last few games you launched so the homepage can offer a
      quick "continue where you left off" row (and "Popular games" stays
@@ -1579,8 +1688,6 @@
           }
           if (item.html && window.ChalkleLaunch.htmlUrl) {
             window.ChalkleLaunch.open(window.ChalkleLaunch.htmlUrl(item.html), item.title || "");
-          } else if (item.url && window.ChalkleLaunch.isFetchableHtml && window.ChalkleLaunch.isFetchableHtml(item.url)) {
-            window.ChalkleLaunch.openFetched(item.url, item.title || "");
           } else {
             window.ChalkleLaunch.open(item.url || "", item.title || "");
           }
@@ -1596,11 +1703,20 @@
       prev.disabled = track.scrollLeft <= 4;
       next.disabled = track.scrollLeft >= max;
     }
+    /* Fade the right edge while more cards are scrolled past - the mask lifts
+       once the strip reaches the end so the last card is always crisp. */
+    function updateFade() {
+      if (!track) return;
+      var wrap = track.parentElement;
+      if (!wrap) return;
+      var atEnd = track.scrollLeft >= track.scrollWidth - track.clientWidth - 20;
+      wrap.classList.toggle("is-masked", !atEnd);
+    }
     if (track) {
-      track.addEventListener("scroll", updateArrows, { passive: true });
+      track.addEventListener("scroll", function () { updateArrows(); updateFade(); }, { passive: true });
       if (prev) prev.addEventListener("click", function () { track.scrollBy({ left: -track.clientWidth * 0.8, behavior: "smooth" }); });
       if (next) next.addEventListener("click", function () { track.scrollBy({ left: track.clientWidth * 0.8, behavior: "smooth" }); });
-      window.setTimeout(updateArrows, 60);
+      window.setTimeout(function () { updateArrows(); updateFade(); }, 60);
     }
     var clearBtn = box.querySelector(".home-recents-clear");
     if (clearBtn) clearBtn.addEventListener("click", function () {
@@ -1610,7 +1726,6 @@
   }
 
   /* ---------- Tab cloak: disguise the whole tab as a school site ---------- */
-
   var CLOAK_KEY = "chalkle-cloak";
   var cloakIcon = null;
 
@@ -1621,7 +1736,8 @@
     { id: "drive", name: "Drive", title: "My Drive - Google Drive", icon: "https://ssl.gstatic.com/images/branding/product/1x/drive_2020q4_32dp.png" },
     { id: "canvas", name: "Canvas", title: "Dashboard", icon: "https://du11hjcvx0uqb.cloudfront.net/dist/images/favicon.ico" },
     { id: "clever", name: "Clever", title: "Clever | Portal", icon: "https://www.clever.com/wp-content/uploads/2023/06/cropped-Favicon-512px-32x32.png" },
-    { id: "khan", name: "Khan Academy", title: "Dashboard | Khan Academy", icon: "https://www.khanacademy.org/favicon.ico" }
+    { id: "khan", name: "Khan Academy", title: "Dashboard | Khan Academy", icon: "https://www.khanacademy.org/favicon.ico" },
+    { id: "ixl", name: "IXL", title: "IXL | Math, Language Arts, Science, Social Studies, and Spanish", icon: "https://www.ixl.com/favicon.ico" }
   ];
 
   /* Capture the real favicon href once, at first apply, so "None" restores it. */
@@ -1631,6 +1747,7 @@
     cloakIcon = link ? link.getAttribute("href") : "";
   }
 
+  /* Apply (or clear) the tab cloak. */
   function applyCloak(id) {
     captureCloakIcon();
     var cloak = null;
@@ -1638,7 +1755,10 @@
       if (CLOAKS[i].id === id) { cloak = CLOAKS[i]; break; }
     }
     var activeId = cloak ? cloak.id : "";
-    document.title = cloak ? cloak.title : "Chalkle";
+    /* No cloak = keep the tab looking like the IXL preview, so what Discord
+       promised and what the tab shows always agree. */
+    document.title = cloak ? cloak.title
+      : "IXL | Math, Language Arts, Science, Social Studies, and Spanish";
     var link = document.querySelector('link[rel="icon"]');
     if (link) link.href = cloak ? cloak.icon : cloakIcon;
     try { localStorage.setItem(CLOAK_KEY, activeId); } catch (e) { /* no storage */ }
@@ -1692,7 +1812,9 @@
     } else {
       avatar = '<div class="board-pfp">' + letter + "</div>";
     }
-    return '<article class="board-person">' + avatar + '<div class="board-name">' + name + "</div></article>";
+    var role = m.role ? '<div class="board-role">' + escapeHtml(m.role) + "</div>" : "";
+    var bio = m.bio ? '<div class="board-bio">' + escapeHtml(m.bio) + "</div>" : "";
+    return '<article class="board-person">' + avatar + '<div class="board-name">' + name + "</div>" + role + bio + "</article>";
   }
 
   function renderBoard() {
@@ -1703,9 +1825,14 @@
       var inCol = members.filter(function (m) { return String(m.category || "").trim() === col; });
       var body = inCol.length
         ? '<div class="board-members">' + inCol.map(boardMemberHTML).join("") + "</div>"
-        : '<div class="board-empty">Open spots</div>';
+        : '<div class="board-empty board-open"><span class="board-open-label">' + col + ' spots are open</span><button class="btn-ghost board-apply-btn" type="button" data-board-apply="' + col + '">Apply here</button></div>';
       return '<section class="board-col"><h2>' + col + "</h2>" + body + "</section>";
     }).join("");
+    root.querySelectorAll("[data-board-apply]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        window.open("https://discord.gg/Y8Zh2mE7Ke", "_blank", "noopener");
+      });
+    });
   }
   var UNLOCK_KEY = "chalkle-admin-unlocked";
   var adminEditing = {};   /* tab -> _id or null */
@@ -2170,6 +2297,11 @@
       });
     });
 
+    /* Home stat cards: jump straight to the matching tab. */
+    document.querySelectorAll("[data-metric-go]").forEach(function (btn) {
+      btn.addEventListener("click", function () { setView(btn.dataset.metricGo); });
+    });
+
     document.querySelectorAll("[data-game-filter]").forEach(function (btn) {
       btn.addEventListener("click", function () {
         state.gameFilter = btn.dataset.gameFilter || "all";
@@ -2239,7 +2371,6 @@
     document.addEventListener("keydown", function (e) {
       if (e.key === "Escape") {
         if (!$("#admin-modal").hidden) closeAdmin();
-        else if (!$("#blanktab-modal").hidden && window.ChalkleBlankTab) window.ChalkleBlankTab.close();
         else if (!$("#editor-modal").hidden && window.ChalkleEditor) window.ChalkleEditor.close();
         else if (!$("#urlauditor-modal").hidden && window.ChalkleUrlAuditor) window.ChalkleUrlAuditor.close();
         else if (!$("#pixel-modal").hidden && window.ChalklePixel) window.ChalklePixel.close();
@@ -2284,23 +2415,7 @@
     try { savedCloak = localStorage.getItem(CLOAK_KEY) || ""; } catch (e) { /* no storage */ }
     applyCloak(savedCloak);
 
-    /* Settings: launch defaults + cloak title */
-
-    var ask = $("#opt-ask");
-    if (ask) {
-      try { ask.checked = localStorage.getItem("chalkle-ask") !== "0"; } catch (e) { /* no storage */ }
-      ask.addEventListener("change", function () {
-        try { localStorage.setItem("chalkle-ask", ask.checked ? "1" : "0"); } catch (e) { /* no storage */ }
-      });
-    }
-
-    var defMode = $("#opt-default-mode");
-    if (defMode) {
-      try { defMode.value = localStorage.getItem("chalkle-launch-mode") || "ask"; } catch (e) { /* no storage */ }
-      defMode.addEventListener("change", function () {
-        try { localStorage.setItem("chalkle-launch-mode", defMode.value); } catch (e) { /* no storage */ }
-      });
-    }
+    /* Settings: cloak title */
 
     var cloakTitle = $("#opt-cloak-title");
     if (cloakTitle) {
@@ -2475,6 +2590,65 @@
       });
     }
 
+    /* Inline feedback under the wallpaper URL field (used by Apply). */
+    function wallpaperHint(msg, ok) {
+      var hint = $("#opt-wallpaper-hint");
+      if (!hint) return;
+      if (!msg) { hint.hidden = true; hint.textContent = ""; return; }
+      hint.textContent = msg;
+      hint.classList.toggle("is-ok", !!ok);
+      hint.hidden = false;
+    }
+
+    /* What's new: version changelog lightbox. A pink dot marks the sidebar
+       version until the lightbox has been opened once for this release. */
+    var WN_SEEN_KEY = "chalkle-wn-seen-v1";
+    function whatsnewSeen() {
+      try { return localStorage.getItem(WN_SEEN_KEY) === "1"; } catch (e) { return true; }
+    }
+    function whatsnewOpen() {
+      var o = $("#whatsnew-overlay");
+      if (!o) return;
+      o.hidden = false;
+      document.body.style.overflow = "hidden";
+      try { localStorage.setItem(WN_SEEN_KEY, "1"); } catch (e) { /* full */ }
+      document.querySelectorAll(".js-whatsnew").forEach(function (b) { b.classList.remove("is-wn-new"); });
+    }
+    function whatsnewClose() {
+      var o = $("#whatsnew-overlay");
+      if (o) o.hidden = true;
+      document.body.style.overflow = "";
+    }
+    if (!whatsnewSeen()) {
+      var sideVer = $("#side-foot-version");
+      if (sideVer) sideVer.classList.add("is-wn-new");
+    }
+    document.querySelectorAll(".js-whatsnew").forEach(function (btn) {
+      btn.addEventListener("click", whatsnewOpen);
+    });
+    var wnOverlay = $("#whatsnew-overlay");
+    if (wnOverlay) {
+      wnOverlay.addEventListener("click", function (e) {
+        if (e.target === wnOverlay) whatsnewClose();
+      });
+      var wnX = $("#whatsnew-x");
+      if (wnX) wnX.addEventListener("click", whatsnewClose);
+      document.addEventListener("keydown", function (e) {
+        if (e.key === "Escape" && !wnOverlay.hidden) whatsnewClose();
+      });
+    }
+
+    /* Home Discord join bar: dismissing hides it for this session only. */
+    var joinBar = $("#home-join");
+    var joinX = $("#home-join-x");
+    if (joinBar && joinX) {
+      try { if (sessionStorage.getItem("chalkle-join-dismiss") === "1") joinBar.hidden = true; } catch (e) { /* no session */ }
+      joinX.addEventListener("click", function () {
+        joinBar.hidden = true;
+        try { sessionStorage.setItem("chalkle-join-dismiss", "1"); } catch (e) { /* no session */ }
+      });
+    }
+
     var motion = $("#opt-motion");
     if (motion) {
       motion.addEventListener("change", function () {
@@ -2608,10 +2782,23 @@
       if (wallpaperApply) {
         wallpaperApply.addEventListener("click", function () {
           var url = (wallpaperUrl ? wallpaperUrl.value : "").trim();
-          if (!url) return;
-          savedWallpaper = T.getWallpaper();
-          T.setWallpaper("custom:" + url);
-          renderWallpaperGrid();
+          if (!url) { wallpaperHint(""); return; }
+          if (!/^https?:\/\//i.test(url)) {
+            wallpaperHint("Paste a full image URL starting with http(s)://");
+            return;
+          }
+          var img = new Image();
+          img.referrerPolicy = "no-referrer";
+          img.onload = function () {
+            savedWallpaper = T.getWallpaper();
+            T.setWallpaper("custom:" + url);
+            renderWallpaperGrid();
+            wallpaperHint("Wallpaper applied", true);
+          };
+          img.onerror = function () {
+            wallpaperHint("That image didn't load - check the URL and try again");
+          };
+          img.src = url;
         });
       }
 
@@ -2619,6 +2806,7 @@
       var undoWallpaper = $("#opt-wallpaper-undo");
       if (undoWallpaper) {
         undoWallpaper.addEventListener("click", function () {
+          wallpaperHint("");
           T.setWallpaper(savedWallpaper);
           if (wallpaperUrl) {
             wallpaperUrl.value = savedWallpaper.indexOf("custom:") === 0 ? savedWallpaper.slice(7) : "";
@@ -2739,12 +2927,11 @@
     var main = $("#main");
     if (main) {
       main.addEventListener("click", function (e) {
-        /* Built-in app tiles (Blank tab launcher, HTML Editor) open their modal. */
+        /* Built-in app tiles (HTML Editor etc.) open their modal. */
         var toolKind = e.target.closest("[data-tool-kind]");
         if (toolKind) {
           e.preventDefault();
-          if (toolKind.dataset.toolKind === "launcher" && window.ChalkleBlankTab) window.ChalkleBlankTab.open();
-          else if (toolKind.dataset.toolKind === "editor" && window.ChalkleEditor) window.ChalkleEditor.open();
+          if (toolKind.dataset.toolKind === "editor" && window.ChalkleEditor) window.ChalkleEditor.open();
           else if (toolKind.dataset.toolKind === "urlauditor" && window.ChalkleUrlAuditor) window.ChalkleUrlAuditor.open();
           else if (toolKind.dataset.toolKind === "pixel" && window.ChalklePixel) window.ChalklePixel.open();
           else if (toolKind.dataset.toolKind === "domainhub" && window.ChalkleDomainHub) window.ChalkleDomainHub.open();

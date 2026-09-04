@@ -4,22 +4,34 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#0c1210">
-  <meta name="description" content="A fast, simple productivity hub for everyday tasks.">
-  <meta name="keywords" content="productivity, tools, notes, calculator, utility, workspace">
+  <meta name="color-scheme" content="dark">
+  <!-- Unblock preview: title/description/favicon mirror IXL exactly, so link
+       previews in Discord/email look like a school site, not a games site. -->
+  <meta name="description" content="IXL is the world's most popular subscription-based learning site for K–12. Used by over 18 million students, IXL provides personalized learning in more than 20,000 topics, covering math, language arts, science, social studies, and Spanish. Interactive questions, awards, and certificates keep kids motivated as they master skills.">
+  <meta name="keywords" content="IXL, math, language arts, science, social studies, spanish, K-12, personalized learning, practice">
   <meta name="robots" content="index, follow">
-  <meta property="og:title" content="Chalkle - Productivity Hub">
-  <meta property="og:description" content="A fast, simple productivity hub for everyday tasks. Notes, calculator, utilities and more.">
+  <meta property="og:title" content="IXL | Math, Language Arts, Science, Social Studies, and Spanish">
+  <meta property="og:description" content="IXL is the world's most popular subscription-based learning site for K–12. Used by over 18 million students, IXL provides personalized learning in more than 20,000 topics, covering math, language arts, science, social studies, and Spanish. Interactive questions, awards, and certificates keep kids motivated as they master skills.">
   <meta property="og:type" content="website">
+  <meta property="og:url" content="https://www.ixl.com/">
+  <meta property="og:site_name" content="IXL Learning">
+  <meta property="og:image" content="https://www.ixl.com/favicon.ico">
   <meta name="twitter:card" content="summary">
-  <meta name="twitter:title" content="Chalkle - Productivity Hub">
-  <meta name="twitter:description" content="A fast, simple productivity hub for everyday tasks.">
-  <title>Chalkle</title>
-  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <meta name="twitter:title" content="IXL | Math, Language Arts, Science, Social Studies, and Spanish">
+  <meta name="twitter:description" content="IXL is the world's most popular subscription-based learning site for K–12. Used by over 18 million students, IXL provides personalized learning in more than 20,000 topics, covering math, language arts, science, social studies, and Spanish.">
+  <meta name="twitter:image" content="https://www.ixl.com/favicon.ico">
+  <title>IXL | Math, Language Arts, Science, Social Studies, and Spanish</title>
+  <link rel="icon" href="https://www.ixl.com/favicon.ico">
+  <link rel="alternate icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="preconnect" href="https://chalkle.lootline.xyz">
+  <link rel="preconnect" href="https://www.youtube-nocookie.com">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Boogaloo&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
   <link rel="preload" as="image" href="bg-chalk.webp" fetchpriority="high">
-  <link rel="stylesheet" href="styles.css?v=20260903a">
+  <link rel="stylesheet" href="styles.css?v=20260904a">
   <!-- AdSense. Slots stay hidden until real ad-unit IDs are pasted into the
        CHALKLE_ADS config below (AdSense dashboard → Ad units → create). -->
   <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3031332925462724" crossorigin="anonymous"></script>
@@ -32,6 +44,27 @@
   };
   </script>
   <script src="theme.js"></script>
+  <script>
+  /* Panic key: press ` (backtick) three times quickly (or Ctrl+Shift+` once)
+     to instantly send the tab to Google Classroom. Works from anywhere on the
+     page and survives whatever cloak is active. */
+  (function () {
+    var presses = 0, last = 0;
+    function panic() {
+      try { window.onbeforeunload = null; } catch (e) {}
+      try { window.location.replace("https://classroom.google.com/h"); } catch (e) {}
+    }
+    window.addEventListener("keydown", function (e) {
+      var key = (e.key || "").toLowerCase();
+      if (e.ctrlKey && e.shiftKey && (key === "`" || key === "~")) { e.preventDefault(); panic(); return; }
+      if (key !== "`" || e.ctrlKey || e.altKey || e.metaKey) return;
+      var now = Date.now();
+      presses = (now - last < 900) ? presses + 1 : 1;
+      last = now;
+      if (presses >= 3) { e.preventDefault(); panic(); }
+    }, true);
+  })();
+  </script>
 </head>
 <body>
   <noscript>
@@ -86,226 +119,6 @@
     <div class="boot-bar"><div class="boot-progress" id="boot-progress"></div></div>
     <div class="boot-skip" id="boot-skip">skip</div>
   </div>
-  <!-- ── Launch chooser (first screen) ─────────────────────────────── -->
-  <style>
-    html.launch-open, html.launch-open body { overflow: hidden; }
-    #launch-screen {
-      position: fixed; inset: 0; z-index: 2147483647;
-      display: flex; align-items: center; justify-content: center;
-      color: var(--text); font: 14px/1.5 var(--font);
-      padding: 24px; box-sizing: border-box; overflow: auto;
-      /* Flat dark backdrop with a faint green tint, no gradient. */
-      background: rgba(10, 12, 14, 0.96);
-    }
-    #launch-screen * { box-sizing: border-box; }
-    #launch-card {
-      width: min(680px, 100%); max-height: 100%; overflow: auto;
-      margin: auto; /* flexbox-safe centering: never clips the top when short */
-      background: var(--panel); border: 1px solid rgba(74, 184, 140, 0.16);
-      border-radius: 16px; padding: 3rem; text-align: center;
-      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(74, 184, 140, 0.06);
-    }
-    #launch-card .launch-logo {
-      display: inline-block; font-family: var(--display);
-      font-size: 46px; line-height: 1; letter-spacing: -0.01em;
-      margin: 0 auto 18px; -webkit-user-select: none; user-select: none;
-    }
-    #launch-card .launch-logo .bubble-letter { display: inline-block; }
-    #launch-card h1 { margin: 0 0 8px; font-size: 28px; font-weight: 500; letter-spacing: -0.02em; line-height: 1.15; }
-    #launch-card .launch-sub { margin: 0 0 1.75rem; color: var(--text-3); font-size: 15px; }
-    #launch-options { position: relative; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; text-align: left; }
-    #launch-options button {
-      appearance: none; cursor: pointer; text-align: left; color: var(--text);
-      background: rgba(74, 184, 140, 0.04); border: 1px solid rgba(74, 184, 140, 0.18);
-      border-radius: 12px; padding: 20px 14px; font: inherit;
-      transition: background 180ms ease, border-color 180ms ease, transform 180ms ease, box-shadow 180ms ease;
-      display: flex; gap: 14px; align-items: flex-start;
-      position: relative; box-shadow: 0 12px 28px rgba(0, 0, 0, 0.22);
-    }
-    #launch-options button:hover {
-      background: rgba(74, 184, 140, 0.1); border-color: rgba(74, 184, 140, 0.55);
-      transform: translateY(-2px);
-      box-shadow: inset 0 0 0 1px rgba(74, 184, 140, 0.18), inset 0 0 18px rgba(74, 184, 140, 0.09), 0 16px 32px rgba(0, 0, 0, 0.32);
-    }
-    #launch-options button:active { transform: scale(0.98); }
-    #launch-options .opt-ico {
-      flex-shrink: 0; width: 38px; height: 38px; border-radius: 12px;
-      display: grid; place-items: center; color: #3db39a;
-      background: rgba(74, 184, 140, 0.08); border: 1px solid rgba(74, 184, 140, 0.22);
-      transition: color 180ms ease, background 180ms ease, border-color 180ms ease;
-    }
-    #launch-options button:hover .opt-ico { color: #5dd1a6; }
-    #launch-options .opt-ico svg { width: 18px; height: 18px; display: block; }
-    #launch-options .opt-txt strong { display: block; font-size: 15px; font-weight: 500; margin-bottom: 3px; }
-    #launch-options .opt-txt small { color: var(--text-2); font-size: 12px; line-height: 1.45; display: block; opacity: 0.85; transition: opacity 180ms ease; }
-    #launch-options button:hover .opt-txt small { opacity: 1; }
-    #launch-options .opt-full { grid-column: 1 / -1; }
-    /* Featured Direct option: 2px accent border + inner glow + floating badge. */
-    #launch-options #launch-direct {
-      border: 2px solid #4ab88c; background: rgba(74, 184, 140, 0.13);
-      box-shadow: inset 0 0 0 1px rgba(74, 184, 140, 0.22), inset 0 0 24px rgba(74, 184, 140, 0.12), 0 14px 34px rgba(0, 0, 0, 0.3);
-    }
-    #launch-options #launch-direct:hover {
-      border-color: #5dd1a6;
-      box-shadow: inset 0 0 0 1px rgba(74, 184, 140, 0.25), inset 0 0 26px rgba(74, 184, 140, 0.14), 0 0 26px rgba(74, 184, 140, 0.18), 0 18px 36px rgba(0, 0, 0, 0.35);
-    }
-    #launch-options #launch-direct .opt-ico { color: #4ab88c; }
-    #launch-options #launch-direct:hover .opt-ico { color: #5dd1a6; }
-    #launch-options .opt-badge {
-      position: absolute; top: -12px; left: 50%; transform: translateX(-50%);
-      background: #4ab88c; color: #08211a;
-      font-size: 10.5px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase;
-      padding: 4px 11px; border-radius: 999px; white-space: nowrap;
-      backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-    }
-    #launch-status { margin: 16px 0 0; min-height: 18px; color: var(--text-2); font-size: 12px; display: flex; gap: 8px; align-items: center; justify-content: center; }
-    #launch-status.is-err { color: var(--red); }
-    #launch-status .spin {
-      width: 13px; height: 13px; border-radius: 50%; flex-shrink: 0;
-      border: 2px solid var(--line-2); border-top-color: #4ab88c;
-      animation: launch-spin .8s linear infinite;
-    }
-    @keyframes launch-spin { to { transform: rotate(360deg); } }
-    #launch-hint { margin: 16px 0 0; color: var(--text-3); font-size: 11.5px; line-height: 1.5; }
-    #launch-hint b { color: var(--text-2); font-weight: 600; }
-    @media (max-width: 560px) {
-      #launch-card { padding: 1.5rem; }
-      #launch-card h1 { font-size: 22px; }
-      #launch-options { grid-template-columns: 1fr; }
-    }
-  </style>
-  <div id="launch-screen" role="dialog" aria-modal="true" aria-label="Choose how to launch Chalkle">
-    <div id="launch-card">
-      <div class="launch-logo chalkle-logo" role="img" aria-label="Chalkle"></div>
-      <h1>Choose how to launch Chalkle</h1>
-      <p class="launch-sub">Every option runs the real build. Pick the one that fits.</p>
-      <div id="launch-options">
-        <button id="launch-direct" type="button">
-          <span class="opt-badge">Recommended</span>
-          <span class="opt-ico"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15l13-7.5Z"/></svg></span>
-          <span class="opt-txt"><strong>Direct</strong><small>Run Chalkle right here in this tab.</small></span>
-        </button>
-        <button id="launch-blank" type="button">
-          <span class="opt-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="2"/></svg></span>
-          <span class="opt-txt"><strong>about:blank</strong><small>Open in a fresh blank tab. Nothing in the address bar.</small></span>
-        </button>
-        <button id="launch-blob" type="button">
-          <span class="opt-ico"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 3c4 0 7 2.7 7 6.2 0 2.1-1 3.8-2.4 5.1-1.3 1.2-3 2-4.6 2-1.6 0-3.3-.8-4.6-2C6 13 5 11.3 5 9.2 5 5.7 8 3 12 3Z"/></svg></span>
-          <span class="opt-txt"><strong>Blob URL</strong><small>Launch from an in-memory blob link in a new tab.</small></span>
-        </button>
-        <button id="launch-data" type="button">
-          <span class="opt-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m9 7-5 5 5 5M15 7l5 5-5 5"/></svg></span>
-          <span class="opt-txt"><strong>Data URL</strong><small>Launch from a data: URL. Heavy, blob is usually better.</small></span>
-        </button>
-        <button id="launch-frame" type="button" class="opt-full">
-          <span class="opt-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 8h18"/></svg></span>
-          <span class="opt-txt"><strong>iframe</strong><small>Embed Chalkle full-screen inside this page.</small></span>
-        </button>
-      </div>
-      <div id="launch-status"></div>
-      <p id="launch-hint">Chalkle runs the official single-file build (<b>chalkle-single.html</b>) for every non-direct option, so it works even from a blank tab.</p>
-    </div>
-  </div>
-  <script>
-  (function () {
-    var screen = document.getElementById('launch-screen');
-    var status = document.getElementById('launch-status');
-    var cached = null;
-    var busy = false;
-    // When this page is injected by a cloak (learn-N.svg on jsdelivr), boot
-    // straight into the app: the chooser would try to fetch
-    // chalkle-single.html relative to the cloak's origin.
-    if (window.__CHALKLE_EMBED__ && screen && screen.parentNode) {
-      screen.parentNode.removeChild(screen);
-      return;
-    }
-    document.documentElement.classList.add('launch-open');
-
-    function getPayload() {
-      if (cached) return Promise.resolve(cached);
-      var payloadFile = window.ChalkleApi && window.ChalkleApi.isMirror && window.ChalkleApi.isMirror()
-        ? 'chalkle-single-cdn.html' : 'chalkle-single.html';
-      return fetch(payloadFile + '?t=' + Date.now()).then(function (r) {
-        if (!r.ok) throw new Error('HTTP ' + r.status);
-        return r.text();
-      }).then(function (t) { cached = t; return t; });
-    }
-    function fail(e) {
-      if (!status) return;
-      status.className = 'is-err';
-      status.textContent = 'Could not load the Chalkle build (' + (e && e.message ? e.message : e) + '). Keep the build files together, or use Direct.';
-      status.querySelectorAll('.spin').forEach(function (s) { s.remove(); });
-    }
-    function go(fn) {
-      if (busy) return;
-      busy = true;
-      if (status) {
-        status.className = 'is-loading';
-        status.innerHTML = '<span class="spin"></span>Loading the official build…';
-      }
-      getPayload().then(function (html) { busy = false; fn(html); }).catch(function (e) { busy = false; fail(e); });
-    }
-    function dismiss() {
-      if (screen && screen.parentNode) screen.parentNode.removeChild(screen);
-      document.documentElement.classList.remove('launch-open');
-    }
-    // Open the target window synchronously inside the click (a user gesture) so
-    // the popup blocker doesn't kill it. The 26MB payload is fetched after, and
-    // the opened window is only written to once it arrives. Once the launch
-    // lands, the chooser dismisses and the site itself becomes visible behind it.
-    function openNow(fn) {
-      var w = window.open('about:blank', '_blank');
-      if (!w) {
-        if (status) { status.className = 'is-err'; status.textContent = 'Popup blocked. Allow popups for this site, then try again.'; }
-        return null;
-      }
-      go(function (html) {
-        if (fn(w, html) !== false) dismiss(); // fn returns false only on failure
-      });
-      return w;
-    }
-
-    document.getElementById('launch-direct').addEventListener('click', dismiss);
-    document.getElementById('launch-blank').addEventListener('click', function () {
-      openNow(function (w, html) {
-        w.document.open(); w.document.write(html); w.document.close();
-      });
-    });
-    document.getElementById('launch-blob').addEventListener('click', function () {
-      openNow(function (w, html) {
-        var url = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' }));
-        try { w.location.replace(url); } catch (e) { w.location.href = url; }
-      });
-    });
-    document.getElementById('launch-data').addEventListener('click', function () {
-      openNow(function (w, html) {
-        try {
-          var b64 = btoa(unescape(encodeURIComponent(html)));
-          var url = 'data:text/html;base64,' + b64;
-          if (url.length > 1900000) { // Chrome drops data: URLs past ~2MB
-            if (status) { status.className = 'is-err'; status.textContent = 'The build is too big for a data URL. Use Blob or Direct instead.'; }
-            try { w.close(); } catch (e) {}
-            return false;
-          }
-          try { w.location.replace(url); } catch (e) { w.location.href = url; }
-        } catch (e) { fail(e); return false; }
-      });
-    });
-    document.getElementById('launch-frame').addEventListener('click', function () {
-      // iframe needs no popup permission: build it now, feed it after fetch
-      var f = document.createElement('iframe');
-      f.setAttribute('allowfullscreen', '');
-      f.style.cssText = 'position:fixed;inset:0;width:100vw;height:100vh;border:0;z-index:2147483646;background:#000';
-      document.body.appendChild(f);
-      go(function (html) {
-        var url = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' }));
-        f.src = url;
-        dismiss();
-      });
-    });
-  })();
-  </script>
 
   <div class="app" id="app" hidden>
     <header class="topbar">
@@ -318,9 +131,9 @@
           <circle cx="11" cy="11" r="6.5"/>
           <line x1="16" y1="16" x2="20.5" y2="20.5"/>
         </svg>
-        <input id="search-input" type="search" placeholder="Search games, sites & apps" autocomplete="off" spellcheck="false" aria-label="Search">
+        <input id="search-input" type="search" placeholder="Search games, sites, tools & music" autocomplete="off" spellcheck="false" aria-label="Search">
         <kbd class="kbd" aria-hidden="true">Ctrl K</kbd>
-        <div class="search-results" id="search-results" hidden role="listbox"></div>
+        <div class="search-results" id="search-results" hidden role="listbox" aria-live="polite"></div>
       </div>
 
       <button class="hamburger" id="hamburger" aria-label="Open menu" aria-expanded="false">
@@ -483,7 +296,9 @@
           </svg>
           <span class="nav-label">Collapse</span>
         </button>
-        <div class="side-foot" aria-hidden="true">CHALKLE v1.0</div>
+        <button class="side-foot js-whatsnew" id="side-foot-version" type="button" title="What&rsquo;s new in Chalkle">
+          <span class="side-foot-txt">CHALKLE v1.1</span>
+        </button>
       </aside>
 
       <div class="backdrop" id="backdrop" hidden></div>
@@ -496,6 +311,7 @@
               <span class="home-kicker">No sign-in. Just play.</span>
               <h1 class="home-title">Everything fun, always ready.</h1>
               <p class="home-text">Games, music, sites, and tools pulled together in one place. Pick one and go.</p>
+              <p class="home-trust"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4.5 6v5c0 4.6 3.2 8.3 7.5 9.5 4.3-1.2 7.5-4.9 7.5-9.5V6L12 3z"/><path d="m9 12 2 2 4-4"/></svg><span>No accounts. No downloads. Nothing tracked. Your shelf stays in this browser.</span></p>
               <div class="home-actions">
                 <button class="home-primary" data-home-go="games">Browse games</button>
                 <button class="home-secondary" data-home-go="music">Open Music</button>
@@ -505,8 +321,8 @@
 
             <div class="home-hero-side">
               <div class="home-quick-head">
-                <span class="home-quick-label">Jump back in</span>
-                <span class="home-quick-chip">One tap</span>
+              <span class="home-quick-label">Quick launch</span>
+              <span class="home-quick-chip">1 tap</span>
               </div>
               <div class="home-quick">
                 <button class="home-quick-card q-games" data-home-go="games"><span class="home-quick-ico"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7.55 6.15h8.9a4.55 4.55 0 0 1 4.5 5.05l-.42 3.95a3.05 3.05 0 0 1-5.37 1.75l-1.3-1.6h-3.72l-1.3 1.6a3.05 3.05 0 0 1-5.37-1.75l-.42-3.95A4.55 4.55 0 0 1 7.55 6.15z"/><path d="M8.45 9.7v2.3M7.3 10.85h2.3"/></svg></span><span class="home-quick-t">Games</span></button>
@@ -535,22 +351,42 @@
               <div class="home-surface">
                 <div class="home-surface-head"><span class="home-surface-title">Your shelf</span><span class="home-panel-chip">On this device</span></div>
                 <div class="home-metrics">
-                  <div class="home-metric"><span class="home-metric-value" id="home-stat-games">0</span><span class="home-metric-label">games</span></div>
-                  <div class="home-metric"><span class="home-metric-value" id="home-stat-sites">0</span><span class="home-metric-label">sites</span></div>
-                  <div class="home-metric"><span class="home-metric-value" id="home-stat-tools">0</span><span class="home-metric-label">tools</span></div>
-                  <div class="home-metric"><span class="home-metric-value" id="home-stat-favs">0</span><span class="home-metric-label">saved</span></div>
+                  <button type="button" class="home-metric" data-metric-go="games" title="Open Games"><span class="home-metric-value" id="home-stat-games">0</span><span class="home-metric-label">games</span></button>
+                  <button type="button" class="home-metric" data-metric-go="sites" title="Open Sites"><span class="home-metric-value" id="home-stat-sites">0</span><span class="home-metric-label">sites</span></button>
+                  <button type="button" class="home-metric" data-metric-go="apps-tools" title="Open Apps/Tools"><span class="home-metric-value" id="home-stat-tools">0</span><span class="home-metric-label">tools</span></button>
+                  <button type="button" class="home-metric" data-metric-go="games" title="Your saved favourites" hidden><span class="home-metric-value" id="home-stat-favs">0</span><span class="home-metric-label">saved</span></button>
                 </div>
-                <span class="home-surface-text">Use the search bar up top to pull up any game, site, or tool.</span>
+                <span class="home-surface-text">Use the search bar up top to pull up any game, site, tool, or song.</span>
               </div>
             </div>
-          </div>
+        </div>
 
-          <div class="ad-slot" id="ad-slot-home" data-slot-key="home" hidden>
+        <div class="home-join" id="home-join">
+          <span class="home-join-ico"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" stroke="none" d="M20.317 4.37a19.79 19.79 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.211.375-.445.865-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.319 13.58.099 18.058a.082.082 0 0 0 .031.056c2.053 1.507 4.041 2.423 5.993 3.03a.078.078 0 0 0 .084-.028c.462-.63.873-1.295 1.226-1.994a.076.076 0 0 0-.042-.106 13.11 13.11 0 0 1-1.872-.892.077.077 0 0 1-.008-.128c.126-.094.252-.192.372-.291a.074.074 0 0 1 .078-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.009c.12.099.246.198.373.292a.077.077 0 0 1-.007.128 12.3 12.3 0 0 1-1.873.891.076.076 0 0 0-.04.107c.36.698.772 1.363 1.225 1.993a.076.076 0 0 0 .084.029c1.961-.607 3.95-1.522 6.002-3.03a.077.077 0 0 0 .031-.055c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.029zM8.02 15.33c-1.183 0-2.157-1.086-2.157-2.42 0-1.333.956-2.418 2.157-2.418 1.211 0 2.176 1.095 2.157 2.418 0 1.334-.956 2.42-2.157 2.42zm7.975 0c-1.183 0-2.157-1.086-2.157-2.42 0-1.333.956-2.418 2.157-2.418 1.211 0 2.176 1.095 2.157 2.418 0 1.334-.946 2.42-2.157 2.42z"/></svg></span>
+          <div class="home-join-txt">
+            <span class="home-join-title">Join the Chalkle Discord</span>
+            <span class="home-join-sub">Sneak peeks at new games, request titles, and hang with the crew. Still no sign-in.</span>
+          </div>
+          <a class="home-join-btn" href="https://discord.gg/Y8Zh2mE7Ke" target="_blank" rel="noopener noreferrer">Join free</a>
+          <button class="home-join-x" id="home-join-x" type="button" aria-label="Hide this banner" title="Hide">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+          </button>
+        </div>
+
+        <div class="ad-slot" id="ad-slot-home" data-slot-key="home" hidden>
             <span class="ad-slot-label">Sponsored</span>
             <ins class="adsbygoogle" data-ad-client="ca-pub-3031332925462724" data-ad-slot="" data-ad-format="auto" data-full-width-responsive="true"></ins>
           </div>
 
           <div class="home-recents" id="home-recents" hidden></div>
+
+          <section class="home-block" id="home-picks" hidden>
+            <div class="home-block-head">
+              <h2 class="home-block-title">Editor&rsquo;s picks</h2>
+              <span class="home-block-note">Hand-picked by the crew. Try these first.</span>
+            </div>
+            <div class="home-shelf" id="home-picks-grid"></div>
+          </section>
 
           <section class="home-block">
             <div class="home-block-head">
@@ -603,6 +439,13 @@
             </div>
           </div>
           <div class="genre-filters" id="genre-filters" role="group" aria-label="Filter by genre" hidden></div>
+          <section class="home-block picks-on-games" id="games-picks" hidden>
+            <div class="home-block-head">
+              <h2 class="home-block-title">Editor&rsquo;s picks</h2>
+              <span class="home-block-note">A good first handful. The rest is below.</span>
+            </div>
+            <div class="home-shelf" id="games-picks-grid"></div>
+          </section>
           <div class="ad-slot" id="ad-slot-games" data-slot-key="games" hidden>
             <span class="ad-slot-label">Sponsored</span>
             <ins class="adsbygoogle" data-ad-client="ca-pub-3031332925462724" data-ad-slot="" data-ad-format="auto" data-full-width-responsive="true"></ins>
@@ -681,7 +524,7 @@
           <div class="view-head">
             <div class="view-heading">
               <h1 class="view-title">YouTube</h1>
-              <span class="view-meta" id="yt-meta">live + for you</span>
+              <span class="view-meta" id="yt-meta">search or play any video on demand, not the Live TV feed</span>
             </div>
             <button class="chip yt-cat-chip" data-yt-cat="home" type="button">Home</button>
           </div>
@@ -735,7 +578,7 @@
         <section class="view" data-view="music">
           <div class="view-head">
             <h1 class="view-title">Music</h1>
-            <span class="view-meta" id="music-meta">real songs, netease</span>
+            <span class="view-meta" id="music-meta" title="Search streams through this site's relay (nothing here phones home). Queue, lyrics, speed and pitch are built in.">stream any song · built-in player</span>
           </div>
           <div class="panel music-toolbar">
             <div class="music-search">
@@ -818,8 +661,8 @@
           <div class="view-head">
             <h1 class="view-title">Apps/Tools</h1>
             <span class="view-meta" id="apps-tools-meta"></span>
-          </div>
-          <div class="grid" id="apps-grid"></div>
+          </div>              <div class="genre-filters" id="apps-genres" role="group" aria-label="Filter tools by category" hidden></div>
+              <div class="grid" id="apps-grid"></div>
           <div class="empty" id="apps-empty" hidden>
             <p class="empty-title">No tools yet.</p>
             <p class="empty-hint">Add one from the Admin panel.</p>
@@ -953,7 +796,7 @@
               <span class="view-meta">local to this device</span>
             </div>
             <div class="view-actions">
-              <button class="home-panel-chip" id="opt-make-yours" type="button">Make it yours</button>
+              <button class="home-panel-chip" id="opt-make-yours" type="button" title="Opens Appearance settings and scrolls to them">Make it yours</button>
             </div>
           </div>
 
@@ -1000,6 +843,7 @@
                     <button class="btn-theme" id="opt-wallpaper-apply">Apply</button>
                     <button class="btn-ghost" id="opt-wallpaper-undo" type="button">Undo</button>
                   </div>
+                  <span class="wallpaper-hint" id="opt-wallpaper-hint" hidden></span>
                 </div>
                 <div class="settings-block">
                   <div class="settings-block-label">Cursor</div>
@@ -1068,37 +912,12 @@
               <button class="settings-toggle" type="button" aria-expanded="false" aria-controls="settings-body-behavior">
                 <span class="settings-toggle-txt">
                   <span class="settings-toggle-title">Behavior</span>
-                  <span class="settings-toggle-sub">open method, cloak title</span>
+                  <span class="settings-toggle-sub">cloak title</span>
                 </span>
-                <span class="settings-count">3 options</span>
+                <span class="settings-count">1 option</span>
                 <svg class="icon settings-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9.5l6 6 6-6"/></svg>
               </button>
               <div class="settings-body" id="settings-body-behavior" hidden>
-                <div class="settings-row">
-                  <div class="settings-row-txt">
-                    <span class="setting-name">Ask before launching</span>
-                    <span class="setting-hint">Pick a method each time</span>
-                  </div>
-                  <label class="switch">
-                    <input type="checkbox" id="opt-ask">
-                    <span class="track" aria-hidden="true"></span>
-                  </label>
-                </div>
-                <div class="settings-row">
-                  <div class="settings-row-txt">
-                    <span class="setting-name">Default open method</span>
-                    <span class="setting-hint">When you don&rsquo;t ask</span>
-                  </div>
-                  <select class="field field-mode settings-select" id="opt-default-mode" aria-label="Default open method">
-                    <option value="ask">Ask each time</option>
-                    <option value="direct">Direct</option>
-                    <option value="aboutblank">About:blank</option>
-                    <option value="blob">Blob</option>
-                    <option value="dataurl">Data URL</option>
-                    <option value="iframe">This tab</option>
-                    <option value="proxy">Proxy</option>
-                  </select>
-                </div>
                 <div class="settings-row">
                   <div class="settings-row-txt">
                     <span class="setting-name">Cloak tab title</span>
@@ -1188,7 +1007,14 @@
             <div class="panel settings-card settings-about">
               <div class="settings-head">
                 <h2 class="panel-title">About</h2>
-                <span class="panel-chip">v1.0</span>
+                <span class="panel-chip">v1.1</span>
+              </div>
+              <div class="settings-row">
+                <div class="settings-row-txt">
+                  <span class="setting-name">Version 1.1</span>
+                  <span class="setting-hint">See what changed in this release</span>
+                </div>
+                <button class="btn-ghost js-whatsnew" type="button">What&rsquo;s new…</button>
               </div>
               <div class="settings-row">
                 <div class="settings-row-txt">
@@ -1203,153 +1029,7 @@
       </main>
     </div>
 
-    <div class="audio-dock" id="audio-dock" hidden>
-      <div class="audio-eq" id="audio-eq" hidden>
-        <canvas id="eq-canvas" width="220" height="40"></canvas>
-      </div>
-      <div class="audio-row">
-        <div class="audio-meta">
-          <div class="audio-art" id="audio-art"></div>
-          <div class="audio-titles">
-            <div class="audio-title" id="audio-title">Nothing playing</div>
-            <div class="audio-artist" id="audio-artist"></div>
-          </div>
-          <button class="audio-btn heart" id="audio-heart" aria-label="Favorite">
-            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.3 4.6 13a4.6 4.6 0 0 1 6.5-6.5L12 7.6l0.9-.9a4.6 4.6 0 0 1 6.5 6.5L12 20.3z"/></svg>
-          </button>
-        </div>
-        <div class="audio-center">
-          <div class="audio-buttons">
-            <button class="audio-btn sm" id="btn-shuffle" aria-label="Shuffle">
-              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h3.2c2.2 0 4.1 1.3 5.3 3.4M13.5 13.6c1.2 2.1 3.1 3.4 5.3 3.4H20M4 17h3.2c1.6 0 3-.7 4-1.8M16.5 5h3.5v3.5M20 5l-5.5 5.5M16.5 19l3.5-3.5-3.5-3.5"/></svg>
-            </button>
-            <button class="audio-btn sm" id="btn-prev" aria-label="Previous">
-              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 6v12M17 6l-8 6 8 6z"/></svg>
-            </button>
-            <button class="audio-btn play" id="btn-play" aria-label="Play">
-              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5l11 7-11 7z"/></svg>
-            </button>
-            <button class="audio-btn sm" id="btn-next" aria-label="Next">
-              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M17 6v12M7 6l8 6-8 6z"/></svg>
-            </button>
-            <button class="audio-btn sm" id="btn-repeat" aria-label="Repeat">
-              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M17 3.5 20.5 7 17 10.5M20 7H4.5A2.5 2.5 0 0 0 2 9.5v1M7 20.5 3.5 17 7 13.5M4 17h15.5a2.5 2.5 0 0 0 2.5-2.5v-1"/></svg>
-            </button>
-          </div>
-          <div class="audio-track">
-            <span class="audio-time" id="audio-cur">0:00</span>
-            <input class="audio-range" id="audio-seek" type="range" min="0" max="1000" value="0" step="1" aria-label="Seek">
-            <span class="audio-time" id="audio-dur">0:00</span>
-          </div>
-        </div>
-        <div class="audio-right">
-          <button class="audio-btn sm" id="btn-eq" aria-label="Equalizer">
-            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 9v6M10 5v14M15 8v8M20 11v2"/></svg>
-          </button>
-          <button class="audio-btn sm" id="btn-vol" aria-label="Mute">
-            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9.5v5h3.5L12 19V5L7.5 9.5H4z"/><path d="M15.5 9a4.5 4.5 0 0 1 0 6M17.8 6.6a8 8 0 0 1 0 10.8"/></svg>
-          </button>
-          <input class="audio-range vol" id="audio-vol" type="range" min="0" max="1" step="0.01" value="0.9" aria-label="Volume">
-          <button class="audio-btn sm" id="btn-queue" aria-label="Queue">
-            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></svg>
-            <span class="queue-count" id="queue-count">0</span>
-          </button>
-        </div>
-      </div>
-      <div class="audio-queue" id="audio-queue" hidden>
-        <div class="audio-queue-head">
-          <span>Up next</span>
-          <button class="audio-btn sm x" id="btn-queue-close" aria-label="Close queue">
-            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
-          </button>
-        </div>
-        <div class="audio-queue-list" id="audio-queue-list"></div>
-      </div>
-    </div>
-
-    <div class="video-overlay" id="video-overlay" hidden>
-      <div class="video-window">
-        <div class="video-bar">
-          <span id="video-overlay-title">YouTube video</span>
-          <div class="video-bar-actions">
-            <button class="btn-ghost" id="video-pip" type="button" aria-label="Picture in picture">Picture in picture</button>
-            <button class="launch-x" id="video-overlay-close" aria-label="Close video">
-            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
-          </button>
-          </div>
-        </div>
-        <iframe id="video-frame" title="YouTube video" allow="fullscreen; picture-in-picture" allowfullscreen referrerpolicy="origin"></iframe>
-      </div>
-    </div>
-
-    <div class="launch-modal" id="launch-modal" hidden>
-      <div class="launch-card">
-        <div class="launch-head">
-          <div class="launch-titles">
-            <span class="launch-name" id="launch-name"></span>
-            <span class="launch-sub">How do you want to open it?</span>
-          </div>
-          <button class="launch-x" id="launch-close" aria-label="Close">
-            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
-          </button>
-        </div>
-        <div class="launch-grid">
-          <button class="launch-opt launch-featured" data-launch-method="iframe">
-            <span class="launch-badge">Recommended</span>
-            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4.5" width="18" height="15" rx="2.5"/><path d="M3 9h18"/></svg>
-            <span class="launch-opt-title">Iframe Here</span>
-            <span class="launch-opt-desc">Plays here - blocks can't touch it</span>
-          </button>
-          <button class="launch-opt" data-launch-method="direct">
-            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17L17 7M9 7h8v8"/></svg>
-            <span class="launch-opt-title">Direct</span>
-            <span class="launch-opt-desc">Opens in a new tab</span>
-          </button>
-          <button class="launch-opt" data-launch-method="aboutblank">
-            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3"/><circle cx="12" cy="12" r="2.5"/></svg>
-            <span class="launch-opt-title">About Blank</span>
-            <span class="launch-opt-desc">Cloaked blank tab</span>
-          </button>
-          <button class="launch-opt" data-launch-method="blob">
-            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 8l8-4v12l-8 4z"/></svg>
-            <span class="launch-opt-title">Blob</span>
-            <span class="launch-opt-desc">Cloaked blob tab</span>
-          </button>
-          <button class="launch-opt" data-launch-method="dataurl">
-            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M8 9h8M8 13h8M8 17h5"/></svg>
-            <span class="launch-opt-title">DataURL</span>
-            <span class="launch-opt-desc">Inline data page</span>
-          </button>
-          <button class="launch-opt" data-launch-method="iframe">
-            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4.5" width="18" height="15" rx="2.5"/><path d="M3 9h18"/></svg>
-            <span class="launch-opt-title">Iframe Here</span>
-            <span class="launch-opt-desc">Plays on this page</span>
-          </button>
-          <button class="launch-opt" data-launch-method="proxy" id="launch-proxy">
-            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><ellipse cx="12" cy="12" rx="3.6" ry="8.5"/><path d="M3.5 12h17"/></svg>
-            <span class="launch-opt-title">Proxy</span>
-            <span class="launch-opt-desc">Routed through a proxy</span>
-          </button>
-        </div>
-        <div class="launch-foot">
-          <div class="launch-proxy-row">
-            <span class="launch-label">Proxy</span>
-            <select class="field" id="launch-proxy-select" hidden></select>
-          </div>
-          <div class="launch-set">
-            <select class="field" id="launch-mode-select" aria-label="Default method">
-              <option value="direct">Direct</option>
-              <option value="aboutblank">About Blank</option>
-              <option value="blob">Blob</option>
-              <option value="dataurl">DataURL</option>
-              <option value="iframe">Iframe Here</option>
-              <option value="proxy">Proxy</option>
-            </select>
-            <button class="btn-ghost" id="launch-set-default">Always use this</button>
-          </div>
-        </div>
-      </div>
-    </div>
+    <div class="toast-box" id="toast-box" aria-live="polite"></div>
 
     <div class="overlay" id="proxy-overlay" hidden>
       <div class="overlay-bar">
@@ -1389,6 +1069,31 @@
         </div>
       </div>
       <iframe class="docs-viewer-frame" id="docs-viewer-frame" title="Doc"></iframe>
+    </div>
+
+    <div class="whatsnew-overlay" id="whatsnew-overlay" hidden>
+      <div class="whatsnew-card" role="dialog" aria-modal="true" aria-labelledby="whatsnew-title">
+        <div class="whatsnew-head">
+          <div>
+            <span class="whatsnew-kicker">Chalkle</span>
+            <h2 class="whatsnew-title" id="whatsnew-title">What&rsquo;s new</h2>
+          </div>
+          <button class="launch-x" id="whatsnew-x" type="button" aria-label="Close">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+          </button>
+        </div>
+        <ul class="whatsnew-list">
+          <li><span class="wn-tag">Launcher</span>Games and sites open straight in a new tab. No chooser screens.</li>
+          <li><span class="wn-tag">Home</span>Editor&rsquo;s picks shelf, clickable stat tiles, and a Discord join bar.</li>
+          <li><span class="wn-tag">Sites</span>Arctic &amp; Cherri mirrors are labelled 1&ndash;10 with their own thumbnails.</li>
+          <li><span class="wn-tag">Board</span>Open team spots now jump straight to the Apply channel.</li>
+          <li><span class="wn-tag">Tools</span>Emulator tiles say which ROM or file to bring.</li>
+          <li><span class="wn-tag">Live TV</span>The filter row scrolls instead of wrapping on small screens.</li>
+          <li><span class="wn-tag">AI</span>The model count shows when it was last checked.</li>
+          <li><span class="wn-tag">Settings</span>Wallpaper previews live as you type, with apply-time checks.</li>
+        </ul>
+        <a class="whatsnew-foot" href="https://discord.gg/Y8Zh2mE7Ke" target="_blank" rel="noopener noreferrer">Find the newest stuff first on the Discord</a>
+      </div>
     </div>
 
     <div class="admin-modal" id="admin-modal" hidden>
@@ -1476,7 +1181,7 @@
         <video id="livetv-video" controls playsinline autoplay muted style="display:none;"></video>
         <iframe id="livetv-embed-frame" class="livetv-embed-frame" title="Live stream player"
           allow="autoplay; fullscreen; encrypted-media; picture-in-picture" allowfullscreen
-          referrerpolicy="no-referrer-when-downgrade" scrolling="no" style="display:none;"></iframe>
+          referrerpolicy="no-referrer-when-downgrade" style="display:none;"></iframe>
         <div class="livetv-player-msg" id="livetv-player-msg" hidden></div>
       </div>
     </div>
@@ -1494,33 +1199,6 @@
           allow="autoplay; fullscreen; encrypted-media; picture-in-picture" allowfullscreen
           referrerpolicy="no-referrer-when-downgrade" scrolling="no"></iframe>
         <div class="yt-player-msg" id="yt-player-msg" hidden></div>
-      </div>
-    </div>
-
-    <div class="admin-modal" id="blanktab-modal" hidden>
-      <div class="admin-cover" data-blanktab-close></div>
-      <div class="admin-card blanktab-card">
-        <div class="admin-head">
-          <span class="admin-title">Blank tab</span>
-          <button class="launch-x" data-blanktab-close aria-label="Close">
-            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
-          </button>
-        </div>
-        <div class="blanktab-body">
-          <p class="empty-hint panel-note">Open any URL in direct, about:blank, blob, in-app frame, or through a proxy.</p>
-          <form id="blanktab-form" class="form-row" autocomplete="off">
-            <input class="field field-name" id="blanktab-url" type="text" placeholder="https://example.com" spellcheck="false" required>
-            <select class="field field-mode" id="blanktab-mode" aria-label="Open method">
-              <option value="direct">Direct</option>
-              <option value="aboutblank">About:blank</option>
-              <option value="blob">Blob</option>
-              <option value="dataurl">Data URL</option>
-              <option value="iframe">This tab</option>
-              <option value="proxy">Proxy</option>
-            </select>
-            <button class="btn" type="submit">Launch</button>
-          </form>
-        </div>
       </div>
     </div>
 
@@ -1762,29 +1440,28 @@
       </div>
     </div>
 
-  <script src="runtime-config.js?v=20260903a"></script>
-  <script src="sync.js?v=20260903a"></script>
-  <script src="games.js?v=20260903a"></script>
-  <script src="cloudgames.js?v=20260903a"></script>
-  <script src="webports.js?v=20260903a"></script>
-  <script src="sites.js?v=20260903a"></script>
-  <script src="proxies.js?v=20260903a"></script>
-  <script src="apps.js?v=20260903a"></script>
-  <script src="music.js?v=20260903a"></script>
-  <script src="launcher.js?v=20260903a"></script>
-  <script src="cloud.js?v=20260903a"></script>
-  <script src="blanktab.js?v=20260903a"></script>
-  <script src="editor.js?v=20260903a"></script>
-  <script src="urlauditor.js?v=20260903a"></script>
-  <script src="pixel.js?v=20260903a"></script>
-  <script src="domainhub.js?v=20260903a"></script>
-  <script src="ai.js?v=20260903a"></script>
-  <script src="docs.js?v=20260903a"></script>
-  <script src="partners.js?v=20260903a"></script>
-  <script src="assets/hls.min.js?v=20260903a"></script>
-  <script src="livetv.js?v=20260903a"></script>
-  <script src="youtube.js?v=20260903a"></script>
-  <script src="intro.js?v=20260903a"></script>
+  <script src="runtime-config.js?v=20260904a"></script>
+  <script src="sync.js?v=20260904a"></script>
+  <script src="games.js?v=20260904a"></script>
+  <script src="cloudgames.js?v=20260904a"></script>
+  <script src="webports.js?v=20260904a"></script>
+  <script src="sites.js?v=20260904a"></script>
+  <script src="proxies.js?v=20260904a"></script>
+  <script src="apps.js?v=20260904a"></script>
+  <script src="music.js?v=20260904a"></script>
+  <script src="launcher.js?v=20260904a"></script>
+  <script src="cloud.js?v=20260904a"></script>
+  <script src="editor.js?v=20260904a"></script>
+  <script src="urlauditor.js?v=20260904a"></script>
+  <script src="pixel.js?v=20260904a"></script>
+  <script src="domainhub.js?v=20260904a"></script>
+  <script src="ai.js?v=20260904a"></script>
+  <script src="docs.js?v=20260904a"></script>
+  <script src="partners.js?v=20260904a"></script>
+  <script src="assets/hls.min.js?v=20260904a"></script>
+  <script src="livetv.js?v=20260904a"></script>
+  <script src="youtube.js?v=20260904a"></script>
+  <script src="intro.js?v=20260904a"></script>
   <script>
   /* AdSense boot: fill each slot's data-ad-slot from the CHALKLE_ADS config
      and request the unit. Slots with no configured ID stay hidden, so an
@@ -1808,6 +1485,6 @@
     }
   })();
   </script>
-  <script src="app.js?v=20260903a"></script>
+  <script src="app.js?v=20260904a"></script>
 </body>
 </html>
