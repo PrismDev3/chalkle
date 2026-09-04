@@ -4,17 +4,29 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#0c1210">
-  <meta name="description" content="A fast, simple productivity hub for everyday tasks.">
-  <meta name="keywords" content="productivity, tools, notes, calculator, utility, workspace">
+  <meta name="color-scheme" content="dark">
+  <!-- Unblock preview: title/description/favicon mirror IXL exactly, so link
+       previews in Discord/email look like a school site, not a games site. -->
+  <meta name="description" content="IXL is the world's most popular subscription-based learning site for K–12. Used by over 18 million students, IXL provides personalized learning in more than 20,000 topics, covering math, language arts, science, social studies, and Spanish. Interactive questions, awards, and certificates keep kids motivated as they master skills.">
+  <meta name="keywords" content="IXL, math, language arts, science, social studies, spanish, K-12, personalized learning, practice">
   <meta name="robots" content="index, follow">
-  <meta property="og:title" content="Chalkle - Productivity Hub">
-  <meta property="og:description" content="A fast, simple productivity hub for everyday tasks. Notes, calculator, utilities and more.">
+  <meta property="og:title" content="IXL | Math, Language Arts, Science, Social Studies, and Spanish">
+  <meta property="og:description" content="IXL is the world's most popular subscription-based learning site for K–12. Used by over 18 million students, IXL provides personalized learning in more than 20,000 topics, covering math, language arts, science, social studies, and Spanish. Interactive questions, awards, and certificates keep kids motivated as they master skills.">
   <meta property="og:type" content="website">
+  <meta property="og:url" content="https://www.ixl.com/">
+  <meta property="og:site_name" content="IXL Learning">
+  <meta property="og:image" content="https://www.ixl.com/favicon.ico">
   <meta name="twitter:card" content="summary">
-  <meta name="twitter:title" content="Chalkle - Productivity Hub">
-  <meta name="twitter:description" content="A fast, simple productivity hub for everyday tasks.">
-  <title>Chalkle</title>
-  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <meta name="twitter:title" content="IXL | Math, Language Arts, Science, Social Studies, and Spanish">
+  <meta name="twitter:description" content="IXL is the world's most popular subscription-based learning site for K–12. Used by over 18 million students, IXL provides personalized learning in more than 20,000 topics, covering math, language arts, science, social studies, and Spanish.">
+  <meta name="twitter:image" content="https://www.ixl.com/favicon.ico">
+  <title>IXL | Math, Language Arts, Science, Social Studies, and Spanish</title>
+  <link rel="icon" href="https://www.ixl.com/favicon.ico">
+  <link rel="alternate icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="preconnect" href="https://chalkle.lootline.xyz">
+  <link rel="preconnect" href="https://www.youtube-nocookie.com">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Boogaloo&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
@@ -2607,17 +2619,37 @@ button.home-panel-chip:hover {
 }
 
 .theme-color-field input[type="color"] {
-  width: 64px;
-  height: 40px;
-  padding: 2px;
+  width: 68px;
+  height: 42px;
+  padding: 3px;
   border: 1px solid var(--line);
-  border-radius: 9px;
+  border-radius: 14px;
   background: var(--panel);
   cursor: pointer;
+  overflow: hidden;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+  transition: border-color 140ms ease, box-shadow 140ms ease, transform 140ms ease;
 }
-
-.theme-color-field input[type="color"]::-webkit-color-swatch-wrapper { padding: 2px; }
-.theme-color-field input[type="color"]::-webkit-color-swatch { border: 0; border-radius: 6px; }
+.theme-color-field input[type="color"]:hover { border-color: var(--text-3); }
+.theme-color-field input[type="color"]:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.theme-color-field input[type="color"]:active { transform: scale(0.96); }
+/* Round the native swatch itself so the colour chip follows the field's
+   rounded shape instead of showing a hard-edged square inside it. */
+.theme-color-field input[type="color"]::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+.theme-color-field input[type="color"]::-webkit-color-swatch {
+  border: 0;
+  border-radius: 10px;
+}
+.theme-color-field input[type="color"]::-moz-color-swatch {
+  border: 0;
+  border-radius: 10px;
+}
 
 .theme-actions {
   display: flex;
@@ -3031,20 +3063,6 @@ button.home-panel-chip:hover {
   .settings-select, .settings-input { width: 100%; }
 }
 
-/* ---------- Blank Tab app modal ---------- */
-
-.blanktab-card {
-  width: min(560px, 100%);
-}
-
-.blanktab-body {
-  padding: 20px;
-}
-
-.blanktab-body .form-row {
-  margin-top: 16px;
-}
-
 /* ---------- HTML Editor app modal ---------- */
 /* The editor is a full-page surface, not a window: it fills the viewport so
    there is real room to write and preview side by side. */
@@ -3421,6 +3439,20 @@ button.home-panel-chip:hover {
   white-space: nowrap;
 }
 
+/* Small disclaimer line under app tiles (e.g. emulators that need
+   you to bring your own ROM/.swf). Sits below the meta row. */
+.tool-tile-note {
+  display: block;
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--text-3);
+  margin-top: 2px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
 .tool-tile.is-proxy .tool-tile-art {
   position: relative;
   outline: 2px solid var(--va-soft);
@@ -3630,6 +3662,24 @@ button.home-panel-chip:hover {
   flex-wrap: wrap;
 }
 
+/* Empty board column: "N spots are open" + an Apply here CTA so
+   open roles read as an invitation instead of dead space. */
+.board-open {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 140px;
+  text-align: center;
+  color: var(--text-3);
+}
+.board-open-label {
+  font-size: 15px;
+  font-weight: 600;
+}
+.board-apply-btn { margin-top: 2px; }
+
 .board-person {
   width: min(132px, 42%);
   display: grid;
@@ -3802,55 +3852,6 @@ button.home-panel-chip:hover {
 }
 
 /* ---------- Launch picker ---------- */
-
-.video-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 80;
-  display: grid;
-  place-items: center;
-  padding: 24px;
-  background: rgba(10, 12, 15, 0.92);
-}
-
-.video-window {
-  width: min(1100px, 100%);
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  overflow: hidden;
-}
-
-.video-bar {
-  min-height: 46px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 0 12px 0 16px;
-  color: var(--text);
-  font-weight: 600;
-}
-
-#video-frame {
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  display: block;
-  border: 0;
-  background: #000;
-}
-
-.video-bar-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-#video-pip {
-  min-height: 30px;
-  padding: 5px 9px;
-  font-size: 11px;
-}
 
 .launch-modal {
   --launch-green: #4ab88c;
@@ -4719,314 +4720,6 @@ html.motion-off *::after {
 @media (hover: none) {
   .song-fav { opacity: 1; }
 }
-
-.pulse {
-  animation: count-pulse 1.4s ease-in-out infinite;
-}
-
-/* ---------- Audio dock ---------- */
-
-.audio-dock {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 55;
-  background: var(--panel);
-  border-top: 1px solid var(--line);
-  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.25);
-}
-
-.audio-eq {
-  height: 44px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-bottom: 1px solid var(--line-soft);
-  background: var(--base);
-}
-
-.audio-eq canvas {
-  width: 220px;
-  height: 40px;
-}
-
-.audio-row {
-  display: flex;
-  align-items: center;
-  gap: 18px;
-  padding: 10px 16px;
-}
-
-.audio-meta {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
-  flex: 1 1 0;
-}
-
-.audio-art {
-  position: relative;
-  width: 46px;
-  height: 46px;
-  flex: none;
-  border-radius: 8px;
-  overflow: hidden;
-  background: var(--panel-2);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid var(--line-soft);
-}
-
-.audio-art .fallback {
-  font-family: var(--display-geo);
-  font-size: 21px;
-  font-weight: 700;
-  color: #4a505a;
-}
-
-.audio-art .fallback.note .icon { width: 18px; height: 18px; color: #4a505a; }
-
-.audio-art img {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.audio-titles {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-.audio-title {
-  font-family: var(--display-geo);
-  font-size: 16px;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.audio-artist {
-  font-size: 14.5px;
-  color: var(--text-3);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.audio-btn {
-  width: 32px;
-  height: 32px;
-  flex: none;
-  border-radius: 8px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--text-2);
-  position: relative;
-  transition: color 140ms ease, background 140ms ease;
-}
-
-.audio-btn .icon { width: 18px; height: 18px; }
-
-.audio-btn:hover { color: var(--text); background: var(--panel-2); }
-
-.audio-btn.is-on { color: var(--accent); background: var(--accent-soft); }
-
-.audio-btn.heart.is-on { color: var(--accent); background: none; }
-.audio-btn.heart.is-on .icon { fill: var(--accent); stroke: var(--accent); }
-
-.audio-btn.play {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background: var(--accent);
-  color: var(--accent-ink);
-}
-
-.audio-btn.play:hover { background: #ff6a1f; color: var(--accent-ink); }
-
-.audio-btn.play .icon { width: 20px; height: 20px; }
-
-.audio-center {
-  flex: 1 1 auto;
-  max-width: 560px;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.audio-buttons {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-}
-
-.audio-track {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.audio-time {
-  font-family: var(--mono);
-  font-size: 12.5px;
-  color: var(--text-3);
-  font-variant-numeric: tabular-nums;
-  width: 34px;
-  text-align: center;
-  flex: none;
-}
-
-.audio-range {
-  appearance: auto;
-  -webkit-appearance: auto;
-  flex: 1;
-  height: 4px;
-  accent-color: var(--accent);
-  cursor: pointer;
-  min-width: 0;
-}
-
-.audio-range.vol {
-  width: 90px;
-  flex: none;
-}
-
-.audio-right {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex: 1 1 0;
-  justify-content: flex-end;
-  min-width: 0;
-}
-
-.queue-count {
-  position: absolute;
-  top: -3px;
-  right: -3px;
-  min-width: 15px;
-  height: 15px;
-  padding: 0 3px;
-  border-radius: 8px;
-  background: var(--accent);
-  color: var(--accent-ink);
-  font-size: 11px;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-variant-numeric: tabular-nums;
-}
-
-/* Queue panel */
-
-.audio-queue {
-  position: absolute;
-  bottom: calc(100% + 10px);
-  left: 16px;
-  right: 16px;
-  max-width: 480px;
-  margin: 0 auto;
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  overflow: hidden;
-  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.3);
-}
-
-.audio-queue-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 12px;
-  border-bottom: 1px solid var(--line-soft);
-  font-family: var(--display-geo);
-  font-size: 15.5px;
-  font-weight: 600;
-}
-
-.audio-queue-list {
-  max-height: 300px;
-  overflow-y: auto;
-}
-
-.queue-row {
-  display: grid;
-  grid-template-columns: 28px 1fr auto;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 12px;
-  cursor: pointer;
-}
-
-.queue-row:hover { background: var(--panel-2); }
-
-.queue-row.is-current { background: var(--accent-soft); }
-
-.queue-row.is-current .queue-title { color: var(--accent); }
-
-.queue-idx {
-  font-family: var(--mono);
-  font-size: 13px;
-  color: var(--text-3);
-  text-align: center;
-}
-
-.queue-row.is-current .queue-idx { color: var(--accent); }
-
-.queue-titles {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-.queue-title {
-  font-size: 15.5px;
-  font-weight: 600;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.queue-sub {
-  font-size: 14px;
-  color: var(--text-3);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.queue-dur {
-  font-family: var(--mono);
-  font-size: 13px;
-  color: var(--text-3);
-}
-
-.queue-none {
-  padding: 18px;
-  text-align: center;
-  color: var(--text-3);
-  font-size: 15.5px;
-}
-
-@media (max-width: 720px) {
-  .audio-art { display: none; }
-  .audio-right .audio-range.vol { display: none; }
-  .audio-row { gap: 10px; padding: 10px 12px; }
-  .audio-queue { left: 8px; right: 8px; }
-}
-
 /* Final surface pass: consistent depth, clean hierarchy, and better touch targets. */
 .topbar {
   background: rgba(12, 18, 16, 0.88);
@@ -5842,6 +5535,10 @@ html.motion-off *::after {
 }
 
 .home-block-feat { margin-top: 18px; }
+
+/* Editor's picks shelf inside the Games view sits flush under the
+   filter chips before the ad slot + grid. */
+.picks-on-games { margin-top: 2px; }
 
 /* Recents box: head + its own card grid. */
 .home-recents .home-shelf { margin-top: -4px; }
@@ -7702,6 +7399,37 @@ body.sidebar-collapsed .music-player { left: var(--side-w-collapsed); }
 .p-qsub { color: var(--text-3); font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .p-toast { position: fixed; left: 50%; bottom: 104px; transform: translateX(-50%); z-index: 62; background: var(--panel-2); border: 1px solid var(--line-2); color: var(--text); font-size: 13px; padding: 8px 16px; border-radius: 999px; }
 
+/* Shared toast host (docs, Live TV, YouTube): fixed column, bottom centre. */
+.toast-box {
+  position: fixed;
+  left: 50%;
+  bottom: 26px;
+  transform: translateX(-50%);
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
+  max-width: min(92vw, 460px);
+}
+.toast-box .toast {
+  background: rgba(18, 24, 21, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--text);
+  font-family: var(--display-geo);
+  font-size: 13.5px;
+  font-weight: 600;
+  padding: 9px 18px;
+  border-radius: 999px;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.42);
+  transition: opacity 260ms ease, transform 260ms ease;
+}
+.toast-box .toast.is-out {
+  opacity: 0;
+  transform: translateY(4px);
+}
+
 /* Custom cursor pointer state: interactive elements reuse the same cursor
    image as the base but a brightened copy of it, so hovering lightens the
    cursor instead of swapping to a different shape. Text inputs/areas keep
@@ -7745,12 +7473,19 @@ input[type="submit"]:not([disabled]), input[type="range"]:not([disabled]) {
 
 .livetv-sports-cats {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 8px;
-  margin-bottom: 16px;
+  margin-bottom: 14px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 6px;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
 }
+.livetv-sports-cats::-webkit-scrollbar { display: none; }
 
 .livetv-sports-cats .chip {
+  flex: 0 0 auto;
   height: 30px;
   padding: 0 13px;
   border-radius: 999px;
@@ -9645,6 +9380,534 @@ input[type="submit"]:not([disabled]), input[type="range"]:not([disabled]) {
   font-size: 22px;
   line-height: 1;
 }
+
+/* ---------- polish pass (overhaul quick wins) ---------- */
+
+/* Home stat cards are buttons now: jump to the matching tab. */
+button.home-metric {
+  width: 100%;
+  display: block;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 120ms ease, border-color 120ms ease, background 120ms ease;
+}
+
+.home-metric[hidden] { display: none; }
+
+button.home-metric:hover {
+  border-color: var(--line-2);
+  background: rgba(74, 184, 140, 0.08);
+  transform: translateY(-1px);
+}
+
+button.home-metric:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* Home hero trust line under the tagline. */
+.home-trust {
+  margin: 10px 0 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-3);
+}
+
+/* Long titles wrap to two lines instead of cutting off mid-word. */
+.grid .card .card-main > .card-title {
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.3;
+}
+
+.home-card-title {
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Partners: headed Live / Coming soon sections inside the shared grid.
+   Headers span the full row; cards flow beneath in the auto-fill columns. */
+.partners-sect-head {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 16px;
+  padding: 0 2px 7px;
+  border-bottom: 1px solid var(--pline);
+}
+.partners-sect-head:first-child { margin-top: 0; }
+.partners-sect-title {
+  margin: 0;
+  font-family: var(--display);
+  font-size: 18px;
+  color: var(--ptxt);
+}
+.partners-sect-chip {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ptxt-soft);
+}
+
+/* ---------- Discord join banner on Home ---------- */
+.home-join {
+  display: flex;
+  align-items: center;
+  gap: 12px 16px;
+  flex-wrap: wrap;
+  margin: 0 0 20px;
+  padding: 12px 12px 12px 16px;
+  border-radius: 14px;
+  background: rgba(88, 101, 242, 0.13);
+  border: 1px solid rgba(114, 137, 218, 0.42);
+}
+.home-join-ico {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  border-radius: 10px;
+  background: #5865f2;
+  color: #fff;
+}
+.home-join-ico .icon { width: 18px; height: 18px; }
+.home-join-txt {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  flex: 1 1 240px;
+}
+.home-join-title { font-family: var(--display); font-size: 15px; color: var(--text); }
+.home-join-sub { font-size: 12.5px; color: var(--text-2); }
+.home-join-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 34px;
+  padding: 0 16px;
+  border-radius: 9px;
+  background: #5865f2;
+  color: #fff;
+  font-family: var(--display);
+  font-size: 13.5px;
+  font-weight: 700;
+  text-decoration: none;
+  transition: background 140ms ease, transform 140ms ease;
+}
+.home-join-btn:hover { background: #6b76f5; }
+.home-join-x {
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+  border-radius: 7px;
+}
+.home-join-x:hover { color: var(--text); background: var(--red-soft); }
+.home-join-x .icon { width: 14px; height: 14px; }
+@media (max-width: 560px) {
+  .home-join { gap: 10px; }
+  .home-join-sub { display: none; }
+}
+
+/* Continue playing: fade the right edge while the strip can scroll further. */
+.home-recents-scroll.is-masked {
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent 100%);
+  mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent 100%);
+}
+
+/* Settings: wallpaper apply feedback under the URL row. */
+.wallpaper-hint {
+  display: block;
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--red-ink);
+}
+.wallpaper-hint.is-ok { color: var(--accent); }
+
+/* Sidebar footer version text doubles as the What's-new trigger. */
+button.side-foot {
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+button.side-foot:hover { color: var(--text-2); }
+.side-foot.is-wn-new .side-foot-txt::after {
+  content: "";
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-left: 7px;
+  border-radius: 50%;
+  background: var(--pink);
+  box-shadow: 0 0 0 3px var(--pink-soft);
+  vertical-align: 1px;
+}
+
+/* What's new lightbox. */
+.whatsnew-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(6, 8, 10, 0.72);
+  backdrop-filter: blur(3px);
+}
+.whatsnew-card {
+  width: min(480px, 100%);
+  max-height: min(82vh, 640px);
+  overflow: auto;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+}
+.whatsnew-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 18px 10px;
+}
+.whatsnew-kicker {
+  display: block;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+.whatsnew-title { margin: 2px 0 0; font-family: var(--display); font-size: 22px; color: var(--text); }
+.whatsnew-list {
+  list-style: none;
+  margin: 0;
+  padding: 4px 18px 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+}
+.whatsnew-list li { font-size: 13.5px; line-height: 1.45; color: var(--text-2); }
+.wn-tag {
+  display: inline-block;
+  margin-right: 8px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--pink);
+  background: var(--pink-soft);
+  border: 1px solid var(--pink);
+  vertical-align: 1px;
+}
+.whatsnew-foot {
+  display: block;
+  margin: 10px 18px 16px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(88, 101, 242, 0.14);
+  border: 1px dashed rgba(114, 137, 218, 0.5);
+  color: #9aa4f5;
+  font-size: 12.5px;
+  text-align: center;
+  text-decoration: none;
+}
+.whatsnew-foot:hover { color: #c3c9ff; }
+
+/* Proxy pill variants: walled targets keep the default orange, plain
+   network-bypass targets switch to blue. */
+.tool-tile-via.is-bypass {
+  color: #4285f4;
+  background: rgba(66, 133, 244, 0.13);
+  border-color: #4285f4;
+}
+
+/* ---------- Home hero polish ---------- */
+/* The trust line under the hero copy had no styles at all - give it a
+   muted, inline look with a shield check so it reads as a real promise. */
+.home-trust {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 12px 0 0;
+  max-width: 56ch;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-3);
+}
+.home-trust .icon {
+  width: 15px;
+  height: 15px;
+  flex: none;
+  margin-top: 2px;
+  color: var(--accent);
+}
+
+/* Quick-launch shortcuts: equal-width tiles instead of ragged pill rows,
+   so the panel reads as a tidy launchpad. "All tabs" fills the 6th cell. */
+.home-quick {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+}
+.home-quick-card {
+  justify-content: center;
+  width: 100%;
+  min-width: 0;
+  padding: 9px 6px;
+  border-radius: 12px;
+}
+.home-quick-card .home-quick-t {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.home-quick-card.q-yt .home-quick-ico {
+  width: 20px;
+  height: 20px;
+  filter: none;
+}
+.home-quick-more {
+  width: 100%;
+}
+.home-quick-more .home-quick-more-btn {
+  justify-content: center;
+  width: 100%;
+}
+@media (max-width: 430px) {
+  .home-quick { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* CTA hover: the old rule flipped the pink button green on hover - keep the
+   accent family. Secondary buttons get a neutral lift instead of a green tint. */
+.home-primary:hover {
+  background: #f0558f;
+  border-color: rgba(255, 255, 255, 0.14);
+}
+.home-secondary:hover {
+  border-color: var(--accent);
+  background: rgba(255, 255, 255, 0.055);
+}
+
+/* Soft depth behind the hero copy - two blurred colour glows in the panel's
+   corners so the left card stops feeling empty next to the busy right one.
+   isolation + z-index:-1 keeps the glows behind the copy and buttons. */
+.home-hero-main { isolation: isolate; }
+.home-hero-main::before,
+.home-hero-main::after {
+  content: "";
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: -1;
+}
+.home-hero-main::before {
+  width: 320px;
+  height: 320px;
+  top: -150px;
+  left: -100px;
+  background: rgba(255, 77, 141, 0.09);
+  filter: blur(80px);
+}
+.home-hero-main::after {
+  width: 280px;
+  height: 280px;
+  bottom: -130px;
+  right: -70px;
+  background: rgba(66, 133, 244, 0.08);
+  filter: blur(80px);
+}
+
+/* ---------- Tab identity: every view wears its own color ----------
+   Titles, meta chips and active filter chips take the tab's accent, so text
+   and chrome always match the tab. Views without a chalk texture image
+   (Live TV, YouTube, AI, Cloud) get layered colour glows instead of a flat
+   dark scrim - each tuned to that tab's accent. */
+.view[data-view] .view-title { color: var(--va); }
+.view[data-view] .view-meta {
+  color: var(--va);
+  background: var(--va-soft);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+.view .chip.is-active {
+  border-color: var(--va);
+  color: var(--va);
+  background: var(--va-soft);
+}
+
+.view[data-view="livetv"]::before {
+  background-color: #04100c;
+  background-image:
+    radial-gradient(860px 500px at 88% -12%, rgba(74, 184, 140, 0.22), transparent 62%),
+    radial-gradient(700px 460px at -12% 112%, rgba(18, 181, 165, 0.12), transparent 60%);
+  background-blend-mode: normal;
+}
+.view[data-view="youtube"]::before {
+  background-color: #120506;
+  background-image:
+    radial-gradient(880px 520px at 16% -12%, rgba(255, 0, 51, 0.22), transparent 62%),
+    radial-gradient(640px 440px at 112% 104%, rgba(255, 77, 141, 0.10), transparent 60%);
+  background-blend-mode: normal;
+}
+.view[data-view="ai"]::before {
+  background-color: #0d0517;
+  background-image:
+    radial-gradient(860px 520px at 82% -10%, rgba(176, 107, 255, 0.20), transparent 62%),
+    radial-gradient(640px 420px at -8% 110%, rgba(66, 133, 244, 0.08), transparent 60%);
+  background-blend-mode: normal;
+}
+.view[data-view="cloud"]::before {
+  background-color: #04101c;
+  background-image:
+    radial-gradient(880px 520px at 20% -10%, rgba(95, 190, 255, 0.20), transparent 62%),
+    radial-gradient(680px 440px at 110% 108%, rgba(66, 133, 244, 0.10), transparent 60%);
+  background-blend-mode: normal;
+  filter: none;
+}
+
+/* ---------- Music: make it read as a music app ---------- */
+.view[data-view="music"] .mrow {
+  background: rgba(21, 8, 15, 0.72);
+  border-color: rgba(230, 0, 115, 0.22);
+  margin-bottom: 7px;
+  transition: border-color 140ms ease, background 140ms ease, transform 140ms ease;
+}
+.view[data-view="music"] .mrow:hover {
+  background: rgba(230, 0, 115, 0.12);
+  transform: translateX(3px);
+}
+.view[data-view="music"] .mrow.is-playing {
+  background: rgba(230, 0, 115, 0.16);
+  box-shadow: 0 0 0 1px rgba(230, 0, 115, 0.6), 0 4px 18px rgba(230, 0, 115, 0.25);
+}
+/* While a track plays, its art shows a dim overlay with a live-style EQ. */
+.view[data-view="music"] .mrow.is-playing .mrow-art::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(10, 2, 7, 0.45) url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%20fill='none'%20stroke='%23fff'%20stroke-width='2.4'%20stroke-linecap='round'%3E%3Cpath%20d='M5%2018v-9M9.5%2018V6M14%2018v-11M18.5%2018V9'/%3E%3C/svg%3E") center / 18px no-repeat;
+  animation: p-eq-breathe 1.6s ease-in-out infinite;
+}
+@keyframes p-eq-breathe {
+  0%, 100% { opacity: 0.85; }
+  50% { opacity: 0.45; }
+}
+.view[data-view="music"] .mrow.is-playing .mrow-play {
+  background: var(--magenta);
+  border-color: var(--magenta);
+  color: #fff;
+}
+/* The "Most popular" header doubles as the page banner. */
+.view[data-view="music"] .mstory-head {
+  margin: 2px 0 12px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: rgba(230, 0, 115, 0.13);
+  border: 1px solid rgba(230, 0, 115, 0.38);
+}
+.view[data-view="music"] .mstory-title {
+  color: var(--magenta);
+}
+.view[data-view="music"] .mrow:last-child { margin-bottom: 6px; }
+
+/* ---------- Editor's picks: numbered, framed, clearly editorial ---------- */
+#home-picks, #games-picks {
+  counter-reset: pick;
+  background: rgba(255, 77, 141, 0.05);
+  border: 1px solid rgba(255, 77, 141, 0.24);
+  border-radius: 16px;
+  padding: 12px 14px 4px;
+  margin-bottom: 18px;
+}
+#home-picks .home-block-title, #games-picks .home-block-title { color: var(--pink); }
+#home-picks .home-block-note, #games-picks .home-block-note { color: var(--text-2); }
+#home-picks .game-card, #games-picks .game-card { counter-increment: pick; }
+#home-picks .game-card .card-thumb::before, #games-picks .game-card .card-thumb::before {
+  content: counter(pick, decimal-leading-zero);
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 2;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--pink);
+  color: #2a0512;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 22px;
+  text-align: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
+/* --- Audit batch: a11y + polish ----------------------------------------- */
+
+/* Keyboard focus ring using the active tab accent. */
+:focus-visible {
+  outline: 2px solid var(--va, var(--accent));
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* Board member roles and bios. */
+.board-role {
+  margin-top: 2px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--va, var(--accent));
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.board-bio {
+  margin-top: 6px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text-2);
+}
+
+/* Long URLs / sources never blow out a card. */
+.card-source,
+.tool-tile-meta,
+.tool-tile-via {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+/* Honor reduced-motion for everything animated. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
 </style>
   <!-- AdSense. Slots stay hidden until real ad-unit IDs are pasted into the
        CHALKLE_ADS config below (AdSense dashboard → Ad units → create). -->
@@ -9938,6 +10201,27 @@ input[type="submit"]:not([disabled]), input[type="range"]:not([disabled]) {
   ChalkleTheme.apply();
 })();
 </script>
+  <script>
+  /* Panic key: press ` (backtick) three times quickly (or Ctrl+Shift+` once)
+     to instantly send the tab to Google Classroom. Works from anywhere on the
+     page and survives whatever cloak is active. */
+  (function () {
+    var presses = 0, last = 0;
+    function panic() {
+      try { window.onbeforeunload = null; } catch (e) {}
+      try { window.location.replace("https://classroom.google.com/h"); } catch (e) {}
+    }
+    window.addEventListener("keydown", function (e) {
+      var key = (e.key || "").toLowerCase();
+      if (e.ctrlKey && e.shiftKey && (key === "`" || key === "~")) { e.preventDefault(); panic(); return; }
+      if (key !== "`" || e.ctrlKey || e.altKey || e.metaKey) return;
+      var now = Date.now();
+      presses = (now - last < 900) ? presses + 1 : 1;
+      last = now;
+      if (presses >= 3) { e.preventDefault(); panic(); }
+    }, true);
+  })();
+  </script>
 <script>
 (function(){ window.__SAFE_LS__ = null;
   try { localStorage.setItem('__t','1'); localStorage.removeItem('__t'); window.__SAFE_LS__ = window.localStorage; }
@@ -9998,6 +10282,7 @@ input[type="submit"]:not([disabled]), input[type="range"]:not([disabled]) {
     <div class="boot-bar"><div class="boot-progress" id="boot-progress"></div></div>
     <div class="boot-skip" id="boot-skip">skip</div>
   </div>
+
   <div class="app" id="app" hidden>
     <header class="topbar">
       <button class="brand" type="button" data-home-go="home" aria-label="Chalkle home" title="Chalkle home">
@@ -10009,9 +10294,9 @@ input[type="submit"]:not([disabled]), input[type="range"]:not([disabled]) {
           <circle cx="11" cy="11" r="6.5"/>
           <line x1="16" y1="16" x2="20.5" y2="20.5"/>
         </svg>
-        <input id="search-input" type="search" placeholder="Search games, sites & apps" autocomplete="off" spellcheck="false" aria-label="Search">
+        <input id="search-input" type="search" placeholder="Search games, sites, tools & music" autocomplete="off" spellcheck="false" aria-label="Search">
         <kbd class="kbd" aria-hidden="true">Ctrl K</kbd>
-        <div class="search-results" id="search-results" hidden role="listbox"></div>
+        <div class="search-results" id="search-results" hidden role="listbox" aria-live="polite"></div>
       </div>
 
       <button class="hamburger" id="hamburger" aria-label="Open menu" aria-expanded="false">
@@ -10174,7 +10459,9 @@ input[type="submit"]:not([disabled]), input[type="range"]:not([disabled]) {
           </svg>
           <span class="nav-label">Collapse</span>
         </button>
-        <div class="side-foot" aria-hidden="true">CHALKLE v1.0</div>
+        <button class="side-foot js-whatsnew" id="side-foot-version" type="button" title="What&rsquo;s new in Chalkle">
+          <span class="side-foot-txt">CHALKLE v1.1</span>
+        </button>
       </aside>
 
       <div class="backdrop" id="backdrop" hidden></div>
@@ -10187,6 +10474,7 @@ input[type="submit"]:not([disabled]), input[type="range"]:not([disabled]) {
               <span class="home-kicker">No sign-in. Just play.</span>
               <h1 class="home-title">Everything fun, always ready.</h1>
               <p class="home-text">Games, music, sites, and tools pulled together in one place. Pick one and go.</p>
+              <p class="home-trust"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4.5 6v5c0 4.6 3.2 8.3 7.5 9.5 4.3-1.2 7.5-4.9 7.5-9.5V6L12 3z"/><path d="m9 12 2 2 4-4"/></svg><span>No accounts. No downloads. Nothing tracked. Your shelf stays in this browser.</span></p>
               <div class="home-actions">
                 <button class="home-primary" data-home-go="games">Browse games</button>
                 <button class="home-secondary" data-home-go="music">Open Music</button>
@@ -10196,8 +10484,8 @@ input[type="submit"]:not([disabled]), input[type="range"]:not([disabled]) {
 
             <div class="home-hero-side">
               <div class="home-quick-head">
-                <span class="home-quick-label">Jump back in</span>
-                <span class="home-quick-chip">One tap</span>
+              <span class="home-quick-label">Quick launch</span>
+              <span class="home-quick-chip">1 tap</span>
               </div>
               <div class="home-quick">
                 <button class="home-quick-card q-games" data-home-go="games"><span class="home-quick-ico"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7.55 6.15h8.9a4.55 4.55 0 0 1 4.5 5.05l-.42 3.95a3.05 3.05 0 0 1-5.37 1.75l-1.3-1.6h-3.72l-1.3 1.6a3.05 3.05 0 0 1-5.37-1.75l-.42-3.95A4.55 4.55 0 0 1 7.55 6.15z"/><path d="M8.45 9.7v2.3M7.3 10.85h2.3"/></svg></span><span class="home-quick-t">Games</span></button>
@@ -10226,22 +10514,42 @@ input[type="submit"]:not([disabled]), input[type="range"]:not([disabled]) {
               <div class="home-surface">
                 <div class="home-surface-head"><span class="home-surface-title">Your shelf</span><span class="home-panel-chip">On this device</span></div>
                 <div class="home-metrics">
-                  <div class="home-metric"><span class="home-metric-value" id="home-stat-games">0</span><span class="home-metric-label">games</span></div>
-                  <div class="home-metric"><span class="home-metric-value" id="home-stat-sites">0</span><span class="home-metric-label">sites</span></div>
-                  <div class="home-metric"><span class="home-metric-value" id="home-stat-tools">0</span><span class="home-metric-label">tools</span></div>
-                  <div class="home-metric"><span class="home-metric-value" id="home-stat-favs">0</span><span class="home-metric-label">saved</span></div>
+                  <button type="button" class="home-metric" data-metric-go="games" title="Open Games"><span class="home-metric-value" id="home-stat-games">0</span><span class="home-metric-label">games</span></button>
+                  <button type="button" class="home-metric" data-metric-go="sites" title="Open Sites"><span class="home-metric-value" id="home-stat-sites">0</span><span class="home-metric-label">sites</span></button>
+                  <button type="button" class="home-metric" data-metric-go="apps-tools" title="Open Apps/Tools"><span class="home-metric-value" id="home-stat-tools">0</span><span class="home-metric-label">tools</span></button>
+                  <button type="button" class="home-metric" data-metric-go="games" title="Your saved favourites" hidden><span class="home-metric-value" id="home-stat-favs">0</span><span class="home-metric-label">saved</span></button>
                 </div>
-                <span class="home-surface-text">Use the search bar up top to pull up any game, site, or tool.</span>
+                <span class="home-surface-text">Use the search bar up top to pull up any game, site, tool, or song.</span>
               </div>
             </div>
-          </div>
+        </div>
 
-          <div class="ad-slot" id="ad-slot-home" data-slot-key="home" hidden>
+        <div class="home-join" id="home-join">
+          <span class="home-join-ico"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" stroke="none" d="M20.317 4.37a19.79 19.79 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.211.375-.445.865-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.319 13.58.099 18.058a.082.082 0 0 0 .031.056c2.053 1.507 4.041 2.423 5.993 3.03a.078.078 0 0 0 .084-.028c.462-.63.873-1.295 1.226-1.994a.076.076 0 0 0-.042-.106 13.11 13.11 0 0 1-1.872-.892.077.077 0 0 1-.008-.128c.126-.094.252-.192.372-.291a.074.074 0 0 1 .078-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.009c.12.099.246.198.373.292a.077.077 0 0 1-.007.128 12.3 12.3 0 0 1-1.873.891.076.076 0 0 0-.04.107c.36.698.772 1.363 1.225 1.993a.076.076 0 0 0 .084.029c1.961-.607 3.95-1.522 6.002-3.03a.077.077 0 0 0 .031-.055c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.029zM8.02 15.33c-1.183 0-2.157-1.086-2.157-2.42 0-1.333.956-2.418 2.157-2.418 1.211 0 2.176 1.095 2.157 2.418 0 1.334-.956 2.42-2.157 2.42zm7.975 0c-1.183 0-2.157-1.086-2.157-2.42 0-1.333.956-2.418 2.157-2.418 1.211 0 2.176 1.095 2.157 2.418 0 1.334-.946 2.42-2.157 2.42z"/></svg></span>
+          <div class="home-join-txt">
+            <span class="home-join-title">Join the Chalkle Discord</span>
+            <span class="home-join-sub">Sneak peeks at new games, request titles, and hang with the crew. Still no sign-in.</span>
+          </div>
+          <a class="home-join-btn" href="https://discord.gg/Y8Zh2mE7Ke" target="_blank" rel="noopener noreferrer">Join free</a>
+          <button class="home-join-x" id="home-join-x" type="button" aria-label="Hide this banner" title="Hide">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+          </button>
+        </div>
+
+        <div class="ad-slot" id="ad-slot-home" data-slot-key="home" hidden>
             <span class="ad-slot-label">Sponsored</span>
             <ins class="adsbygoogle" data-ad-client="ca-pub-3031332925462724" data-ad-slot="" data-ad-format="auto" data-full-width-responsive="true"></ins>
           </div>
 
           <div class="home-recents" id="home-recents" hidden></div>
+
+          <section class="home-block" id="home-picks" hidden>
+            <div class="home-block-head">
+              <h2 class="home-block-title">Editor&rsquo;s picks</h2>
+              <span class="home-block-note">Hand-picked by the crew. Try these first.</span>
+            </div>
+            <div class="home-shelf" id="home-picks-grid"></div>
+          </section>
 
           <section class="home-block">
             <div class="home-block-head">
@@ -10294,6 +10602,13 @@ input[type="submit"]:not([disabled]), input[type="range"]:not([disabled]) {
             </div>
           </div>
           <div class="genre-filters" id="genre-filters" role="group" aria-label="Filter by genre" hidden></div>
+          <section class="home-block picks-on-games" id="games-picks" hidden>
+            <div class="home-block-head">
+              <h2 class="home-block-title">Editor&rsquo;s picks</h2>
+              <span class="home-block-note">A good first handful. The rest is below.</span>
+            </div>
+            <div class="home-shelf" id="games-picks-grid"></div>
+          </section>
           <div class="ad-slot" id="ad-slot-games" data-slot-key="games" hidden>
             <span class="ad-slot-label">Sponsored</span>
             <ins class="adsbygoogle" data-ad-client="ca-pub-3031332925462724" data-ad-slot="" data-ad-format="auto" data-full-width-responsive="true"></ins>
@@ -10372,7 +10687,7 @@ input[type="submit"]:not([disabled]), input[type="range"]:not([disabled]) {
           <div class="view-head">
             <div class="view-heading">
               <h1 class="view-title">YouTube</h1>
-              <span class="view-meta" id="yt-meta">live + for you</span>
+              <span class="view-meta" id="yt-meta">search or play any video on demand, not the Live TV feed</span>
             </div>
             <button class="chip yt-cat-chip" data-yt-cat="home" type="button">Home</button>
           </div>
@@ -10426,7 +10741,7 @@ input[type="submit"]:not([disabled]), input[type="range"]:not([disabled]) {
         <section class="view" data-view="music">
           <div class="view-head">
             <h1 class="view-title">Music</h1>
-            <span class="view-meta" id="music-meta">real songs, netease</span>
+            <span class="view-meta" id="music-meta" title="Search streams through this site's relay (nothing here phones home). Queue, lyrics, speed and pitch are built in.">stream any song · built-in player</span>
           </div>
           <div class="panel music-toolbar">
             <div class="music-search">
@@ -10509,8 +10824,8 @@ input[type="submit"]:not([disabled]), input[type="range"]:not([disabled]) {
           <div class="view-head">
             <h1 class="view-title">Apps/Tools</h1>
             <span class="view-meta" id="apps-tools-meta"></span>
-          </div>
-          <div class="grid" id="apps-grid"></div>
+          </div>              <div class="genre-filters" id="apps-genres" role="group" aria-label="Filter tools by category" hidden></div>
+              <div class="grid" id="apps-grid"></div>
           <div class="empty" id="apps-empty" hidden>
             <p class="empty-title">No tools yet.</p>
             <p class="empty-hint">Add one from the Admin panel.</p>
@@ -10644,7 +10959,7 @@ input[type="submit"]:not([disabled]), input[type="range"]:not([disabled]) {
               <span class="view-meta">local to this device</span>
             </div>
             <div class="view-actions">
-              <button class="home-panel-chip" id="opt-make-yours" type="button">Make it yours</button>
+              <button class="home-panel-chip" id="opt-make-yours" type="button" title="Opens Appearance settings and scrolls to them">Make it yours</button>
             </div>
           </div>
 
@@ -10691,6 +11006,7 @@ input[type="submit"]:not([disabled]), input[type="range"]:not([disabled]) {
                     <button class="btn-theme" id="opt-wallpaper-apply">Apply</button>
                     <button class="btn-ghost" id="opt-wallpaper-undo" type="button">Undo</button>
                   </div>
+                  <span class="wallpaper-hint" id="opt-wallpaper-hint" hidden></span>
                 </div>
                 <div class="settings-block">
                   <div class="settings-block-label">Cursor</div>
@@ -10759,37 +11075,12 @@ input[type="submit"]:not([disabled]), input[type="range"]:not([disabled]) {
               <button class="settings-toggle" type="button" aria-expanded="false" aria-controls="settings-body-behavior">
                 <span class="settings-toggle-txt">
                   <span class="settings-toggle-title">Behavior</span>
-                  <span class="settings-toggle-sub">open method, cloak title</span>
+                  <span class="settings-toggle-sub">cloak title</span>
                 </span>
-                <span class="settings-count">3 options</span>
+                <span class="settings-count">1 option</span>
                 <svg class="icon settings-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9.5l6 6 6-6"/></svg>
               </button>
               <div class="settings-body" id="settings-body-behavior" hidden>
-                <div class="settings-row">
-                  <div class="settings-row-txt">
-                    <span class="setting-name">Ask before launching</span>
-                    <span class="setting-hint">Pick a method each time</span>
-                  </div>
-                  <label class="switch">
-                    <input type="checkbox" id="opt-ask">
-                    <span class="track" aria-hidden="true"></span>
-                  </label>
-                </div>
-                <div class="settings-row">
-                  <div class="settings-row-txt">
-                    <span class="setting-name">Default open method</span>
-                    <span class="setting-hint">When you don&rsquo;t ask</span>
-                  </div>
-                  <select class="field field-mode settings-select" id="opt-default-mode" aria-label="Default open method">
-                    <option value="ask">Ask each time</option>
-                    <option value="direct">Direct</option>
-                    <option value="aboutblank">About:blank</option>
-                    <option value="blob">Blob</option>
-                    <option value="dataurl">Data URL</option>
-                    <option value="iframe">This tab</option>
-                    <option value="proxy">Proxy</option>
-                  </select>
-                </div>
                 <div class="settings-row">
                   <div class="settings-row-txt">
                     <span class="setting-name">Cloak tab title</span>
@@ -10879,7 +11170,14 @@ input[type="submit"]:not([disabled]), input[type="range"]:not([disabled]) {
             <div class="panel settings-card settings-about">
               <div class="settings-head">
                 <h2 class="panel-title">About</h2>
-                <span class="panel-chip">v1.0</span>
+                <span class="panel-chip">v1.1</span>
+              </div>
+              <div class="settings-row">
+                <div class="settings-row-txt">
+                  <span class="setting-name">Version 1.1</span>
+                  <span class="setting-hint">See what changed in this release</span>
+                </div>
+                <button class="btn-ghost js-whatsnew" type="button">What&rsquo;s new…</button>
               </div>
               <div class="settings-row">
                 <div class="settings-row-txt">
@@ -10894,153 +11192,7 @@ input[type="submit"]:not([disabled]), input[type="range"]:not([disabled]) {
       </main>
     </div>
 
-    <div class="audio-dock" id="audio-dock" hidden>
-      <div class="audio-eq" id="audio-eq" hidden>
-        <canvas id="eq-canvas" width="220" height="40"></canvas>
-      </div>
-      <div class="audio-row">
-        <div class="audio-meta">
-          <div class="audio-art" id="audio-art"></div>
-          <div class="audio-titles">
-            <div class="audio-title" id="audio-title">Nothing playing</div>
-            <div class="audio-artist" id="audio-artist"></div>
-          </div>
-          <button class="audio-btn heart" id="audio-heart" aria-label="Favorite">
-            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.3 4.6 13a4.6 4.6 0 0 1 6.5-6.5L12 7.6l0.9-.9a4.6 4.6 0 0 1 6.5 6.5L12 20.3z"/></svg>
-          </button>
-        </div>
-        <div class="audio-center">
-          <div class="audio-buttons">
-            <button class="audio-btn sm" id="btn-shuffle" aria-label="Shuffle">
-              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h3.2c2.2 0 4.1 1.3 5.3 3.4M13.5 13.6c1.2 2.1 3.1 3.4 5.3 3.4H20M4 17h3.2c1.6 0 3-.7 4-1.8M16.5 5h3.5v3.5M20 5l-5.5 5.5M16.5 19l3.5-3.5-3.5-3.5"/></svg>
-            </button>
-            <button class="audio-btn sm" id="btn-prev" aria-label="Previous">
-              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 6v12M17 6l-8 6 8 6z"/></svg>
-            </button>
-            <button class="audio-btn play" id="btn-play" aria-label="Play">
-              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5l11 7-11 7z"/></svg>
-            </button>
-            <button class="audio-btn sm" id="btn-next" aria-label="Next">
-              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M17 6v12M7 6l8 6-8 6z"/></svg>
-            </button>
-            <button class="audio-btn sm" id="btn-repeat" aria-label="Repeat">
-              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M17 3.5 20.5 7 17 10.5M20 7H4.5A2.5 2.5 0 0 0 2 9.5v1M7 20.5 3.5 17 7 13.5M4 17h15.5a2.5 2.5 0 0 0 2.5-2.5v-1"/></svg>
-            </button>
-          </div>
-          <div class="audio-track">
-            <span class="audio-time" id="audio-cur">0:00</span>
-            <input class="audio-range" id="audio-seek" type="range" min="0" max="1000" value="0" step="1" aria-label="Seek">
-            <span class="audio-time" id="audio-dur">0:00</span>
-          </div>
-        </div>
-        <div class="audio-right">
-          <button class="audio-btn sm" id="btn-eq" aria-label="Equalizer">
-            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 9v6M10 5v14M15 8v8M20 11v2"/></svg>
-          </button>
-          <button class="audio-btn sm" id="btn-vol" aria-label="Mute">
-            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9.5v5h3.5L12 19V5L7.5 9.5H4z"/><path d="M15.5 9a4.5 4.5 0 0 1 0 6M17.8 6.6a8 8 0 0 1 0 10.8"/></svg>
-          </button>
-          <input class="audio-range vol" id="audio-vol" type="range" min="0" max="1" step="0.01" value="0.9" aria-label="Volume">
-          <button class="audio-btn sm" id="btn-queue" aria-label="Queue">
-            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></svg>
-            <span class="queue-count" id="queue-count">0</span>
-          </button>
-        </div>
-      </div>
-      <div class="audio-queue" id="audio-queue" hidden>
-        <div class="audio-queue-head">
-          <span>Up next</span>
-          <button class="audio-btn sm x" id="btn-queue-close" aria-label="Close queue">
-            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
-          </button>
-        </div>
-        <div class="audio-queue-list" id="audio-queue-list"></div>
-      </div>
-    </div>
-
-    <div class="video-overlay" id="video-overlay" hidden>
-      <div class="video-window">
-        <div class="video-bar">
-          <span id="video-overlay-title">YouTube video</span>
-          <div class="video-bar-actions">
-            <button class="btn-ghost" id="video-pip" type="button" aria-label="Picture in picture">Picture in picture</button>
-            <button class="launch-x" id="video-overlay-close" aria-label="Close video">
-            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
-          </button>
-          </div>
-        </div>
-        <iframe id="video-frame" title="YouTube video" allow="fullscreen; picture-in-picture" allowfullscreen referrerpolicy="origin"></iframe>
-      </div>
-    </div>
-
-    <div class="launch-modal" id="launch-modal" hidden>
-      <div class="launch-card">
-        <div class="launch-head">
-          <div class="launch-titles">
-            <span class="launch-name" id="launch-name"></span>
-            <span class="launch-sub">How do you want to open it?</span>
-          </div>
-          <button class="launch-x" id="launch-close" aria-label="Close">
-            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
-          </button>
-        </div>
-        <div class="launch-grid">
-          <button class="launch-opt launch-featured" data-launch-method="iframe">
-            <span class="launch-badge">Recommended</span>
-            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4.5" width="18" height="15" rx="2.5"/><path d="M3 9h18"/></svg>
-            <span class="launch-opt-title">Iframe Here</span>
-            <span class="launch-opt-desc">Plays here - blocks can't touch it</span>
-          </button>
-          <button class="launch-opt" data-launch-method="direct">
-            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17L17 7M9 7h8v8"/></svg>
-            <span class="launch-opt-title">Direct</span>
-            <span class="launch-opt-desc">Opens in a new tab</span>
-          </button>
-          <button class="launch-opt" data-launch-method="aboutblank">
-            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3"/><circle cx="12" cy="12" r="2.5"/></svg>
-            <span class="launch-opt-title">About Blank</span>
-            <span class="launch-opt-desc">Cloaked blank tab</span>
-          </button>
-          <button class="launch-opt" data-launch-method="blob">
-            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 8l8-4v12l-8 4z"/></svg>
-            <span class="launch-opt-title">Blob</span>
-            <span class="launch-opt-desc">Cloaked blob tab</span>
-          </button>
-          <button class="launch-opt" data-launch-method="dataurl">
-            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M8 9h8M8 13h8M8 17h5"/></svg>
-            <span class="launch-opt-title">DataURL</span>
-            <span class="launch-opt-desc">Inline data page</span>
-          </button>
-          <button class="launch-opt" data-launch-method="iframe">
-            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4.5" width="18" height="15" rx="2.5"/><path d="M3 9h18"/></svg>
-            <span class="launch-opt-title">Iframe Here</span>
-            <span class="launch-opt-desc">Plays on this page</span>
-          </button>
-          <button class="launch-opt" data-launch-method="proxy" id="launch-proxy">
-            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><ellipse cx="12" cy="12" rx="3.6" ry="8.5"/><path d="M3.5 12h17"/></svg>
-            <span class="launch-opt-title">Proxy</span>
-            <span class="launch-opt-desc">Routed through a proxy</span>
-          </button>
-        </div>
-        <div class="launch-foot">
-          <div class="launch-proxy-row">
-            <span class="launch-label">Proxy</span>
-            <select class="field" id="launch-proxy-select" hidden></select>
-          </div>
-          <div class="launch-set">
-            <select class="field" id="launch-mode-select" aria-label="Default method">
-              <option value="direct">Direct</option>
-              <option value="aboutblank">About Blank</option>
-              <option value="blob">Blob</option>
-              <option value="dataurl">DataURL</option>
-              <option value="iframe">Iframe Here</option>
-              <option value="proxy">Proxy</option>
-            </select>
-            <button class="btn-ghost" id="launch-set-default">Always use this</button>
-          </div>
-        </div>
-      </div>
-    </div>
+    <div class="toast-box" id="toast-box" aria-live="polite"></div>
 
     <div class="overlay" id="proxy-overlay" hidden>
       <div class="overlay-bar">
@@ -11080,6 +11232,31 @@ input[type="submit"]:not([disabled]), input[type="range"]:not([disabled]) {
         </div>
       </div>
       <iframe class="docs-viewer-frame" id="docs-viewer-frame" title="Doc"></iframe>
+    </div>
+
+    <div class="whatsnew-overlay" id="whatsnew-overlay" hidden>
+      <div class="whatsnew-card" role="dialog" aria-modal="true" aria-labelledby="whatsnew-title">
+        <div class="whatsnew-head">
+          <div>
+            <span class="whatsnew-kicker">Chalkle</span>
+            <h2 class="whatsnew-title" id="whatsnew-title">What&rsquo;s new</h2>
+          </div>
+          <button class="launch-x" id="whatsnew-x" type="button" aria-label="Close">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+          </button>
+        </div>
+        <ul class="whatsnew-list">
+          <li><span class="wn-tag">Launcher</span>Games and sites open straight in a new tab. No chooser screens.</li>
+          <li><span class="wn-tag">Home</span>Editor&rsquo;s picks shelf, clickable stat tiles, and a Discord join bar.</li>
+          <li><span class="wn-tag">Sites</span>Arctic &amp; Cherri mirrors are labelled 1&ndash;10 with their own thumbnails.</li>
+          <li><span class="wn-tag">Board</span>Open team spots now jump straight to the Apply channel.</li>
+          <li><span class="wn-tag">Tools</span>Emulator tiles say which ROM or file to bring.</li>
+          <li><span class="wn-tag">Live TV</span>The filter row scrolls instead of wrapping on small screens.</li>
+          <li><span class="wn-tag">AI</span>The model count shows when it was last checked.</li>
+          <li><span class="wn-tag">Settings</span>Wallpaper previews live as you type, with apply-time checks.</li>
+        </ul>
+        <a class="whatsnew-foot" href="https://discord.gg/Y8Zh2mE7Ke" target="_blank" rel="noopener noreferrer">Find the newest stuff first on the Discord</a>
+      </div>
     </div>
 
     <div class="admin-modal" id="admin-modal" hidden>
@@ -11167,7 +11344,7 @@ input[type="submit"]:not([disabled]), input[type="range"]:not([disabled]) {
         <video id="livetv-video" controls playsinline autoplay muted style="display:none;"></video>
         <iframe id="livetv-embed-frame" class="livetv-embed-frame" title="Live stream player"
           allow="autoplay; fullscreen; encrypted-media; picture-in-picture" allowfullscreen
-          referrerpolicy="no-referrer-when-downgrade" scrolling="no" style="display:none;"></iframe>
+          referrerpolicy="no-referrer-when-downgrade" style="display:none;"></iframe>
         <div class="livetv-player-msg" id="livetv-player-msg" hidden></div>
       </div>
     </div>
@@ -11185,33 +11362,6 @@ input[type="submit"]:not([disabled]), input[type="range"]:not([disabled]) {
           allow="autoplay; fullscreen; encrypted-media; picture-in-picture" allowfullscreen
           referrerpolicy="no-referrer-when-downgrade" scrolling="no"></iframe>
         <div class="yt-player-msg" id="yt-player-msg" hidden></div>
-      </div>
-    </div>
-
-    <div class="admin-modal" id="blanktab-modal" hidden>
-      <div class="admin-cover" data-blanktab-close></div>
-      <div class="admin-card blanktab-card">
-        <div class="admin-head">
-          <span class="admin-title">Blank tab</span>
-          <button class="launch-x" data-blanktab-close aria-label="Close">
-            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
-          </button>
-        </div>
-        <div class="blanktab-body">
-          <p class="empty-hint panel-note">Open any URL in direct, about:blank, blob, in-app frame, or through a proxy.</p>
-          <form id="blanktab-form" class="form-row" autocomplete="off">
-            <input class="field field-name" id="blanktab-url" type="text" placeholder="https://example.com" spellcheck="false" required>
-            <select class="field field-mode" id="blanktab-mode" aria-label="Open method">
-              <option value="direct">Direct</option>
-              <option value="aboutblank">About:blank</option>
-              <option value="blob">Blob</option>
-              <option value="dataurl">Data URL</option>
-              <option value="iframe">This tab</option>
-              <option value="proxy">Proxy</option>
-            </select>
-            <button class="btn" type="submit">Launch</button>
-          </form>
-        </div>
       </div>
     </div>
 
@@ -11934,7 +12084,7 @@ window.ChalkGames = [
   { title: "Solar Smash", url: "https://gn-math.github.io/html/118.html", category: "Arcade", thumb: "/assets/games/gn118.jpg" },
   { title: "Fortzone Battle Royale", url: "https://gn-math.github.io/html/120-f.html", category: "Multiplayer", thumb: "/assets/games/gn120.jpg" },
   { title: "Brawl Guys.io", url: "https://gn-math.github.io/html/121.html", category: "Multiplayer", thumb: "/assets/games/gn121.jpg" },
-  { title: "Survival Race", url: "https://gn-math.github.io/html/122.html", category: "Arcade", thumb: "/assets/games/gn122.jpg" },
+  { title: "Survival Race", url: "https://survival-race.io/survival-race.embed", category: "Arcade", thumb: "/assets/games/gn122.jpg" },
   { title: "Poly Track", url: "https://gn-math.github.io/html/123-win2.html", category: "Arcade", thumb: "/assets/games/gn123.jpg" },
   { title: "Moto X3M Pool Party", url: "https://gn-math.github.io/html/124.html", category: "Sports", thumb: "/assets/games/gn124.jpg" },
   { title: "Granny 2", url: "https://gn-math.github.io/html/125.html", category: "Horror", thumb: "/assets/games/gn125.jpg" },
@@ -12583,7 +12733,6 @@ window.ChalkGames = [
   { title: "Azahar (Emulator)", url: "https://gn-math.github.io/html/849.html", category: "Arcade", thumb: "/assets/games/gn849.jpg" },
   { title: "Lobotomy Corporation", url: "https://gn-math.github.io/html/850.html", category: "Multiplayer", thumb: "/assets/games/gn850.jpg" },
   { title: "Grand Theft Auto 3", url: "https://gn-math.github.io/html/851.html", category: "Arcade", thumb: "/assets/games/gn851.jpg" },
-  { title: "Granny 3", url: "/game-builds/granny3/index.html", category: "Horror", thumb: "/assets/games/gn852.jpg", directOnly: true },
   { title: "SCP: Containment Breach", url: "https://gn-math.github.io/html/853.html", category: "Arcade", thumb: "/assets/games/gn853.jpg" },
   { title: "Ravenfield", url: "https://gn-math.github.io/html/854.html", category: "Arcade", thumb: "/assets/games/gn854.jpg" },
   { title: "Trombone Champion", url: "https://gn-math.github.io/html/855.html", category: "Multiplayer", thumb: "/assets/games/gn855.jpg" },
@@ -13350,27 +13499,27 @@ window.ChalkWebPorts = [
    sorted; numbered groups read in numeric order (1, 2, 3, …). */
 
 window.ChalkSites = [
-  { title: "Arctic 1", url: "https://cdn.jsdelivr.net/gh/Mtreasur0133-bit/articsvg-auto-1@main/articsvg-1.svg", thumb: "arctic-thumb.png", category: "Arctic" , directOnly: true },
-  { title: "Arctic 2", url: "https://cdn.jsdelivr.net/gh/Mtreasur0133-bit/articsvg-auto-1@main/articsvg-2.svg", thumb: "arctic-thumb.png", category: "Arctic" , directOnly: true },
-  { title: "Arctic 3", url: "https://cdn.jsdelivr.net/gh/Mtreasur0133-bit/articsvg-auto-1@main/articsvg-3.svg", thumb: "arctic-thumb.png", category: "Arctic" , directOnly: true },
-  { title: "Arctic 4", url: "https://cdn.jsdelivr.net/gh/Mtreasur0133-bit/articsvg-auto-1@main/articsvg-4.svg", thumb: "arctic-thumb.png", category: "Arctic" , directOnly: true },
-  { title: "Arctic 5", url: "https://cdn.jsdelivr.net/gh/Mtreasur0133-bit/articsvg-auto-1@main/articsvg-5.svg", thumb: "arctic-thumb.png", category: "Arctic" , directOnly: true },
-  { title: "Arctic 6", url: "https://cdn.jsdelivr.net/gh/Mtreasur0133-bit/articsvg-auto-1@main/articsvg-6.svg", thumb: "arctic-thumb.png", category: "Arctic" , directOnly: true },
-  { title: "Arctic 7", url: "https://cdn.jsdelivr.net/gh/Mtreasur0133-bit/articsvg-auto-1@main/articsvg-7.svg", thumb: "arctic-thumb.png", category: "Arctic" , directOnly: true },
-  { title: "Arctic 8", url: "https://cdn.jsdelivr.net/gh/Mtreasur0133-bit/articsvg-auto-1@main/articsvg-8.svg", thumb: "arctic-thumb.png", category: "Arctic" , directOnly: true },
-  { title: "Arctic 9", url: "https://cdn.jsdelivr.net/gh/Mtreasur0133-bit/articsvg-auto-1@main/articsvg-9.svg", thumb: "arctic-thumb.png", category: "Arctic" , directOnly: true },
-  { title: "Arctic 10", url: "https://cdn.jsdelivr.net/gh/Mtreasur0133-bit/articsvg-auto-1@main/articsvg-10.svg", thumb: "arctic-thumb.png", category: "Arctic" , directOnly: true },
+  { title: "Arctic Mirror 1", url: "https://cdn.jsdelivr.net/gh/Mtreasur0133-bit/articsvg-auto-1@main/articsvg-1.svg", thumb: "/assets/games/arctic-1.jpg", category: "Arctic" , directOnly: true },
+  { title: "Arctic Mirror 2", url: "https://cdn.jsdelivr.net/gh/Mtreasur0133-bit/articsvg-auto-1@main/articsvg-2.svg", thumb: "/assets/games/arctic-2.jpg", category: "Arctic" , directOnly: true },
+  { title: "Arctic Mirror 3", url: "https://cdn.jsdelivr.net/gh/Mtreasur0133-bit/articsvg-auto-1@main/articsvg-3.svg", thumb: "/assets/games/arctic-3.jpg", category: "Arctic" , directOnly: true },
+  { title: "Arctic Mirror 4", url: "https://cdn.jsdelivr.net/gh/Mtreasur0133-bit/articsvg-auto-1@main/articsvg-4.svg", thumb: "/assets/games/arctic-4.jpg", category: "Arctic" , directOnly: true },
+  { title: "Arctic Mirror 5", url: "https://cdn.jsdelivr.net/gh/Mtreasur0133-bit/articsvg-auto-1@main/articsvg-5.svg", thumb: "/assets/games/arctic-5.jpg", category: "Arctic" , directOnly: true },
+  { title: "Arctic Mirror 6", url: "https://cdn.jsdelivr.net/gh/Mtreasur0133-bit/articsvg-auto-1@main/articsvg-6.svg", thumb: "/assets/games/arctic-6.jpg", category: "Arctic" , directOnly: true },
+  { title: "Arctic Mirror 7", url: "https://cdn.jsdelivr.net/gh/Mtreasur0133-bit/articsvg-auto-1@main/articsvg-7.svg", thumb: "/assets/games/arctic-7.jpg", category: "Arctic" , directOnly: true },
+  { title: "Arctic Mirror 8", url: "https://cdn.jsdelivr.net/gh/Mtreasur0133-bit/articsvg-auto-1@main/articsvg-8.svg", thumb: "/assets/games/arctic-8.jpg", category: "Arctic" , directOnly: true },
+  { title: "Arctic Mirror 9", url: "https://cdn.jsdelivr.net/gh/Mtreasur0133-bit/articsvg-auto-1@main/articsvg-9.svg", thumb: "/assets/games/arctic-9.jpg", category: "Arctic" , directOnly: true },
+  { title: "Arctic Mirror 10", url: "https://cdn.jsdelivr.net/gh/Mtreasur0133-bit/articsvg-auto-1@main/articsvg-10.svg", thumb: "/assets/games/arctic-10.jpg", category: "Arctic" , directOnly: true },
   { title: "Bull 33", url: "https://s3.dualstack.us-east-1.amazonaws.com/rahisbullsgoat/index.html", thumb: "/assets/games/t_bf72b98f28.jpg", category: "Games" },
-  { title: "Cherri 1", url: "https://cdn.jsdelivr.net/gh/Mtreasur0133-bit/cherribydono-auto-25@main/cherribydono-25001.svg", thumb: "/assets/games/t_3383f2a0e4.jpg", category: "Cherri" , directOnly: true },
-  { title: "Cherri 2", url: "https://cdn.jsdelivr.net/gh/Mtreasur0133-bit/cherribydono-auto-25@main/cherribydono-25002.svg", thumb: "/assets/games/t_3383f2a0e4.jpg", category: "Cherri" , directOnly: true },
-  { title: "Cherri 3", url: "https://cdn.jsdelivr.net/gh/Mtreasur0133-bit/cherribydono-auto-25@main/cherribydono-25003.svg", thumb: "/assets/games/t_3383f2a0e4.jpg", category: "Cherri" , directOnly: true },
-  { title: "Cherri 4", url: "https://cdn.jsdelivr.net/gh/Mtreasur0133-bit/cherribydono-auto-25@main/cherribydono-25004.svg", thumb: "/assets/games/t_3383f2a0e4.jpg", category: "Cherri" , directOnly: true },
-  { title: "Cherri 5", url: "https://cdn.jsdelivr.net/gh/Mtreasur0133-bit/cherribydono-auto-25@main/cherribydono-25005.svg", thumb: "/assets/games/t_3383f2a0e4.jpg", category: "Cherri" , directOnly: true },
-  { title: "Cherri 6", url: "https://cdn.jsdelivr.net/gh/Mtreasur0133-bit/cherribydono-auto-25@main/cherribydono-25006.svg", thumb: "/assets/games/t_3383f2a0e4.jpg", category: "Cherri" , directOnly: true },
-  { title: "Cherri 7", url: "https://cdn.jsdelivr.net/gh/Mtreasur0133-bit/cherribydono-auto-25@main/cherribydono-25007.svg", thumb: "/assets/games/t_3383f2a0e4.jpg", category: "Cherri" , directOnly: true },
-  { title: "Cherri 8", url: "https://cdn.jsdelivr.net/gh/Mtreasur0133-bit/cherribydono-auto-25@main/cherribydono-25008.svg", thumb: "/assets/games/t_3383f2a0e4.jpg", category: "Cherri" , directOnly: true },
-  { title: "Cherri 9", url: "https://cdn.jsdelivr.net/gh/Mtreasur0133-bit/cherribydono-auto-25@main/cherribydono-25009.svg", thumb: "/assets/games/t_3383f2a0e4.jpg", category: "Cherri" , directOnly: true },
-  { title: "Cherri 10", url: "https://cdn.jsdelivr.net/gh/Mtreasur0133-bit/cherribydono-auto-25@main/cherribydono-25010.svg", thumb: "/assets/games/t_3383f2a0e4.jpg", category: "Cherri" , directOnly: true },
+  { title: "Cherri Mirror 1", url: "https://cdn.jsdelivr.net/gh/Mtreasur0133-bit/cherribydono-auto-25@main/cherribydono-25001.svg", thumb: "/assets/games/cherri-1.jpg", category: "Cherri" , directOnly: true },
+  { title: "Cherri Mirror 2", url: "https://cdn.jsdelivr.net/gh/Mtreasur0133-bit/cherribydono-auto-25@main/cherribydono-25002.svg", thumb: "/assets/games/cherri-2.jpg", category: "Cherri" , directOnly: true },
+  { title: "Cherri Mirror 3", url: "https://cdn.jsdelivr.net/gh/Mtreasur0133-bit/cherribydono-auto-25@main/cherribydono-25003.svg", thumb: "/assets/games/cherri-3.jpg", category: "Cherri" , directOnly: true },
+  { title: "Cherri Mirror 4", url: "https://cdn.jsdelivr.net/gh/Mtreasur0133-bit/cherribydono-auto-25@main/cherribydono-25004.svg", thumb: "/assets/games/cherri-4.jpg", category: "Cherri" , directOnly: true },
+  { title: "Cherri Mirror 5", url: "https://cdn.jsdelivr.net/gh/Mtreasur0133-bit/cherribydono-auto-25@main/cherribydono-25005.svg", thumb: "/assets/games/cherri-5.jpg", category: "Cherri" , directOnly: true },
+  { title: "Cherri Mirror 6", url: "https://cdn.jsdelivr.net/gh/Mtreasur0133-bit/cherribydono-auto-25@main/cherribydono-25006.svg", thumb: "/assets/games/cherri-6.jpg", category: "Cherri" , directOnly: true },
+  { title: "Cherri Mirror 7", url: "https://cdn.jsdelivr.net/gh/Mtreasur0133-bit/cherribydono-auto-25@main/cherribydono-25007.svg", thumb: "/assets/games/cherri-7.jpg", category: "Cherri" , directOnly: true },
+  { title: "Cherri Mirror 8", url: "https://cdn.jsdelivr.net/gh/Mtreasur0133-bit/cherribydono-auto-25@main/cherribydono-25008.svg", thumb: "/assets/games/cherri-8.jpg", category: "Cherri" , directOnly: true },
+  { title: "Cherri Mirror 9", url: "https://cdn.jsdelivr.net/gh/Mtreasur0133-bit/cherribydono-auto-25@main/cherribydono-25009.svg", thumb: "/assets/games/cherri-9.jpg", category: "Cherri" , directOnly: true },
+  { title: "Cherri Mirror 10", url: "https://cdn.jsdelivr.net/gh/Mtreasur0133-bit/cherribydono-auto-25@main/cherribydono-25010.svg", thumb: "/assets/games/cherri-10.jpg", category: "Cherri" , directOnly: true },
   { title: "Cinder Cloud", url: "https://fastly.jsdelivr.net/gh/Mtreasur0133-bit/cloudeducation-auto-1@main/cloudeducation-1.svg", thumb: "/assets/games/t_f1e5e746b5.jpg", category: "Cloudmoon" , directOnly: true },
   { title: "Cloudmoon 1", url: "https://fastly.jsdelivr.net/gh/Mtreasur0133-bit/realcloudmooneducation-auto-1@main/realcloudmooneducation-1.svg", thumb: "/assets/games/t_d58780fc4f.jpg", category: "Cloudmoon" , directOnly: true },
   { title: "Cloudmoon 2", url: "https://fastly.jsdelivr.net/gh/Mtreasur0133-bit/realcloudmooneducation-auto-1@main/realcloudmooneducation-2.svg", thumb: "/assets/games/t_d58780fc4f.jpg", category: "Cloudmoon" , directOnly: true },
@@ -13489,12 +13638,6 @@ window.ChalkApps = [
     thumb: "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2064%2064%22%3E%3Cdefs%3E%3ClinearGradient%20id%3D%22g%22%20x1%3D%220%22%20y1%3D%220%22%20x2%3D%221%22%20y2%3D%221%22%3E%3Cstop%20offset%3D%220%22%20stop-color%3D%22%234285f4%22%2F%3E%3Cstop%20offset%3D%221%22%20stop-color%3D%22%232a7d44%22%2F%3E%3C%2FlinearGradient%3E%3C%2Fdefs%3E%3Crect%20width%3D%2264%22%20height%3D%2264%22%20rx%3D%2214%22%20fill%3D%22url(%23g)%22%2F%3E%3Ccircle%20cx%3D%2232%22%20cy%3D%2232%22%20r%3D%2218%22%20fill%3D%22none%22%20stroke%3D%22%230c1210%22%20stroke-width%3D%223.5%22%2F%3E%3Cellipse%20cx%3D%2232%22%20cy%3D%2232%22%20rx%3D%227%22%20ry%3D%2218%22%20fill%3D%22none%22%20stroke%3D%22%230c1210%22%20stroke-width%3D%223%22%2F%3E%3Cpath%20d%3D%22M14%2032h36%22%20stroke%3D%22%230c1210%22%20stroke-width%3D%223%22%2F%3E%3C%2Fsvg%3E"
   },
   {
-    title: "Blank Tab",
-    kind: "launcher",
-    category: "Built-in",
-    thumb: "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2064%2064%22%3E%3Cdefs%3E%3ClinearGradient%20id%3D%22g%22%20x1%3D%220%22%20y1%3D%220%22%20x2%3D%221%22%20y2%3D%221%22%3E%3Cstop%20offset%3D%220%22%20stop-color%3D%22%2334a853%22%2F%3E%3Cstop%20offset%3D%221%22%20stop-color%3D%22%232a7d44%22%2F%3E%3C%2FlinearGradient%3E%3C%2Fdefs%3E%3Crect%20width%3D%2264%22%20height%3D%2264%22%20rx%3D%2214%22%20fill%3D%22url(%23g)%22%2F%3E%3Crect%20x%3D%2214%22%20y%3D%2214%22%20width%3D%2236%22%20height%3D%2236%22%20rx%3D%226%22%20fill%3D%22none%22%20stroke%3D%22%230c1210%22%20stroke-width%3D%223.5%22%2F%3E%3Cpath%20d%3D%22M26%2038l10-6-10-6z%22%20fill%3D%22%230c1210%22%2F%3E%3C%2Fsvg%3E"
-  },
-  {
     title: "HTML Editor",
     kind: "editor",
     category: "Built-in",
@@ -13559,7 +13702,8 @@ window.ChalkApps = [
     title: "Ruffle",
     url: "https://truffled.lol/tools/ruffle.html",
     thumb: "/assets/games/t_0e44d1c8b2.jpg",
-    category: "Emulator"
+    category: "Emulator",
+    note: "Flash player. Load your own .swf file"
   },
   {
     title: "GUST",
@@ -13577,13 +13721,15 @@ window.ChalkApps = [
     title: "N64",
     url: "https://truffled.lol/tools/n64.html",
     thumb: "/assets/games/t_5b609296df.jpg",
-    category: "Emulator"
+    category: "Emulator",
+    note: "Bring your own ROM (.z64/.n64)"
   },
   {
     title: "Azahar",
     url: "/game-builds/azahar/index.html",
     thumb: "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2064%2064%22%3E%0A%3Cdefs%3E%3ClinearGradient%20id%3D%22g%22%20x1%3D%220%22%20y1%3D%220%22%20x2%3D%221%22%20y2%3D%221%22%3E%3Cstop%20offset%3D%220%22%20stop-color%3D%22%23ff7a45%22%2F%3E%3Cstop%20offset%3D%221%22%20stop-color%3D%22%23e2378c%22%2F%3E%3C%2FlinearGradient%3E%0A%3ClinearGradient%20id%3D%22s%22%20x1%3D%220%22%20y1%3D%220%22%20x2%3D%221%22%20y2%3D%221%22%3E%3Cstop%20offset%3D%220%22%20stop-color%3D%22%237ff0e0%22%2F%3E%3Cstop%20offset%3D%221%22%20stop-color%3D%22%233aa0ff%22%2F%3E%3C%2FlinearGradient%3E%3C%2Fdefs%3E%0A%3Crect%20width%3D%2264%22%20height%3D%2264%22%20rx%3D%2214%22%20fill%3D%22url(%23g)%22%2F%3E%0A%3Crect%20x%3D%2214%22%20y%3D%229%22%20width%3D%2236%22%20height%3D%2223%22%20rx%3D%225%22%20fill%3D%22%23140c1e%22%20stroke%3D%22rgba(0%2C0%2C0%2C0.35)%22%20stroke-width%3D%222%22%2F%3E%0A%3Crect%20x%3D%2218%22%20y%3D%2213%22%20width%3D%2213%22%20height%3D%2210%22%20rx%3D%221.5%22%20fill%3D%22url(%23s)%22%2F%3E%0A%3Crect%20x%3D%2233%22%20y%3D%2213%22%20width%3D%2213%22%20height%3D%2210%22%20rx%3D%221.5%22%20fill%3D%22url(%23s)%22%2F%3E%0A%3Crect%20x%3D%2214%22%20y%3D%2235%22%20width%3D%2236%22%20height%3D%2215%22%20rx%3D%225%22%20fill%3D%22%23140c1e%22%20stroke%3D%22rgba(0%2C0%2C0%2C0.35)%22%20stroke-width%3D%222%22%2F%3E%0A%3Crect%20x%3D%2218%22%20y%3D%2239%22%20width%3D%2228%22%20height%3D%227%22%20rx%3D%222%22%20fill%3D%22url(%23s)%22%2F%3E%0A%3Ccircle%20cx%3D%2222%22%20cy%3D%2246%22%20r%3D%221.4%22%20fill%3D%22%23fff%22%2F%3E%3Ccircle%20cx%3D%2242%22%20cy%3D%2246%22%20r%3D%221.4%22%20fill%3D%22%23fff%22%2F%3E%0A%3Cpath%20d%3D%22M27%2035v-3M37%2035v-3%22%20stroke%3D%22%23140c1e%22%20stroke-width%3D%222.5%22%20stroke-linecap%3D%22round%22%2F%3E%0A%3C%2Fsvg%3E",
-    category: "Emulator"
+    category: "Emulator",
+    note: "3DS emulator. Bring your own ROM"
   },
 
   {
@@ -14393,41 +14539,17 @@ window.ChalkProxyApps = [
   }
 })();
 </script>
-  <script data-inline="launcher.js">/* Chalkle launcher. Five ways to open a game or site:
-   direct, about:blank, blob tab, in-app frame, and through a proxy.
-   Wrappers follow the proven pattern: sandboxed iframe without top-navigation
-   so frame-busting sites stay contained, plus a refusal watcher that only
-   redirects when the browser actually refused to load the page. */
+  <script data-inline="launcher.js">/* Chalkle launcher. Every game/site/app opens the real URL in a normal new
+   tab - no method picker, no about:blank / blob / data: cloak tabs.
+   Explicitly proxied items (Unity builds, proxy apps) still route through a
+   configured proxy as a plain new tab, and when a popup is blocked the item
+   falls back to the in-app frame overlay on this page. */
 
 (function () {
   "use strict";
 
-  var WRAP_TITLE = "Classes";
-  try {
-    WRAP_TITLE = localStorage.getItem("chalkle-cloak-title") || "Classes";
-  } catch (e) { /* no storage */ }
-
-  var WRAP_ICON = "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2064%2064%22%3E%3Cdefs%3E%3Cstyle%3E%40font-face%7Bfont-family%3A%22Boogaloo%22%3Bsrc%3Aurl(data%3Afont%2Fttf%3Bbase64%2CAAEAAAAPAIAAAwBwR0RFRgARAAIAAAEgAAAAFkdQT1NEdEx1AAABOAAAAB5HU1VCuPy46gAAAbwAAAAoT1MvMly0bagAAAJYAAAAYGNtYXAAeABaAAACHAAAADxnYXNwAAAAEAAAAQQAAAAIZ2x5ZvV2BCYAAAK4AAAAaGhlYWQDB5o1AAAB5AAAADZoaGVhB1YCvgAAAZgAAAAkaG10eAUsABoAAAEUAAAADGxvY2EAAAA0AAABDAAAAAhtYXhwAEwAQwAAAVgAAAAgbmFtZTEHTZ0AAAMgAAACUnBvc3T%2FYgBPAAABeAAAACBwcmVwaAaMhQAAAPwAAAAHuAH%2FhbAEjQAAAQAB%2F%2F8ADwAAAAAAAAA0AlgAAADyAAAB4gAaAAEAAAAMAAAAAAAAAAEAAQACAAEAAQAAAAEAAAAKABwAHAABREZMVAAIAAQAAAAA%2F%2F8AAAAAAAAAAQAAAAMAQAAHAAAAAAACAAAAAQABAAAAQAAAAAAAAAADAAAAAAAA%2F18ATwAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAOv%2FwoAAAP0%2F7v%2FvAPpAAEAAAAAAAAAAAAAAAAAAAADAAEAAAAKACYAJgACREZMVAASbGF0bgAOAAAAAAAEAAAAAP%2F%2FAAAAAAABAAAAAQCDBwPtyV8PPPUACwPoAAAAAMsTTJQAAAAA1TEJgP%2B7%2FwoD6QOvAAAACAACAAAAAAAAAAAAAgAAAAMAAAAUAAMAAQAAABQABAAoAAAABgAEAAEAAgAgAEP%2F%2FwAAACAAQ%2F%2F%2F%2F%2BH%2FvwABAAAAAAAAAAIBVgGQAAUAAAKUAlgAAP9EApQCWAAAAPsAMgD6CgYDBgkCAwICAgIDAAAAIwAAAAAAAAAAAAAAAE1ZRk8AQAAgAEMDr%2F8KAAADrwD2AAAAAQAAAAABUgHVAAAAIAACAAEAGv%2FiAdgCvwAgAAABIgYVFDMyNjY3FwYGIyImNTQ3NjYzMhcWFhcWFyc0JyYBDSxCXBonEQx%2FGmdcbHU6HGVBUCQSFwUJAoEYCwI%2F2VSwLTAqCnuCo36Ti0VZNRo2KkNNDIEhEQAAAAAIAGYAAwABBAkAAAEKAOIAAwABBAkAAQAQANIAAwABBAkAAgAOAMQAAwABBAkAAwA2AI4AAwABBAkABAAgAG4AAwABBAkABQAaAFQAAwABBAkABgAgADQAAwABBAkADgA0AAAAaAB0AHQAcAA6AC8ALwBzAGMAcgBpAHAAdABzAC4AcwBpAGwALgBvAHIAZwAvAE8ARgBMAEIAbwBvAGcAYQBsAG8AbwAtAFIAZQBnAHUAbABhAHIAVgBlAHIAcwBpAG8AbgAgADEALgAwADAAMgBCAG8AbwBnAGEAbABvAG8AIABSAGUAZwB1AGwAYQByADEALgAwADAAMgA7AE0AWQBGAE8AOwBCAG8AbwBnAGEAbABvAG8ALQBSAGUAZwB1AGwAYQByAFIAZQBnAHUAbABhAHIAQgBvAG8AZwBhAGwAbwBvAEMAbwBwAHkAcgBpAGcAaAB0ACAAKABjACkAIAAyADAAMQAxACwAIABKAG8AaABuACAAVgBhAHIAZwBhAHMAIABCAGUAbAB0AHIAYQBuACAAKAB3AHcAdwAuAGoAbwBoAG4AdgBhAHIAZwBhAHMAYgBlAGwAdAByAGEAbgAuAGMAbwBtAHwAagBvAGgAbgAuAHYAYQByAGcAYQBzAGIAZQBsAHQAcgBhAG4AQABnAG0AYQBpAGwALgBjAG8AbQApACwAIAB3AGkAdABoACAAUgBlAHMAZQByAHYAZQBkACAARgBvAG4AdAAgAE4AYQBtAGUAIAAiAEIAbwBvAGcAYQBsAG8AbwAiAC4AAA%3D%3D)%20format(%22truetype%22)%3B%7D%3C%2Fstyle%3E%3C%2Fdefs%3E%3Crect%20width%3D%2264%22%20height%3D%2264%22%20rx%3D%2214%22%20fill%3D%22%23111317%22%2F%3E%3Ctext%20x%3D%2232%22%20y%3D%2248%22%20font-family%3D%22Boogaloo%22%20font-size%3D%2234%22%20text-anchor%3D%22middle%22%20fill%3D%22%231557b0%22%3EC%3C%2Ftext%3E%3Ctext%20x%3D%2232%22%20y%3D%2244%22%20font-family%3D%22Boogaloo%22%20font-size%3D%2234%22%20text-anchor%3D%22middle%22%20fill%3D%22%234285f4%22%3EC%3C%2Ftext%3E%3C%2Fsvg%3E";
-
-  var SANDBOX =
-    "allow-scripts allow-forms allow-same-origin allow-popups " +
-    "allow-popups-to-escape-sandbox allow-downloads allow-modals " +
-    "allow-presentation allow-pointer-lock";
-
-  /* Why allow-same-origin is here: without it the framed game runs as an
-     opaque/null origin, which kills IndexedDB, localStorage, cookies,
-     WebSockets, SharedArrayBuffer and service workers - the exact things
-     Unity/WASM and live games need to boot. Giving the frame its own origin
-     keeps those working while the iframe stays sandboxed (no top navigation,
-     no parent access: the wrapper is a fresh about:blank/blob document, so
-     there is nothing sensitive for the game to reach). Frame-blocking sites
-     are still caught by the refusal watcher below and bounced to a proxy. */
-
-  /* Pages that already live on this site ( /game-builds/... ). Wrapping them
-     in about:blank / blob iframes makes Chromium treat fetches as origin
-     "null", Unity/WASM fail, and school filters often refuse the iframe
-     even though the same file works as a normal tab. Always open these
-     top-level on this origin. */
+  /* Pages that already live on this site ( /game-builds/... ). They always
+     open top-level on this origin. */
   function isLocalPlayUrl(url) {
     var u = String(url || "").trim();
     if (!u) return false;
@@ -14441,22 +14563,23 @@ window.ChalkProxyApps = [
     }
   }
 
-  /* iOS Safari (iPhone/iPad) is strict about opaque origins: games running
-     in an about:blank / blob / data cloak lose the ability to reach
-     cross-origin resources (their embedded loaders then fail with errors
-     like "Failed to fetch version info"). On iOS, self-hosted /game-builds/
-     games open as a plain same-origin tab so they keep a real origin. */
-  function isIOS() {
-    try {
-      var ua = String(navigator.userAgent || "");
-      if (/iPhone|iPad|iPod/i.test(ua)) return true;
-      if (navigator.userAgentData && navigator.userAgentData.platform) {
-        if (/^iOS$/i.test(navigator.userAgentData.platform)) return true;
-      }
-      /* iPadOS reports a Mac UA but has a touchscreen. */
-      if (/Macintosh/i.test(ua) && navigator.maxTouchPoints > 1) return true;
-    } catch (e) { /* ignore */ }
-    return false;
+  /* Unity WebGL builds resolve relative asset paths (StreamingAssets/, the
+     .data/.wasm, Build/*loader.js) against the DOCUMENT base. Detect those
+     builds by URL so proxy routing can keep them on a real origin. */
+  function looksLikeUnityUrl(url) {
+    var u = String(url || "");
+    if (!u) return false;
+    return (
+      u.indexOf(".unityweb") !== -1 ||
+      u.indexOf("StreamingAssets/") !== -1 ||
+      u.indexOf("UnityLoader.") !== -1 ||
+      u.indexOf("createUnityInstance") !== -1 ||
+      (u.indexOf("/Build/") !== -1 && u.indexOf("loader.js") !== -1)
+    );
+  }
+
+  function shouldOpenDirect(url) {
+    return isLocalPlayUrl(url) || looksLikeUnityUrl(url);
   }
 
   function isDeadStubProxy(url) {
@@ -14471,44 +14594,9 @@ window.ChalkProxyApps = [
     return false;
   }
 
-  function wrapHtml(url) {
-    var safeUrl = String(url).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
-    var b64 = "";
-    try { b64 = btoa(encodeURIComponent(url)); } catch (e) { b64 = ""; }
-    return (
-      '<!doctype html><html><head><meta charset="utf-8"><meta name="referrer" content="no-referrer"><title>' + WRAP_TITLE + "</title>" +
-      '<link rel="icon" href="' + WRAP_ICON + '"></head>' +
-      '<body style="margin:0;overflow:hidden;background:#0c1210;">' +
-      '<iframe id="game-frame" sandbox="' + SANDBOX + '" ' +
-      'style="width:100vw;height:100vh;border:none;display:block;" ' +
-      'allow="fullscreen; gamepad; picture-in-picture" referrerpolicy="no-referrer"></iframe>' +
-      '<script>' +
-      'var f = document.getElementById("game-frame");\n' +
-      'var u = "' + safeUrl + '";\n' +
-      'if ("' + b64 + '") { try { u = decodeURIComponent(atob("' + b64 + '")); } catch(e){} }\n' +
-      'if (f) f.src = u;\n' +
-      '<\/script>' +
-      "</body></html>"
-    );
-  }
-
-  /* Refusal watcher: when a site refuses to be framed (X-Frame-Options / CSP
-     frame-ancestors), Chromium commits a chrome-error:// "refused to connect"
-     document inside the sandboxed iframe. That page is same-origin, so we can
-     read it. If we ever see it, or an empty committed frame, we bounce the
-     whole cloak tab to the real URL in the top window - a plain navigation the
-     server (rightly) never blocks. A successful cross-origin game throws when
-     we touch contentWindow, so that case stays cloaked. No blind redirects. */
-  /* The built-in same-origin /uv/ proxy. It is served by this site's own
-     server, so a school filter has nothing separate to block and the URL can
-     never go stale the way a hosted tunnel can. Every auto-route prefers it
-     over hosted proxies (which can be blocked or die). */
   /* A usable same-origin base for the built-in /uv/ proxy. The single-file
-     build runs from file:// or an opaque origin (about:blank / blob / data),
-     where location.origin is the literal string "null" and there is no
-     server behind it - the builtin /uv/ route cannot exist there. Returns ""
-     when the origin can't host /uv/, so callers fall back to hosted
-     proxies instead of building a broken "null/uv" URL. */
+     build runs from file:// or an opaque origin, where location.origin is the
+     literal string "null" - the builtin /uv/ route cannot exist there. */
   function usableOrigin() {
     try {
       if (window.ChalkleApi && window.ChalkleApi.root) {
@@ -14526,11 +14614,8 @@ window.ChalkProxyApps = [
   }
 
   /* The /uv/ rewriting proxy only exists when serve-chalk.py is actually
-     behind this origin. On the jsDelivr mirror (cdn/fastly.jsdelivr.net) or a
-     static host there is no server, so origin + "/uv" 404s - and blindly
-     claiming it produced URLs like cdn.jsdelivr.net/uv/<base64> that the
-     mirror can't serve. Probe once at startup (a same-origin fetch is fast)
-     and only advertise the built-in proxy when it really answers. */
+     behind this origin. Probe once at startup and only advertise it when it
+     really answers. */
   var uvStatus = null; // null = probing, true = usable, false = unusable
   var builtinTried = false;
   function probeBuiltinProxy() {
@@ -14547,17 +14632,12 @@ window.ChalkProxyApps = [
   function builtinProxy() {
     var origin = usableOrigin();
     if (!origin) return null;
-    /* Don't claim /uv/ exists while the probe is still in flight (first
-       moments of a load) or after it failed - those cases must fall back to
-       hosted proxies instead of building a dead origin+/uv URL. */
     if (uvStatus !== true) return null;
     return { name: "Built-in", url: origin + "/uv", mode: "path", builtin: true };
   }
 
   /* Pick the first real configured proxy (skips the "your-proxy-url"
-     placeholder) so both openProxyApp and the refusal fallback agree.
-     The same-origin /uv/ proxy always wins - hosted Scramjet/Serium
-     instances are blockable domains, /uv/ is this site itself. */
+     placeholder). The same-origin /uv/ proxy always wins. */
   function liveProxy() {
     var builtin = builtinProxy();
     var proxies =
@@ -14567,218 +14647,21 @@ window.ChalkProxyApps = [
     for (var i = 0; i < proxies.length; i++) {
       var p = proxies[i];
       if (p && p.url && !isDeadStubProxy(p.url)) {
-        /* Prefer a same-origin /uv/ entry if the list has one. */
         try {
           if (new URL(p.url, location.href).origin === location.origin && /\/uv\/?$/.test(new URL(p.url, location.href).pathname)) {
             return p;
           }
         } catch (e) { /* fall through */ }
         if (!hosted) hosted = p;
-        /* On a real origin the builtin /uv/ always wins. On file:// or an
-           opaque origin (single-file build) it cannot exist, so keep scanning
-           and remember the first hosted proxy instead. */
         if (builtin) break;
       }
     }
     if (builtin) return builtin;
-    /* No same-origin /uv/ server (single-file build on file://, about:blank,
-       blob or data): route through the first hosted proxy instead of the
-       broken "null/uv". */
     return hosted || null;
   }
 
-  function watchGameTab(win, url, opts) {
-    var settled = false;
-    var tries = 0;
-    opts = opts || {};
-    /* NEVER bounce the cloak tab to the real blocked origin. That summons the
-       raw host (X-Frame-Options / CSP pages, or just a blocked site) and
-       undoes the whole point. Instead: if a proxy is configured, route the
-       SAME barrier tab to the proxied URL (tab only talks to the proxy origin);
-       otherwise swap the frame to a contained, purely-holding page and surface
-       a tiny notice - never the live host. */
-    function redirect() {
-      if (settled) return;
-      settled = true;
-      var p = opts.proxy || liveProxy();
-      if (p && p.url) {
-        try { win.location.replace(routeProxy(url, p.url, p.mode === "frame" || !!p.hashRoute)); return; } catch (e) { /* keep going */ }
-      }
-      if (opts.onBlocked) { try { opts.onBlocked(); } catch (e) { /* ignore */ } }
-      /* No proxy: instead of leaving the user on a dead "blocked" page,
-         pull the game into the in-app frame overlay (through the /uv/ relay
-         when one is live) so it still plays inside the Chalkle tab. */
-      try {
-        if (opts.iframeOnBlock !== false && inAppFrame(opts.iframeUrl || url, opts.title)) {
-          try { win.close(); } catch (e) { /* ignore */ }
-          return;
-        }
-      } catch (e) { /* keep going */ }
-      try {
-        var body = win.document.body;
-        if (body) {
-          body.innerHTML =
-            '<div style="all:unset;display:flex;align-items:center;justify-content:center;height:100vh;width:100vw;background:#0c1210;color:#8fd6c2;font:600 14px/1.5 system-ui;text-align:center;padding:24px;box-sizing:border-box;">' +
-            "This site blocks being embedded.\u003cbr\u003e\u003cspan style=\u0027opacity:.75\u0027\u003eOpen it again and pick \u0027Proxy\u0027 to view it.\u003c/span\u003e</div>";
-        }
-      } catch (e) { /* ignore */ }
-    }
-    function consider() {
-      if (settled) return;
-      var frame = win.document.getElementById("game-frame");
-      if (!frame) return;
-      var rejected = false;
-      try {
-        var loc = frame.contentWindow && frame.contentWindow.location;
-        if (loc && loc.href && loc.href.indexOf("chrome-error") !== -1) rejected = true;
-      } catch (e) { /* cross-origin game loaded fine - stay cloaked */ }
-      if (!rejected) {
-        try {
-          var doc = frame.contentDocument;
-          if (doc && doc.body) {
-            if (doc.URL && doc.URL !== "about:blank" && doc.body.children.length === 0) rejected = true;
-            if (/refused to (connect|display)|X-Frame-Options/i.test(doc.body.textContent || "")) {
-              rejected = true;
-            }
-          }
-        } catch (e) { /* cross-origin - stay cloaked */ }
-      }
-      if (rejected) redirect();
-    }
-    function attach() {
-      var frame = win.document.getElementById("game-frame");
-      if (!frame) return;
-      frame.addEventListener("load", function () {
-        setTimeout(consider, 150);
-        setTimeout(consider, 700);
-      });
-      var timer = setInterval(function () {
-        if (settled) { clearInterval(timer); return; }
-        consider();
-        if (++tries > 12) clearInterval(timer);
-      }, 800);
-    }
-    if (win.document.readyState === "complete") attach();
-    else win.addEventListener("load", attach);
-  }
-
-  function openDirect(url) {
-    /* Local file paths can never open from a web page and would throw a
-       security error - refuse them here so every launch method is covered. */
-    if (/^(file:|javascript:)/i.test(String(url || "").trim())) return false;
-    var win = window.open(url, "_blank", "noopener");
-    if (!win && isLocalPlayUrl(url)) {
-      try { window.location.href = url; return true; } catch (e) { return false; }
-    }
-    /* Popup blocked (managed Chromebooks often block new tabs entirely):
-       play right here in the app instead of failing silently. */
-    if (!win && /^https?:/i.test(String(url || "").trim())) return inAppFrame(url, url);
-    return !!win;
-  }
-
-  /* Local builds + Unity WebGL must be a real top-level tab. Cloak iframes
-     break asset paths and look like a blocked page. */
-  function shouldOpenDirect(url) {
-    return isLocalPlayUrl(url) || looksLikeUnityUrl(url);
-  }
-
-  /* Unity WebGL builds resolve relative asset paths (StreamingAssets/, the
-     .data/.wasm, Build/*loader.js) against the DOCUMENT base. In a blob /
-     about:blank / iframe wrapper that base is blob:null/ or the wrapper, so
-     the loader throws "StreamingAssets is not a valid URL" and the game
-     never boots (a <base> tag we inject doesn't help - Unity reads location,
-     not document.baseURI). Detect those builds by URL so every wrap method
-     hard-forces a real top-level tab instead of a dead black screen. */
-  function looksLikeUnityUrl(url) {
-    var u = String(url || "");
-    if (!u) return false;
-    /* Relative /game-builds paths are Unity (or other origin-sensitive ports)
-       as often as remote https ones - don't require an http(s) scheme. */
-    return /\.unityweb(?:[?#]|$)|\/StreamingAssets(?:\/|$)|\bUnityLoader\.|\bcreateUnityInstance\b|\/Build\/[A-Za-z0-9_+\-./]*loader\.js(?:[?#]|$)|\/game-builds\/(?:granny|granny3|clustertruck|gta3|cuphead)\b/i.test(u);
-  }
-
-  function openAboutBlank(url, watch) {
-    if (shouldOpenDirect(url)) return openDirect(url);
-    var win = window.open("about:blank", "_blank");
-    if (!win) return inAppFrame(url, url);
-    try {
-      win.document.open();
-      win.document.write(wrapHtml(url));
-      win.document.close();
-      win.document.title = WRAP_TITLE;
-      win.focus();
-    } catch (e) {
-      try { win.close(); } catch (ignore) { /* ignore */ }
-      return false;
-    }
-    if (watch) watchGameTab(win, url);
-    return true;
-  }
-
-  function openBlob(url, watch) {
-    if (shouldOpenDirect(url)) return openDirect(url);
-    var html = wrapHtml(url);
-    var blobUrl = URL.createObjectURL(new Blob([html], { type: "text/html" }));
-    var win = window.open(blobUrl, "_blank");
-    if (!win) {
-      URL.revokeObjectURL(blobUrl);
-      return inAppFrame(url, url);
-    }
-    setTimeout(function () { URL.revokeObjectURL(blobUrl); }, 60000);
-    if (watch) watchGameTab(win, url);
-    return true;
-  }
-
-  /* Open a URL as a data: URL ("Data URL" method). Images become
-     data:image/*;base64; fetchable HTML (jsDelivr / raw.githubusercontent)
-     becomes data:text/html with a <base> so relative assets resolve; anything
-     else just opens direct. Handy for SVG launchers (like the gnmath ones)
-     and for pages that are only reachable as inline data. Unity builds are
-     forced direct (they can't run from a data/blob origin). */
-  function openDataUrl(url, watch) {
-    var u = String(url || "");
-    if (!u) return false;
-    if (/^(?:data|file|javascript):/i.test(u)) return openDirect(u);
-    if (shouldOpenDirect(u)) return openDirect(u);
-    var isImage = /\.(?:png|jpe?g|gif|webp|svg|avif|ico)(?:[?#]|$)/i.test(u);
-    var fetchable = new RegExp("^https?:\\/\\/(?:(?:cdn|fastly)\\.jsdelivr\\.net\\/gh|raw\\.githubusercontent\\.com)\\/", "i").test(u);
-    if (isImage) {
-      return fetch(u).then(function (r) {
-        if (!r.ok) return openDirect(u);
-        return r.blob().then(function (blob) {
-          return new Promise(function (resolve) {
-            var fr = new FileReader();
-            fr.onloadend = function () {
-              var dataUrl = typeof fr.result === "string" ? fr.result : "";
-              resolve(dataUrl ? (window.open(dataUrl, "_blank", "noopener") && true) : openDirect(u));
-            };
-            fr.readAsDataURL(blob);
-          });
-        });
-      }).catch(function () { return openDirect(u); });
-    }
-    if (fetchable) {
-      return fetch(u).then(function (r) { return r.ok ? r.text() : null; }).then(function (html) {
-        if (html === null) return openDirect(u);
-        if (looksLikeUnityUrl(u) || /createUnityInstance|UnityLoader|\.unityweb|StreamingAssets/i.test(String(html))) {
-          return openDirect(u);
-        }
-        var base = String(u).replace(/[^/]*$/, "");
-        var withBase = String(html).replace(/<head([^>]*)>/i, "<head$1><base href=\"" + base.replace(/"/g, "&quot;") + "\">");
-        return window.open("data:text/html;charset=utf-8," + encodeURIComponent(withBase), "_blank", "noopener") && true;
-      }).catch(function () { return openDirect(u); });
-    }
-    return openDirect(u);
-  }
-
-  /* Open a URL in the in-app frame overlay. When a live proxy exists (the
-     built-in same-origin /uv/ relay first), the URL is routed through it:
-     the frame then only ever talks to this origin, so a school filter has
-     nothing to block and X-Frame-Options refusals get stripped by the relay.
-     Without a proxy the frame loads the raw URL (the refusal watcher /
-     overlay fallback still applies). This is the one launch method that
-     keeps everything inside the Chalkle tab - monitors and popup blockers
-     (managed Chromebooks) can't kill it, because nothing new ever opens. */
+  /* Open a URL in the in-app frame overlay. Used as the fallback when a
+     popup is blocked, and by the overlay's own controls. */
   function inAppFrame(url, title) {
     var overlay = document.getElementById("proxy-overlay");
     var frame = document.getElementById("proxy-frame");
@@ -14801,14 +14684,22 @@ window.ChalkProxyApps = [
     return true;
   }
 
-  function openIframe(url, title) {
-    if (shouldOpenDirect(url)) return openDirect(url);
-    return inAppFrame(url, title || url);
+  function openDirect(url) {
+    /* Local file paths can never open from a web page and would throw a
+       security error - refuse them here. */
+    if (/^(file:|javascript:)/i.test(String(url || "").trim())) return false;
+    var win = window.open(url, "_blank", "noopener");
+    if (!win && isLocalPlayUrl(url)) {
+      try { window.location.href = url; return true; } catch (e) { return false; }
+    }
+    /* Popup blocked (managed Chromebooks often block new tabs entirely):
+       play right here in the app instead of failing silently. */
+    if (!win && /^https?:/i.test(String(url || "").trim())) return inAppFrame(url, url);
+    return !!win;
   }
 
   /* Base64url helper - the encoding Ultraviolet / Scramjet / Rammerhead style
-     proxies understand: the target URL, base64url-encoded, appended to the
-     proxy origin. Verified against a live Ultraviolet-style deployment. */
+     proxies understand. */
   function b64url(s) {
     try {
       return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
@@ -14817,12 +14708,7 @@ window.ChalkProxyApps = [
     }
   }
 
-  /* Build a routed URL for a target behind a given proxy host. This is the
-     "open HTML through the proxy" route: the app runs from the proxy origin,
-     so no request touches a blocked domain directly, and the proxy origin
-     is what the school filter (hopefully) hasn't caught yet. Local paths
-     (e.g. /game-builds/...) stay local - the built-in /uv/ proxy serves
-     them from this same server and rewrites any CDN references inside. */
+  /* Build a routed URL for a target behind a given proxy host. */
   function routeProxy(target, proxyUrl, hashRoute) {
     target = String(target || "").trim();
     if (!target || !proxyUrl) return target;
@@ -14830,13 +14716,6 @@ window.ChalkProxyApps = [
     var localPath = target.charAt(0) === "/" && target.charAt(1) !== "/";
     var base = String(proxyUrl).replace(/\/+$/, "");
     if (localPath) {
-      /* Local webroot path: goes through the same-origin /uv/ proxy ONLY when
-         that proxy actually exists (uaStatus === true - see builtinProxy).
-         Hosted proxies can't fetch our local files, and on mirrors/static
-         hosts /uv/ doesn't exist at all - so without a live built-in, hand the
-         path back unchanged (the same-origin static server or the cloak's
-         <base> then serves it directly) instead of building a dead
-         origin+/uv/<b64> URL. */
       if (uvStatus === true) {
         return base + "/" + b64url(target);
       }
@@ -14844,142 +14723,60 @@ window.ChalkProxyApps = [
     }
     if (target.indexOf("//") === 0) target = location.protocol + target;
     if (target.indexOf("://") === -1) target = "https://" + target;
-    /* SW-based proxies (Scramjet/UV/Nebula) proxy through a service worker on
-       their own origin. When the client reads the target from a URL hash
-       (#<b64url>) it can boot the SW and route in the correct context. Some
-       deployments accept the encoded URL as a path instead. */
     if (hashRoute) return base + "#" + b64url(target);
     return base + "/" + b64url(target);
   }
 
-  /* Proxy route (new tab). Most deployments accept the target URL encoded
-     after the host, which routeProxy builds. Falls back to returning false
-     if no proxy is configured. Local /game-builds/ paths route through the
-     same-origin /uv/ proxy too - the server serves the file and rewrites
-     every CDN reference inside it, so even "self-hosted" shells whose
-     assets live on a blocked CDN still boot. */
+  /* Proxy route (new tab). Falls back to returning false if no proxy is
+     configured. */
   function openProxy(url, proxyUrl) {
     if (!proxyUrl || isDeadStubProxy(proxyUrl)) return false;
     var win = window.open(routeProxy(url, proxyUrl), "_blank", "noopener");
     return !!win;
   }
 
-  /* First configured proxy with a real URL, or null. Skips the
-     "your-proxy-url" placeholder the proxy card ships with. */
+  /* First configured proxy with a real URL, or null. */
   function firstProxy() {
     return liveProxy();
   }
 
-  /* Route a site through the first configured proxy and open it.
-     SW-based proxies (Scramjet/UV/Nebula) proxy via a service worker bound to
-     the proxy origin - they break if wrapped in an about:blank tab (opaque
-     origin). So a live proxy navigates DIRECT to the proxied URL. Without a
-     live proxy we fall back to the normal picker on the raw target. */
+  /* Route a site through the first configured proxy and open it as a plain
+     new tab. With no live proxy we fall back to the normal direct open. */
   function openSiteProxied(target, title) {
+    /* Local same-origin pages never need (or survive) the rewriting proxy. */
+    if (isLocalPlayUrl(target)) {
+      return openDirect(target || "") ? (target || "") : "";
+    }
     var p = firstProxy();
     if (!p) {
       ChalkleLaunch.open(target || "", title || target || "");
       return (target || "");
     }
-    /* Scramjet-style proxies route via a URL hash the client reads; classic
-       route proxies take the encoded path. Either way the proxied URL is what
-       opens - the tab only ever talks to the proxy origin. Never wrap the
-       proxied page in about:blank (an opaque origin can't use the SW). */
     var url = routeProxy(target, p.url, p.mode === "frame" || !!p.hashRoute);
     window.open(url, "_blank", "noopener");
     return url;
   }
 
-  /* Route an app through the first configured proxy and hand it to the normal
-     open() flow, so the user gets every launch method on the proxied page:
-     in-app iframe, about:blank cloak, blob tab, new tab, or another proxy.
-     With no proxy configured we open the plain target so it still has a
-     chance. Returns the url actually launched, or "" on failure. */
+  /* Route an app through the first configured proxy and open it as a plain
+     new tab. With no proxy configured we open the plain target so it still
+     has a chance. Returns the url actually launched, or "" on failure.
+     Same-origin targets ( /game-builds/... ) never go through the proxy:
+     they already live on this origin, and rewriting them breaks engines that
+     load relative assets (GameMaker, some WebGL). Those open directly. */
   function openProxyApp(target, title) {
+    if (isLocalPlayUrl(target)) {
+      var directUrl = openDirect(target || "") ? (target || "") : "";
+      return directUrl;
+    }
     var live = liveProxy();
     if (!live) { ChalkleLaunch.open(target || "", title || target || ""); return target || ""; }
-    /* A proxied URL is a service-worker / app origin - the tab must only talk
-       to the proxy host, never an opaque about:blank wrapper (the SW can't run
-       there) and never the target origin. Send the encrypted route directly
-       in a new top-level tab. */
     var url = routeProxy(target, live.url, live.mode === "frame" || !!live.hashRoute);
     window.open(url, "_blank", "noopener");
     return url;
   }
 
-  /* ---------- Picker ---------- */
-
-  var pending = null;
-
-  function pickerOpen(url, title) {
-    pending = { url: url, title: title };
-    var modal = document.getElementById("launch-modal");
-    var name = document.getElementById("launch-name");
-    var proxySel = document.getElementById("launch-proxy-select");
-    if (!modal) return false;
-    if (name) name.textContent = title;
-    if (proxySel) {
-      var proxies = typeof window.ChalkleGetProxies === "function" ? window.ChalkleGetProxies() : (window.ChalkleProxies || window.ChalkProxies || []);
-      var withUrl = proxies.filter(function (p) { return p.url && !isDeadStubProxy(p.url); });
-      proxySel.innerHTML = withUrl
-        .map(function (p) {
-          return '<option value="' + p.url.replace(/"/g, "&quot;") + '">' + p.name.replace(/"/g, "&quot;") + "</option>";
-        })
-        .join("");
-      proxySel.hidden = withUrl.length === 0;
-      var proxyBtn = document.getElementById("launch-proxy");
-      if (proxyBtn) proxyBtn.hidden = withUrl.length === 0;
-    }
-    modal.hidden = false;
-    return true;
-  }
-
-  /* Always open the method menu for a URL, regardless of any saved default
-     mode or "ask" setting - so even when everything else auto-launches, a
-     site can still be opened in about:blank / blob / this-tab / proxy. */
-  function openWithOptions(url, title) {
-    pickerOpen(url, title);
-    return true;
-  }
-
-  function pickerClose() {
-    var modal = document.getElementById("launch-modal");
-    if (modal) modal.hidden = true;
-    pending = null;
-  }
-
-  function launchWith(method) {
-    if (!pending) return;
-    var url = pending.url;
-    var title = pending.title;
-    pickerClose();
-    /* Local builds and Unity WebGL used to force a direct top-level tab -
-       but direct is exactly what school filters block (the shell is local,
-       its assets live on a blocked CDN). Route them through the proxy so
-       every request stays on this origin. If the user explicitly asks for
-       direct, still honour that. */
-    if (shouldOpenDirect(url) && method !== "direct" && method !== "proxy") {
-      openProxyApp(url, title);
-      return;
-    }
-    switch (method) {
-      case "direct": openDirect(url); break;
-      case "dataurl": openDataUrl(url); break;
-      case "aboutblank": openAboutBlank(url, true); break;
-      case "blob": openBlob(url, true); break;
-      case "iframe": openIframe(url, title); break;
-      case "proxy": {
-        var sel = document.getElementById("launch-proxy-select");
-        if (!openProxy(url, sel ? sel.value : "")) {
-          alert("No proxy configured. Add one in the Proxies tab first.");
-        }
-        break;
-      }
-    }
-  }
-
-  /* Turn raw HTML into a URL so it can flow through all five launch methods
-     (direct new tab, about:blank cloak, blob tab, in-app frame, proxy). */
+  /* Turn raw HTML into a URL so inline items (e.g. Ruffle-wrapped games)
+     can open as a local blob in a new tab. */
   function htmlUrl(html) {
     var src = String(html || "");
     if (!src.trim()) return "";
@@ -14990,198 +14787,33 @@ window.ChalkProxyApps = [
     }
   }
 
-  /* Fetch-and-inject: jsDelivr and raw.githubusercontent serve repo HTML as
-     text/plain + nosniff (so an <iframe> shows raw text), but both send
-     Access-Control-Allow-Origin: *, so we can fetch the HTML ourselves and
-     open it as a local blob. A <base> tag is injected so relative asset
-     refs (css/js/swf/images) resolve against the same CDN directory, which
-     serves them with correct MIME types + CORS. The game then runs entirely
-     from the blob URL - no link to the blocked origin, nothing to block. */
-  function isFetchableHtml(url) {
-    return /^https?:\/\/(?:(?:cdn|fastly)\.jsdelivr\.net\/gh|raw\.githubusercontent\.com)\//i.test(String(url || ""));
-  }
-
-  function openFetched(url, title) {
-    return fetch(url)
-      .then(function (r) {
-        if (!r.ok) throw new Error("HTTP " + r.status);
-        return r.text();
-      })
-      .then(function (html) {
-        /* Unity WebGL builds can't run from a blob even with a <base> tag
-           (the loader resolves assets against location, not document.baseURI,
-           so it throws "StreamingAssets is not a valid URL"). Drop them out
-           of the blob path and route them through the /uv/ proxy instead -
-           it serves a real origin on this same site and rewrites CDN refs. */
-        if (looksLikeUnityUrl(url) || /createUnityInstance|UnityLoader|\.unityweb|StreamingAssets/i.test(String(html))) {
-          openProxyApp(url, title || url);
-          return;
-        }
-        var base = String(url).replace(/[^/]*$/, "");
-        var withBase = String(html).replace(/<head([^>]*)>/i, "<head$1><base href=\"" + base.replace(/"/g, "&quot;") + "\">");
-        var blobUrl = htmlUrl(withBase);
-        if (!blobUrl) throw new Error("empty html");
-        ChalkleLaunch.open(blobUrl, title || url);
-      })
-      .catch(function () {
-        /* If the fetch is blocked too, fall back to the plain URL so the
-           game still has a chance via direct/about:blank navigation. */
-        ChalkleLaunch.open(url, title);
-      });
-  }
-
-  /* Fetch-and-inject ANY https site's HTML through the same-origin /_fetch
-     relay (the server fetches server-side, so there is no flaky CORS and no
-     DIRECT browser request to the blocked host), then open it as a local blob
-     with an injected <base> so relative css/js/assets resolve against the
-     source. The tab only ever sits on a blob: URL from our origin - it never
-     hard-navigates to the blocked site, so filters never see a top-level
-     request to that host. Unity/WASM builds can't run from a blob, so they're
-     always opened direct. Resolves true if a blob was opened, false if the
-     item should fall back to the normal site path. */
-  function openFetchedAny(url, title) {
-    var u = String(url || "");
-    if (!/^https?:/i.test(u)) return Promise.resolve(false);
-    if (shouldOpenDirect(u)) { openProxyApp(u, title || u); return Promise.resolve(true); }
-    return fetch("/_fetch?url=" + encodeURIComponent(u))
-      .then(function (r) { return r.ok ? r.json() : null; })
-      .then(function (j) {
-        if (!j || !j.ok || !j.body) throw new Error("relay failed " + (j && j.code) + " " + (j && j.error));
-        /* A giant self-contained build (e.g. a 70MB Eaglercraft 26.2 HTML with
-           the WASM embedded as base64) would blow up memory if we base64-decoded
-           it, re-stringify it and opened it as a duplicate blob. Above ~21MB raw,
-           prefer a normal open so the tab loads the real file directly instead of
-           risking a crash. */
-        if (j.body.length > 28 * 1024 * 1024) throw new Error("too-large");
-        var raw;
-        try { raw = atob(j.body); } catch (e) { throw new Error("base64"); }
-        var mime = String(j.mime || "");
-        var isHtml = /text\/html/i.test(mime) || /\s*<!?DOCTYPE|\<html|\<head|\<body/i.test(raw.slice(0, 4000));
-        if (!isHtml) throw new Error("not-html");
-        if (/createUnityInstance|UnityLoader|\.unityweb|StreamingAssets/i.test(raw)) { openProxyApp(u, title || u); return true; }
-        /* Scheme-preserving origin for the <base>, so http sites stay http. */
-        var m = u.match(/^https?:\/\/([^\/?#]+)/i);
-        var origin = m ? u.match(/^(https?:)/i)[1] + "//" + m[1] + "/" : u;
-        var withBase = String(raw).replace(/<head([^>]*)>/i, "<head$1><base href=\"" + origin.replace(/"/g, "&quot;") + "\">");
-        var blobUrl = htmlUrl(withBase);
-        if (!blobUrl) throw new Error("empty");
-        ChalkleLaunch.open(blobUrl, title || u);
-        return true;
-      })
-      .catch(function () { return false; });
-  }
-
   /* ---------- Public API ---------- */
 
   window.ChalkleLaunch = {
+    /* Everything opens as a normal new tab. No picker, no cloaks. */
     open: function (url, title) {
-      /* iOS: self-hosted builds open as a real same-origin tab (never a
-         cloak). Their loaders' fetches then work normally. */
-      if (isIOS() && isLocalPlayUrl(url)) {
-        openDirect(url);
-        return;
-      }
-      /* Local builds and Unity WebGL can't open direct when their CDNs are
-         blocked, and wrapping them in about:blank/blob breaks asset loading.
-         The /uv/ proxy is this same origin - it serves local files and
-         rewrites CDN refs, so route those through it by default. Explicit
-         "direct" is still available from the picker. */
-      if (shouldOpenDirect(url)) {
-        openProxyApp(url, title || url);
-        return;
-      }
-      var mode = "ask";
-      try { mode = localStorage.getItem("chalkle-launch-mode") || "ask"; } catch (e) { /* no storage */ }
-      var ask = true;
-      try { ask = localStorage.getItem("chalkle-ask") !== "0"; } catch (e) { /* no storage */ }
-
-      if (mode !== "ask" && !ask) {
-        pending = { url: url, title: title || url };
-        launchWith(mode);
-        return;
-      }
-      if (!pickerOpen(url, title)) {
-        /* No modal in the page: fall back to direct. */
-        openDirect(url);
-      }
+      return openDirect(url || "");
     },
-    launchWith: launchWith,
+    /* "Open with…" affordances do the same thing - direct new tab. */
+    openWithOptions: function (url, title) {
+      return openDirect(url || "");
+    },
     openDirect: openDirect,
-    openAboutBlank: openAboutBlank,
-    openBlob: openBlob,
-    openIframe: openIframe,
     openProxy: openProxy,
-    openDataUrl: openDataUrl,
     openProxyApp: openProxyApp,
     openSiteProxied: openSiteProxied,
     firstProxy: firstProxy,
-    openWithOptions: openWithOptions,
     routeProxy: routeProxy,
     b64url: b64url,
     htmlUrl: htmlUrl,
-    openFetched: openFetched,
-    openFetchedAny: openFetchedAny,
-    isFetchableHtml: isFetchableHtml,
     isLocalPlayUrl: isLocalPlayUrl,
-    shouldOpenDirect: shouldOpenDirect,
-    close: pickerClose
+    shouldOpenDirect: shouldOpenDirect
   };
 
   /* The most-recently opened URL (set by inAppFrame) - lets the overlay's
-     "New tab" button pop the current game out even when it was opened by
-     the launcher rather than a proxy card. Initialised AFTER the object so
-     the assignment above can never run before it exists. */
+     "New tab" button pop the current game out even when it was opened by the
+     launcher rather than a proxy card. */
   window.ChalkleLaunch.lastOpenUrl = "";
-
-  /* In a cloak-injected page (learn-N.svg on jsDelivr), the app HTML and
-     scripts are written into the iframe after the document has already
-     finished loading, so DOMContentLoaded never refires and these modal
-     handlers would never bind (launcher buttons + close would do nothing).
-     If the document is already complete, run them immediately instead. */
-  function bindLaunchModal() {
-    var modal = document.getElementById("launch-modal");
-    if (!modal) return;
-
-    modal.addEventListener("click", function (e) {
-      if (e.target === modal) pickerClose();
-    });
-
-    var close = document.getElementById("launch-close");
-    if (close) close.addEventListener("click", pickerClose);
-
-    var setDefault = document.getElementById("launch-set-default");
-    if (setDefault) {
-      setDefault.addEventListener("click", function () {
-        if (!pending) return;
-        var sel = document.getElementById("launch-mode-select");
-        var method = sel ? sel.value : "direct";
-        try {
-          localStorage.setItem("chalkle-launch-mode", method);
-          localStorage.setItem("chalkle-ask", "0");
-        } catch (e) { /* no storage */ }
-        launchWith(method);
-      });
-    }
-
-    var buttons = modal.querySelectorAll("[data-launch-method]");
-    buttons.forEach(function (btn) {
-      btn.addEventListener("click", function () {
-        launchWith(btn.dataset.launchMethod);
-      });
-    });
-
-    var modeSel = document.getElementById("launch-mode-select");
-    if (modeSel) {
-      try {
-        var saved = localStorage.getItem("chalkle-launch-mode") || "direct";
-        modeSel.value = saved;
-      } catch (e) { /* no storage */ }
-    }
-  }    if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", bindLaunchModal);
-  } else {
-    bindLaunchModal();
-  }
 })();
 </script>
   <script data-inline="cloud.js">/* Chalkle Cloud Gaming tab.
@@ -15571,84 +15203,6 @@ window.ChalkProxyApps = [
   }
 
   window.ChalkleCloud = { render: render, play: play, checkServer: checkServer };
-})();
-</script>
-  <script data-inline="blanktab.js">/* Chalkle Blank Tab app. Standalone launcher: type any URL, pick how to open
-   it (direct, about:blank, blob, in-app frame, or through a proxy) and launch.
-   Own modal + own wiring - independent of the app shell. */
-
-(function () {
-  "use strict";
-
-  function open() {
-    var modal = document.getElementById("blanktab-modal");
-    if (!modal) return;
-    modal.hidden = false;
-    document.body.style.overflow = "hidden";
-    var url = document.getElementById("blanktab-url");
-    if (url) setTimeout(function () { url.focus(); }, 40);
-  }
-
-  function close() {
-    var modal = document.getElementById("blanktab-modal");
-    if (modal) modal.hidden = true;
-    document.body.style.overflow = "";
-    var url = document.getElementById("blanktab-url");
-    if (url) url.value = "";
-  }
-
-  function launch(url, mode) {
-    var L = window.ChalkleLaunch;
-    if (!L) return;
-    if (mode === "iframe") {
-      L.openIframe(url, url);
-    } else if (mode === "proxy") {
-      var proxies = typeof window.ChalkleGetProxies === "function" ? window.ChalkleGetProxies() : (window.ChalkleProxies || window.ChalkProxies || []);
-      var p = (proxies || []).find(function (x) { return x.url; });
-      if (!L.openProxy(url, p ? p.url : "")) alert("No proxy configured. Add one in the Proxies tab first.");
-    } else if (mode === "aboutblank") {
-      L.openAboutBlank(url, true);
-    } else if (mode === "blob") {
-      L.openBlob(url, true);
-    } else if (mode === "dataurl") {
-      L.openDataUrl(url);
-    } else {
-      L.openDirect(url);
-    }
-  }
-
-  window.ChalkleBlankTab = {
-    open: open,
-    close: close,
-    launch: launch
-  };
-
-  document.addEventListener("DOMContentLoaded", function () {
-    var modal = document.getElementById("blanktab-modal");
-    if (!modal) return;
-
-    modal.querySelectorAll("[data-blanktab-close]").forEach(function (el) {
-      el.addEventListener("click", function (e) {
-        if (e.target === el || el.tagName === "BUTTON") close();
-      });
-    });
-
-    var form = document.getElementById("blanktab-form");
-    if (!form) return;
-    form.addEventListener("submit", function (e) {
-      e.preventDefault();
-      var url = document.getElementById("blanktab-url").value.trim();
-      var mode = document.getElementById("blanktab-mode").value;
-      if (!url) return;
-      if (/^(file:|javascript:)/i.test(url)) {
-        alert("Local file paths can't be opened from the site.");
-        return;
-      }
-      if (url.indexOf("://") === -1) url = "https://" + url;
-      close();
-      launch(url, mode);
-    });
-  });
 })();
 </script>
   <script data-inline="editor.js">/* Chalkle HTML Editor app. Write, preview, format, inspect, launch, and export
@@ -19890,6 +19444,11 @@ window.ChalkProxyApps = [
     if (s < 86400) return Math.floor(s / 3600) + "h";
     return Math.floor(s / 86400) + "d";
   }
+  function clock(ts) {
+    var d = new Date(ts || Date.now());
+    function p(n) { return (n < 10 ? "0" : "") + n; }
+    return p(d.getHours()) + ":" + p(d.getMinutes());
+  }
   function toast(msg) {
     var d = document.createElement("div");
     d.className = "dh-toast ai-toast";
@@ -19906,6 +19465,7 @@ window.ChalkProxyApps = [
       .then(function (d) {
         S.server = !!(d && d.ok);
         S.models = (d && Array.isArray(d.models) && d.models.length) ? d.models : [];
+        S.lastCheck = Date.now();
         syncServer = S.server;
         if (S.server) fetchConvos();
         return S.server;
@@ -19955,7 +19515,7 @@ window.ChalkProxyApps = [
 
     var h = '<div class="ai-head">';
     h += '<div class="ai-heading"><h1 class="view-title">AI</h1>';
-    h += '<span class="view-meta' + (S.server ? " has-content" : "") + '">' + (S.server ? S.models.length + " models online" : "offline, needs serve-chalk.py") + "</span></div>";
+    h += '<span class="view-meta' + (S.server ? " has-content" : "") + '" title="' + (S.server ? "Model list comes from this site's AI relay" : "Start serve-chalk.py to light this tab up") + '">' + (S.server ? S.models.length + " models online · checked " + (S.lastCheck ? clock(S.lastCheck) : "just now") : "offline, needs serve-chalk.py") + "</span></div>";
     h += '<div class="ai-head-actions">';
     h += '<select class="field field-mode ai-model" id="ai-model" aria-label="Pick a model"><option value="">Pick a model…</option>' + modelOptions() + "</select>";
     h += '<button class="btn ai-new" id="ai-new" type="button">＋ New chat</button>';
@@ -21417,7 +20977,21 @@ window.ChalkProxyApps = [
     if (count) count.textContent = partners.length + (partners.length === 1 ? " partner" : " partners");
     if (empty) empty.hidden = partners.length > 0;
 
-    partners.forEach(function (p) {
+    /* Two headed sections: partners with a live official site first, then the
+       announced ones waiting on their site. Headers span the full grid row
+       (.partners-sect-head is grid-column 1 / -1) so cards flow beneath. */
+    var liveList = [], soonList = [];
+    partners.forEach(function (p) { (normalizeUrl(p.official) ? liveList : soonList).push(p); });
+    var sections = [];
+    if (liveList.length) sections.push(["Live partners", liveList, "up now"]);
+    if (soonList.length) sections.push(["Coming soon", soonList, "announced"]);
+
+    sections.forEach(function (sec) {
+      var head = el("div", "partners-sect-head");
+      head.appendChild(el("h3", "partners-sect-title", sec[0]));
+      head.appendChild(el("span", "partners-sect-chip", sec[2]));
+      grid.appendChild(head);
+      sec[1].forEach(function (p) {
       var official = normalizeUrl(p.official);
       var discord = normalizeUrl(p.discord);
 
@@ -21505,7 +21079,8 @@ window.ChalkProxyApps = [
         });
       }
 
-      grid.appendChild(card);
+        grid.appendChild(card);
+      });
     });
   }
 
@@ -21807,9 +21382,9 @@ window.ChalkProxyApps = [
   window.ChalklePartners = { render: render, refresh: render, applyAdminUI: applyAdminUI, addPartner: function () { openModal(null); }, editPartner: openModal, refreshAdminList: refreshAdminList };
 })();
 </script>
-  <script src="assets/hls.min.js?v=20260903a"></script>
-  <script src="livetv.js?v=20260903a"></script>
-  <script src="youtube.js?v=20260903a"></script>
+  <script src="assets/hls.min.js?v=20260904a"></script>
+  <script src="livetv.js?v=20260904a"></script>
+  <script src="youtube.js?v=20260904a"></script>
   <script data-inline="intro.js">/* Chalkle boot intro. Full-screen game-station boot, once per session, skippable,
    respectful of the user's reduced-motion setting. */
 
@@ -22013,8 +21588,8 @@ window.ChalkProxyApps = [
       key: "chalkle-boardlib-v1",
       seed: function () {
         return [
-          { title: "James Brown", category: "Owners" },
-          { title: "Ian Magadan", category: "Owners" }
+          { title: "James Brown", category: "Owners", role: "Founder", bio: "Started Chalkle. Handles the servers, the games, and the endless feature requests." },
+          { title: "Ian Magadan", category: "Owners", role: "Co-founder", bio: "Builds the tools and keeps the community running. Message him for board spots." }
         ];
       }
     }
@@ -22069,6 +21644,29 @@ window.ChalkProxyApps = [
       if (raw) {
         var parsed = JSON.parse(raw);
         if (Array.isArray(parsed)) {
+          /* Mirror-label migration (sites.js now names the numbered loaders
+             "Arctic Mirror N" / "Cherri Mirror N"). Rename already-saved rows
+             in place, guarded by their loader URL, so the seed merge below
+             refreshes their thumbs instead of adding duplicates. */
+          var MIRROR_URLS = ["articsvg-", "cherribydono-"];
+          var MIRROR_RENAME = {};
+          (function () {
+            var names = ["Arctic", "Cherri"], mi, mn;
+            for (mi = 0; mi < names.length; mi++)
+              for (mn = 1; mn <= 10; mn++)
+                MIRROR_RENAME[names[mi] + " " + mn] = names[mi] + " Mirror " + mn;
+          })();
+          parsed = parsed.map(function (it) {
+            if (it && MIRROR_RENAME[it.title] && it.url) {
+              for (var ui = 0; ui < MIRROR_URLS.length; ui++) {
+                if (String(it.url).indexOf(MIRROR_URLS[ui]) !== -1) {
+                  it.title = MIRROR_RENAME[it.title];
+                  break;
+                }
+              }
+            }
+            return it;
+          });
           /* Sync built-ins: refresh canonical fields (url, thumb, category, …)
              from the seed so edits to games.js / sites.js / apps.js always show
              up on every device, while keeping admin-added items and edits. */
@@ -22157,6 +21755,7 @@ window.ChalkProxyApps = [
     tool: "launcher",
     query: "",
     genreFilters: [],
+    appFilters: [],
     collapsed: readPref(COLLAPSED_KEY) === "1",
     motion: readPref(MOTION_KEY) === "1",
     size: readPref(SIZE_KEY) || "comfortable",
@@ -22292,6 +21891,13 @@ window.ChalkProxyApps = [
         return p && String(p.name || "").toLowerCase() === name;
       });
     }
+    /* Numbered per-mirror SerumOS mark (serium-NN.svg) when the entry carries
+       an index in 1-20; the plain brand PNG only as a fallback. */
+    function seriumIcon(n) {
+      n = parseInt(n, 10);
+      if (!n || n < 1 || n > 20) return "/assets/proxies/serium.png";
+      return "/assets/proxies/serium-" + ("0" + n).slice(-2) + ".svg";
+    }
     if (!has("gjsd")) { list.push({ name: "GJSD", url: "https://gjsd.yan.ch/", mode: "frame", icon: "/assets/proxies/gjsd.png" }); dirty = true; }
     if (!has("ovokee")) { list.push({ name: "Ovokee", url: "https://ovokee.sbs/", mode: "frame", credit: "kelvin9rant", icon: "/assets/proxies/ovokee.png" }); dirty = true; }
     /* SerumOS instances (hash route + service worker), credit c0mrade. */
@@ -22303,7 +21909,7 @@ window.ChalkProxyApps = [
     ].forEach(function (host, idx) {
       var nm = "serium " + (idx + 1);
       if (!has(nm)) {
-        list.push({ name: "Serium " + (idx + 1), url: "https://" + host + ".b-cdn.net/", mode: "frame", credit: "c0mrade", icon: "/assets/proxies/serium.png" });
+        list.push({ name: "Serium " + (idx + 1), url: "https://" + host + ".b-cdn.net/", mode: "frame", credit: "c0mrade", icon: seriumIcon(idx + 1) });
         dirty = true;
       }
     });
@@ -22315,7 +21921,10 @@ window.ChalkProxyApps = [
       var want = null;
       if (nm === "gjsd") want = "/assets/proxies/gjsd.png";
       else if (nm === "ovokee") want = "/assets/proxies/ovokee.png";
-      else if (nm.indexOf("serium") === 0) want = "/assets/proxies/serium.png";
+      else if (nm.indexOf("serium") === 0) {
+        var mSer = String(p.name || "").match(/serium\s*(\d{1,2})/i);
+        want = mSer ? seriumIcon(parseInt(mSer[1], 10)) : "/assets/proxies/serium.png";
+      }
       if (want && p.icon !== want) { p.icon = want; dirty = true; }
     });
     if (dirty) {
@@ -22524,7 +22133,10 @@ window.ChalkProxyApps = [
     document.body.setAttribute("data-view", view);
 
     document.querySelectorAll(".nav-item").forEach(function (btn) {
-      btn.classList.toggle("is-active", btn.dataset.view === view);
+      var active = btn.dataset.view === view;
+      btn.classList.toggle("is-active", active);
+      if (active) btn.setAttribute("aria-current", "page");
+      else btn.removeAttribute("aria-current");
     });
 
     document.querySelectorAll(".view").forEach(function (section) {
@@ -22756,41 +22368,10 @@ window.ChalkProxyApps = [
       /* Sites open through the launcher picker too - same as clicking a card
          on the Sites tab - so about:blank / blob / proxy are always on the
          table instead of auto-launching. */
-      if (view === "sites" && window.ChalkleLaunch.openWithOptions) {
-        window.ChalkleLaunch.openWithOptions(u, item.title || u);
-        return;
-      }
-      /* Prefer fetch-and-inject: pull the site's HTML through the same-origin
-         /_fetch relay and open it as a local blob so the tab never
-         hard-navigates to the blocked host. Sites get blocked easily in
-         about:blank because the cloak still loads the real URL - a blob of
-         the HTML doesn't. Falls back automatically if it can't fetch. */
-      if (window.ChalkleLaunch.openFetchedAny) {
-        window.ChalkleLaunch.openFetchedAny(u, item.title || "").then(function (used) {
-          if (used) return;
-          /* Couldn't fetch-and-inject. Prefer the proxy on the Sites tab, else
-             open through the normal picker (about:blank / blob / direct). */
-          if (view === "sites" && window.ChalkleLaunch.openSiteProxied) {
-            window.ChalkleLaunch.openSiteProxied(u, item.title || "");
-          } else {
-            window.ChalkleLaunch.open(u, item.title || "");
-          }
-        });
-        return;
-      }
-      if (window.ChalkleLaunch.isFetchableHtml && window.ChalkleLaunch.isFetchableHtml(u)) {
-        window.ChalkleLaunch.openFetched(u, item.title || "");
-      } else if (view === "sites" && window.ChalkleLaunch.openSiteProxied) {
-        /* Sites route through the configured proxy so the tab never touches
-           the blocked origin - about:blank / blob wrap the proxied URL. */
-        window.ChalkleLaunch.openSiteProxied(u, item.title || "");
-      } else {
-        window.ChalkleLaunch.open(u, item.title || "");
-      }
+      window.ChalkleLaunch.open(u, item.title || u);
       return;
     }
-    if (item.kind === "launcher" && window.ChalkleBlankTab) window.ChalkleBlankTab.open();
-    else if (item.kind === "editor" && window.ChalkleEditor) window.ChalkleEditor.open();
+    if (item.kind === "editor" && window.ChalkleEditor) window.ChalkleEditor.open();
     else if (item.kind === "urlauditor" && window.ChalkleUrlAuditor) window.ChalkleUrlAuditor.open();
     else if (item.kind === "pixel" && window.ChalklePixel) window.ChalklePixel.open();
     else if (item.kind === "domainhub" && window.ChalkleDomainHub) window.ChalkleDomainHub.open();
@@ -22894,7 +22475,7 @@ window.ChalkProxyApps = [
     var key = gameKey(item);
     var clicks = state.clicks[key] || 0;
     var fav = !!state.favs[key];
-    var countLabel = clicks === 1 ? "1 click" : clicks + " clicks";
+    var countLabel = clicks > 0 ? (clicks === 1 ? "1 click" : clicks + " clicks") : "";
 
     return (
       '<article class="card game-card">' +
@@ -22919,6 +22500,13 @@ window.ChalkProxyApps = [
   /* Apps/Tools get their own presentation: a clean app tile with a rounded
      icon, title, category chip and an open affordance - themed to match the
      rest of Chalkle instead of the generic game card. */
+  /* Walled targets (login-heavy socials/streaming) need the proxy to be
+     usable at all, unlike plain bypass targets that only need it on filtered
+     networks. Drives the proxy pill colour on app tiles. */
+  function proxyWalled(cat) {
+    return cat === "Social" || cat === "Streaming" || cat === "Music" || cat === "Video";
+  }
+
   function toolCard(item) {
     var rawTitle = item.title || "Untitled";
     var title = escapeHtml(rawTitle);
@@ -22927,7 +22515,7 @@ window.ChalkProxyApps = [
     /* Built-in apps (Blank tab launcher, HTML Editor) open their own modal
        instead of launching a URL - data-tool-kind handles that in the click
        handler. Everything else is a plain link tile. */
-    var kind = item.kind === "launcher" || item.kind === "editor" || item.kind === "urlauditor" || item.kind === "pixel" || item.kind === "domainhub" || item.kind === "iphone16" || item.kind === "browser" ? escapeAttr(item.kind) : "";
+    var kind = item.kind === "editor" || item.kind === "urlauditor" || item.kind === "pixel" || item.kind === "domainhub" || item.kind === "iphone16" || item.kind === "browser" ? escapeAttr(item.kind) : "";
     var kindAttr = kind ? ' data-tool-kind="' + kind + '"' : '';
     var isProxy = item.via === "proxy" && !!item.url;
     var proxyAttr = isProxy ? ' data-proxy-app="' + escapeAttr(item.url) + '"' : "";
@@ -22936,8 +22524,13 @@ window.ChalkProxyApps = [
     var thumb = item.thumb && !isLocalFileUrl(item.thumb)
       ? toolFallback + '<img class="tool-tile-img" src="' + escapeAttr(item.thumb) + '" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.onerror=null;this.classList.add(\'tool-tile-img-failed\');">'
       : toolFallback;
-    var via = isProxy ? '<span class="tool-tile-via" title="Opens through your configured proxy">proxy</span>' : "";
+    var via = isProxy
+      ? '<span class="tool-tile-via ' + (proxyWalled(item.category) ? "is-walled" : "is-bypass") + '" title="' + (proxyWalled(item.category)
+          ? "Walled site - opens through Chalkle's proxy so it works on school Wi-Fi"
+          : "Often blocked on school networks - opens through Chalkle's proxy") + '">proxy</span>'
+      : "";
     var cat = item.category ? '<span class="card-cat">' + escapeHtml(item.category) + "</span>" : "";
+    var note = item.note ? '<span class="tool-tile-note">' + escapeHtml(item.note) + "</span>" : "";
     var tileHref = (kind || isProxy) ? "#" : href;
     return (
       '<article class="tool-tile' + (isProxy ? " is-proxy" : "") + '">' +
@@ -22945,7 +22538,7 @@ window.ChalkProxyApps = [
       '<span class="tool-tile-art">' + thumb + "</span>" +
       '<span class="tool-tile-body">' +
       '<span class="tool-tile-title">' + title + "</span>" +
-      '<span class="tool-tile-meta">' + cat + via + '<span class="tool-tile-open">Open</span></span>' +
+      '<span class="tool-tile-meta">' + cat + via + '<span class="tool-tile-open">Open</span></span>' + note +
       "</span>" +
       "</a>" +
       (kind || isProxy ? "" : '<button class="open-with open-with-tool" data-open-with data-url="' + escapeAttr(item.url || "") + '" data-title="' + escapeAttr(rawTitle) + '" aria-label="Choose how to open" title="Open with options">' +
@@ -22953,6 +22546,42 @@ window.ChalkProxyApps = [
         "</button>") +
       "</article>"
     );
+  }
+
+  /* Editor's picks: a curated shelf shown on Home and at the top of the
+     Games tab. Change PICK_TITLES here; titles must match games.js entries.
+     First match wins, so a duplicate title picks the earlier entry. */
+  var PICK_TITLES = [
+    "Undertale", "Deltarune", "Cookie Clicker", "1v1.LOL",
+    "Retro Bowl", "BitLife", "Slither.io", "Minecraft James Edition (26.2)"
+  ];
+  function pickItems() {
+    var list = DATA.games || [];
+    return PICK_TITLES.map(function (t) {
+      for (var i = 0; i < list.length; i++) {
+        if ((list[i].title || "") === t) return list[i];
+      }
+      return null;
+    }).filter(Boolean);
+  }
+  function renderPicks() {
+    var items = pickItems();
+    var home = document.getElementById("home-picks");
+    var games = document.getElementById("games-picks");
+    var homeGrid = document.getElementById("home-picks-grid");
+    var gamesGrid = document.getElementById("games-picks-grid");
+    if (home) home.hidden = items.length === 0;
+    if (homeGrid) homeGrid.innerHTML = items.map(card).join("");
+    /* On the Games tab the shelf is editorial browsing only - once the user
+       searches or filters the grid it steps aside instead of showing a
+       second, unrelated list of cards above the results. */
+    if (games) {
+      var browsing = !state.query &&
+        !(state.genreFilters && state.genreFilters.length) &&
+        (state.gameFilter === "all" || !state.gameFilter);
+      games.hidden = items.length === 0 || !browsing;
+      if (gamesGrid && !games.hidden) gamesGrid.innerHTML = items.map(card).join("");
+    }
   }
 
   function gameKey(item) {
@@ -22964,6 +22593,7 @@ window.ChalkProxyApps = [
   function render(expandAll) {
     gridExpandAll = !!expandAll;
     if (state.view === "music") return; /* owned by music.js */
+    renderPicks(); /* fill the curated shelf; Home refreshes it in renderHome */
     var items = (DATA[state.view] || []).slice().filter(Boolean);
 
     if (state.query) {
@@ -23021,6 +22651,18 @@ window.ChalkProxyApps = [
         var bt = (b.title || "").toLowerCase();
         return state.sitesSort === "za" ? bt.localeCompare(at) : at.localeCompare(bt);
       });
+    }
+
+    if (state.view === "apps-tools") {
+      if (state.appFilters && state.appFilters.length) {
+        items = items.filter(function (item) {
+          for (var i = 0; i < state.appFilters.length; i++) {
+            if (itemCategory(item) === state.appFilters[i]) return true;
+          }
+          return false;
+        });
+      }
+      renderAppChips();
     }
 
     var grid = $(GRID_IDS[state.view]);
@@ -23132,7 +22774,13 @@ window.ChalkProxyApps = [
     if (g) g.textContent = (DATA.games || []).length;
     if (s) s.textContent = (DATA.sites || []).length;
     if (t) t.textContent = (DATA["apps-tools"] || []).length;
-    if (f) f.textContent = Object.keys(state.favs || {}).length;
+    if (f) {
+      f.textContent = Object.keys(state.favs || {}).length;
+      var favMetric = f.closest(".home-metric");
+      if (favMetric) favMetric.hidden = Object.keys(state.favs || {}).length === 0;
+    }
+
+    renderPicks();
 
     renderRecents();
 
@@ -23189,8 +22837,6 @@ window.ChalkProxyApps = [
             }
             if (item.html && window.ChalkleLaunch.htmlUrl) {
               window.ChalkleLaunch.open(window.ChalkleLaunch.htmlUrl(item.html), item.title || "");
-            } else if (item.url && window.ChalkleLaunch.isFetchableHtml && window.ChalkleLaunch.isFetchableHtml(item.url)) {
-              window.ChalkleLaunch.openFetched(item.url, item.title || "");
             } else {
               window.ChalkleLaunch.open(item.url || "", item.title || "");
             }
@@ -23423,6 +23069,44 @@ window.ChalkProxyApps = [
     });
   }
 
+  function toggleAppFilter(cat) {
+    var list = state.appFilters.slice();
+    var i = list.indexOf(cat);
+    if (i === -1) list.push(cat);
+    else list.splice(i, 1);
+    state.appFilters = list;
+    render();
+  }
+
+  function renderAppChips() {
+    var box = $("#apps-genres");
+    if (!box) return;
+    var seen = {};
+    var cats = [];
+    (DATA["apps-tools"] || []).forEach(function (a) {
+      if (!a) return;
+      var c = itemCategory(a);
+      if (c && !seen[c]) { seen[c] = 1; cats.push(c); }
+    });
+    if (!cats.length) { box.hidden = true; return; }
+    box.hidden = false;
+    box.innerHTML =
+      '<button class="chip' + (state.appFilters.length === 0 ? " is-active" : "") + '" data-app-all>All</button>' +
+      cats.map(function (c) {
+        return '<button class="chip' + (state.appFilters.indexOf(c) !== -1 ? " is-active" : "") + '" data-app-cat="' + escapeAttr(c) + '">' + escapeHtml(c) + "</button>";
+      }).join("");
+    box.querySelectorAll(".chip").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        if (btn.dataset.appAll !== undefined) {
+          state.appFilters = [];
+          render();
+        } else {
+          toggleAppFilter(btn.dataset.appCat);
+        }
+      });
+    });
+  }
+
   /* ---------- Recently played ----------
      Remember the last few games you launched so the homepage can offer a
      quick "continue where you left off" row (and "Popular games" stays
@@ -23546,8 +23230,6 @@ window.ChalkProxyApps = [
           }
           if (item.html && window.ChalkleLaunch.htmlUrl) {
             window.ChalkleLaunch.open(window.ChalkleLaunch.htmlUrl(item.html), item.title || "");
-          } else if (item.url && window.ChalkleLaunch.isFetchableHtml && window.ChalkleLaunch.isFetchableHtml(item.url)) {
-            window.ChalkleLaunch.openFetched(item.url, item.title || "");
           } else {
             window.ChalkleLaunch.open(item.url || "", item.title || "");
           }
@@ -23563,11 +23245,20 @@ window.ChalkProxyApps = [
       prev.disabled = track.scrollLeft <= 4;
       next.disabled = track.scrollLeft >= max;
     }
+    /* Fade the right edge while more cards are scrolled past - the mask lifts
+       once the strip reaches the end so the last card is always crisp. */
+    function updateFade() {
+      if (!track) return;
+      var wrap = track.parentElement;
+      if (!wrap) return;
+      var atEnd = track.scrollLeft >= track.scrollWidth - track.clientWidth - 20;
+      wrap.classList.toggle("is-masked", !atEnd);
+    }
     if (track) {
-      track.addEventListener("scroll", updateArrows, { passive: true });
+      track.addEventListener("scroll", function () { updateArrows(); updateFade(); }, { passive: true });
       if (prev) prev.addEventListener("click", function () { track.scrollBy({ left: -track.clientWidth * 0.8, behavior: "smooth" }); });
       if (next) next.addEventListener("click", function () { track.scrollBy({ left: track.clientWidth * 0.8, behavior: "smooth" }); });
-      window.setTimeout(updateArrows, 60);
+      window.setTimeout(function () { updateArrows(); updateFade(); }, 60);
     }
     var clearBtn = box.querySelector(".home-recents-clear");
     if (clearBtn) clearBtn.addEventListener("click", function () {
@@ -23577,7 +23268,6 @@ window.ChalkProxyApps = [
   }
 
   /* ---------- Tab cloak: disguise the whole tab as a school site ---------- */
-
   var CLOAK_KEY = "chalkle-cloak";
   var cloakIcon = null;
 
@@ -23588,7 +23278,8 @@ window.ChalkProxyApps = [
     { id: "drive", name: "Drive", title: "My Drive - Google Drive", icon: "https://ssl.gstatic.com/images/branding/product/1x/drive_2020q4_32dp.png" },
     { id: "canvas", name: "Canvas", title: "Dashboard", icon: "https://du11hjcvx0uqb.cloudfront.net/dist/images/favicon.ico" },
     { id: "clever", name: "Clever", title: "Clever | Portal", icon: "https://www.clever.com/wp-content/uploads/2023/06/cropped-Favicon-512px-32x32.png" },
-    { id: "khan", name: "Khan Academy", title: "Dashboard | Khan Academy", icon: "https://www.khanacademy.org/favicon.ico" }
+    { id: "khan", name: "Khan Academy", title: "Dashboard | Khan Academy", icon: "https://www.khanacademy.org/favicon.ico" },
+    { id: "ixl", name: "IXL", title: "IXL | Math, Language Arts, Science, Social Studies, and Spanish", icon: "https://www.ixl.com/favicon.ico" }
   ];
 
   /* Capture the real favicon href once, at first apply, so "None" restores it. */
@@ -23598,6 +23289,7 @@ window.ChalkProxyApps = [
     cloakIcon = link ? link.getAttribute("href") : "";
   }
 
+  /* Apply (or clear) the tab cloak. */
   function applyCloak(id) {
     captureCloakIcon();
     var cloak = null;
@@ -23605,7 +23297,10 @@ window.ChalkProxyApps = [
       if (CLOAKS[i].id === id) { cloak = CLOAKS[i]; break; }
     }
     var activeId = cloak ? cloak.id : "";
-    document.title = cloak ? cloak.title : "Chalkle";
+    /* No cloak = keep the tab looking like the IXL preview, so what Discord
+       promised and what the tab shows always agree. */
+    document.title = cloak ? cloak.title
+      : "IXL | Math, Language Arts, Science, Social Studies, and Spanish";
     var link = document.querySelector('link[rel="icon"]');
     if (link) link.href = cloak ? cloak.icon : cloakIcon;
     try { localStorage.setItem(CLOAK_KEY, activeId); } catch (e) { /* no storage */ }
@@ -23659,7 +23354,9 @@ window.ChalkProxyApps = [
     } else {
       avatar = '<div class="board-pfp">' + letter + "</div>";
     }
-    return '<article class="board-person">' + avatar + '<div class="board-name">' + name + "</div></article>";
+    var role = m.role ? '<div class="board-role">' + escapeHtml(m.role) + "</div>" : "";
+    var bio = m.bio ? '<div class="board-bio">' + escapeHtml(m.bio) + "</div>" : "";
+    return '<article class="board-person">' + avatar + '<div class="board-name">' + name + "</div>" + role + bio + "</article>";
   }
 
   function renderBoard() {
@@ -23670,9 +23367,14 @@ window.ChalkProxyApps = [
       var inCol = members.filter(function (m) { return String(m.category || "").trim() === col; });
       var body = inCol.length
         ? '<div class="board-members">' + inCol.map(boardMemberHTML).join("") + "</div>"
-        : '<div class="board-empty">Open spots</div>';
+        : '<div class="board-empty board-open"><span class="board-open-label">' + col + ' spots are open</span><button class="btn-ghost board-apply-btn" type="button" data-board-apply="' + col + '">Apply here</button></div>';
       return '<section class="board-col"><h2>' + col + "</h2>" + body + "</section>";
     }).join("");
+    root.querySelectorAll("[data-board-apply]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        window.open("https://discord.gg/Y8Zh2mE7Ke", "_blank", "noopener");
+      });
+    });
   }
   var UNLOCK_KEY = "chalkle-admin-unlocked";
   var adminEditing = {};   /* tab -> _id or null */
@@ -24137,6 +23839,11 @@ window.ChalkProxyApps = [
       });
     });
 
+    /* Home stat cards: jump straight to the matching tab. */
+    document.querySelectorAll("[data-metric-go]").forEach(function (btn) {
+      btn.addEventListener("click", function () { setView(btn.dataset.metricGo); });
+    });
+
     document.querySelectorAll("[data-game-filter]").forEach(function (btn) {
       btn.addEventListener("click", function () {
         state.gameFilter = btn.dataset.gameFilter || "all";
@@ -24206,7 +23913,6 @@ window.ChalkProxyApps = [
     document.addEventListener("keydown", function (e) {
       if (e.key === "Escape") {
         if (!$("#admin-modal").hidden) closeAdmin();
-        else if (!$("#blanktab-modal").hidden && window.ChalkleBlankTab) window.ChalkleBlankTab.close();
         else if (!$("#editor-modal").hidden && window.ChalkleEditor) window.ChalkleEditor.close();
         else if (!$("#urlauditor-modal").hidden && window.ChalkleUrlAuditor) window.ChalkleUrlAuditor.close();
         else if (!$("#pixel-modal").hidden && window.ChalklePixel) window.ChalklePixel.close();
@@ -24251,23 +23957,7 @@ window.ChalkProxyApps = [
     try { savedCloak = localStorage.getItem(CLOAK_KEY) || ""; } catch (e) { /* no storage */ }
     applyCloak(savedCloak);
 
-    /* Settings: launch defaults + cloak title */
-
-    var ask = $("#opt-ask");
-    if (ask) {
-      try { ask.checked = localStorage.getItem("chalkle-ask") !== "0"; } catch (e) { /* no storage */ }
-      ask.addEventListener("change", function () {
-        try { localStorage.setItem("chalkle-ask", ask.checked ? "1" : "0"); } catch (e) { /* no storage */ }
-      });
-    }
-
-    var defMode = $("#opt-default-mode");
-    if (defMode) {
-      try { defMode.value = localStorage.getItem("chalkle-launch-mode") || "ask"; } catch (e) { /* no storage */ }
-      defMode.addEventListener("change", function () {
-        try { localStorage.setItem("chalkle-launch-mode", defMode.value); } catch (e) { /* no storage */ }
-      });
-    }
+    /* Settings: cloak title */
 
     var cloakTitle = $("#opt-cloak-title");
     if (cloakTitle) {
@@ -24442,6 +24132,65 @@ window.ChalkProxyApps = [
       });
     }
 
+    /* Inline feedback under the wallpaper URL field (used by Apply). */
+    function wallpaperHint(msg, ok) {
+      var hint = $("#opt-wallpaper-hint");
+      if (!hint) return;
+      if (!msg) { hint.hidden = true; hint.textContent = ""; return; }
+      hint.textContent = msg;
+      hint.classList.toggle("is-ok", !!ok);
+      hint.hidden = false;
+    }
+
+    /* What's new: version changelog lightbox. A pink dot marks the sidebar
+       version until the lightbox has been opened once for this release. */
+    var WN_SEEN_KEY = "chalkle-wn-seen-v1";
+    function whatsnewSeen() {
+      try { return localStorage.getItem(WN_SEEN_KEY) === "1"; } catch (e) { return true; }
+    }
+    function whatsnewOpen() {
+      var o = $("#whatsnew-overlay");
+      if (!o) return;
+      o.hidden = false;
+      document.body.style.overflow = "hidden";
+      try { localStorage.setItem(WN_SEEN_KEY, "1"); } catch (e) { /* full */ }
+      document.querySelectorAll(".js-whatsnew").forEach(function (b) { b.classList.remove("is-wn-new"); });
+    }
+    function whatsnewClose() {
+      var o = $("#whatsnew-overlay");
+      if (o) o.hidden = true;
+      document.body.style.overflow = "";
+    }
+    if (!whatsnewSeen()) {
+      var sideVer = $("#side-foot-version");
+      if (sideVer) sideVer.classList.add("is-wn-new");
+    }
+    document.querySelectorAll(".js-whatsnew").forEach(function (btn) {
+      btn.addEventListener("click", whatsnewOpen);
+    });
+    var wnOverlay = $("#whatsnew-overlay");
+    if (wnOverlay) {
+      wnOverlay.addEventListener("click", function (e) {
+        if (e.target === wnOverlay) whatsnewClose();
+      });
+      var wnX = $("#whatsnew-x");
+      if (wnX) wnX.addEventListener("click", whatsnewClose);
+      document.addEventListener("keydown", function (e) {
+        if (e.key === "Escape" && !wnOverlay.hidden) whatsnewClose();
+      });
+    }
+
+    /* Home Discord join bar: dismissing hides it for this session only. */
+    var joinBar = $("#home-join");
+    var joinX = $("#home-join-x");
+    if (joinBar && joinX) {
+      try { if (sessionStorage.getItem("chalkle-join-dismiss") === "1") joinBar.hidden = true; } catch (e) { /* no session */ }
+      joinX.addEventListener("click", function () {
+        joinBar.hidden = true;
+        try { sessionStorage.setItem("chalkle-join-dismiss", "1"); } catch (e) { /* no session */ }
+      });
+    }
+
     var motion = $("#opt-motion");
     if (motion) {
       motion.addEventListener("change", function () {
@@ -24575,10 +24324,23 @@ window.ChalkProxyApps = [
       if (wallpaperApply) {
         wallpaperApply.addEventListener("click", function () {
           var url = (wallpaperUrl ? wallpaperUrl.value : "").trim();
-          if (!url) return;
-          savedWallpaper = T.getWallpaper();
-          T.setWallpaper("custom:" + url);
-          renderWallpaperGrid();
+          if (!url) { wallpaperHint(""); return; }
+          if (!/^https?:\/\//i.test(url)) {
+            wallpaperHint("Paste a full image URL starting with http(s)://");
+            return;
+          }
+          var img = new Image();
+          img.referrerPolicy = "no-referrer";
+          img.onload = function () {
+            savedWallpaper = T.getWallpaper();
+            T.setWallpaper("custom:" + url);
+            renderWallpaperGrid();
+            wallpaperHint("Wallpaper applied", true);
+          };
+          img.onerror = function () {
+            wallpaperHint("That image didn't load - check the URL and try again");
+          };
+          img.src = url;
         });
       }
 
@@ -24586,6 +24348,7 @@ window.ChalkProxyApps = [
       var undoWallpaper = $("#opt-wallpaper-undo");
       if (undoWallpaper) {
         undoWallpaper.addEventListener("click", function () {
+          wallpaperHint("");
           T.setWallpaper(savedWallpaper);
           if (wallpaperUrl) {
             wallpaperUrl.value = savedWallpaper.indexOf("custom:") === 0 ? savedWallpaper.slice(7) : "";
@@ -24706,12 +24469,11 @@ window.ChalkProxyApps = [
     var main = $("#main");
     if (main) {
       main.addEventListener("click", function (e) {
-        /* Built-in app tiles (Blank tab launcher, HTML Editor) open their modal. */
+        /* Built-in app tiles (HTML Editor etc.) open their modal. */
         var toolKind = e.target.closest("[data-tool-kind]");
         if (toolKind) {
           e.preventDefault();
-          if (toolKind.dataset.toolKind === "launcher" && window.ChalkleBlankTab) window.ChalkleBlankTab.open();
-          else if (toolKind.dataset.toolKind === "editor" && window.ChalkleEditor) window.ChalkleEditor.open();
+          if (toolKind.dataset.toolKind === "editor" && window.ChalkleEditor) window.ChalkleEditor.open();
           else if (toolKind.dataset.toolKind === "urlauditor" && window.ChalkleUrlAuditor) window.ChalkleUrlAuditor.open();
           else if (toolKind.dataset.toolKind === "pixel" && window.ChalklePixel) window.ChalklePixel.open();
           else if (toolKind.dataset.toolKind === "domainhub" && window.ChalkleDomainHub) window.ChalkleDomainHub.open();
