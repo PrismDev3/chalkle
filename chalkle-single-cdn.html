@@ -11271,9 +11271,10 @@ button.side-foot:hover { color: var(--text-2); }
         <div class="admin-gate" id="admin-gate">
           <p class="empty-hint panel-note" style="text-align:center">Enter the admin code to manage games, sites, tools and proxies.</p>
           <form id="admin-lock-form" class="form-row" autocomplete="off">
-            <input class="field field-name" id="admin-code" type="password" placeholder="Admin code" autocomplete="off">
+            <input class="field field-name" id="admin-code" type="password" placeholder="Admin code" autocomplete="off" aria-describedby="admin-lock-error">
             <button class="btn" type="submit">Enter</button>
           </form>
+          <p class="empty-hint" id="admin-lock-error" role="alert" hidden>Wrong code. Ask an owner for the current one.</p>
           <label class="admin-check" style="margin-top:12px"><input type="checkbox" id="admin-remember" checked> Stay unlocked on this device</label>
         </div>
         <div class="admin-body" id="admin-body" hidden>
@@ -21396,9 +21397,9 @@ window.ChalkProxyApps = [
   window.ChalklePartners = { render: render, refresh: render, applyAdminUI: applyAdminUI, addPartner: function () { openModal(null); }, editPartner: openModal, refreshAdminList: refreshAdminList };
 })();
 </script>
-  <script src="assets/hls.min.js?v=20260904b"></script>
-  <script src="livetv.js?v=20260904b"></script>
-  <script src="youtube.js?v=20260904b"></script>
+  <script src="assets/hls.min.js?v=20260904c"></script>
+  <script src="livetv.js?v=20260904c"></script>
+  <script src="youtube.js?v=20260904c"></script>
   <script data-inline="intro.js">/* Chalkle boot intro. Full-screen game-station boot, once per session, skippable,
    respectful of the user's reduced-motion setting. */
 
@@ -22496,7 +22497,7 @@ window.ChalkProxyApps = [
       '<button class="fav-btn ' + (fav ? "is-fav" : "") + '" data-fav="' + escapeAttr(key) + '" aria-label="' + (fav ? "Remove favorite" : "Add favorite") + '">' +
       '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.8l2.5 5 5.5.8-4 3.9.9 5.5-4.9-2.6L7.1 19l.9-5.5-4-3.9 5.5-.8z"/></svg>' +
       "</button>" +
-      '<button class="open-with" data-open-with data-url="' + escapeAttr(item.url || "") + '" data-title="' + escapeAttr(rawTitle) + '" aria-label="Choose how to open" title="Open with options">' +
+      '<button class="open-with" data-open-with data-url="' + escapeAttr(item.url || "") + '" data-title="' + escapeAttr(rawTitle) + '" aria-label="Open in a new tab" title="Open in a new tab">' +
       '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 6.5v.1M12 12v.1M12 17.5v.1"/></svg>' +
       "</button>" +
       '<a class="game-launch" href="' + href + '" data-launch="1" data-url="' + href + '" data-title="' + dataTitle + '"' + htmlAttr + directAttr + ' title="' + dataTooltip + '">' +
@@ -22555,7 +22556,7 @@ window.ChalkProxyApps = [
       '<span class="tool-tile-meta">' + cat + via + '<span class="tool-tile-open">Open</span></span>' + note +
       "</span>" +
       "</a>" +
-      (kind || isProxy ? "" : '<button class="open-with open-with-tool" data-open-with data-url="' + escapeAttr(item.url || "") + '" data-title="' + escapeAttr(rawTitle) + '" aria-label="Choose how to open" title="Open with options">' +
+      (kind || isProxy ? "" : '<button class="open-with open-with-tool" data-open-with data-url="' + escapeAttr(item.url || "") + '" data-title="' + escapeAttr(rawTitle) + '" aria-label="Open in a new tab" title="Open in a new tab">' +
         '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 6.5v.1M12 12v.1M12 17.5v.1"/></svg>' +
         "</button>") +
       "</article>"
@@ -23616,6 +23617,13 @@ window.ChalkProxyApps = [
   }
 
   function handleAdminDelete(id, tab) {
+    /* Confirm before deleting - a misclick on a card row should not wipe
+       the entry with no way back (there is no undo). */
+    var label = "";
+    var target = (adminItems(tab) || []).find(function (x) { return x && x._id === id; });
+    if (target) label = target.title || target.name || "";
+    var what = label ? label : "this entry";
+    if (!confirm("Delete " + what + " from " + tab + "? This cannot be undone.")) return;
     var arr = adminItems(tab).filter(function (x) { return !(x && x._id === id); });
     adminEditing[tab] = null;
     adminSave(tab, arr);
@@ -23977,7 +23985,7 @@ window.ChalkProxyApps = [
       }
 
       if (e.altKey && !e.ctrlKey && !e.metaKey) {
-        var view = { "1": "home", "2": "games", "3": "music", "4": "apps-tools", "5": "proxies", "6": "board", "7": "settings" }[e.key];
+        var view = { "1": "home", "2": "games", "3": "music", "4": "apps-tools", "5": "proxies", "6": "board", "7": "settings", "8": "cloud", "9": "sites", "0": "youtube" }[e.key];
         if (view) {
           e.preventDefault();
           setView(view);
@@ -24548,13 +24556,11 @@ window.ChalkProxyApps = [
           return;
         }
 
-        /* "How to open" button - always shows the method menu (about:blank,
-           blob, this tab, proxy) even when a default mode is saved. */
+        /* "How to open" button - opens the item as a plain new tab (the
+           launcher decides direct vs proxy routing and the popup-blocked
+           fallback). Kept as a separate affordance from the card click. */
         var openWith = e.target.closest("[data-open-with]");
         if (openWith && window.ChalkleLaunch) {
-          /* Always show the method picker (Direct / Data URL / About:blank /
-             Blob / This tab / Proxy) for every card, including sites. The
-             proxied route is one of the options inside the picker. */
           e.preventDefault();
           window.ChalkleLaunch.openWithOptions(openWith.dataset.url || "", openWith.dataset.title || "");
           return;
@@ -24708,14 +24714,19 @@ window.ChalkProxyApps = [
       });
 
       var lockForm = $("#admin-lock-form");
+      var lockError = $("#admin-lock-error");
       if (lockForm) {
         lockForm.addEventListener("submit", function (e) {
           e.preventDefault();
           var code = $("#admin-code");
-          if (code && tryUnlock(code.value)) { code.value = ""; }
+          if (code && tryUnlock(code.value)) {
+            code.value = "";
+            if (lockError) lockError.hidden = true;
+          }
           else {
             var card = adminModal.querySelector(".admin-card");
             if (card) { card.classList.remove("shake"); void card.offsetWidth; card.classList.add("shake"); }
+            if (lockError) lockError.hidden = false;
             if (code) code.select();
           }
         });
@@ -24804,6 +24815,10 @@ window.ChalkProxyApps = [
     var lastN = -1;
     var flashTimer = null;
     function ping() {
+      /* Background tabs skip the ping: saves battery/data on long-idle tabs,
+         and the server prunes after 20s anyway, so the count self-corrects
+         via the visibilitychange ping when the tab wakes up. */
+      if (document.visibilityState === "hidden") return;
       fetch("/_active?s=" + encodeURIComponent(vid || "anon"), { cache: "no-store" })
         .then(function (r) { return r.json(); })
         .then(function (d) {

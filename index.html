@@ -31,7 +31,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Boogaloo&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
   <link rel="preload" as="image" href="bg-chalk.webp" fetchpriority="high">
-  <link rel="stylesheet" href="styles.css?v=20260904b">
+  <link rel="stylesheet" href="styles.css?v=20260904c">
   <!-- AdSense. Slots stay hidden until real ad-unit IDs are pasted into the
        CHALKLE_ADS config below (AdSense dashboard → Ad units → create). -->
   <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3031332925462724" crossorigin="anonymous"></script>
@@ -149,7 +149,7 @@
         <span class="clock-time" id="clock-time">--:--</span>
         <span class="clock-ampm" id="clock-ampm"></span>
       </div>
-      <div class="viewer-pill" id="viewer-pill" hidden>
+      <div class="viewer-pill" id="viewer-pill" role="status" aria-live="polite" aria-label="Live viewer count" hidden>
         <svg class="viewer-eye" viewBox="0 0 24 24" aria-hidden="true">
           <path d="M2.6 12S6.1 5.6 12 5.6 21.4 12 21.4 12 17.9 18.4 12 18.4 2.6 12 2.6 12z"/>
           <circle cx="12" cy="12" r="2.9"/>
@@ -1108,9 +1108,10 @@
         <div class="admin-gate" id="admin-gate">
           <p class="empty-hint panel-note" style="text-align:center">Enter the admin code to manage games, sites, tools and proxies.</p>
           <form id="admin-lock-form" class="form-row" autocomplete="off">
-            <input class="field field-name" id="admin-code" type="password" placeholder="Admin code" autocomplete="off">
+            <input class="field field-name" id="admin-code" type="password" placeholder="Admin code" autocomplete="off" aria-describedby="admin-lock-error">
             <button class="btn" type="submit">Enter</button>
           </form>
+          <p class="empty-hint" id="admin-lock-error" role="alert" hidden>Wrong code. Ask an owner for the current one.</p>
           <label class="admin-check" style="margin-top:12px"><input type="checkbox" id="admin-remember" checked> Stay unlocked on this device</label>
         </div>
         <div class="admin-body" id="admin-body" hidden>
@@ -1440,28 +1441,28 @@
       </div>
     </div>
 
-  <script src="runtime-config.js?v=20260904b"></script>
-  <script src="sync.js?v=20260904b"></script>
-  <script src="games.js?v=20260904b"></script>
-  <script src="cloudgames.js?v=20260904b"></script>
-  <script src="webports.js?v=20260904b"></script>
-  <script src="sites.js?v=20260904b"></script>
-  <script src="proxies.js?v=20260904b"></script>
-  <script src="apps.js?v=20260904b"></script>
-  <script src="music.js?v=20260904b"></script>
-  <script src="launcher.js?v=20260904b"></script>
-  <script src="cloud.js?v=20260904b"></script>
-  <script src="editor.js?v=20260904b"></script>
-  <script src="urlauditor.js?v=20260904b"></script>
-  <script src="pixel.js?v=20260904b"></script>
-  <script src="domainhub.js?v=20260904b"></script>
-  <script src="ai.js?v=20260904b"></script>
-  <script src="docs.js?v=20260904b"></script>
-  <script src="partners.js?v=20260904b"></script>
-  <script src="assets/hls.min.js?v=20260904b"></script>
-  <script src="livetv.js?v=20260904b"></script>
-  <script src="youtube.js?v=20260904b"></script>
-  <script src="intro.js?v=20260904b"></script>
+  <script src="runtime-config.js?v=20260904c"></script>
+  <script src="sync.js?v=20260904c"></script>
+  <script src="games.js?v=20260904c"></script>
+  <script src="cloudgames.js?v=20260904c"></script>
+  <script src="webports.js?v=20260904c"></script>
+  <script src="sites.js?v=20260904c"></script>
+  <script src="proxies.js?v=20260904c"></script>
+  <script src="apps.js?v=20260904c"></script>
+  <script src="music.js?v=20260904c"></script>
+  <script src="launcher.js?v=20260904c"></script>
+  <script src="cloud.js?v=20260904c"></script>
+  <script src="editor.js?v=20260904c"></script>
+  <script src="urlauditor.js?v=20260904c"></script>
+  <script src="pixel.js?v=20260904c"></script>
+  <script src="domainhub.js?v=20260904c"></script>
+  <script src="ai.js?v=20260904c"></script>
+  <script src="docs.js?v=20260904c"></script>
+  <script src="partners.js?v=20260904c"></script>
+  <script src="assets/hls.min.js?v=20260904c"></script>
+  <script src="livetv.js?v=20260904c"></script>
+  <script src="youtube.js?v=20260904c"></script>
+  <script src="intro.js?v=20260904c"></script>
   <script>
   /* AdSense boot: fill each slot's data-ad-slot from the CHALKLE_ADS config
      and request the unit. Slots with no configured ID stay hidden, so an
@@ -1485,6 +1486,6 @@
     }
   })();
   </script>
-  <script src="app.js?v=20260904b"></script>
+  <script src="app.js?v=20260904c"></script>
 </body>
 </html>
