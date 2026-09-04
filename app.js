@@ -2060,6 +2060,13 @@
   }
 
   function handleAdminDelete(id, tab) {
+    /* Confirm before deleting - a misclick on a card row should not wipe
+       the entry with no way back (there is no undo). */
+    var label = "";
+    var target = (adminItems(tab) || []).find(function (x) { return x && x._id === id; });
+    if (target) label = target.title || target.name || "";
+    var what = label ? label : "this entry";
+    if (!confirm("Delete " + what + " from " + tab + "? This cannot be undone.")) return;
     var arr = adminItems(tab).filter(function (x) { return !(x && x._id === id); });
     adminEditing[tab] = null;
     adminSave(tab, arr);
@@ -2421,7 +2428,7 @@
       }
 
       if (e.altKey && !e.ctrlKey && !e.metaKey) {
-        var view = { "1": "home", "2": "games", "3": "music", "4": "apps-tools", "5": "proxies", "6": "board", "7": "settings" }[e.key];
+        var view = { "1": "home", "2": "games", "3": "music", "4": "apps-tools", "5": "proxies", "6": "board", "7": "settings", "8": "cloud", "9": "sites", "0": "youtube" }[e.key];
         if (view) {
           e.preventDefault();
           setView(view);
@@ -3150,14 +3157,19 @@
       });
 
       var lockForm = $("#admin-lock-form");
+      var lockError = $("#admin-lock-error");
       if (lockForm) {
         lockForm.addEventListener("submit", function (e) {
           e.preventDefault();
           var code = $("#admin-code");
-          if (code && tryUnlock(code.value)) { code.value = ""; }
+          if (code && tryUnlock(code.value)) {
+            code.value = "";
+            if (lockError) lockError.hidden = true;
+          }
           else {
             var card = adminModal.querySelector(".admin-card");
             if (card) { card.classList.remove("shake"); void card.offsetWidth; card.classList.add("shake"); }
+            if (lockError) lockError.hidden = false;
             if (code) code.select();
           }
         });
@@ -3246,6 +3258,10 @@
     var lastN = -1;
     var flashTimer = null;
     function ping() {
+      /* Background tabs skip the ping: saves battery/data on long-idle tabs,
+         and the server prunes after 20s anyway, so the count self-corrects
+         via the visibilitychange ping when the tab wakes up. */
+      if (document.visibilityState === "hidden") return;
       fetch("/_active?s=" + encodeURIComponent(vid || "anon"), { cache: "no-store" })
         .then(function (r) { return r.json(); })
         .then(function (d) {
