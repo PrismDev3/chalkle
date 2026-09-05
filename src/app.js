@@ -238,6 +238,9 @@
     size: readPref(SIZE_KEY) || "comfortable",
     sort: readPref(SORT_KEY) || "favorite",
     sitesSort: "az",
+    /* Session-only on purpose: persisting this made every visit to Games
+       open with a stale filter (e.g. Recents) the user never picked this
+       session - it looked like the tab was "auto toggling" itself. */
     gameFilter: "all",
     clicks: readJson(COUNTS_KEY, {}),
     favs: readJson(FAVS_KEY, {}),
@@ -604,6 +607,7 @@
 
   function setView(view) {
     state.view = view;
+    persist("chalkle-last-view", view);
     closeMoreNav();
     /* Mirror the active tab on <body> so the top bar + chrome can tint with
        the section's accent color. */
@@ -645,7 +649,19 @@
       /* owned by music.js */
       if (window.ChalkleMusic && window.ChalkleMusic.render) window.ChalkleMusic.render();
     } else {
-      render();
+      /* Chromebook-friendly: paint the tab switch first, build the grid on
+         the next frame so a 1,400-card library never blocks the click. */
+      requestAnimationFrame(function () {
+        render();
+        if (view === "games") {
+          /* Remember where you scrolled on Games across tab switches. */
+          try {
+            var sc = sessionStorage.getItem("chalkle-scroll-games");
+            var mainEl = document.querySelector(".main");
+            if (sc && mainEl) mainEl.scrollTop = parseInt(sc, 10) || 0;
+          } catch (e) { /* no session */ }
+        }
+      });
     }
   }
 
@@ -871,15 +887,29 @@
      waiting for the page to be visible. */
 
   function bootReady() {
-    setTimeout(function () {
-      renderHome();
-      renderProxies();
-      render();
-    }, 60);
+    /* The single render pass at boot: init() skips its render when this has
+       already run (repeat visits skip the intro, so this fires at script
+       eval) or will run once the intro finishes. */
+    window.__chalkleRendered = true;
+    /* Come back to the last open tab instead of always landing on Home. */
+    try {
+      var lastView = localStorage.getItem("chalkle-last-view") || "";
+      if (lastView && lastView !== "home" && document.querySelector('.view[data-view="' + CSS.escape(lastView) + '"]')) {
+        setView(lastView);
+        return;
+      }
+    } catch (e) { /* no storage */ }
+    renderHome();
+    renderProxies();
+    render();
   }
 
+  /* Defer one tick: the intro-skipped path reaches this line while the IIFE
+     is still evaluating (PICK_TITLES and friends live further down the
+     file). Calling bootReady synchronously crashed with "PICK_TITLES is
+     undefined" on every repeat visit and killed the whole boot render. */
   if (window.__chalkleBootDone) {
-    bootReady();
+    setTimeout(bootReady, 0);
   } else {
     window.addEventListener("chalkle-boot-done", bootReady, { once: true });
   }
@@ -1082,6 +1112,27 @@
     return String((item && (item.url || item.title)) || "").toLowerCase();
   }
 
+  /* A game counts as "recent" if it is in the saved recents list. */
+  function isRecentGame(key) {
+    var list = readJson(RECENTS_KEY, []);
+    key = String(key || "").toLowerCase();
+    for (var i = 0; i < list.length; i++) {
+      if (list[i] && String(list[i].key || "").toLowerCase() === key) return true;
+    }
+    return false;
+  }
+
+  function showToast(msg) {
+    var box = $("#toast-box");
+    if (!box || !msg) return;
+    var t = document.createElement("div");
+    t.className = "toast";
+    t.textContent = msg;
+    box.appendChild(t);
+    setTimeout(function () { t.classList.add("is-out"); }, 1500);
+    setTimeout(function () { if (t.parentNode) t.parentNode.removeChild(t); }, 1900);
+  }
+
   var gridExpandAll = false;
   /* Remember the expanded grid per view for this session (#155): once you
      hit "Show all", coming back to the tab keeps the full grid instead of
@@ -1125,6 +1176,7 @@
           var key = gameKey(item);
           if (state.gameFilter === "ports") return !!item.porter;
           if (state.gameFilter === "favorites") return !!state.favs[key];
+          if (state.gameFilter === "recents") return isRecentGame(key);
           if (state.gameFilter === "new") return !!item.isNew;
           return true;
         });
@@ -1293,6 +1345,13 @@
   }
 
   function renderHome() {
+    /* One broken shelf must never blank the rest of Home. */
+    try { renderHomeInner(); } catch (e) {
+      try { console.warn("renderHome shelf failed:", e); } catch (e2) { /* ignore */ }
+    }
+  }
+
+  function renderHomeInner() {
     var g = $("#home-stat-games");
     var s = $("#home-stat-sites");
     var t = $("#home-stat-tools");
@@ -1318,9 +1377,9 @@
         '<button class="home-featured" data-featured-mc>' +
         '<span class="home-featured-img"><img src="' + escapeAttr(MC_KEY_ART) + '" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.onerror=null;this.src=' + JSON.stringify(MC_FEAT_MARK) + '"></span>' +
         '<span class="home-featured-body">' +
-        '<span class="home-featured-eyebrow">Play now &middot; Eaglercraft 26.2</span>' +
+        '<span class="home-featured-eyebrow">Featured game<span class="home-feat-badge">Web</span></span>' +
         '<span class="home-featured-title">Minecraft James Edition</span>' +
-        '<span class="home-featured-desc">The full self-contained Eaglercraft 26.2 client, served straight from this site. Survival, creative, servers &mdash; no downloads, nothing to block. Runs in its own tab.</span>' +
+        '<span class="home-featured-desc">The full self-contained Eaglercraft 26.2 client served straight from this site. Survival, creative, servers. Nothing to download or block.</span>' +
         '<span class="home-featured-cta">Launch</span>' +
         "</span></button>";
       featured.querySelector("[data-featured-mc]").addEventListener("click", function () {
@@ -2341,6 +2400,15 @@
       });
     });
 
+    /* Keep the Games scroll position across tab switches (per session). */
+    var mainEl = document.querySelector(".main");
+    if (mainEl) {
+      mainEl.addEventListener("scroll", function () {
+        if (state.view !== "games") return;
+        try { sessionStorage.setItem("chalkle-scroll-games", String(mainEl.scrollTop)); } catch (e) { /* no session */ }
+      });
+    }
+
     /* Jump back in: the headline quick cards stay on the hero, the rest fold
        into the All tabs dropdown so a growing tab list never stacks the hero
        into a wall of tiles. */
@@ -2385,11 +2453,14 @@
     document.querySelectorAll("[data-game-filter]").forEach(function (btn) {
       btn.addEventListener("click", function () {
         state.gameFilter = btn.dataset.gameFilter || "all";
+        /* Not persisted: filters are a per-session browsing choice (see state). */
         document.querySelectorAll("[data-game-filter]").forEach(function (item) {
           item.classList.toggle("is-active", item === btn);
         });
         render();
       });
+      /* Restored filters (or a persisted one) need the right chip lit. */
+      btn.classList.toggle("is-active", btn.dataset.gameFilter === state.gameFilter);
     });
 
     if (els.search) {
@@ -2719,14 +2790,14 @@
       });
     }
 
-    /* Home Discord join bar: dismissing hides it for this session only. */
+    /* Home Discord join bar: dismissing hides it for good on this device. */
     var joinBar = $("#home-join");
     var joinX = $("#home-join-x");
     if (joinBar && joinX) {
-      try { if (sessionStorage.getItem("chalkle-join-dismiss") === "1") joinBar.hidden = true; } catch (e) { /* no session */ }
+      try { if (localStorage.getItem("chalkle-join-dismiss") === "1") joinBar.hidden = true; } catch (e) { /* no storage */ }
       joinX.addEventListener("click", function () {
         joinBar.hidden = true;
-        try { sessionStorage.setItem("chalkle-join-dismiss", "1"); } catch (e) { /* no session */ }
+        try { localStorage.setItem("chalkle-join-dismiss", "1"); } catch (e) { /* no storage */ }
       });
     }
 
@@ -3086,7 +3157,7 @@
         if (fav) {
           var favKey = fav.dataset.fav;
           if (state.favs[favKey]) delete state.favs[favKey];
-          else state.favs[favKey] = 1;
+          else          state.favs[favKey] = 1;
           persist(FAVS_KEY, JSON.stringify(state.favs));
           render();
           /* Pop the freshly rendered heart for feedback. */
@@ -3095,24 +3166,13 @@
             fresh.classList.add("pop");
             setTimeout(function () { fresh.classList.remove("pop"); }, 380);
           }
+          showToast(state.favs[favKey] ? "Added to favorites" : "Removed from favorites");
           return;
         }
 
         var launch = e.target.closest("[data-launch]");
         if (launch && window.ChalkleLaunch) {
           e.preventDefault();
-          var cardEl = launch.closest(".game-card");
-          if (cardEl) {
-            cardEl.classList.add("launch-pop");
-            setTimeout(function () {
-              cardEl.classList.remove("launch-pop");
-            }, 340);
-          }
-          var key = gameKey({ url: launch.dataset.url, title: launch.dataset.title });
-          state.clicks[key] = (state.clicks[key] || 0) + 1;
-          persist(COUNTS_KEY, JSON.stringify(state.clicks));
-          trackRecent(key, launch.dataset.title || "");
-          if (state.view === "games" || state.view === "sites") render();
           var launchUrl = "";
           if (launch.dataset.html && window.ChalkleLaunch.htmlUrl) {
             /* Inline HTML (e.g. Ruffle-wrapped games) always wins - it runs
@@ -3124,13 +3184,33 @@
             alert("That item points to a local file (" + launchUrl + ") - local paths can't open on the hosted site. Edit it in Admin and set a web URL instead.");
             return;
           }
-          if (isJamesEdition(launchUrl)) {
-            openJamesEdition(launch.dataset.title || "Minecraft James Edition");
-            return;
-          }          if (launchUrl) {
-            /* Always ask before selecting direct, proxy, blank-tab, or frame. */
-            window.ChalkleLaunch.openWithOptions(launchUrl, launch.dataset.title || launchUrl);
+          /* Pop the chooser FIRST. Click bookkeeping (counts, recents and the
+             full grid re-render those trigger) is deferred below: rebuilding
+             a 1,400+ card grid before showing the modal stalled the popup by
+             seconds on Chromebooks. The chooser's own buttons carry a fresh
+             user gesture, so window.open still opens on the user's click. */
+          var cardEl = launch.closest(".game-card");
+          if (cardEl) {
+            cardEl.classList.add("launch-pop");
+            setTimeout(function () {
+              cardEl.classList.remove("launch-pop");
+            }, 340);
           }
+          if (launchUrl) {
+            if (isJamesEdition(launchUrl)) {
+              openJamesEdition(launch.dataset.title || "Minecraft James Edition");
+            } else {
+              /* Always ask before selecting direct, proxy, blank-tab, or frame. */
+              window.ChalkleLaunch.openWithOptions(launchUrl, launch.dataset.title || launchUrl);
+            }
+          }
+          setTimeout(function () {
+            var key = gameKey({ url: launch.dataset.url, title: launch.dataset.title });
+            state.clicks[key] = (state.clicks[key] || 0) + 1;
+            persist(COUNTS_KEY, JSON.stringify(state.clicks));
+            trackRecent(key, launch.dataset.title || "");
+            if (state.view === "games" || state.view === "sites") render();
+          }, 400);
           return;
         }
 
@@ -3287,6 +3367,10 @@
     }
 
     renderBoard();
+    /* Skip the boot-time render when bootReady() already built the grids
+       (intro skipped this session) or when the intro is still up and will
+       trigger it - building every grid twice doubled startup jank. */
+    if (window.__chalkleRendered || (!window.__chalkleBootDone && document.getElementById("boot"))) return;
     render();
   }
 

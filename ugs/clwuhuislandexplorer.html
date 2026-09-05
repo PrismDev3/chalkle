@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+    <meta charset="utf-8">
+    <title>Wuhu Island Explorer</title>
+    <meta name="description" content="Walk, run, jump, swim and dive around Wuhu Island from Wii Sports Resort in glorious HD.">
+    <meta name="google" content="notranslate">
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+    <link rel="shortcut icon" href="https://nostaligafun.pages.dev/games/games-accualy/OTHER/WuhuIslandExplorer_Data/TemplateData/favicon.ico">
+    <link rel="stylesheet" href="https://nostaligafun.pages.dev/games/games-accualy/OTHER/WuhuIslandExplorer_Data/TemplateData/style.css">
+    <style>
+        body { margin: 0; background: #101014; }
+        #unity-container { position: relative; width: 100vw; height: 100vh; overflow: hidden; background: #0d0d11; }
+        #unity-canvas { width: 100%; height: 100%; display: block; background: #0d0d11; touch-action: none; }
+        #unity-loading-bar { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); display: none; text-align: center; color: #e8e6ea; font-family: system-ui, sans-serif; z-index: 5; }
+        #unity-loading-bar .bar { width: 280px; height: 6px; margin: 14px auto 0; background: #2a2a31; border-radius: 3px; overflow: hidden; }
+        #unity-loading-bar .fill { height: 100%; width: 0%; background: #ff3d81; transition: width .2s ease; }
+        #unity-warning { position: absolute; left: 50%; top: 5%; transform: translateX(-50%); background: rgba(20,20,26,.92); color: #ffd9e6; border: 1px solid rgba(255,61,129,.5); border-radius: 10px; padding: 10px 16px; font-family: system-ui, sans-serif; font-size: 13px; z-index: 9; }
+        #game-ui { position: absolute; top: 12px; right: 12px; display: flex; gap: 8px; z-index: 20; }
+        #game-ui button { width: 40px; height: 40px; border-radius: 10px; border: 1px solid rgba(255,255,255,.25); background: rgba(10,10,16,.72); color: #fff; font-size: 17px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background .15s, transform .1s; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+        #game-ui button:hover { background: rgba(255,61,129,.85); border-color: rgba(255,61,129,.9); }
+        #game-ui button:active { transform: scale(.92); }
+        #boot-error { position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 14px; background: #101014; color: #e8e6ea; font-family: system-ui, sans-serif; text-align: center; padding: 24px; z-index: 30; }
+        #boot-error b { color: #ff5d8f; font-size: 17px; }
+        #boot-error button { padding: 10px 22px; border: none; border-radius: 10px; background: #ff3d81; color: #fff; font-weight: 700; font-size: 14px; cursor: pointer; }
+        #boot-error button:hover { background: #ff5d9a; }
+        #fps-chip { position: absolute; bottom: 10px; right: 12px; z-index: 20; font: 11px/1 monospace; color: rgba(255,255,255,.4); pointer-events: none; }
+    </style>
+</head>
+<body>
+    <div id="unity-container">
+        <canvas id="unity-canvas" width="960" height="600" tabindex="-1"></canvas>
+        <div id="unity-loading-bar">
+            <div id="unity-logo">Wuhu Island Explorer</div>
+            <div class="bar"><div id="unity-progress-bar-full" class="fill"></div></div>
+        </div>
+        <div id="unity-warning"></div>
+        <div id="game-ui">
+            <button id="btn-fullscreen" type="button" title="Fullscreen (F)" aria-label="Fullscreen">&#x26F6;</button>
+            <button id="btn-restart" type="button" title="Restart game (R)" aria-label="Restart">&#x21BB;</button>
+        </div>
+        <div id="boot-error">
+            <b>Could not start Wuhu Island Explorer.</b>
+            <span>The game files failed to load. This is usually a network issue, not a problem with your browser.</span>
+            <button id="btn-retry" type="button">Try again</button>
+        </div>
+    </div>
+    <script>
+        var BASE = "https://nostaligafun.pages.dev/games/games-accualy/OTHER/WuhuIslandExplorer_Data/";
+        var container = document.querySelector("#unity-container");
+        var canvas = document.querySelector("#unity-canvas");
+        var loadingBar = document.querySelector("#unity-loading-bar");
+        var progressBarFull = document.querySelector("#unity-progress-bar-full");
+        var warningBanner = document.querySelector("#unity-warning");
+        var bootError = document.querySelector("#boot-error");
+        var unityInstance = null;
+        var bootFailed = false;
+
+        function unityShowBanner(msg, type) {
+            function updateBannerVisibility() {
+                warningBanner.style.display = warningBanner.children.length ? 'block' : 'none';
+            }
+            var div = document.createElement('div');
+            div.innerHTML = msg;
+            warningBanner.appendChild(div);
+            if (type == 'error') div.style = 'background: red; padding: 10px;';
+            else {
+                if (type == 'warning') div.style = 'background: yellow; padding: 10px;';
+                setTimeout(function () {
+                    warningBanner.removeChild(div);
+                    updateBannerVisibility();
+                }, 5000);
+            }
+            updateBannerVisibility();
+        }
+
+        var config = {
+            dataUrl: BASE + "Build/WuhuWeb.data",
+            frameworkUrl: BASE + "Build/WuhuWeb.framework.js",
+            codeUrl: BASE + "Build/WuhuWeb.wasm",
+            streamingAssetsUrl: BASE + "StreamingAssets",
+            companyName: "SiMON!.",
+            productName: "Wuhu Island Explorer",
+            productVersion: "0.1.0",
+            showBanner: unityShowBanner,
+            autoSyncPersistentDataPath: true
+        };
+
+        /* Keep the canvas backing store matched to its on-screen size
+           (device-pixel-ratio aware, capped so huge monitors don't create
+           giant framebuffers). This keeps rendering crisp and avoids Unity
+           recreating offscreen FBOs as the launcher resizes the iframe. */
+        function fitCanvas() {
+            var dpr = Math.min(window.devicePixelRatio || 1, 2);
+            var w = container.clientWidth || window.innerWidth;
+            var h = container.clientHeight || window.innerHeight;
+            var iw = Math.max(320, Math.min(Math.round(w * dpr), 1920));
+            var ih = Math.max(200, Math.round(iw * (h / w)));
+            if (canvas.width !== iw || canvas.height !== ih) {
+                canvas.width = iw;
+                canvas.height = ih;
+            }
+        }
+        var fitT;
+        window.addEventListener("resize", function () { clearTimeout(fitT); fitT = setTimeout(fitCanvas, 150); });
+        window.addEventListener("orientationchange", function () { setTimeout(fitCanvas, 300); });
+
+        if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+            var meta = document.createElement('meta');
+            meta.name = 'viewport';
+            meta.content = 'width=device-width, height=device-height, initial-scale=1.0, user-scalable=no, shrink-to-fit=yes';
+            document.getElementsByTagName('head')[0].appendChild(meta);
+        }
+
+        loadingBar.style.display = "block";
+        fitCanvas();
+
+        var script = document.createElement("script");
+        script.src = BASE + "Build/WuhuWeb.loader.js";
+        script.onload = function () {
+            if (typeof createUnityInstance !== 'function') { showError(); return; }
+            try {
+                createUnityInstance(canvas, config, function (progress) {
+                    progressBarFull.style.width = 100 * progress + "%";
+                }).then(function (inst) {
+                    unityInstance = inst;
+                    loadingBar.style.display = "none";
+                    fitCanvas();
+                    try { canvas.focus(); } catch (e) {}
+                }).catch(function (message) {
+                    showError(String(message));
+                });
+            } catch (e) { showError(String(e)); }
+        };
+        script.onerror = function () { showError(); };
+        document.body.appendChild(script);
+
+        function showError(msg) {
+            bootFailed = true;
+            loadingBar.style.display = "none";
+            bootError.style.display = "flex";
+            if (msg) {
+                var p = bootError.querySelector("span");
+                if (p) p.textContent = msg;
+            }
+        }
+        document.querySelector("#btn-retry").addEventListener("click", function () { location.reload(); });
+
+        /* --- in-game controls: fullscreen + restart --- */
+        function enterFullscreen() {
+            var el = document.fullscreenElement ? null : (document.documentElement);
+            try {
+                if (!document.fullscreenElement) {
+                    var p = document.documentElement.requestFullscreen && document.documentElement.requestFullscreen();
+                    if (p && p.catch) p.catch(function () {});
+                } else if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                }
+            } catch (e) {}
+        }
+        document.querySelector("#btn-fullscreen").addEventListener("click", enterFullscreen);
+        document.querySelector("#btn-restart").addEventListener("click", function () { location.reload(); });
+        canvas.addEventListener("dblclick", enterFullscreen);
+        canvas.addEventListener("click", function () { try { canvas.focus(); } catch (e) {} });
+
+        document.addEventListener("keydown", function (e) {
+            var k = (e.key || "").toLowerCase();
+            if (e.ctrlKey || e.metaKey || e.altKey) return;
+            if (k === "f" && !/^(input|textarea)$/i.test((document.activeElement || {}).tagName || "")) {
+                e.preventDefault(); enterFullscreen();
+            } else if (k === "r" && !/^(input|textarea)$/i.test((document.activeElement || {}).tagName || "")) {
+                e.preventDefault(); location.reload();
+            }
+        });
+
+        /* Small FPS readout so players can see the game is actually running
+           when they resize or go fullscreen. */
+        (function () {
+            var chip = document.createElement("div");
+            chip.id = "fps-chip";
+            var frames = 0, last = performance.now();
+            (function loop(t) {
+                frames++;
+                if (t - last >= 1000) {
+                    chip.textContent = frames + " fps";
+                    frames = 0; last = t;
+                }
+                requestAnimationFrame(loop);
+            })(last);
+            document.body.appendChild(chip);
+        })();
+    </script>
+</body>
+</html>

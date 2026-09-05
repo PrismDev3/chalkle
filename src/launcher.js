@@ -75,18 +75,42 @@
   }
 
   /* The /uv/ rewriting proxy only exists when serve-chalk.py is actually
-     behind this origin. Probe once at startup and only advertise it when it
-     really answers. */
+     behind this origin. Probe at startup (with retries: the server may still
+     be waking when the first click lands) and only advertise it when it
+     really answers. A passing probe is remembered for the browser session so
+     the very first click after a reload already routes through the proxy
+     instead of gambling on the raw - and likely blocked - URL. */
+  var UV_SEEN_KEY = "chalkle-uv-ok";
   var uvStatus = null; // null = probing, true = usable, false = unusable
-  var builtinTried = false;
+  var uvAttempts = 0;
+  function uvSeenGet() {
+    try { return sessionStorage.getItem(UV_SEEN_KEY) === "1"; } catch (e) { return false; }
+  }
+  function uvSeenSet(ok) {
+    try {
+      if (ok) sessionStorage.setItem(UV_SEEN_KEY, "1");
+      else sessionStorage.removeItem(UV_SEEN_KEY);
+    } catch (e) { /* no storage */ }
+  }
   function probeBuiltinProxy() {
-    if (builtinTried) return;
-    builtinTried = true;
     var origin = usableOrigin();
     if (!origin) { uvStatus = false; return; }
+    if (uvStatus !== true && uvSeenGet()) uvStatus = true; /* trust this session */
+    uvAttempts++;
     fetch(origin + "/uv/", { method: "GET", cache: "no-store" })
-      .then(function (r) { uvStatus = !!r.ok; })
-      .catch(function () { uvStatus = false; });
+      .then(function (r) {
+        if (r.ok) { uvStatus = true; uvSeenSet(true); return; }
+        /* Not the proxy we know (404 on static hosts). Two more tries in
+           case the server is mid-restart, then advertise nothing. */
+        if (uvAttempts < 3) { setTimeout(probeBuiltinProxy, 900 * uvAttempts); return; }
+        uvStatus = false;
+        uvSeenSet(false);
+      })
+      .catch(function () {
+        if (uvAttempts < 3) { setTimeout(probeBuiltinProxy, 900 * uvAttempts); return; }
+        uvStatus = false;
+        uvSeenSet(false);
+      });
   }
   probeBuiltinProxy();
 
@@ -310,6 +334,12 @@
     if (!target) return false;
     if (target.indexOf("//") === 0) target = location.protocol + target;
     if (target.indexOf("://") === -1) target = "https://" + target;
+    /* A cloaked tab that loads a blocked URL is still a blocked tab - when
+       the built-in proxy is live, route the framed page through it too. */
+    var p = liveProxy();
+    if (p && /^https?:/i.test(target) && !shouldOpenDirect(target)) {
+      target = routeProxy(target, p.url, p.mode === "frame" || !!p.hashRoute);
+    }
     var ident = cloakIdentity();
     var win = window.open("about:blank", "_blank");
     if (!win) return inAppFrame(url, title || url);
@@ -443,7 +473,14 @@
       if (!u) return false;
       if (/^(blob:|data:|javascript:|about:)/i.test(u)) return openDirect(u);
       if (isLocalPlayUrl(u)) return openDirect(u);
-      if (/^https?:/i.test(u)) return openBlankEmbed(u, title || u);
+      if (/^https?:/i.test(u)) {
+        /* External hosts are the things school filters block - with the
+           built-in proxy live, external links route through it first. Only
+           when no proxy exists fall back to the plain cloaked embed. */
+        var p = liveProxy();
+        if (p) return openProxyApp(u, title || u);
+        return openBlankEmbed(u, title || u);
+      }
       return openDirect(u);
     },
     /* Every card-level launch asks first, instead of silently selecting a

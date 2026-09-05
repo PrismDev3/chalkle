@@ -77,7 +77,7 @@ idx = idx.replace(/<link[^>]*rel="stylesheet"[^>]*href="([^"]+)"[^>]*>/gi, (m, h
 // ── 2. inline JS ──────────────────────────────────────────────
 const SCRIPTS = ['src/theme.js','src/runtime-config.js','src/sync.js','src/games.js','src/community-games.js','src/real-shots.js','src/cloudgames.js','src/webports.js','src/sites.js',
   'src/proxies.js','src/apps.js','src/music.js','src/launcher.js','src/cloud.js','src/editor.js','src/urlauditor.js',
-  'src/pixel.js','src/domainhub.js','src/ai.js','src/docs.js','src/partners.js','src/bookmarklets.js','src/livetv.js','src/youtube.js','src/intro.js','src/app.js'];
+  'src/pixel.js','src/domainhub.js','src/ai.js','src/partners.js','src/docs.js','src/bookmarklets.js','src/livetv.js','src/youtube.js','src/intro.js','src/app.js'];
 const bodies = SCRIPTS.map((file) => {
   const fp = path.join(root, file);
   if (!fs.existsSync(fp)) { console.warn('skip missing', file); return ''; }
