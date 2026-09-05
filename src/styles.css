@@ -1015,14 +1015,14 @@ body.sidebar-collapsed .collapse-btn:active { transform: scale(0.96); }
 .home-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 7px;
   margin-top: 13px;
 }
 
 .home-primary,
 .home-secondary {
   height: 34px;
-  padding: 0 15px;
+  padding: 0 13px;
   border-radius: 999px;
   font-weight: 650;
   font-size: 14px;
@@ -4774,7 +4774,7 @@ html.motion-off *::after {
   border-radius: 20px;
 }
 
-.home-title { max-width: 10ch; }
+.home-title { max-width: 15ch; }
 
 .home-primary,
 .home-secondary {
@@ -5321,7 +5321,7 @@ html.motion-off *::after {
 /* ---------- Home overhaul: hero + quick launch + cover-card shelves ---------- */
 .home-hero {
   display: grid;
-  grid-template-columns: 1.35fr 0.95fr;
+  grid-template-columns: 1.45fr 0.9fr;
   gap: 14px;
   align-items: stretch;
 }
@@ -5435,8 +5435,8 @@ html.motion-off *::after {
 }
 .home-quick-more-btn:hover,
 .home-quick-more-btn[aria-expanded="true"] {
-  border-color: var(--accent);
-  background: var(--accent-soft);
+  border-color: var(--pink);
+  background: rgba(255, 77, 141, 0.12);
 }
 .home-quick-menu {
   position: absolute;
@@ -5475,7 +5475,7 @@ html.motion-off *::after {
   background: var(--panel-2);
   color: var(--text);
 }
-.home-quick-menu-item:hover .icon { color: var(--accent); }
+.home-quick-menu-item:hover .icon { color: var(--pink); }
 
 .home-surface { margin-top: auto; }
 .home-surface-head {
