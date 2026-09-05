@@ -3,6 +3,7 @@
      node tools/import-stratus.mjs "/path/to/stratus-api-main/api/../cloud.json" */
 
 import { readFileSync, writeFileSync } from "node:fs";
+import { resolve } from "node:path";
 
 const src = process.argv[2] || "../stratus-api-main/stratus-api-main/cloud.json";
 const raw = readFileSync(src, "utf8");
@@ -45,8 +46,8 @@ games.forEach((g, i) => {
 
 lines.push("]");
 
-writeFileSync("cloudgames.js", lines.join("\n") + "\n");
+writeFileSync(resolve("src", "cloudgames.js"), lines.join("\n") + "\n");
 console.log(
-  `Wrote cloudgames.js: ${games.length} cloud games, ` +
+  `Wrote src/cloudgames.js: ${games.length} cloud games, ` +
     `${games.filter((g) => g.img).length} with artwork, ${games.filter((g) => g.desc).length} with descriptions.`
 );

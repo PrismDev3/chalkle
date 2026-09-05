@@ -7,6 +7,7 @@
      node tools/import-chud.mjs "../Chud-main/Chud-main/games.js" */
 
 import { readFileSync, writeFileSync } from "node:fs";
+import { resolve } from "node:path";
 
 const src = process.argv[2] || "../Chud-main/Chud-main/games.js";
 const raw = readFileSync(src, "utf8");
@@ -64,9 +65,9 @@ relative.forEach((g) => {
 });
 lines.push("*/");
 
-writeFileSync("games.js", lines.join("\n") + "\n");
+writeFileSync(resolve("src", "games.js"), lines.join("\n") + "\n");
 const withThumb = unique.filter((g) => g.thumb).length;
 console.log(
-  `Wrote games.js: ${unique.length} live games (${withThumb} with Chud icons), ` +
+  `Wrote src/games.js: ${unique.length} live games (${withThumb} with Chud icons), ` +
     `${relative.length} relative entries commented out.`
 );

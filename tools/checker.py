@@ -12,10 +12,10 @@ sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 
 SHIPPED = [
-    "styles.css", "index.html", "app.js", "sites.js", "apps.js", "games.js",
-    "docs.js", "ai.js", "youtube.js", "livetv.js", "music.js", "theme.js",
-    "partners.js", "proxies.js", "launcher.js", "editor.js",
-    "runtime-config.js", "chalkle-single.html", "cloud-play.html", "cloud.js",
+    "src/styles.css", "index.html", "src/app.js", "src/sites.js", "src/apps.js", "src/games.js",
+    "src/docs.js", "src/ai.js", "src/youtube.js", "src/livetv.js", "src/music.js", "src/theme.js",
+    "src/partners.js", "src/bookmarklets.js", "src/proxies.js", "src/launcher.js", "src/editor.js",
+    "src/runtime-config.js", "build/chalkle-single.html", "cloud-play.html", "src/cloud.js",
 ]
 
 # Fade gradients: a gradient whose color stops blend (no hard 0%/100% pairs).
@@ -59,7 +59,7 @@ def is_hard_stop(args: str) -> bool:
 # Third-party game data files: titles/descriptions are upstream copy we
 # display verbatim (game names cannot be changed), so vocab/dash checks skip
 # their data rows. Gradients are still checked everywhere.
-DATA_FILES = {"cloudgames.js"}
+DATA_FILES = {"src/cloudgames.js"}
 DATA_ROW_RE = re.compile(r"^\s*\{\s*title:")
 
 fails = []
