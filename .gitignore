@@ -51,3 +51,7 @@ mc/
 
 # local research dumps (1.2GB, not part of the shipped site)
 research/
+
+# static-hosting deploy artifact for Vercel/Netlify drag-and-drop
+# (regenerable from the single-file build; not part of the GitHub site)
+deploy-static/

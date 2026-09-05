@@ -4,6 +4,24 @@
 (function () {
   "use strict";
 
+  /* Play the boot intro once per browser session. On a Chromebook the full
+     sequence (cloak click + 2.4s boot + fades) before every reload made the
+     site feel slow even when it wasn't - coming back within the same tab
+     now lands straight on the home screen. */
+  var SEEN_KEY = "chalkle-boot-seen";
+  try {
+    if (sessionStorage.getItem(SEEN_KEY) === "1") {
+      var bootNow = document.getElementById("boot");
+      var appNow = document.getElementById("app");
+      if (bootNow) bootNow.remove();
+      if (appNow) appNow.hidden = false;
+      window.__chalkleBootDone = true;
+      try { window.dispatchEvent(new CustomEvent("chalkle-boot-done")); } catch (e) { /* ignore */ }
+      return;
+    }
+  } catch (e) { /* no sessionStorage - intro plays as before */ }
+  try { sessionStorage.setItem(SEEN_KEY, "1"); } catch (e) { /* no storage */ }
+
   var BOOT_LINES = [
     "insert cartridge: chalkle-1.0",
     "loading storage… ok",

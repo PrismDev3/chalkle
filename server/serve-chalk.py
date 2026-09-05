@@ -2457,7 +2457,13 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, Simpl
         ctype = (probe.headers.get("Content-Type", "").split(";")[0].strip().lower())
         is_html = "text/html" in ctype
         is_css = ctype == "text/css"
-        if not (is_html or is_css):
+        # SVG wrapper pages (the gnmath / arctic / cloudmoon mirror links) are
+        # image/svg+xml documents with an inline <script> that atob()s a whole
+        # HTML shell out of a base64 literal and embeds the real game client
+        # from a raw CDN URL. Rewrite them like HTML so the atob rewriter can
+        # reroute that inner document through the proxy too.
+        is_svg = ctype == "image/svg+xml" or target.lower().endswith(".svg")
+        if not (is_html or is_css or is_svg):
             # Not HTML/CSS - stream. If the target is really HTML served with a
             # wrong MIME, sniff the first bytes before committing to a stream.
             head = probe.read(512)
@@ -2497,13 +2503,20 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, Simpl
                     return
                 else:
                     return self._uv_stream_resp(probe)
-        if is_html or is_css:
+        if is_html or is_css or is_svg:
             raw = probe.read(40 * 1024 * 1024 + 1)
             probe.close()
             if len(raw) > 40 * 1024 * 1024:
                 return self._uv_error(502, "page too large")
             code = 200
-            if is_html:
+            if is_svg:
+                # SVG wrapper: keep the MIME as image/svg+xml (it is the
+                # document), but run the script body through the atob rewriter
+                # so the embedded game shell's URLs land on the proxy.
+                text = _uv_decode(raw)
+                text = _uv_rewrite_svg(text, target)
+                raw = text.encode("utf-8", "replace")
+            elif is_html:
                 text = _uv_decode(raw)
                 text = _uv_rewrite_html(text, target)
                 text = _uv_inject_patch(text, target)
@@ -3006,6 +3019,43 @@ def _uv_rewrite_js(js, base_url):
     return _UV_JS_IMPORT_RE.sub(rep, str(js or ""))
 
 
+# atob("<base64>") literals inside inline scripts. Wrapper pages (the gnmath /
+# arctic / cloudmoon SVG mirrors) decode an entire HTML document out of a
+# base64 literal and hand it to an iframe (srcdoc / innerHTML). The URLs
+# inside that decoded document never pass through any attribute or fetch
+# rewrite, so the game then loads its real client straight off the raw CDN
+# and dies on filtered networks. Decode the literal server-side, rewrite the
+# embedded document like any other page, and re-encode it - the browser
+# never sees a raw CDN URL.
+_UV_ATOB_RE = re.compile(r"atob\(\s*(['\"])([A-Za-z0-9+/=_-]{48,})['\"]\s*\)")
+
+
+def _uv_rewrite_atob_html(js, base_url, depth=0):
+    def rep(m):
+        quote, raw = m.group(1), m.group(2)
+        decoded = _uv_b64url_decode(raw)
+        if not decoded:
+            return m.group(0)
+        head = decoded.lstrip()[:400].lower()
+        if not any(t in head for t in ("<!doctype", "<html", "<head", "<meta", "<body", "<iframe", "<script")):
+            return m.group(0)  # not HTML - binary / JSON payload, leave alone
+        try:
+            rewritten = _uv_rewrite_html(decoded, base_url, _depth=depth + 1)
+            # The decoded shell usually fetches the real game client with an
+            # ABSOLUTE url inside script text - attribute rewriting can't
+            # touch that. Injecting the runtime patch wraps fetch/XHR/etc. so
+            # those calls reroute through the proxy at run time.
+            rewritten = _uv_inject_patch(rewritten, base_url)
+        except Exception:
+            return m.group(0)
+        # atob() speaks the standard base64 alphabet - re-encode the same way
+        # (padding kept; atob always accepts it).
+        return ("atob(" + quote +
+                base64.b64encode(rewritten.encode("utf-8")).decode("ascii") +
+                quote + ")")
+    return _UV_ATOB_RE.sub(rep, str(js or ""))
+
+
 def _uv_rewrite_srcset(s, base_url):
     out = []
     for part in str(s or "").split(","):
@@ -3100,7 +3150,49 @@ def _uv_find_tag_end(html, lt):
     return -1
 
 
-def _uv_rewrite_html(html, target):
+def _uv_rewrite_svg(svg, target):
+    """Rewrite an SVG wrapper document. Runs the same atob-decode rewrite over
+    inline <script> bodies (the wrapper shell lives in a base64 literal) and
+    proxies src/href attributes; raw SVG shape data is untouched."""
+    base_dir = urljoin(target, ".")
+    out = []
+    i = 0
+    n = len(svg)
+    while i < n:
+        lt = svg.find("<", i)
+        if lt == -1:
+            out.append(svg[i:])
+            break
+        out.append(svg[i:lt])
+        m = _UV_TAG_NAME_RE.match(svg, lt)
+        if not m:
+            out.append("<")
+            i = lt + 1
+            continue
+        name = m.group(1).lower()
+        end = _uv_find_tag_end(svg, lt)
+        if end == -1:
+            out.append(svg[lt:])
+            break
+        tag_text = svg[lt:end + 1]
+        if name == "script":
+            close = re.search(r"</\s*script\s*>", svg[end + 1:], re.I)
+            if close:
+                out.append(_uv_rewrite_attrs(tag_text, base_dir))
+                body = svg[end + 1:end + 1 + close.start()]
+                body = _uv_rewrite_js(body, base_dir)
+                if "atob(" in body:
+                    body = _uv_rewrite_atob_html(body, base_dir)
+                out.append(body)
+                out.append(svg[end + 1 + close.start():end + 1 + close.end()])
+                i = end + 1 + close.end()
+                continue
+        out.append(_uv_process_tag(tag_text, base_dir))
+        i = end + 1
+    return "".join(out)
+
+
+def _uv_rewrite_html(html, target, _depth=0):
     """Rewrite a full HTML document: every URL attribute becomes an absolute
     /uv/ route, <style>/inline CSS url()s get rewritten, CSP meta tags and
     <base> tags are replaced with a proxied <base> (so any relative URL a
@@ -3159,6 +3251,8 @@ def _uv_rewrite_html(html, target):
                 body = html[end + 1:end + 1 + close.start()]
                 if name == "script" and len(body) < 2 * 1024 * 1024:
                     body = _uv_rewrite_js(body, base_dir)
+                    if _depth < 2 and "atob(" in body:
+                        body = _uv_rewrite_atob_html(body, base_dir, _depth)
                 out.append(body)
                 out.append(html[end + 1 + close.start():end + 1 + close.end()])
                 i = end + 1 + close.end()

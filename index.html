@@ -31,16 +31,43 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Boogaloo&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
   <link rel="preload" as="image" href="bg-chalk.webp" fetchpriority="high">
-  <link rel="stylesheet" href="src/styles.css?v=20260905d">
-  <!-- AdSense. Slots stay hidden until real ad-unit IDs are pasted into the
-       CHALKLE_ADS config below (AdSense dashboard → Ad units → create). -->
-  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3031332925462724" crossorigin="anonymous"></script>
+  <link rel="stylesheet" href="src/styles.css?v=20260905o">
+  <!-- AdSense. This loader powers BOTH layers:
+       1. Manual units - the .ad-slot placements below, each filled when its
+          slot ID is pasted into CHALKLE_ADS.slots (AdSense → Ads → By ad unit).
+       2. Auto ads (fallback) - once "Auto ads" is switched on in
+          AdSense → Ads → Edit → your site, this same script injects Google's
+          automatic in-page/overlay units wherever manual units aren't.
+       Disturb-free settings:
+         • data-overlays="bottom" on the script tag (code-level): Auto ads
+           anchors may only dock to the BOTTOM edge - never a top bar over
+           the app's own navigation. Value per Google's Auto ads docs.
+         • AdSense → Ads → Edit site → Overlay formats: additionally turn
+           OFF "Anchors" and "Vignettes" there for a full overlay ban.
+         • In-page formats: leave ON, ad load "Medium"
+         • Existing ads: leave ON (Google optimizes the manual units too)
+       With manual slots empty, Auto ads are the only revenue layer - paste
+       slot IDs whenever ready, both layers coexist safely. -->
+  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3031332925462724" crossorigin="anonymous" data-overlays="bottom"></script>
   <meta name="google-adsense-account" content="ca-pub-3031332925462724">
   <script>
   window.CHALKLE_ADS = {
     client: "ca-pub-3031332925462724",
-    /* Paste your real ad-unit slot IDs here (AdSense → Ad units). */
-    slots: { home: "", games: "" }
+    /* Auto ads (fallback layer) need no code here - just switch them on at
+       AdSense → Ads → Edit next to this site. The script tag above is the
+       snippet Google gives for Auto ads; it is already in place. */
+    autoAds: true,
+    /* Manual unit slot IDs (AdSense → Ads → By ad unit). A key left empty
+       keeps that placement hidden - Auto ads cover it meanwhile. */
+    slots: {
+      home: "",
+      home_footer: "",
+      games_top: "",
+      games: "",
+      sites: "",
+      apps: "",
+      youtube: ""
+    }
   };
   </script>
   <script src="src/theme.js"></script>
@@ -491,7 +518,6 @@
             <div class="home-hero-side">
               <div class="home-quick-head">
               <span class="home-quick-label">Quick launch</span>
-              <span class="home-quick-chip">1 tap</span>
               </div>
               <div class="home-quick">
                 <button class="home-quick-card q-games" data-home-go="games"><span class="home-quick-ico"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7.55 6.15h8.9a4.55 4.55 0 0 1 4.5 5.05l-.42 3.95a3.05 3.05 0 0 1-5.37 1.75l-1.3-1.6h-3.72l-1.3 1.6a3.05 3.05 0 0 1-5.37-1.75l-.42-3.95A4.55 4.55 0 0 1 7.55 6.15z"/><path d="M8.45 9.7v2.3M7.3 10.85h2.3"/></svg></span><span class="home-quick-t">Games</span></button>
@@ -536,7 +562,7 @@
           <span class="home-join-ico"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" stroke="none" d="M20.317 4.37a19.79 19.79 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.211.375-.445.865-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.319 13.58.099 18.058a.082.082 0 0 0 .031.056c2.053 1.507 4.041 2.423 5.993 3.03a.078.078 0 0 0 .084-.028c.462-.63.873-1.295 1.226-1.994a.076.076 0 0 0-.042-.106 13.11 13.11 0 0 1-1.872-.892.077.077 0 0 1-.008-.128c.126-.094.252-.192.372-.291a.074.074 0 0 1 .078-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.009c.12.099.246.198.373.292a.077.077 0 0 1-.007.128 12.3 12.3 0 0 1-1.873.891.076.076 0 0 0-.04.107c.36.698.772 1.363 1.225 1.993a.076.076 0 0 0 .084.029c1.961-.607 3.95-1.522 6.002-3.03a.077.077 0 0 0 .031-.055c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.029zM8.02 15.33c-1.183 0-2.157-1.086-2.157-2.42 0-1.333.956-2.418 2.157-2.418 1.211 0 2.176 1.095 2.157 2.418 0 1.334-.956 2.42-2.157 2.42zm7.975 0c-1.183 0-2.157-1.086-2.157-2.42 0-1.333.956-2.418 2.157-2.418 1.211 0 2.176 1.095 2.157 2.418 0 1.334-.946 2.42-2.157 2.42z"/></svg></span>
           <div class="home-join-txt">
             <span class="home-join-title">Join the Chalkle Discord</span>
-            <span class="home-join-sub">Sneak peeks at new games, request titles, and hang with the crew. Still no sign-in.</span>
+            <span class="home-join-sub">New games first, requests welcome, still no sign-in.</span>
           </div>
           <a class="home-join-btn" href="https://discord.gg/Y8Zh2mE7Ke" target="_blank" rel="noopener noreferrer">Join free</a>
           <button class="home-join-x" id="home-join-x" type="button" aria-label="Hide this banner" title="Hide">
@@ -566,6 +592,11 @@
             </div>
             <div class="home-shelf" id="home-popular-games"></div>
           </section>
+
+          <div class="ad-slot ad-slot--grid" id="ad-slot-home-footer" data-slot-key="home_footer" hidden>
+            <span class="ad-slot-label">Sponsored</span>
+            <ins class="adsbygoogle" data-ad-client="ca-pub-3031332925462724" data-ad-slot="" data-ad-format="auto" data-full-width-responsive="true"></ins>
+          </div>
         </section>
 
         <section class="view" data-view="games">
@@ -606,6 +637,7 @@
               <button class="chip is-active" data-game-filter="all">All</button>
               <button class="chip" data-game-filter="ports">PC ports</button>
               <button class="chip" data-game-filter="favorites">Favorites</button>
+              <button class="chip" data-game-filter="recents">Recents</button>
               <button class="chip" data-game-filter="new">New</button>
             </div>
           </div>
@@ -618,6 +650,10 @@
             <div class="home-shelf" id="games-picks-grid"></div>
           </section>
           <div class="ad-slot" id="ad-slot-games" data-slot-key="games" hidden>
+            <span class="ad-slot-label">Sponsored</span>
+            <ins class="adsbygoogle" data-ad-client="ca-pub-3031332925462724" data-ad-slot="" data-ad-format="auto" data-full-width-responsive="true"></ins>
+          </div>
+          <div class="ad-slot" id="ad-slot-games-top" data-slot-key="games_top" hidden>
             <span class="ad-slot-label">Sponsored</span>
             <ins class="adsbygoogle" data-ad-client="ca-pub-3031332925462724" data-ad-slot="" data-ad-format="auto" data-full-width-responsive="true"></ins>
           </div>
@@ -711,6 +747,10 @@
             <div class="game-filters" id="yt-cats" role="group" aria-label="YouTube categories"></div>
           </div>
 
+          <div class="ad-slot" id="ad-slot-youtube" data-slot-key="youtube" hidden>
+            <span class="ad-slot-label">Sponsored</span>
+            <ins class="adsbygoogle" data-ad-client="ca-pub-3031332925462724" data-ad-slot="" data-ad-format="auto" data-full-width-responsive="true"></ins>
+          </div>
           <div class="yt-home" id="yt-home"></div>
           <div class="yt-results" id="yt-results" hidden></div>
           <div class="empty" id="yt-empty" hidden>
@@ -733,6 +773,10 @@
                 <option value="new">Newest</option>
               </select>
             </div>
+          </div>
+          <div class="ad-slot" id="ad-slot-sites" data-slot-key="sites" hidden>
+            <span class="ad-slot-label">Sponsored</span>
+            <ins class="adsbygoogle" data-ad-client="ca-pub-3031332925462724" data-ad-slot="" data-ad-format="auto" data-full-width-responsive="true"></ins>
           </div>
           <div class="grid" id="sites-grid"></div>
           <div class="empty" id="sites-empty" hidden>
@@ -838,6 +882,10 @@
             <h1 class="view-title">Apps/Tools</h1>
             <span class="view-meta" id="apps-tools-meta"></span>
           </div>              <div class="genre-filters" id="apps-genres" role="group" aria-label="Filter tools by category" hidden></div>
+              <div class="ad-slot" id="ad-slot-apps" data-slot-key="apps" hidden>
+                <span class="ad-slot-label">Sponsored</span>
+                <ins class="adsbygoogle" data-ad-client="ca-pub-3031332925462724" data-ad-slot="" data-ad-format="auto" data-full-width-responsive="true"></ins>
+              </div>
               <div class="grid" id="apps-grid"></div>
           <div class="empty" id="apps-empty" hidden>
             <p class="empty-title">No tools yet.</p>
@@ -1630,31 +1678,31 @@
       </div>
     </div>
 
-  <script src="src/runtime-config.js?v=20260905j"></script>
+  <script src="src/runtime-config.js?v=20260905m"></script>
   <script src="src/sync.js?v=20260905j"></script>
-  <script src="src/games.js?v=20260905j"></script>
+  <script src="src/games.js?v=20260905u"></script>
   <script src="src/community-games.js?v=20260905j"></script>
-  <script src="src/real-shots.js?v=20260905j"></script>
+  <script src="src/real-shots.js?v=20260905u"></script>
   <script src="src/cloudgames.js?v=20260905j"></script>
   <script src="src/webports.js?v=20260905j"></script>
   <script src="src/sites.js?v=20260905j"></script>
   <script src="src/proxies.js?v=20260905j"></script>
   <script src="src/apps.js?v=20260905j"></script>
   <script src="src/music.js?v=20260905j"></script>
-  <script src="src/launcher.js?v=20260905j"></script>
+  <script src="src/launcher.js?v=20260905k"></script>
   <script src="src/cloud.js?v=20260905j"></script>
   <script src="src/editor.js?v=20260905j"></script>
   <script src="src/urlauditor.js?v=20260905j"></script>
   <script src="src/pixel.js?v=20260905j"></script>
   <script src="src/domainhub.js?v=20260905j"></script>
   <script src="src/ai.js?v=20260905j"></script>
-  <script src="src/docs.js?v=20260905c"></script>
   <script src="src/partners.js?v=20260905j"></script>
+  <script src="src/docs.js?v=20260905v"></script>
   <script src="src/bookmarklets.js?v=20260905j"></script>
   <script src="assets/hls.min.js?v=20260905c"></script>
   <script src="src/livetv.js?v=20260905j"></script>
   <script src="src/youtube.js?v=20260905j"></script>
-  <script src="src/intro.js?v=20260905j"></script>
+  <script src="src/intro.js?v=20260905k"></script>
   <script>
   /* AdSense boot: fill each slot's data-ad-slot from the CHALKLE_ADS config
      and request the unit. Slots with no configured ID stay hidden, so an
@@ -1662,22 +1710,49 @@
      label per placement, responsive format, no interstitials. */
   (function () {
     var cfg = (window.CHALKLE_ADS && window.CHALKLE_ADS.slots) || {};
-    var slots = document.querySelectorAll(".ad-slot");
-    for (var i = 0; i < slots.length; i++) {
-      var box = slots[i];
+
+    function request(box) {
       var key = box.getAttribute("data-slot-key") || "";
       var slotId = (cfg[key] || "").trim();
-      if (!slotId) continue;
+      if (!slotId) return; /* unconfigured slot stays hidden */
       var ins = box.querySelector("ins.adsbygoogle");
-      if (!ins) continue;
+      if (!ins || ins.getAttribute("data-ad-slot")) return; /* already requested */
       ins.setAttribute("data-ad-slot", slotId);
       box.hidden = false;
       try {
         (window.adsbygoogle = window.adsbygoogle || []).push({});
       } catch (e) { /* ad blocked or not ready */ }
     }
+
+    var boxes = document.querySelectorAll(".ad-slot");
+    var pending = [];
+    for (var i = 0; i < boxes.length; i++) {
+      var box = boxes[i];
+      var section = box.closest("section.view");
+      /* Slots in the home view are on screen right after boot; the rest wait
+         until their tab is first opened. No off-screen requests = better
+         viewability and zero layout jank while browsing. */
+      if (!section || section.classList.contains("is-visible")) request(box);
+      else pending.push(box);
+    }
+
+    if (pending.length) {
+      var obs = new MutationObserver(function () {
+        var view = document.body.getAttribute("data-view") || "";
+        for (var j = pending.length - 1; j >= 0; j--) {
+          var b = pending[j];
+          var s = b.closest("section.view");
+          if (s && (s.dataset.view === view || s.classList.contains("is-visible"))) {
+            request(b);
+            pending.splice(j, 1);
+          }
+        }
+        if (!pending.length) obs.disconnect();
+      });
+      obs.observe(document.body, { attributes: true, attributeFilter: ["data-view"] });
+    }
   })();
   </script>
-  <script src="src/app.js?v=20260905j"></script>
+  <script src="src/app.js?v=20260905o"></script>
 </body>
 </html>
