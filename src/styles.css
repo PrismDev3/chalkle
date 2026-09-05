@@ -7228,8 +7228,7 @@ body.ed-resizing iframe { pointer-events: none; }
 
 /* ---------- Cloud gaming ---------- */
 
-/* Cloud's own color (lime) - Proxies already owns teal, so every tab has a
-   unique accent. */
+/* Cloud's own color (sky blue) - every tab keeps a unique accent. */
 .view[data-view="cloud"] { --va: var(--cloud); --va-ink: #061a2b; --va-soft: var(--cloud-soft); }
 .nav-item.is-active[data-view="cloud"] { color: var(--cloud); background: var(--cloud-soft); }
 
@@ -10129,4 +10128,57 @@ button.side-foot:hover { color: var(--text-2); }
   .music-hero-copy h2 { font-size: 22px; }
   .music-hero-actions { margin-top: 12px; }
   .music-primary-btn, .music-secondary-btn { min-height: 35px; padding-inline: 11px; font-size: 12px; }
+}
+
+/* ---------- Final per-tab identity pass ----------
+   Guarantees every tab's sidebar state, heading letters and backdrop share
+   ONE accent. Cloud owns a deep navy surface (never Settings' purple chalk),
+   Live TV / YouTube / AI / Bookmarklets keep flat backdrops instead of
+   Sites' blue texture, and Docs is one cyan (#26c6da) end to end. */
+.view[data-view="cloud"]::before {
+  background-color: #04101c;
+  background-image: none;
+  filter: none;
+}
+.view[data-view="livetv"]::before {
+  background-color: #04100c;
+  background-image: none;
+}
+.view[data-view="youtube"]::before {
+  background-color: #120506;
+  background-image: none;
+}
+.view[data-view="ai"]::before {
+  background-color: #0d0517;
+  background-image: none;
+}
+.view[data-view="bookmarklets"]::before {
+  background-color: #0b1103;
+  background-image: none;
+}
+
+/* Docs: one cyan voice everywhere (tab, titles, buttons, links). */
+.view[data-view="docs"] {
+  --va: #26c6da;
+  --va-ink: #04303a;
+  --va-soft: rgba(38, 198, 218, 0.16);
+}
+.docs-view {
+  --va: #26c6da;
+  --va-ink: #04303a;
+  --va-soft: rgba(38, 198, 218, 0.16);
+  --docs-accent: #26c6da;
+  --docs-txt: #8ae4ee;
+  --docs-txt-soft: #53cfdd;
+  --docs-line: rgba(38, 198, 218, 0.38);
+}
+.docs-btn-upload {
+  background: #26c6da;
+}
+.docs-btn-upload:hover {
+  background: #4ed9e7;
+}
+.docs-act:hover {
+  background: rgba(38, 198, 218, 0.16);
+  border-color: rgba(38, 198, 218, 0.45);
 }

@@ -59,9 +59,24 @@
     return m ? m[1] : String(u).split("/").pop() || "";
   }
 
-  function thumbUrl(id) {
-    var path = "/yt/thumb?u=" + btoa("https://i.ytimg.com/vi/" + id + "/hqdefault.jpg").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  /* Thumbnail sizes, best first. Live streams only have hqdefault_live, so
+     their ladder starts there and falls back to the plain frame. */
+  var THUMB_SIZES = ["hqdefault", "mqdefault", "default"];
+  var LIVE_THUMB_SIZES = ["hqdefault_live", "hqdefault", "mqdefault", "default"];
+
+  function thumbUrl(id, size) {
+    var path = "/yt/thumb?u=" + btoa("https://i.ytimg.com/vi/" + id + "/" + (size || "hqdefault") + ".jpg").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
     return window.ChalkleApi ? window.ChalkleApi.url(path) : path;
+  }
+
+  /* One <img> that walks the size ladder on error instead of hiding: the
+     relay proxies each size, so a missing hqdefault cover falls back to
+     mqdefault and then default before giving up. */
+  function thumbImg(id, live) {
+    var sizes = (live ? LIVE_THUMB_SIZES : THUMB_SIZES).slice();
+    var first = sizes.shift();
+    var rest = sizes.map(function (s) { return thumbUrl(id, s); });
+    return '<img src="' + thumbUrl(id, first) + '" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" data-yt-thumbs="' + esc(JSON.stringify(rest).replace(/"/g, "&quot;")) + '" onerror="(function(t){var l=[];try{l=JSON.parse(t.getAttribute(\'data-yt-thumbs\')||\'[]\');}catch(e){}if(!l.length){t.style.display=\'none\';return;}t.src=l.shift();t.setAttribute(\'data-yt-thumbs\',JSON.stringify(l));})(this)">';
   }
 
   function isLive(item) {
@@ -173,7 +188,7 @@
     return '<div class="yt-video" data-yt-id="' + esc(id) + '" data-yt-json="' + esc(JSON.stringify(item).replace(/"/g, "&quot;")) + '">' +
       '<button class="yt-video-main" type="button" data-yt-play>' +
       '<span class="yt-video-thumb">' +
-        '<img src="' + thumbUrl(id) + '" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display=\'none\'">' +
+        thumbImg(id, live) +
         (live ? '<span class="yt-video-live">LIVE</span>' : (dur ? '<span class="yt-video-dur">' + dur + "</span>" : "")) +
       "</span>" +
       '<span class="yt-video-body">' +

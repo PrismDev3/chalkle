@@ -75,9 +75,9 @@ idx = idx.replace(/<link[^>]*rel="stylesheet"[^>]*href="([^"]+)"[^>]*>/gi, (m, h
 });
 
 // ── 2. inline JS ──────────────────────────────────────────────
-const SCRIPTS = ['src/theme.js','src/runtime-config.js','src/sync.js','src/games.js','src/cloudgames.js','src/webports.js','src/sites.js',
+const SCRIPTS = ['src/theme.js','src/runtime-config.js','src/sync.js','src/games.js','src/community-games.js','src/real-shots.js','src/cloudgames.js','src/webports.js','src/sites.js',
   'src/proxies.js','src/apps.js','src/music.js','src/launcher.js','src/cloud.js','src/editor.js','src/urlauditor.js',
-  'src/pixel.js','src/domainhub.js','src/ai.js','src/docs.js','src/partners.js','src/bookmarklets.js','src/intro.js','src/app.js'];
+  'src/pixel.js','src/domainhub.js','src/ai.js','src/docs.js','src/partners.js','src/bookmarklets.js','src/livetv.js','src/youtube.js','src/intro.js','src/app.js'];
 const bodies = SCRIPTS.map((file) => {
   const fp = path.join(root, file);
   if (!fs.existsSync(fp)) { console.warn('skip missing', file); return ''; }
@@ -119,10 +119,15 @@ idx = rewriteAssets(idx);
 // (they're part of idx now). No second pass needed.
 
 // ── 4. embed self-contained local html games ──────────────────
-// Scan the inlined games.js body for /game-builds/**/index.html (or .html)
-// that reference no local sibling assets. Parse via a copy of the script.
-let gjsCode = bodies[SCRIPTS.indexOf('games.js')];
-const gameUrlRe = /["'`](\/game-builds\/[^"'`]+\.(?:html|htm))["'`]/g;
+// Scan the inlined games.js body for single-file local games - /ugs/,
+// /gn/, /mc/ HTML stashes and /game-builds/**/index.html - and embed the
+// ones that reference no local sibling assets and are small enough to
+// inline. Everything else keeps its origin path (served by the multi-file
+// site's Python relay / Cloudflare folder; huge MC builds and multi-file
+// game-builds can't be embedded into one HTML document anyway).
+let gjsCode = bodies[SCRIPTS.indexOf('src/games.js')] || '';
+const EMBED_MAX = 512 * 1024; // per-game size cap (bytes) - keeps the file usable
+const gameUrlRe = /["'`](\/(?:ugs|gn|mc)\/[^"'`]+\.(?:html|htm)|game-builds\/[^"'`]+\.(?:html|htm))["'`]/g;
 const gameUrls = [];
 let gm;
 while ((gm = gameUrlRe.exec(gjsCode))) gameUrls.push(gm[1]);
@@ -130,6 +135,7 @@ const embedMap = {};
 const isSelfContained = (rel) => {
   const fp = path.join(root, rel.replace(/^\//,''));
   if (!fs.existsSync(fp)) return false;
+  try { if (fs.statSync(fp).size > EMBED_MAX) return false; } catch (e) { return false; }
   const html = fs.readFileSync(fp,'utf8');
   const refs = [...html.matchAll(/(?:src|href)=["']([^"']+)["']/g)].map(x=>x[1])
     .filter(r => !/^(https?:|data:|blob:|#|javascript:|mailto:|tel:|<)/i.test(r)

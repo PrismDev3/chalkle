@@ -16,6 +16,7 @@ SHIPPED = [
     "src/docs.js", "src/ai.js", "src/youtube.js", "src/livetv.js", "src/music.js", "src/theme.js",
     "src/partners.js", "src/bookmarklets.js", "src/proxies.js", "src/launcher.js", "src/editor.js",
     "src/runtime-config.js", "build/chalkle-single.html", "cloud-play.html", "src/cloud.js",
+    "src/community-games.js", "src/real-shots.js",
 ]
 
 # Fade gradients: a gradient whose color stops blend (no hard 0%/100% pairs).

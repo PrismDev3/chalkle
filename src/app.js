@@ -18,7 +18,25 @@
           return copy;
         });
         var community = Array.isArray(window.ChalkCommunityGames) ? window.ChalkCommunityGames.slice() : [];
-        return ports.concat(Array.isArray(window.ChalkGames) ? window.ChalkGames.slice() : [], community);
+        /* Real in-game captures (assets/games/real/*.jpg) beat generated SVG
+           covers for local builds. Swap the thumb at seed time when the URL
+           stem has a capture, so every card and the library sync pick it up. */
+        var realShots = window.ChalkRealShots || [];
+        var realSet = {};
+        realShots.forEach(function (s) { realSet[s] = true; });
+        var withRealArt = function (g) {
+          var copy = Object.assign({}, g);
+          if (copy.thumb && /^data:image\/svg\+xml/i.test(String(copy.thumb))) {
+            var m = /^\/(?:ugs|mc)\/([^/]+)\.html$/i.exec(String(copy.url || ""));
+            if (m && realSet[m[1]]) {
+              copy.thumb = "/assets/games/real/" + encodeURIComponent(m[1]) + ".jpg";
+            }
+          }
+          return copy;
+        };
+        return ports
+          .map(withRealArt)
+          .concat((Array.isArray(window.ChalkGames) ? window.ChalkGames : []).map(withRealArt), community);
       }
     },
     sites: { key: "chalkle-sitelib-v2", seed: function () { return (window.ChalkSites || []).slice(); } },
@@ -1197,11 +1215,13 @@
   }
 
   /* Minecraft James Edition (26.2) ------------------------------------------------
-     Our full-stack Eaglercraft 26.2 build. The School Center launcher auto-boots
-     its servers (friends :8787, world :25565, web client :80) and publishes them
-     on a public Cloudflare quick-tunnel, writing the live URL into
-     SCHOOL_CENTER_CONFIG.minecraftUrl. We resolve that public URL (so friends
-     anywhere can join - never localhost) and open it unblocked in about:blank. */
+     The full self-contained Eaglercraft 26.2 client ships with the site at
+     /mc/eaglercraft-26.2.html - a single 75MB HTML file with every asset
+     inlined (no CDN, no relay, nothing to block), served from this origin.
+     On the hosted site that's the whole game: one tap, runs in its own tab.
+     Static mirrors (jsDelivr/GitHub Pages) can't serve the 75MB client, so
+     they fall back to the School Center tunnel URL if the dev stack set one
+     (SCHOOL_CENTER_CONFIG.minecraftUrl), then localhost. */
   /* Mojang grass-block mark for James Edition (crisp vector, transparent bg).
      Reused by the Featured home card and kept in sync with games.js. */
   /* Real Minecraft horizontal key art (official banner) used for the game grid
@@ -1215,6 +1235,14 @@
   var MC_FEAT_MARK = "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22264%22%20height%3D%22264%22%20viewBox%3D%220%200%20264%20264%22%3E%0A%3Cdefs%3E%0A%3ClinearGradient%20id%3D%22top%22%20x1%3D%220%22%20y1%3D%220%22%20x2%3D%221%22%20y2%3D%221%22%3E%3Cstop%20stop-color%3D%22%237ac65a%22%2F%3E%3Cstop%20offset%3D%221%22%20stop-color%3D%22%234f9e38%22%2F%3E%3C%2FlinearGradient%3E%0A%3ClinearGradient%20id%3D%22l%22%20x1%3D%220%22%20y1%3D%220%22%20x2%3D%220%22%20y2%3D%221%22%3E%3Cstop%20stop-color%3D%22%23b5935f%22%2F%3E%3Cstop%20offset%3D%221%22%20stop-color%3D%22%238a6a3c%22%2F%3E%3C%2FlinearGradient%3E%0A%3ClinearGradient%20id%3D%22r%22%20x1%3D%220%22%20y1%3D%220%22%20x2%3D%220%22%20y2%3D%221%22%3E%3Cstop%20stop-color%3D%22%23a07a45%22%2F%3E%3Cstop%20offset%3D%221%22%20stop-color%3D%22%236b4c26%22%2F%3E%3C%2FlinearGradient%3E%0A%3ClinearGradient%20id%3D%22bg%22%20x1%3D%220%22%20y1%3D%220%22%20x2%3D%220%22%20y2%3D%221%22%3E%3Cstop%20stop-color%3D%22%232a2417%22%2F%3E%3Cstop%20offset%3D%221%22%20stop-color%3D%22%23140f06%22%2F%3E%3C%2FlinearGradient%3E%0A%3C%2Fdefs%3E%0A%3Crect%20width%3D%22264%22%20height%3D%22264%22%20rx%3D%2226%22%20fill%3D%22url(%23bg)%22%2F%3E%0A%3Cg%20stroke%3D%22rgba(255%2C255%2C255%2C0.08)%22%3E%3Cpath%20d%3D%22M0%20132H264%20M132%200V264%20M66%200V264%20M198%200V264%20M0%2066H264%20M0%20198H264%22%2F%3E%3C%2Fg%3E%0A%3Cg%20transform%3D%22translate(132%20128)%20scale(4.6)%22%20style%3D%22filter%3Adrop-shadow(0%206px%208px%20rgba(0%2C0%2C0%2C0.45))%22%3E%0A%3Cpolygon%20points%3D%22-16%2C-16%2016%2C-16%2016%2C-6%20-16%2C-6%22%20fill%3D%22url(%23top)%22%2F%3E%0A%3Cpolygon%20points%3D%22-16%2C-6%20-16%2C6%2016%2C6%2016%2C-6%22%20fill%3D%22url(%23l)%22%2F%3E%0A%3Cpolygon%20points%3D%22-16%2C6%2016%2C6%2016%2C18%20-16%2C18%22%20fill%3D%22url(%23l)%22%2F%3E%0A%3Cpolygon%20points%3D%22-16%2C-6%20-16%2C6%20-24%2C8%20-24%2C-4%22%20fill%3D%22url(%23r)%22%2F%3E%0A%3Cpolygon%20points%3D%22-16%2C6%20-16%2C18%20-24%2C20%20-24%2C8%22%20fill%3D%22url(%23r)%22%2F%3E%0A%3Cpolygon%20points%3D%2216%2C-6%2016%2C6%2024%2C8%2024%2C-4%22%20fill%3D%22url(%23r)%22%2F%3E%0A%3Cpolygon%20points%3D%2216%2C6%2016%2C18%2024%2C20%2024%2C8%22%20fill%3D%22url(%23r)%22%2F%3E%0A%3Ccircle%20cx%3D%22-8%22%20cy%3D%22-10%22%20r%3D%221.6%22%20fill%3D%22%23b6e29a%22%20opacity%3D%220.9%22%2F%3E%0A%3Ccircle%20cx%3D%226%22%20cy%3D%22-13%22%20r%3D%221.2%22%20fill%3D%22%2366a84a%22%2F%3E%0A%3Ccircle%20cx%3D%220%22%20cy%3D%22-8%22%20r%3D%221%22%20fill%3D%22%23cdea9f%22%20opacity%3D%220.8%22%2F%3E%0A%3Ccircle%20cx%3D%22-3%22%20cy%3D%220%22%20r%3D%221%22%20fill%3D%22%237d5c30%22%20opacity%3D%220.7%22%2F%3E%0A%3Ccircle%20cx%3D%229%22%20cy%3D%222%22%20r%3D%221%22%20fill%3D%22%237d5c30%22%20opacity%3D%220.6%22%2F%3E%0A%3Ccircle%20cx%3D%225%22%20cy%3D%2212%22%20r%3D%221%22%20fill%3D%22%238a6a3c%22%20opacity%3D%220.7%22%2F%3E%0A%3Ccircle%20cx%3D%22-8%22%20cy%3D%228%22%20r%3D%221%22%20fill%3D%22%237d5c30%22%20opacity%3D%220.6%22%2F%3E%0A%3C%2Fg%3E%0A%3C%2Fsvg%3E";
 
   function minecraftUrl() {
+    /* The self-contained client is a first-class origin asset. Only reach
+       for the tunnel/localhost fallback on static mirrors where /mc/ is not
+       served at all. */
+    try {
+      if (!window.ChalkleApi || !window.ChalkleApi.isMirror || !window.ChalkleApi.isMirror()) {
+        return "/mc/eaglercraft-26.2.html";
+      }
+    } catch (e) { /* fall through to local */ }
     try {
       var cfg = window.SCHOOL_CENTER_CONFIG;
       if (cfg && cfg.minecraftUrl) return cfg.minecraftUrl;
@@ -1292,7 +1320,7 @@
         '<span class="home-featured-body">' +
         '<span class="home-featured-eyebrow">Play now &middot; Eaglercraft 26.2</span>' +
         '<span class="home-featured-title">Minecraft James Edition</span>' +
-        '<span class="home-featured-desc">Survival, creative, and your friends&rsquo; servers on one self-hosted build. Runs in its own tab.</span>' +
+        '<span class="home-featured-desc">The full self-contained Eaglercraft 26.2 client, served straight from this site. Survival, creative, servers &mdash; no downloads, nothing to block. Runs in its own tab.</span>' +
         '<span class="home-featured-cta">Launch</span>' +
         "</span></button>";
       featured.querySelector("[data-featured-mc]").addEventListener("click", function () {
@@ -2243,18 +2271,20 @@
        color as its sidebar tab (Games=green, Sites=blue, YouTube=red, …). */
     var TITLE_COLORS = {
       games: ["#34a853", "#0d7734"],
-      cloud: ["#b7e63f", "#7f9f14"],
+      cloud: ["#5fbeff", "#1c6ea6"],
       sites: ["#4285f4", "#1557b0"],
       music: ["#e60073", "#8c003d"],
       "apps-tools": ["#fbbc05", "#e37400"],
       proxies: ["#12b5a5", "#0a7f74"],
       settings: ["#a970ff", "#7a3fd0"],
       board: ["#fb8c00", "#c25e00"],
-      docs: ["#6ec6ff", "#1a6b9e"],
+      docs: ["#26c6da", "#0e7e8c"],
       partners: ["#d8a368", "#8a5a24"],
       home: ["#ff4d8d", "#c2185b"],
       livetv: ["#4ab88c", "#1f7a5c"],
-      youtube: ["#ff0033", "#b30024"]
+      youtube: ["#ff0033", "#b30024"],
+      ai: ["#b06bff", "#6a2fbf"],
+      bookmarklets: ["#b7e63f", "#7f9f14"]
     };
     document.querySelectorAll(".view-title").forEach(function (el) {
       var label = (el.textContent || "").trim();

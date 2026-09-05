@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>ScummVM Player</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #000; color: #fff; font-family: Arial, sans-serif; overflow: hidden; }
+  #boot { position: fixed; inset: 0; z-index: 5; display: flex; flex-direction: column; align-items: center;
+          justify-content: center; gap: 12px; text-align: center; padding: 24px; box-sizing: border-box; background: #000; }
+  #boot h1 { margin: 0; font-size: 22px; }
+  #boot p { margin: 0; font-size: 14px; color: #bbb; max-width: 520px; line-height: 1.45; }
+  #bar { width: min(420px, 80vw); height: 8px; border-radius: 4px; background: #2a2a2a; overflow: hidden; }
+  #fill { height: 100%; width: 0%; background: #e6a23c; transition: width .15s ease; }
+  #howto { text-align: left; font-size: 13px; color: #ddd; max-width: 520px; margin: 4px 0 0; padding-left: 20px; line-height: 1.5; }
+  #howto li { margin: 3px 0; }
+  #menu { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
+  #menu a { color: #fff; background: #1f3a5f; border: 1px solid #3a5a8c; border-radius: 8px; padding: 12px 20px;
+            text-decoration: none; font-size: 16px; min-width: 260px; }
+  #menu a:hover { background: #2a4a78; }
+  .btn { background: #1f3a5f; color: #fff; border: 1px solid #3a5a8c; border-radius: 8px; padding: 10px 18px;
+         font-size: 14px; cursor: pointer; margin-top: 6px; }
+  .btn:hover { background: #2a4a78; }
+  #canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: block; border: 0; }
+  #download-modal { background: #1c1c1c; border-radius: 8px; display: none; position: fixed; left: 50%; bottom: 8%;
+                    transform: translateX(-50%); width: min(400px, 90vw); z-index: 10; font-size: 13px;
+                    box-shadow: 0 6px 18px rgba(0,0,0,.5); }
+  #download-modal-title { background: #2a2a2a; border-radius: 8px 8px 0 0; margin: 0; padding: 10px 16px; text-align: center; font-size: 14px; }
+  #download-modal-content { padding: 12px 16px; }
+  #download-modal-progress { background: #333; border-radius: 4px; height: 12px; overflow: hidden; }
+  #download-modal-progress-fill { background: #e6a23c; height: 100%; width: 0%; transition: width .5s ease; }
+  #download-modal-progress-text, #download-modal-speed-text { color: #ccc; font-size: 12px; margin: 8px 0 0; text-align: center; }
+</style>
+</head>
+<body>
+<div id="boot">
+  <h1 id="bt">ScummVM</h1>
+  <p id="bs">Loading&hellip;</p>
+  <div id="bar"><div id="fill"></div></div>
+  <div id="howtowrap"></div>
+</div>
+
+<div id="download-modal">
+  <h3 id="download-modal-title"><span></span></h3>
+  <div id="download-modal-content">
+    <div id="download-modal-progress"><div id="download-modal-progress-fill"></div></div>
+    <p id="download-modal-progress-text">Downloaded 0 KB / 0 MB</p>
+    <p id="download-modal-speed-text">Download speed: 0 MB/s</p>
+  </div>
+</div>
+
+<canvas id="canvas" class="emscripten" oncontextmenu="event.preventDefault()" tabindex="-1"></canvas>
+
+<script>
+(function () {
+  "use strict";
+  /* Games this player knows about. Each slug maps to a scummvm.ini section
+     and a data directory under assets/scummvm/games/<slug>/. */
+  var GAMES = {
+    "backyard-baseball": { title: "Backyard Baseball", section: "backyard-baseball", dir: "games/backyard-baseball" },
+    "backyard-soccer": { title: "Backyard Soccer", section: "backyard-soccer", dir: "games/backyard-soccer" },
+    "backyard-football": { title: "Backyard Football", section: "backyard-football", dir: "games/backyard-football" },
+    "backyard-basketball": { title: "Backyard Basketball", section: "backyard-basketball", dir: "games/backyard-basketball" }
+  };
+
+  var bt = document.getElementById("bt");
+  var bs = document.getElementById("bs");
+  var fill = document.getElementById("fill");
+  var howtoWrap = document.getElementById("howtowrap");
+  var boot = document.getElementById("boot");
+
+  function setStatus(title, text) {
+    if (bt) bt.textContent = title;
+    if (bs) bs.textContent = text || "";
+  }
+
+  function setProgress(pct) {
+    if (fill) fill.style.width = Math.max(0, Math.min(100, pct)) + "%";
+  }
+
+  function showHowto(items) {
+    if (!howtoWrap) return;
+    var ul = document.createElement("ul");
+    ul.id = "howto";
+    items.forEach(function (it) {
+      var li = document.createElement("li");
+      li.textContent = it;
+      ul.appendChild(li);
+    });
+    howtoWrap.appendChild(ul);
+  }
+
+  function fmtMB(n) {
+    return (n / (1024 * 1024)).toFixed(1) + " MB";
+  }
+
+  function showMenu() {
+    setStatus("ScummVM Player", "Pick a game to play");
+    var wrap = document.getElementById("menu") || (function () {
+      var d = document.createElement("div");
+      d.id = "menu";
+      howtoWrap.parentNode.insertBefore(d, howtoWrap.nextSibling);
+      return d;
+    })();
+    wrap.innerHTML = "";
+    Object.keys(GAMES).forEach(function (slug) {
+      var a = document.createElement("a");
+      a.href = "?game=" + encodeURIComponent(slug);
+      a.textContent = GAMES[slug].title;
+      wrap.appendChild(a);
+    });
+  }
+
+  function showMissing(game) {
+    setStatus(game.title, "The game data files are not installed yet.");
+    showHowto([
+      "Add this game's data files to assets/scummvm/games/" + game.dir.replace("games/", "") + "/ (you need your own copy of the game - the original CD or the Backyard Sports re-release from GOG/Steam).",
+      "Copy the game folder's data files there (the .HE0 / .LA0 / .LT0 style files - usually the whole CD folder).",
+      "Run: python tools/make-scummvm-manifest.py assets/scummvm/games/" + game.dir.replace("games/", ""),
+      "Then reload this page."
+    ]);
+    var btn = document.createElement("button");
+    btn.className = "btn";
+    btn.textContent = "Reload";
+    btn.onclick = function () { location.reload(); };
+    if (howtoWrap) howtoWrap.parentNode.appendChild(btn);
+  }
+
+  function bootScumm(game, files) {
+    setStatus(game.title, "Starting ScummVM&hellip;");
+    setProgress(100);
+    /* The runtime reads CLI args from the URL hash, so point it at the ini
+       section before scummvm.js loads. */
+    try { location.hash = "#" + game.section; } catch (e) { /* ignore */ }
+
+    window.Module = {
+      preRun: [function () {
+        var FS = window.Module.FS;
+        if (!FS) return;
+        try {
+          FS.mkdirTree("/data/games/" + game.section);
+          files.forEach(function (f) {
+            var p = "/data/games/" + game.section + "/" + f.path;
+            try { FS.writeFile(p, f.data); } catch (e) { console.error("write fail", p, e); }
+          });
+        } catch (e) { console.error("preRun data error", e); }
+      }],
+      postRun: [],
+      print: function (text) { console.log(text); },
+      printErr: function (text) { console.error(text); },
+      canvas: (function () {
+        var c = document.getElementById("canvas");
+        c.addEventListener("webglcontextlost", function (e) { e.preventDefault(); }, false);
+        return c;
+      })(),
+      setStatus: function (text) {
+        if (!window.Module.setStatus.last) window.Module.setStatus.last = "";
+        document.getElementById("download-modal").style.display = "block";
+        if (text === window.Module.setStatus.last) return;
+        window.Module.setStatus.last = text;
+        if (text && text.length) document.getElementById("download-modal-title").textContent = text;
+        else {
+          document.getElementById("download-modal").style.display = "none";
+          document.getElementById("download-modal-progress-fill").style.width = "0%";
+        }
+      },
+      onRuntimeInitialized: function () {
+        boot.style.display = "none";
+        if (typeof httpHideProgressBar === "function") httpHideProgressBar();
+      },
+      totalDependencies: 0,
+      monitorRunDependencies: function (left) {
+        this.totalDependencies = Math.max(this.totalDependencies, left);
+        window.Module.setStatus(left ? "Preparing... (" + (this.totalDependencies - left) + "/" + this.totalDependencies + ")" : "All downloads complete.");
+      }
+    };
+  }
+
+  var params = new URLSearchParams(location.search);
+  var slug = (params.get("game") || "").trim();
+
+  if (!slug || !GAMES[slug]) {
+    showMenu();
+    return;
+  }
+
+  var game = GAMES[slug];
+  setStatus(game.title, "Checking game files&hellip;");
+  fetch(game.dir + "/manifest.json", { cache: "no-store" })
+    .then(function (r) {
+      if (!r.ok) throw new Error("no manifest");
+      return r.json();
+    })
+    .then(function (manifest) {
+      var list = (manifest && Array.isArray(manifest.files)) ? manifest.files : [];
+      if (!list.length) throw new Error("empty manifest");
+      var total = list.reduce(function (sum, f) { return sum + (Number(f.size) || 0); }, 0);
+      var done = 0;
+      setStatus(game.title, "Downloading game data (0 / " + fmtMB(total) + ")&hellip;");
+      var seq = Promise.resolve();
+      var files = [];
+      list.forEach(function (f) {
+        seq = seq.then(function () {
+          return fetch(game.dir + "/" + f.path, { cache: "no-store" })
+            .then(function (resp) {
+              if (!resp.ok) throw new Error("fetch " + f.path);
+              return resp.arrayBuffer();
+            })
+            .then(function (buf) {
+              files.push({ path: f.path, data: new Uint8Array(buf) });
+              done += buf.byteLength;
+              setProgress((done / total) * 100);
+              setStatus(game.title, "Downloading game data (" + fmtMB(done) + " / " + fmtMB(total) + ")&hellip;");
+            });
+        });
+      });
+      return seq.then(function () { return files; });
+    })
+    .then(function (files) {
+      bootScumm(game, files);
+    })
+    .catch(function () {
+      showMissing(game);
+    });
+})();
+</script>
+<script async type="text/javascript" src="scummvm.js"></script>
+</body>
+</html>

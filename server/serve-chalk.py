@@ -34,8 +34,16 @@ import mmap
 import socket
 import base64
 import threading
+import mimetypes
 from urllib.parse import urljoin
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+
+# WebAssembly (ScummVM runtime) needs the right MIME type for
+# WebAssembly.compileStreaming to skip the arrayBuffer fallback.
+try:
+    mimetypes.add_type("application/wasm", ".wasm")
+except Exception:
+    pass
 
 HOST = "127.0.0.1"
 WEB_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -536,9 +544,11 @@ class _MusicRelay:
                 return self._music_json({"error": "missing id"}, 400)
             ckey = "music:stream:" + vid
             ccached = _yt_cache.get(ckey)
-            if ccached and time.time() - ccached[0] < 3600:
+            # Successes cache an hour; empty results cache ten minutes so a dead
+            # track skips instantly instead of hammering upstream every play.
+            if ccached and time.time() - ccached[0] < (ccached[2] if len(ccached) > 2 else 3600):
                 return self._music_json(ccached[1], 200, cacheable=True)
-            data, code = _yt_fetch_json("/streams/" + urllib.parse.quote(vid), timeout=20, retries=3)
+            data, code = _yt_fetch_json("/streams/" + urllib.parse.quote(vid), timeout=10, retries=1)
             stream_url = ""
             if isinstance(data, dict):
                 # Prefer a real audio stream (m4a/webm), else any muxed mp4.
@@ -558,13 +568,15 @@ class _MusicRelay:
             if not stream_url:
                 stream_url = _invidious_video(vid)
             if not stream_url:
-                return self._music_json({"url": "", "via": "youtube", "br": -1})
+                payload = {"url": "", "via": "youtube", "br": -1}
+                _yt_cache[ckey] = (time.time(), payload, 600)
+                return self._music_json(payload, 200, cacheable=True)
             payload = {
                 "url": "/music/stream?u=" + _music_b64u(stream_url),
                 "via": "youtube",
                 "br": 320
             }
-            _yt_cache[ckey] = (time.time(), payload)
+            _yt_cache[ckey] = (time.time(), payload, 3600)
             return self._music_json(payload, 200, cacheable=True)
 
         # Cover art: use the YouTube thumbnail (rewritten to /music/pic proxy).
@@ -676,11 +688,123 @@ class _MusicRelay:
 # YouTube tab backend. The page (youtube.js) only ever calls this origin:
 #   /yt/search?q=..&filter=..  -> video / channel search via Piped API
 #   /yt/trending               -> trending videos
-#   /yt/channel/<id>           -> channel profile + latest videos
-#   /yt/thumb?u=<b64>          -> image proxy for thumbnails/avatars
+#   /yt/channel/<id>           -> channel profile + latest videos    # /yt/thumb?u=<b64>          -> image proxy for thumbnails/avatars
 # Search results come back with thumbnails rewritten to /yt/thumb so the
 # browser never hits a third-party host directly (school-friendly). Results
 # are cached briefly so repeated browsing doesn't hammer the upstream.
+# Thumbnails themselves are written to a disk cache (temp dir, 7-day TTL) so
+# the same cover is served instantly on repeat visits instead of re-fetching
+# i.ytimg.com every time a card renders.
+
+_yt_thumb_cache_dir = None
+
+
+def _yt_thumb_cache_path():
+    """Directory used to cache proxied thumbnails on disk (7-day TTL)."""
+    global _yt_thumb_cache_dir
+    if _yt_thumb_cache_dir is None:
+        import tempfile
+        _yt_thumb_cache_dir = os.path.join(tempfile.gettempdir(), "chalkle-yt-thumbs")
+    return _yt_thumb_cache_dir
+
+
+_YT_THUMB_LADDER = ["maxresdefault", "hqdefault", "mqdefault", "default"]
+
+
+def _yt_thumb_fallback(url):
+    """Step a YouTube thumb URL down to the next smaller size. Returns None
+    when there is no smaller size left, so callers can stop trying."""
+    import re as _re
+    m = _re.match(r"(https?://[^/]+/vi(_webp)?/[^/?#]+/)(maxresdefault|hqdefault|mqdefault|default)(_live)?(\.jpg)", url)
+    if not m:
+        return None
+    cur = m.group(3)
+    if cur not in _YT_THUMB_LADDER:
+        return None
+    i = _YT_THUMB_LADDER.index(cur)
+    if i + 1 >= len(_YT_THUMB_LADDER):
+        return None
+    nxt = _YT_THUMB_LADDER[i + 1]
+    # A live stream only has hqdefault_live; falling one step down from it
+    # lands on the plain hqdefault frame.
+    return m.group(1) + nxt + m.group(5)
+
+
+def _yt_fetch_thumb(url, timeout=10):
+    """Fetch one thumbnail. Returns (bytes, content-type) or (None, None)."""
+    import urllib.request, urllib.error
+    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 ChalkleYT/1.0", "Accept": "image/*"})
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            body = resp.read()
+            ctype = resp.headers.get("Content-Type", "").split(";")[0].strip().lower()
+            return body, (ctype or "image/jpeg")
+    except Exception:
+        return None, None
+
+
+def _yt_thumb_serve(self, url):
+    """Serve a thumbnail from the disk cache when fresh, else fetch (with
+    size fallback) and fill the cache. Returns True when a response was sent."""
+    import hashlib
+    digest = hashlib.sha1(url.encode("utf-8")).hexdigest()
+    cache_dir = _yt_thumb_cache_path()
+    cached = os.path.join(cache_dir, digest)
+    meta = cached + ".meta"
+    try:
+        if os.path.exists(cached) and os.path.exists(meta) and (time.time() - os.path.getmtime(cached)) < 7 * 86400:
+            with open(meta, encoding="utf-8") as fh:
+                ctype = fh.read().strip() or "image/jpeg"
+            with open(cached, "rb") as fh:
+                body = fh.read()
+            self.send_response(200)
+            self.send_header("Content-Type", ctype)
+            self.send_header("Cache-Control", "public, max-age=86400")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return True
+    except Exception:
+        pass
+    attempts = [url]
+    while len(attempts) < 3:
+        nxt = _yt_thumb_fallback(attempts[-1])
+        if not nxt or nxt in attempts:
+            break
+        attempts.append(nxt)
+    for u in attempts:
+        body, ctype = _yt_fetch_thumb(u)
+        if body:
+            try:
+                os.makedirs(cache_dir, exist_ok=True)
+                with open(cached, "wb") as fh:
+                    fh.write(body)
+                with open(meta, "w", encoding="utf-8") as fh:
+                    fh.write(ctype)
+                # Opportunistic sweep: drop entries older than the 7-day TTL.
+                try:
+                    now = time.time()
+                    for fn in os.listdir(cache_dir):
+                        fp = os.path.join(cache_dir, fn)
+                        if now - os.path.getmtime(fp) > 7 * 86400:
+                            os.unlink(fp)
+                except Exception:
+                    pass
+            except Exception:
+                pass
+            self.send_response(200)
+            self.send_header("Content-Type", ctype or "image/jpeg")
+            self.send_header("Cache-Control", "public, max-age=86400")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            try:
+                self.wfile.write(body)
+            except (BrokenPipeError, ConnectionResetError):
+                pass
+            return True
+    return False
 
 YT_INSTANCES = [
     "https://api.piped.private.coffee",
@@ -717,7 +841,7 @@ def _yt_unb64u(s):
     return base64.urlsafe_b64decode((s + "=" * (-len(s) % 4)).encode("ascii")).decode("utf-8")
 
 
-def _yt_fetch_json(path, timeout=8, retries=2):
+def _yt_fetch_json(path, timeout=7, retries=1):
     """Resolve a Piped API path by racing all instances in parallel so one
     slow or dead instance can't stall the request for its whole timeout.
     Instances that fail to connect get a short cooldown and are skipped on
@@ -785,31 +909,55 @@ def _yt_fetch_json(path, timeout=8, retries=2):
     return {"error": "all YouTube instances failed: " + str(last_err[0])}, 502
 
 
-def _invidious_video(video_id, timeout=15):
-    """Resolve a playable YouTube URL when Piped's stream endpoint fails."""
+def _invidious_video(video_id, timeout=6):
+    """Resolve a playable YouTube URL when Piped's stream endpoint fails.
+
+    All instances are raced in parallel under a short global deadline. The old
+    serial loop could stall the queue up to ~90s (6 instances x 15s) whenever
+    Piped returned nothing, which made Music feel dead; this returns fast with
+    an empty result instead of letting one broken track wedge playback."""
     import urllib.request, urllib.error, urllib.parse, json as _json
-    last_err = None
-    for inst in INVIDIOUS_INSTANCES:
-        url = inst + "/api/v1/videos/" + urllib.parse.quote(video_id)
-        req = urllib.request.Request(url, headers={
+    from concurrent.futures import ThreadPoolExecutor, wait, FIRST_COMPLETED
+
+    def try_one(inst):
+        api_url = inst + "/api/v1/videos/" + urllib.parse.quote(video_id)
+        req = urllib.request.Request(api_url, headers={
             "User-Agent": "Mozilla/5.0 ChalkleMusic/1.0",
             "Accept": "application/json",
         })
         try:
             with urllib.request.urlopen(req, timeout=timeout) as resp:
                 data = _json.loads(resp.read().decode("utf-8", "replace"))
-            adaptive = [s for s in (data.get("adaptiveFormats") or [])
-                        if isinstance(s, dict) and (s.get("url") or "").startswith("http")]
-            audio = [s for s in adaptive if str(s.get("type") or "").startswith("audio/")]
-            audio.sort(key=lambda s: int(s.get("bitrate") or 0), reverse=True)
-            formats = [s for s in (data.get("formatStreams") or [])
-                       if isinstance(s, dict) and (s.get("url") or "").startswith("http")
-                       and "video/mp4" in str(s.get("type") or "")]
-            choice = audio[0] if audio else (formats[-1] if formats else None)
-            if choice:
-                return (choice.get("url") or "").strip()
         except Exception as e:
-            last_err = type(e).__name__ + " from " + inst
+            return "", type(e).__name__ + " from " + inst
+        adaptive = [s for s in (data.get("adaptiveFormats") or [])
+                    if isinstance(s, dict) and (s.get("url") or "").startswith("http")]
+        audio = [s for s in adaptive if str(s.get("type") or "").startswith("audio/")]
+        audio.sort(key=lambda s: int(s.get("bitrate") or 0), reverse=True)
+        formats = [s for s in (data.get("formatStreams") or [])
+                   if isinstance(s, dict) and (s.get("url") or "").startswith("http")
+                   and "video/mp4" in str(s.get("type") or "")]
+        choice = audio[0] if audio else (formats[-1] if formats else None)
+        if choice:
+            return (choice.get("url") or "").strip(), ""
+        return "", "no usable stream from " + inst
+
+    last_err = [""]
+    ex = ThreadPoolExecutor(max_workers=len(INVIDIOUS_INSTANCES))
+    try:
+        pending = [ex.submit(try_one, i) for i in INVIDIOUS_INSTANCES]
+        deadline = time.time() + timeout + 2
+        while pending and time.time() < deadline:
+            done, pending = wait(pending, timeout=max(0.05, deadline - time.time()),
+                                 return_when=FIRST_COMPLETED)
+            for f in done:
+                stream, err = f.result()
+                if stream:
+                    return stream
+                if err:
+                    last_err[0] = err
+    finally:
+        ex.shutdown(wait=False)  # stragglers finish on their own socket timeout
     return ""
 
 
@@ -943,28 +1091,8 @@ class _YouTubeRelay:
             return self._yt_json({"error": "dns"}, 502)
         if _is_private_ip(ip):
             return self._yt_json({"error": "private target"}, 403)
-        import urllib.request, urllib.error
-        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 ChalkleYT/1.0", "Accept": "image/*"})
-        try:
-            with urllib.request.urlopen(req, timeout=15) as resp:
-                body = resp.read()
-                ctype = resp.headers.get("Content-Type", "").split(";")[0].strip().lower()
-                self.send_response(resp.getcode() or 200)
-                self.send_header("Content-Type", ctype or "image/jpeg")
-                self.send_header("Cache-Control", "public, max-age=86400")
-                self.send_header("Access-Control-Allow-Origin", "*")
-                self.send_header("Content-Length", str(len(body)))
-                self.end_headers()
-                self.wfile.write(body)
-        except urllib.error.HTTPError as e:
-            return self._yt_json({"error": "upstream http " + str(e.code)}, e.code)
-        except (BrokenPipeError, ConnectionResetError):
-            pass
-        except Exception as e:
-            try:
-                return self._yt_json({"error": type(e).__name__}, 502)
-            except Exception:
-                pass
+        if not _yt_thumb_serve(self, url):
+            return self._yt_json({"error": "upstream unavailable"}, 502)
 
 
 # ---------------------------------------------------------------- /api/live-tv
