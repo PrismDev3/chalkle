@@ -1048,14 +1048,14 @@ body.sidebar-collapsed .collapse-btn:active { transform: scale(0.96); }
 .home-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 7px;
   margin-top: 13px;
 }
 
 .home-primary,
 .home-secondary {
   height: 34px;
-  padding: 0 15px;
+  padding: 0 13px;
   border-radius: 999px;
   font-weight: 650;
   font-size: 14px;
@@ -2036,6 +2036,18 @@ button.home-panel-chip:hover {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+.card-source-link {
+  margin-left: 4px;
+  color: var(--va, var(--accent));
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.card-source-link:hover { color: var(--text); }
 
 .card-count::before {
   content: "";
@@ -4795,7 +4807,7 @@ html.motion-off *::after {
   border-radius: 20px;
 }
 
-.home-title { max-width: 10ch; }
+.home-title { max-width: 15ch; }
 
 .home-primary,
 .home-secondary {
@@ -5342,7 +5354,7 @@ html.motion-off *::after {
 /* ---------- Home overhaul: hero + quick launch + cover-card shelves ---------- */
 .home-hero {
   display: grid;
-  grid-template-columns: 1.35fr 0.95fr;
+  grid-template-columns: 1.45fr 0.9fr;
   gap: 14px;
   align-items: stretch;
 }
@@ -5456,8 +5468,8 @@ html.motion-off *::after {
 }
 .home-quick-more-btn:hover,
 .home-quick-more-btn[aria-expanded="true"] {
-  border-color: var(--accent);
-  background: var(--accent-soft);
+  border-color: var(--pink);
+  background: rgba(255, 77, 141, 0.12);
 }
 .home-quick-menu {
   position: absolute;
@@ -5496,7 +5508,7 @@ html.motion-off *::after {
   background: var(--panel-2);
   color: var(--text);
 }
-.home-quick-menu-item:hover .icon { color: var(--accent); }
+.home-quick-menu-item:hover .icon { color: var(--pink); }
 
 .home-surface { margin-top: auto; }
 .home-surface-head {
@@ -14768,6 +14780,7 @@ window.ChalkGames = [
   { title: "Wispcraft Eaglercraft 1.12.2 WASM GC", url: "/mc/wispcraft-eaglercraft_1.12.2-wasm-gc.html", thumb: "/assets/games/mc-wispcraft-eaglercraft_1.12.2-wasm-gc.png", category: "Minecraft" },
 ];
 </script>
+  <script src="src/community-games.js?v=20260905c"></script>
   <script data-inline="src/cloudgames.js">/* Chalkle data. Cloud gaming catalog imported from the Stratus API cloud.json.
    Regenerate with: node tools/import-stratus.mjs <path-to-cloud.json>
    Each entry maps to Stratus game_key, played through /cloud/v1. */
@@ -23359,9 +23372,9 @@ window.ChalkProxyApps = [
 
   window.ChalkleBookmarklets = { render: render };
 })();</script>
-  <script src="assets/hls.min.js?v=20260904k"></script>
-  <script src="src/livetv.js?v=20260904k"></script>
-  <script src="src/youtube.js?v=20260904k"></script>
+  <script src="assets/hls.min.js?v=20260905c"></script>
+  <script src="src/livetv.js?v=20260905c"></script>
+  <script src="src/youtube.js?v=20260905c"></script>
   <script data-inline="src/intro.js">/* Chalkle boot intro. Full-screen game-station boot, once per session, skippable,
    respectful of the user's reduced-motion setting. */
 
@@ -23557,7 +23570,8 @@ window.ChalkProxyApps = [
           if (!copy.category) copy.category = "PC Port";
           return copy;
         });
-        return ports.concat(Array.isArray(window.ChalkGames) ? window.ChalkGames.slice() : []);
+        var community = Array.isArray(window.ChalkCommunityGames) ? window.ChalkCommunityGames.slice() : [];
+        return ports.concat(Array.isArray(window.ChalkGames) ? window.ChalkGames.slice() : [], community);
       }
     },
     sites: { key: "chalkle-sitelib-v2", seed: function () { return (window.ChalkSites || []).slice(); } },
@@ -23671,7 +23685,7 @@ window.ChalkProxyApps = [
           var merged = withId(parsed).map(sanitizeItem).filter(Boolean);
           var seeds = withId(conf.seed()).map(sanitizeItem).filter(Boolean);
           var dirty = merged.length !== parsed.length; /* holes / nulls removed */
-          var SYNC_FIELDS = ["url", "thumb", "category", "porter", "isNew", "html", "kind", "via", "thumbCover"];
+          var SYNC_FIELDS = ["url", "thumb", "category", "porter", "isNew", "html", "kind", "via", "thumbCover", "sourceRepo", "license", "sourceLabel", "desc"];
           seeds.forEach(function (seed) {
             if (!seed || !seed.title) return;
             var hit = null;
@@ -24424,17 +24438,34 @@ window.ChalkProxyApps = [
     var thumbHost = "";
     try { thumbHost = new URL(item.thumb || "").hostname; } catch (e) { /* no thumb */ }
     var safeThumb = !!item.thumb && !isLocalFileUrl(item.thumb) && thumbHost !== "itgetyouhurt.gyalsanglama.com.np";
+    /* Generated SVG covers are useful as a last resort, but they do not read
+       like real game art. Prefer a raster page capture for items that expose a
+       live URL, then let the existing image/favicons fallback handle failures.
+       The service is intentionally opt-in per render and never replaces local
+       artwork that already exists. */
+    /* thum.io wants the target URL as a raw path segment - fully encoding it
+       returns 400. Targets carrying their own query/hash would be ambiguous,
+       so those keep the generated SVG cover. */
+    var thumbUrl = String(item.url || "");
+    var rasterThumb = item.thumb && /^data:image\/svg\+xml/i.test(String(item.thumb)) && /^https?:/i.test(thumbUrl) && thumbUrl.indexOf("?") === -1 && thumbUrl.indexOf("#") === -1
+      ? "https://image.thum.io/get/width/640/crop/360/" + thumbUrl
+      : "";
+    if (rasterThumb) { item.__rasterThumb = rasterThumb; safeThumb = true; }
     /* 16:9 SVG banners (our Eaglercraft tiles) should fill the card like covers;
        smaller square data-URIs (icons) get the centered icon treatment. */
     var thumbLooksLikeIcon = /favicon|apple-touch-icon|google\.com\/s2|gstatic\.com\/favicon|\/logo|^data:image(?!.*%22640%22%20height=%22360%22)/i.test(item.thumb || "");
     /* thumbCover forces cover-fit for images whose URL incidentally looks like a
        logo (e.g. a big hero jpg that contains "/Logo") but should fill the box. */
     if (item.thumbCover) thumbLooksLikeIcon = false;
+    /* A generated SVG cover swapped for a thum.io raster capture always fills
+       the card like real art - never the centered small-icon treatment. */
+    if (rasterThumb) thumbLooksLikeIcon = false;
     var fallbackAttr = faviconUrl ? ' data-fallback="' + escapeAttr(faviconUrl) + '"' : "";
 
     var thumb;
     if (safeThumb) {
-      thumb = fallbackHtml + '<img class="thumb-art' + (thumbLooksLikeIcon ? ' thumb-icon' : '') + '" src="' + escapeAttr(item.thumb) + '"' + fallbackAttr + ' alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.onerror=null;this.classList.add(\'thumb-failed\');' + (faviconUrl ? 'this.src=this.dataset.fallback;this.classList.add(\'thumb-icon\');' : 'this.remove();') + '">';
+      var renderedThumb = item.__rasterThumb || item.thumb;
+      thumb = fallbackHtml + '<img class="thumb-art' + (thumbLooksLikeIcon ? ' thumb-icon' : '') + '" src="' + escapeAttr(renderedThumb) + '"' + fallbackAttr + ' alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.onerror=null;this.classList.add(\'thumb-failed\');' + (faviconUrl ? 'this.src=this.dataset.fallback;this.classList.add(\'thumb-icon\');' : 'this.remove();') + '">';
     } else if (faviconUrl) {
       thumb = fallbackHtml + '<img class="thumb-art thumb-icon" src="' + escapeAttr(faviconUrl) + '" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.classList.add(\'thumb-failed\');this.remove()">';
     } else {
@@ -24443,7 +24474,13 @@ window.ChalkProxyApps = [
 
     var porter = item.porter ? '<span class="card-sub">web port by ' + escapeHtml(item.porter) + "</span>" : "";
     var badge = item.porter ? '<span class="card-badge">PC</span>' : "";
-    var source = item.porter ? "PC port" : host || "web game";    var ribbon = item.isNew ? '<span class="ribbon">New this week</span>' : "";
+    var source = item.sourceLabel || (item.porter ? "PC port" : host || "web game");
+    var ribbon = item.isNew ? '<span class="ribbon">New this week</span>' : "";
+    /* The whole card body sits inside the launch anchor, so the source credit
+       cannot be a real <a> (a nested anchor would make the parser close the
+       launch link early and break the card). Render it as a clickable span and
+       let the delegated #main handler below open the repo with preventDefault. */
+    var sourceLink = item.sourceRepo ? '<span class="card-source-link" data-credit-repo="' + escapeAttr(item.sourceRepo) + '" title="View source repository (open source game)">' + escapeHtml(item.license ? item.license + " source" : "Source") + '</span>' : "";
     var category = item.category ? '<span class="card-cat">' + escapeHtml(item.category) + "</span>" : "";
     var htmlAttr = (item.html && String(item.html).trim()) ? ' data-html="' + escapeAttr(item.html) + '"' : "";
     /* Same-origin /game-builds pages and Unity ports must open as a real tab.
@@ -24482,7 +24519,7 @@ window.ChalkProxyApps = [
       '<span class="card-thumb">' + thumb + '<span class="quick-launch">Launch</span></span>' +
       '<span class="card-body">' +
       '<span class="card-main"><span class="card-title" title="' + dataTooltip + '">' + title + "</span>" + category + badge + porter + "</span>" +
-      '<span class="card-side"><span class="card-source">' + escapeHtml(source) + '</span><span class="card-count">' + countLabel + "</span></span>" +
+      '<span class="card-side"><span class="card-source">' + escapeHtml(source) + sourceLink + '</span><span class="card-count">' + countLabel + "</span></span>" +
       "</span>" +
       "</a>" +
       "</article>"
@@ -24828,8 +24865,12 @@ window.ChalkProxyApps = [
       popularBox.innerHTML = games.map(function (item) {
         var title = escapeHtml(item.title || "Untitled");
         var key = item._id || gameKey(item);
-        var art = (item.thumb && !isLocalFileUrl(item.thumb))
-          ? hvFallback(escapeHtml((item.title || "?").charAt(0).toUpperCase() || "?")) + hvImg(item.thumb, "")
+        var rasterTarget = String(item.url || "");
+        var raster = item.thumb && /^data:image\/svg\+xml/i.test(String(item.thumb)) && /^https?:/i.test(rasterTarget) && rasterTarget.indexOf("?") === -1 && rasterTarget.indexOf("#") === -1
+          ? "https://image.thum.io/get/width/640/crop/360/" + rasterTarget
+          : item.thumb;
+        var art = (raster && !isLocalFileUrl(raster))
+          ? hvFallback(escapeHtml((item.title || "?").charAt(0).toUpperCase() || "?")) + hvImg(raster, "")
           : hvFallback(escapeHtml((item.title || "?").charAt(0).toUpperCase() || "?"));
         return homeCard("home-game", key, title, escapeHtml(item.porter ? "PC port" : (item.category || "Game")), art);
       }).join("");
@@ -26552,6 +26593,15 @@ window.ChalkProxyApps = [
         if (gameProxy && window.ChalkleLaunch) {
           e.preventDefault();
           window.ChalkleLaunch.openProxyApp(gameProxy.dataset.gameProxy || "", gameProxy.dataset.title || "");
+          return;
+        }
+
+        /* Open-source credit chip on a game card - takes the user to the
+           project repository instead of launching the game. */
+        var creditRepo = e.target.closest("[data-credit-repo]");
+        if (creditRepo) {
+          e.preventDefault();
+          try { window.open(creditRepo.getAttribute("data-credit-repo"), "_blank", "noopener"); } catch (err) { /* popup blocked */ }
           return;
         }
 
