@@ -59,12 +59,17 @@
     var path = "/music/api?" + q;
     return window.ChalkleApi ? window.ChalkleApi.url(path) : path;
   }
-  function getJSON(url) {
-    return fetch(url, { cache: "no-store" }).then(function (r) {
+  function getJSON(url, signal) {
+    return fetch(url, { cache: "no-store", signal: signal }).then(function (r) {
       if (!r.ok) throw new Error("http " + r.status);
       return r.json();
     });
   }
+  /* Per-track stream loads: only the newest load may act, and any request that
+     outlives the timeout is dropped so one dead track can't wedge the queue. */
+  var loadSeq = 0;
+  var loadCtrl = null;
+  var LOAD_TIMEOUT_MS = 20000;
   function toast(msg) {
     if (!els.toast) return;
     els.toast.textContent = msg;
@@ -85,6 +90,30 @@
     try { localStorage.setItem(PREFS_KEY, JSON.stringify({ vol: state.vol, muted: state.muted, speed: state.speed, pitch: state.pitch })); } catch (e) { /* no storage */ }
   }
   function artistName(meta) { return (meta && meta.artist && meta.artist.length) ? meta.artist.join(" · ") : ((meta && meta.album) || "Unknown artist"); }
+  /* Piped repeats feature tags in some titles ("... ft. Daft Punk (Official
+     Video) ft. Daft Punk"). Drop later duplicates and tidy stray spaces. */
+  function cleanName(name) {
+    var str = String(name || "");
+    var seen = {};
+    str = str.replace(/\b(?:ft|feat)\.\s+[A-Za-z0-9&'.-]+/gi, function (m) {
+      var key = m.toLowerCase().replace(/\s+/g, " ");
+      if (seen[key]) return "";
+      seen[key] = true;
+      return m;
+    });
+    return str.replace(/\s{2,}/g, " ").replace(/\s+\)/g, ")").replace(/\s+$/g, "").replace(/^\s+/g, "");
+  }
+  /* Search results carry no real album; Piped reuses the channel name, so the
+     album column would just repeat the artist. Show "Single" instead. */
+  function albumLabel(meta) {
+    var album = String(meta && meta.album || "").trim();
+    if (!album || album.toLowerCase() === artistName(meta).toLowerCase()) return "Single";
+    return album;
+  }
+  function trackCountLabel(n) {
+    n = Number(n) || 0;
+    return n + (n === 1 ? " track" : " tracks");
+  }
   function firstArtist(meta) { return meta && meta.artist && meta.artist.length ? String(meta.artist[0]) : "Unknown artist"; }
   function trackId(meta) { return String(meta && (meta.id || meta.url_id || meta.name) || ""); }
   function isSaved(meta) { return state.library.indexOf(trackId(meta)) !== -1; }
@@ -174,7 +203,7 @@
     var item = cloneMeta(meta, list, prefix);
     return '<article class="music-card" data-mplay="' + esc(item._key) + '" tabindex="0" role="button">' +
       '<span class="music-card-art">' + artHtml(item, "music-art") + playIcon() + '</span>' +
-      '<span class="music-card-copy"><span class="music-card-title">' + esc(item.name || "Untitled") + '</span><span class="music-card-sub">' + esc(artistName(item)) + '</span></span>' +
+      '<span class="music-card-copy"><span class="music-card-title">' + esc(cleanName(item.name) || "Untitled") + '</span><span class="music-card-sub">' + esc(artistName(item)) + '</span></span>' +
       saveButton(item) + '</article>';
   }
   function albumCard(album, artist, meta, tracks) {
@@ -182,7 +211,7 @@
     return '<button class="music-cover-card" data-mcollection="album" data-mcollection-key="' + esc(key) + '">' +
       '<span class="music-cover-art">' + artHtml(meta, "music-art") + playIcon() + '</span>' +
       '<span class="music-cover-title">' + esc(album || "Unknown album") + '</span>' +
-      '<span class="music-cover-sub">' + esc(artist || "Unknown artist") + " · " + tracks.length + " tracks</span></button>";
+      '<span class="music-cover-sub">' + esc(artist || "Unknown artist") + " · " + trackCountLabel(tracks.length) + "</span></button>";
   }
   function artistCard(name, meta) {
     return '<button class="music-artist-card" data-mcollection="artist" data-mcollection-key="' + esc(name) + '">' +
@@ -196,8 +225,8 @@
     return '<div class="music-track-row" data-mplay="' + esc(item._key) + '" tabindex="0" role="button">' +
       '<span class="music-track-num">' + (i + 1) + '</span>' +
       '<span class="music-track-art">' + artHtml(item, "music-art") + '</span>' +
-      '<span class="music-track-main"><span class="music-track-name">' + esc(item.name || "Untitled") + '</span><span class="music-track-artist">' + esc(artistName(item)) + '</span></span>' +
-      '<span class="music-track-album">' + esc(item.album || "Single") + '</span>' +
+      '<span class="music-track-main"><span class="music-track-name">' + esc(cleanName(item.name) || "Untitled") + '</span><span class="music-track-artist">' + esc(artistName(item)) + '</span></span>' +
+      '<span class="music-track-album">' + esc(albumLabel(item)) + '</span>' +
       '<span class="music-track-views">' + (Number(item.views) ? esc(formatViews(item.views)) : "") + '</span>' + saveButton(item) +
       '</div>';
   }
@@ -287,7 +316,7 @@
     var heroSave = saveButton(heroItem).replace("music-save", "music-hero-save");
     var html = '<div class="music-home-shell">' +
       '<div class="music-home-intro"><div><span class="music-eyebrow">Chalkle Music</span><h1>' + greeting() + '</h1><p>Find something to play, then keep browsing without losing your place.</p></div><span class="music-source-note">Live catalog · relay powered</span></div>' +
-      '<div class="music-hero"><div class="music-hero-art">' + artHtml(heroItem, "music-art") + '</div><div class="music-hero-copy"><span class="music-eyebrow">Featured track</span><h2>' + esc(hero.name || "Untitled") + '</h2><p class="music-hero-artist">' + esc(artistName(hero)) + '</p><p class="music-hero-album">' + esc(hero.album || "Single") + '</p><div class="music-hero-actions">' + heroPlay + heroSave + '</div></div></div>' +
+      '<div class="music-hero"><div class="music-hero-art">' + artHtml(heroItem, "music-art") + '</div><div class="music-hero-copy"><span class="music-eyebrow">Featured track</span><h2>' + esc(cleanName(hero.name) || "Untitled") + '</h2><p class="music-hero-artist">' + esc(artistName(hero)) + '</p><p class="music-hero-album">' + esc(albumLabel(hero)) + '</p><div class="music-hero-actions">' + heroPlay + heroSave + '</div></div></div>' +
       section(recentTitle, recent.length ? "Pick up where you left off" : "Popular picks to get you started", '<div class="music-card-row">' + recentDisplay.map(function (m, i) { return trackCard(m, recentDisplay, "recent" + i); }).join("") + '</div>', "music-section-cards") +
       section("Made for you", "Based on what is popular right now", '<div class="music-card-row">' + made.map(function (m, i) { return trackCard(m, made, "made" + i); }).join("") + '</div>', "music-section-cards") +
       section("Popular albums", "Albums and collections", '<div class="music-cover-row">' + albums.map(function (a) { return albumCard(a.album, a.artist, a.meta, a.tracks); }).join("") + '</div>', "music-section-covers") +
@@ -452,7 +481,7 @@
     state.idx = i;
     var meta = state.queue[i];
     els.player.hidden = false;
-    els.title.textContent = meta.name || "Untitled";
+    els.title.textContent = cleanName(meta.name) || "Untitled";
     els.artist.textContent = artistName(meta);
     setPlayingUI(false);
     coverUrl(meta).then(function () { fillPlayerArt(); });
@@ -461,12 +490,32 @@
     fetchLyrics(meta);
     els.seek.value = 0; els.cur.textContent = "0:00"; els.dur.textContent = "0:00";
     highlightRows(); renderQueue();
-    getJSON(api({ path: "url", id: meta.url_id != null ? meta.url_id : meta.id, br: 320 })).then(function (d) {
-      var url = d && d.url || "";
-      if (!url) { toast('"' + (meta.name || "Track") + '" is not available'); setTimeout(function () { next(true); }, 1000); return; }
-      audio.src = url; audio.load(); applyTempo();
-      if (autoplay) audio.play().catch(function () { setPlayingUI(false); });
-    }).catch(function () { toast("Stream failed: " + (meta.name || "track")); setTimeout(function () { next(true); }, 1000); });
+
+    loadSeq++;
+    var seq = loadSeq;
+    if (loadCtrl) { try { clearTimeout(loadCtrl._timer); } catch (e) {} try { loadCtrl.abort(); } catch (e) {} loadCtrl = null; }
+    var ctrl = typeof AbortController !== "undefined" ? new AbortController() : null;
+    if (ctrl) {
+      loadCtrl = ctrl;
+      ctrl._timer = setTimeout(function () { try { ctrl.abort(); } catch (e) {} }, LOAD_TIMEOUT_MS);
+    }
+    var signal = ctrl ? ctrl.signal : undefined;
+    getJSON(api({ path: "url", id: meta.url_id != null ? meta.url_id : meta.id, br: 320 }), signal)
+      .then(function (d) {
+        if (seq !== loadSeq) return;  // a newer track started; drop this response
+        var url = d && d.url || "";
+        if (!url) { toast('"' + (cleanName(meta.name) || "Track") + '" is not available'); setTimeout(function () { next(true); }, 1000); return; }
+        audio.src = url; audio.load(); applyTempo();
+        if (autoplay) audio.play().catch(function () { setPlayingUI(false); });
+      })
+      .catch(function () {
+        if (seq !== loadSeq) return;
+        toast("Stream timed out or failed: " + (cleanName(meta.name) || "track"));
+        setTimeout(function () { next(true); }, 1000);
+      })
+      .then(function () {
+        if (loadCtrl === ctrl) { loadCtrl = null; if (ctrl) { try { clearTimeout(ctrl._timer); } catch (e) {} } }
+      });
   }
   function fillPlayerArt() {
     var meta = state.queue[state.idx];
@@ -542,7 +591,7 @@
   }
   function renderQueue() {
     if (!els.queueList) return;
-    els.queueList.innerHTML = state.queue.length ? state.queue.map(function (m, i) { return '<button class="p-qrow ' + (i === state.idx ? "is-cur" : "") + '" data-qjump="' + i + '"><span class="p-qnum">' + (i + 1) + '</span><span class="p-qname">' + esc(m.name) + '</span><span class="p-qsub">' + esc(artistName(m)) + '</span></button>'; }).join("") : '<p class="p-lyric-none">Queue is empty - play something.</p>';
+    els.queueList.innerHTML = state.queue.length ? state.queue.map(function (m, i) { return '<button class="p-qrow ' + (i === state.idx ? "is-cur" : "") + '" data-qjump="' + i + '"><span class="p-qnum">' + (i + 1) + '</span><span class="p-qname">' + esc(cleanName(m.name)) + '</span><span class="p-qsub">' + esc(artistName(m)) + '</span></button>'; }).join("") : '<p class="p-lyric-none">Queue is empty - play something.</p>';
     els.queueList.querySelectorAll("[data-qjump]").forEach(function (node) { node.addEventListener("click", function () { loadTrack(+node.getAttribute("data-qjump"), true); els.queuePanel.hidden = true; }); });
   }
   function togglePop(pop) {

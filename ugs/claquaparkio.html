@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en-us">
+
+<head>
+  <meta charset="utf-8">
+  <!-- Self-hosted build: resources resolve relative to this base, served from
+       our own origin so no CDN/MIME/CORS blocks can kill the game. -->
+  <base href="aquapark-io/">
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <title>Aquapark IO Unblocked</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="TemplateData/css/style.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script src="Build/UnityLoader.js"></script>
+  <script src="TemplateData/load.js"></script>
+</head>
+
+<body>
+  <div class="keepRatio">
+    <div class="webgl-content">
+      <button class="icon-resize-full" id="fullScreenButton" onclick="ToggleFullScreen()"></button>
+      <div id="gameContainer"></div>
+    </div>
+    <div id="loadingBlock">
+      <h1 class="subtitle">Aquapark.io</h1>
+      <img class="logo-game" src="Aquaparkio512.jpg" alt="Aquapark.io" />
+      <div id="progressBar">
+        <div style="margin-bottom:5px">Loading ...</div>
+        <div class="centered emptyBarbg">
+          <div id="emptyBar"></div>
+          <div id="fullBar"></div>
+        </div>
+      </div>
+      <div id="warningBrowserBlock" style="display:none;">
+        <div class="warningBrowserText"> Your browser may not be compatible with this website. For an optimal experience, we suggest you to download one of this popular web browsers. </div>
+        <div class="browserIcons">
+          <span>Firefox browser</span>
+          <span>Chrome browser</span>
+          <span>Safari browser</span>
+        </div>
+      </div>
+      <div id="warningMobileBlock" style="display:none;">
+      </div>
+      <div class="cover" style="background-image: url(Aquaparkio512.jpg)"></div>
+    </div>
+    <div id="errorBrowserBlock" style="display:none;">
+      <div id="errorContent">
+        <div id="errorBrowserText"> Your browser does not support WebGL. <br> You can download one of this popular web browsers. </div>
+        <div class="browserIcons">
+          <span>Firefox browser</span>
+          <span>Chrome browser</span>
+          <span>Safari browser</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+
+</html>

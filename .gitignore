@@ -1,5 +1,4 @@
 game-builds/
-ugs/
 web-port/
 cherri-list.txt
 /chalkle-single.html
@@ -29,6 +28,11 @@ ai_convos.json
 cloud-relay.json
 music-relay.json
 
+# dev tooling / preview session artifacts
+.freebuff/
+tools/edu-tunnel*.log
+tools/edu-tunnel-run.out
+
 # local dev artifacts / temp profiles (never part of the site)
 /_*
 **/_*
@@ -41,9 +45,8 @@ arctic-1m-links-full.txt
 flare/
 screenshots/
 
-# local-only game dirs served from the origin: ugs/ (232MB html stash) and
-# mc/ (2.8GB offline minecraft builds)
-ugs/
+# mc/ (2.8GB offline minecraft builds) stays local-only; ugs/ (241MB html
+# stash) is committed so static hosts (GitHub Pages) can serve game pages.
 mc/
 
 # local research dumps (1.2GB, not part of the shipped site)

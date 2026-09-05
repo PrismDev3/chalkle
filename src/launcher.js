@@ -133,6 +133,9 @@
     if (notice) notice.hidden = true;
     var ext = document.getElementById("overlay-ext");
     var target = String(url || "");
+    /* Single-file builds: resolve embedded local games before framing. */
+    var emb = singleFileEmbed(target);
+    if (emb) target = emb;
     var p = liveProxy();
     if (p && /^https?:/i.test(target) && !shouldOpenDirect(target)) {
       target = routeProxy(target, p.url, p.mode === "frame" || !!p.hashRoute);
@@ -152,6 +155,12 @@
      instead - cross-origin tabs cannot touch us either way, and a same-origin
      wrapper page has nothing sensitive to reach. */
   function openTab(url) {
+    /* Embedded single-file games (build/chalkle-single*.html): the game's
+       HTML is stored in __SINGLE_GAMES__ keyed by its origin path. A static
+       host can't serve /ugs/... so resolve to the embedded data URI before
+       opening. */
+    var emb = singleFileEmbed(url);
+    if (emb) url = emb;
     /* Root-absolute paths ("/gn/0.html") must resolve against the document
        base, not the origin root - static mirrors are served from a subpath
        (e.g. github.io/chalkle/), where /gn/... 404s. new URL against the
@@ -458,6 +467,18 @@
      "New tab" button pop the current game out even when it was opened by the
      launcher rather than a proxy card. */
   window.ChalkleLaunch.lastOpenUrl = "";
+
+  /* Single-file build: embedded local game HTML (build/chalkle-single*.html
+     inlines self-contained games keyed by their origin path). Returns the
+     matching data URI, or "" when the map is absent / has no entry. */
+  function singleFileEmbed(url) {
+    try {
+      var map = window.__SINGLE_GAMES__;
+      if (!map) return "";
+      var v = map[String(url || "")];
+      return v || "";
+    } catch (e) { return ""; }
+  }
   document.addEventListener("keydown", function (e) {
     if (e.key === "Escape" && chooser && !chooser.hidden) closeChooser();
   });

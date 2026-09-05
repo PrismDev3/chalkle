@@ -1,0 +1,18 @@
+ScummVM web build - license and origin
+=======================================
+
+scummvm.js and scummvm.wasm are the official ScummVM emscripten (WebAssembly)
+build, version 2.10.0git, compiled from the ScummVM project.
+
+  Project:     https://www.scummvm.org/  /  https://github.com/scummvm/scummvm
+  License:     GNU General Public License v2 (GPL-2.0), see
+               https://www.gnu.org/licenses/old-licenses/gpl-2.0.html
+  Full source: https://github.com/scummvm/scummvm (dists/emscripten builds it)
+
+This copy was obtained from the public ScummVM web demo deployment
+(scummvm.kuendig.io) run by the ScummVM web port maintainers.
+
+Game data is NOT bundled and is not covered by this license. ScummVM runs the
+games only when you provide their data files (see games/<slug>/README.md) from
+copies you own, e.g. the original CDs or the Backyard Sports re-releases by
+Mega Cat Studios / Playground Productions. Do not share game data files.

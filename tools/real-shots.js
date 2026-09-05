@@ -62,16 +62,65 @@ function cdp(ws) {
 
 const UNSTICK = `(() => {
   const ev = (el, type, init) => { try { el.dispatchEvent(new MouseEvent(type, Object.assign({ bubbles: true, cancelable: true }, init || {}))); } catch (e) {} };
+  const visible = (el) => { const r = el.getBoundingClientRect(); const st = getComputedStyle(el);
+    return r.width > 4 && r.height > 4 && st.display !== 'none' && st.visibility !== 'hidden'; };
+  // Once a canvas exists the game is running - NEVER click in-game controls
+  // (emulator menu bars expose Pause/Restart/Save and would self-sabotage).
+  const hasCanvas = !!document.querySelector('canvas');
+  if (!hasCanvas) {
+    // Pre-game: click boot controls (PLAY / Start overlays). Never anchors.
+    try {
+      const cands = [...document.querySelectorAll('button, .btn, [role=button], [class*=start], [class*=play], [id*=start], [id*=play], [onclick]')]
+        .filter(el => { if (el.tagName === 'A') return false; return visible(el); });
+      for (const el of cands.slice(0, 12)) {
+        try { if (typeof el.click === 'function') el.click(); } catch (e) {}
+        const r = el.getBoundingClientRect();
+        const cx = Math.min(Math.max(r.left + r.width / 2, 1), innerWidth - 1);
+        const cy = Math.min(Math.max(r.top + r.height / 2, 1), innerHeight - 1);
+        ev(el, 'pointerdown', { clientX: cx, clientY: cy, button: 0 });
+        ev(el, 'pointerup', { clientX: cx, clientY: cy, button: 0 });
+        ev(el, 'mousedown', { clientX: cx, clientY: cy, button: 0 });
+        ev(el, 'mouseup', { clientX: cx, clientY: cy, button: 0 });
+        ev(el, 'click', { clientX: cx, clientY: cy, button: 0 });
+      }
+    } catch (e) {}
+  }
+  // Center pointer taps for games waiting on gestures. NO synthetic keyboard
+  // events: Enter/Space at the wrong moment can pause or break games.
   ev(document, 'pointerdown', { clientX: 640, clientY: 360, button: 0 });
   ev(document, 'mousedown', { clientX: 640, clientY: 360, button: 0 });
   ev(document, 'mouseup', { clientX: 640, clientY: 360, button: 0 });
   ev(document, 'click', { clientX: 640, clientY: 360, button: 0 });
-  ev(window, 'keydown', { key: 'Enter', code: 'Enter', keyCode: 13 });
-  ev(window, 'keyup', { key: 'Enter', code: 'Enter', keyCode: 13 });
-  return 1;
+  return hasCanvas ? 'canvas' : 'boot';
 })()`;
 
 const BODY_TXT = `(() => { const b = document.body; return b ? (b.innerText || '').slice(0, 250).replace(/\\s+/g, ' ') : ''; })()`;
+
+// In-page pixel analysis of a captured frame: mean luminance + stddev over a
+// 320x180 downsample. Blank/loader frames (all-black or all-white, low
+// variance) fail regardless of JPEG byte size; real gameplay passes.
+function frameStatsExpr(b64) {
+  return `new Promise((res) => {
+    const img = new Image();
+    img.onload = () => {
+      const c = document.createElement('canvas'); c.width = 160; c.height = 90;
+      const x = c.getContext('2d'); x.drawImage(img, 0, 0, 160, 90);
+      try {
+        const d = x.getImageData(0, 0, 160, 90).data;
+        let sum = 0, ss = 0, n = 0;
+        for (let i = 0; i < d.length; i += 16) {
+          const l = (d[i] * 299 + d[i + 1] * 587 + d[i + 2] * 114) / 1000;
+          sum += l; ss += l * l; n++;
+        }
+        const mean = sum / n;
+        res({ mean: Math.round(mean), sd: Math.round(Math.sqrt(Math.max(ss / n - mean * mean, 0))) });
+      } catch (e) { res({ mean: -1, sd: 0 }); }
+    };
+    img.onerror = () => res({ mean: -2, sd: 0 });
+    img.src = 'data:image/jpeg;base64,' + '${b64}';
+  })`;
+}
+const looksLikeContent = (st) => st && st.mean >= 18 && st.mean <= 240 && st.sd >= 10;
 
 async function shootOne(port, item, idx) {
   const page = await grabTarget(port);
@@ -89,14 +138,12 @@ async function shootOne(port, item, idx) {
     let stable = 0;
     let polls = 0;
     const outPath = path.join(OUT, item.slug + '.jpg');
+    // Let the page settle before the first poke, like a real user would.
+    await sleep(3500);
     while (Date.now() - start < item.budgetMs) {
       await sleep(POLL_MS);
       polls++;
       const elapsed = Date.now() - start;
-      // Unstick audio/gesture stalls during the boot window, sparingly.
-      if (elapsed < 15000 && polls % 2 === 0) {
-        try { await send('Runtime.evaluate', { expression: UNSTICK, returnByValue: true }); } catch {}
-      }
       let shot = null;
       try {
         shot = await send('Page.captureScreenshot', { format: 'jpeg', quality: 82 });
@@ -105,12 +152,18 @@ async function shootOne(port, item, idx) {
       const buf = Buffer.from(shot.data, 'base64');
       const isContent = buf.length >= CONTENT_MIN;
       let txt = '';
+      let stats = null;
+      try {
+        const s = await send('Runtime.evaluate', { expression: frameStatsExpr(shot.data), awaitPromise: true, returnByValue: true });
+        stats = s.result && s.result.value;
+      } catch {}
       try {
         const r = await send('Runtime.evaluate', { expression: BODY_TXT, returnByValue: true });
         txt = r.result && r.result.value ? r.result.value : '';
       } catch {}
       const loadingish = /\b(loading|compiling|compile|progress|downloading|decompressing|please wait|preparing|error|404|not found|unavailable)\b/i.test(txt);
-      if (isContent && !loadingish) {
+      const real = isContent && looksLikeContent(stats) && !loadingish;
+      if (real) {
         if (buf.length >= best) {
           if (buf.length > best) { best = buf.length; fs.writeFileSync(outPath, buf); }
           stable = 0;
@@ -120,10 +173,15 @@ async function shootOne(port, item, idx) {
       } else {
         stable = 0;
       }
+      // Only poke the page while it still looks blank/loading - once real
+      // content is on screen, leave the game alone so it can settle.
+      if (!real && elapsed < 60000) {
+        try { await send('Runtime.evaluate', { expression: UNSTICK, returnByValue: true }); } catch {}
+      }
       if (best >= CONTENT_MIN && stable >= STABLE_POLLS) break;
     }
     let status;
-    if (best >= CONTENT_MIN) status = 'content';
+    if (best >= CONTENT_MIN && (best > 0)) status = 'content';
     else if (fs.existsSync(outPath) && fs.statSync(outPath).size >= CONTENT_MIN) status = 'content';
     else status = 'weak-' + best;
     if (status !== 'content' && fs.existsSync(outPath)) {
@@ -164,16 +222,17 @@ async function main() {
   console.log(`worklist: ${items.length} to capture, ${workersN} workers`);
   const queues = Array.from({ length: workersN }, () => []);
   items.forEach((it, i) => queues[i % workersN].push(it));
-  const results = [];
+  const procs = [];
+  const jobs = [];
   for (let w = 0; w < workersN; w++) {
     const port = 9400 + w;
     const profile = path.join(os.tmpdir(), 'real-shot-' + w + '-' + Date.now());
     const p = spawn(CHROME, [`--remote-debugging-port=${port}`, `--user-data-dir=${profile}`, ...CHROME_FLAGS, 'about:blank'], { stdio: 'ignore' });
-    results.push(worker(port, queues[w], w));
-    results.push(new Promise(r => setTimeout(() => { try { p.kill(); } catch {} r(); }, 4 * 3600000)));
+    procs.push(p);
+    jobs.push(worker(port, queues[w], w));
   }
-  const out = await Promise.all(results);
-  const flat = out.filter(Array.isArray).flat();
+  const flat = (await Promise.all(jobs)).flat();
+  for (const p of procs) { try { p.kill(); } catch {} }
   const ok = flat.filter(r => r.status === 'content');
   const weak = flat.filter(r => r.status && r.status.startsWith('weak'));
   const bad = flat.filter(r => !r.status || (r.status !== 'content' && !r.status.startsWith('weak')));

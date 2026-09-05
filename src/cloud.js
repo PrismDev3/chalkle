@@ -107,16 +107,21 @@
   function cloudCard(g) {
     var isFav = !!favs[g.key];
     var cat = g.category ? '<span class="card-cat">' + esc(g.category) + "</span>" : "";
+    /* Link entries are games streamed on a web service this site doesn't
+       host (e.g. Fortnite on GeForce NOW). They open in the launch chooser
+       instead of creating a Stratus session. */
+    var isLink = g.kind === "link";
+    var action = isLink ? "Play" : "Stream";
     return (
-      '<article class="card cloud-card">' +
+      '<article class="card cloud-card' + (isLink ? " is-link" : "") + '">' +
       '<button class="fav-btn ' + (isFav ? "is-fav" : "") + '" data-cloud-fav="' + esc(g.key) + '" aria-label="' + (isFav ? "Remove favorite" : "Add favorite") + '" title="' + (isFav ? "Remove favorite" : "Add favorite") + '">' +
       '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.8l2.5 5 5.5.8-4 3.9.9 5.5-4.9-2.6L7.1 19l.9-5.5-4-3.9 5.5-.8z"/></svg>' +
       "</button>" +
-      '<button class="cloud-play" data-cloud-play="' + esc(g.key) + '" title="Stream ' + esc(g.title) + '">' +
-      '<span class="card-thumb">' + thumbHtml(g) + '<span class="quick-launch">Stream</span></span>' +
+      '<button class="cloud-play" data-cloud-play="' + esc(g.key) + '" title="' + action + ' ' + esc(g.title) + '">' +
+      '<span class="card-thumb">' + thumbHtml(g) + '<span class="quick-launch">' + action + "</span></span>" +
       '<span class="card-body">' +
       '<span class="card-main"><span class="card-title" title="' + esc(g.title + (g.desc ? " " + g.desc : "")) + '">' + esc(g.title) + "</span>" + cat + "</span>" +
-      '<span class="card-side"><span class="card-source">cloud</span><span class="card-count">stream</span></span>' +
+      '<span class="card-side"><span class="card-source">' + (isLink ? "web" : "cloud") + '</span><span class="card-count">' + action.toLowerCase() + "</span></span>" +
       "</span>" +
       "</button>" +
       "</article>"
@@ -310,6 +315,17 @@
         }
         var playBtn = e.target.closest ? e.target.closest("[data-cloud-play]") : null;
         if (playBtn) {
+          var g = byKey(playBtn.dataset.cloudPlay);
+          /* Link entries (Fortnite via GeForce NOW) skip the Stratus session
+             and go straight to the launch chooser so the proxy routes work. */
+          if (g && g.kind === "link" && g.url) {
+            if (window.ChalkleLaunch && window.ChalkleLaunch.openWithOptions) {
+              window.ChalkleLaunch.openWithOptions(g.url, g.title || g.url);
+            } else {
+              window.open(g.url, "_blank", "noopener");
+            }
+            return;
+          }
           /* Open synchronously from the user's click. Chromebook popup
              policy otherwise blocks the window after the queue promises. */
           var playerWindow = window.open("about:blank", "_blank");
