@@ -1,7 +1,9 @@
 game-builds/
+ugs/
 web-port/
 cherri-list.txt
-chalkle-single.html
+/chalkle-single.html
+/chalkle-single-cdn.html
 sync.json
 _served_sync.json
 *.log
@@ -14,6 +16,8 @@ music-backend/node_modules/
 pack-lock.json
 package-lock.json
 /tmp/
+tmp-*
+/keeper.log
 _pack*
 *.zip
 /.vs/
@@ -30,8 +34,17 @@ music-relay.json
 **/_*
 !/assets/
 random-gaming-websites-full.txt
+arctic-1m-links-full.txt
 
 # local-only heavy dirs: flare/ is a 5GB local ruffle/flash experiment
 # (nothing in the shipped site links into it), screenshots/ is audit output
 flare/
 screenshots/
+
+# local-only game dirs served from the origin: ugs/ (232MB html stash) and
+# mc/ (2.8GB offline minecraft builds)
+ugs/
+mc/
+
+# local research dumps (1.2GB, not part of the shipped site)
+research/

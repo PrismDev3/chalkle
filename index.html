@@ -31,7 +31,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Boogaloo&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
   <link rel="preload" as="image" href="bg-chalk.webp" fetchpriority="high">
-  <link rel="stylesheet" href="styles.css?v=20260904c">
+  <link rel="stylesheet" href="src/styles.css?v=20260904k">
   <!-- AdSense. Slots stay hidden until real ad-unit IDs are pasted into the
        CHALKLE_ADS config below (AdSense dashboard → Ad units → create). -->
   <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3031332925462724" crossorigin="anonymous"></script>
@@ -43,7 +43,7 @@
     slots: { home: "", games: "" }
   };
   </script>
-  <script src="theme.js"></script>
+  <script src="src/theme.js"></script>
   <script>
   /* Panic key: press ` (backtick) three times quickly (or Ctrl+Shift+` once)
      to instantly send the tab to Google Classroom. Works from anywhere on the
@@ -67,8 +67,146 @@
   </script>
 </head>
 <body>
+  <!-- Educational cover: matches the IXL metadata above so link previews and
+       text-based content scanners see a K-12 learning site. Removed instantly
+       by the script below for real visitors - it never renders for them. -->
+  <div id="ixl-cover">
+    <style>
+      #ixl-cover { margin:0; padding:0; background:#fff; color:#1a1a2e; font-family:Arial,Helvetica,sans-serif; line-height:1.5; }
+      #ixl-cover * { box-sizing:border-box; }
+      #ixl-cover .ixl-top { background:#1d2a6b; color:#fff; padding:14px 24px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; }
+      #ixl-cover .ixl-logo { font-size:26px; font-weight:700; letter-spacing:.5px; }
+      #ixl-cover .ixl-logo span { color:#ffd54a; }
+      #ixl-cover .ixl-nav { display:flex; gap:18px; flex-wrap:wrap; }
+      #ixl-cover .ixl-nav a { color:#fff; text-decoration:none; font-size:14px; }
+      #ixl-cover .ixl-nav a:hover { text-decoration:underline; }
+      #ixl-cover .ixl-hero { text-align:center; padding:64px 24px 40px; background:#eef1ff; }
+      #ixl-cover .ixl-hero h1 { font-size:44px; margin:0 0 14px; color:#1d2a6b; }
+      #ixl-cover .ixl-hero p { font-size:18px; max-width:760px; margin:0 auto 26px; color:#3a3a5c; }
+      #ixl-cover .ixl-grades { display:flex; justify-content:center; gap:10px; flex-wrap:wrap; margin-bottom:26px; }
+      #ixl-cover .ixl-grade { background:#fff; border:2px solid #1d2a6b; color:#1d2a6b; border-radius:999px; padding:8px 18px; font-size:14px; font-weight:700; }
+      #ixl-cover .ixl-grade.ixl-hot { background:#ffd54a; border-color:#ffd54a; color:#1d2a6b; }
+      #ixl-cover .ixl-btn { display:inline-block; background:#1d2a6b; color:#fff; padding:14px 34px; border-radius:8px; font-size:17px; font-weight:700; text-decoration:none; }
+      #ixl-cover .ixl-stats { display:flex; justify-content:center; gap:48px; flex-wrap:wrap; padding:36px 24px; border-bottom:1px solid #e6e6f0; }
+      #ixl-cover .ixl-stat { text-align:center; }
+      #ixl-cover .ixl-stat b { display:block; font-size:32px; color:#1d2a6b; }
+      #ixl-cover .ixl-stat span { color:#55557a; font-size:14px; }
+      #ixl-cover .ixl-subjects { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:20px; max-width:1080px; margin:48px auto; padding:0 24px; }
+      #ixl-cover .ixl-card { border:1px solid #e0e0f0; border-radius:12px; padding:24px; background:#fafbff; }
+      #ixl-cover .ixl-card h3 { margin:0 0 10px; color:#1d2a6b; font-size:20px; }
+      #ixl-cover .ixl-card p { margin:0 0 12px; color:#44446a; font-size:14px; }
+      #ixl-cover .ixl-card ul { margin:0; padding-left:18px; color:#55557a; font-size:13px; }
+      #ixl-cover .ixl-card li { margin-bottom:6px; }
+      #ixl-cover .ixl-quote { max-width:820px; margin:0 auto 56px; padding:0 24px; text-align:center; font-style:italic; color:#33335c; font-size:17px; }
+      #ixl-cover .ixl-quote b { display:block; font-style:normal; margin-top:10px; color:#1d2a6b; }
+      #ixl-cover .ixl-foot { background:#10183f; color:#c8cdf0; padding:36px 24px; text-align:center; font-size:13px; }
+      #ixl-cover .ixl-foot a { color:#c8cdf0; text-decoration:none; margin:0 12px; }
+      #ixl-cover .ixl-foot a:hover { text-decoration:underline; }
+      #ixl-cover .ixl-foot p { margin:14px 0 0; color:#8f96c9; }
+    </style>
+    <div class="ixl-top">
+      <div class="ixl-logo">IXL<span>Learning</span></div>
+      <nav class="ixl-nav">
+        <a href="#">Math</a>
+        <a href="#">Language arts</a>
+        <a href="#">Science</a>
+        <a href="#">Social studies</a>
+        <a href="#">Spanish</a>
+        <a href="#">Pricing</a>
+        <a href="#">Teachers</a>
+        <a href="#">Parents</a>
+      </nav>
+    </div>
+    <section class="ixl-hero">
+      <h1>Practice that feels like play.</h1>
+      <p>IXL is the world's most popular subscription-based learning site for K-12. Used by over 18 million students and trusted by parents and teachers in more than 190 countries, IXL delivers personalized practice in math, language arts, science, social studies, and Spanish across more than 20,000 topics.</p>
+      <div class="ixl-grades">
+        <span class="ixl-grade">Pre-K</span><span class="ixl-grade">K</span><span class="ixl-grade">1</span><span class="ixl-grade">2</span><span class="ixl-grade">3</span><span class="ixl-grade">4</span><span class="ixl-grade">5</span><span class="ixl-grade">6</span><span class="ixl-grade">7</span><span class="ixl-grade">8</span><span class="ixl-grade">9</span><span class="ixl-grade">10</span><span class="ixl-grade">11</span><span class="ixl-grade">12</span><span class="ixl-grade ixl-hot">Practice now</span>
+      </div>
+      <a class="ixl-btn" href="#">Explore skills</a>
+    </section>
+    <section class="ixl-stats">
+      <div class="ixl-stat"><b>18M+</b><span>students practice with IXL</span></div>
+      <div class="ixl-stat"><b>20,000+</b><span>topics across 5 core subjects</span></div>
+      <div class="ixl-stat"><b>190+</b><span>countries and territories</span></div>
+      <div class="ixl-stat"><b>97%</b><span>of parents report measurable progress</span></div>
+    </section>
+    <section class="ixl-subjects">
+      <div class="ixl-card">
+        <h3>Math</h3>
+        <p>From counting and place value to algebra, geometry, and calculus, IXL covers the full K-12 math curriculum with adaptive questions that adjust to each learner.</p>
+        <ul><li>Add and subtract fractions</li><li>Solve two-step equations</li><li>Graph linear functions</li><li>Find area and volume</li></ul>
+      </div>
+      <div class="ixl-card">
+        <h3>Language arts</h3>
+        <p>Build reading comprehension, vocabulary, grammar, and writing skills with engaging passages and interactive questions for every grade level.</p>
+        <ul><li>Identify main ideas</li><li>Compare and contrast texts</li><li>Use commas and quotation marks</li><li>Analyze author's purpose</li></ul>
+      </div>
+      <div class="ixl-card">
+        <h3>Science</h3>
+        <p>Explore life science, earth and space science, physical science, and the nature of science through hands-on, inquiry-based practice.</p>
+        <ul><li>Understand the water cycle</li><li>Classify living things</li><li>Explore forces and motion</li><li>Read the periodic table</li></ul>
+      </div>
+      <div class="ixl-card">
+        <h3>Social studies</h3>
+        <p>Discover history, geography, civics, and economics with skill practice aligned to state standards across every grade band.</p>
+        <ul><li>Read maps and globes</li><li>Learn U.S. geography</li><li>Understand the Constitution</li><li>Compare world economies</li></ul>
+      </div>
+      <div class="ixl-card">
+        <h3>Spanish</h3>
+        <p>Learn everyday vocabulary, pronunciation, and conversation through interactive exercises designed for beginners and intermediate learners.</p>
+        <ul><li>Greetings and introductions</li><li>Numbers and colors</li><li>Food and family vocabulary</li><li>Present-tense verbs</li></ul>
+      </div>
+      <div class="ixl-card">
+        <h3>For teachers &amp; parents</h3>
+        <p>IXL Analytics gives educators real-time insight into every student's progress, and parents can track mastery and celebrate milestones with printable certificates.</p>
+        <ul><li>Real-time diagnostics</li><li>State-standard alignment</li><li>Printable certificates</li><li>Progress reports</li></ul>
+      </div>
+    </section>
+    <p class="ixl-quote">
+      "I love how IXL builds confidence. My students ask to practice even during free time, and their math scores have never been higher."
+      <b>- 5th grade teacher, Austin, TX</b>
+    </p>
+    <footer class="ixl-foot">
+      <div>
+        <a href="#">About</a><a href="#">Help center</a><a href="#">Contact</a><a href="#">Careers</a><a href="#">Terms</a><a href="#">Privacy</a><a href="#">Sitemap</a>
+      </div>
+      <p>&copy; 2026 IXL Learning. All rights reserved.</p>
+    </footer>
+  </div>
+  <script>try{document.getElementById("ixl-cover").remove()}catch(e){}</script>
+
+  <!-- Fake "blocked by your school" cloak: covers the whole page until it is
+       clicked, then fades away and the boot intro runs. Uses the exact block
+       page screenshot so a glance at the screen looks like a real filter. -->
+  <div id="blocked-cloak" role="button" tabindex="0" aria-label="This site has been blocked">
+    <style>
+      #blocked-cloak { position: fixed; inset: 0; z-index: 999999; background: #000 url('/assets/cloak-blocked.webp') center center / cover no-repeat; cursor: pointer; transition: opacity .4s ease; }
+      #blocked-cloak.is-leaving { opacity: 0; pointer-events: none; }
+      #blocked-cloak:focus { outline: none; }
+    </style>
+  </div>
+  <script>
+  /* Click or press Enter/Space on the fake block page to dismiss it and boot. */
+  (function () {
+    var cloak = document.getElementById("blocked-cloak");
+    if (!cloak) return;
+    function dismiss() {
+      if (cloak.classList.contains("is-leaving")) return;
+      cloak.classList.add("is-leaving");
+      setTimeout(function () {
+        cloak.remove();
+        try { window.dispatchEvent(new CustomEvent("chalkle-cloak-dismissed")); } catch (e) {}
+      }, 450);
+    }
+    cloak.addEventListener("click", dismiss);
+    cloak.addEventListener("keydown", function (e) {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); dismiss(); }
+    });
+  })();
+  </script>
   <noscript>
-    <div style="padding:24px;color:#e8eaed;font-family:sans-serif;">Chalkle needs JavaScript to run. Turn it on and reload.</div>
+    <div style="padding:24px;color:#e8eaed;font-family:sans-serif;">This page works best with JavaScript enabled.</div>
   </noscript>
 
   <script>
@@ -76,35 +214,60 @@
   window.CHALKLE_API_ROOT = window.CHALKLE_API_ROOT || "https://chalkle.lootline.xyz";
   </script>
   <script>
-  /* Cloak fix: when Chalkle is injected by a learn-N.svg cloak, the loader
-     rewrites /assets/ paths in the HTML and every script, but asset URLs that
-     come from saved data (recents, synced libraries, user entries) are built
-     at runtime with a leading slash. Those resolve against the CDN origin root
-     instead of /gh/.../chalkle@main/. Rewrite any such path on the way into
-     the DOM so it resolves via the injected <base> tag. Runs only when
-     embedded (__CHALKLE_EMBED__), never on the normal site. */
+  /* Root-absolute asset fix for subpath mirrors. Saved data (games, recents,
+     synced libraries) carries leading-slash URLs ("/assets/games/t_x.jpg",
+     "/gn/0.html"). On subpath mirrors (e.g. github.io/chalkle/) those resolve
+     against the domain root and 404. When the page itself is served from a
+     subpath (no /assets/ at the origin root - one throwaway HEAD probe
+     decides), rewrite leading-slash /assets/, /gn/ and /game-builds/ image
+     URLs down to relative paths so they resolve against the document base.
+     On lootline.xyz the root probe succeeds and this watcher stays dormant,
+     so the real site is untouched. Also covers the learn-N.svg embed case
+     (__CHALKLE_EMBED__), replacing the old embed-only fixer. */
   (function () {
-    if (!window.__CHALKLE_EMBED__) return;
-    var P = "/" + "assets/";
+    var P = ["/" + "assets/", "/" + "gn/", "/" + "game-builds/"];
     function fixImg(im) {
       if (!im || !im.getAttribute) return;
       var s = im.getAttribute("src");
-      if (s && s.charAt(0) === "/" && s.indexOf(P) === 0) im.setAttribute("src", s.slice(1));
+      if (s && s.charAt(0) === "/" && s.charAt(1) !== "/" && needsRewrite(s)) im.setAttribute("src", s.slice(1));
       var ss = im.getAttribute("srcset");
-      if (ss) im.setAttribute("srcset", ss.replace(/\/(assets\/[^ ,]+)/g, "$1"));
-    }
-    var obs = new MutationObserver(function (muts) {
-      for (var i = 0; i < muts.length; i++) {
-        var nodes = muts[i].addedNodes;
-        for (var j = 0; j < nodes.length; j++) {
-          var n = nodes[j];
-          if (!n || n.nodeType !== 1) continue;
-          if (n.tagName === "IMG") fixImg(n);
-          if (n.querySelectorAll) n.querySelectorAll("img").forEach(fixImg);
-        }
+      if (ss) {
+        var out = ss.replace(/\/((?:assets|gn|game-builds)\/[^ ,]+)/g, "$1");
+        if (out !== ss) im.setAttribute("srcset", out);
       }
-    });
-    obs.observe(document.documentElement, { childList: true, subtree: true });
+    }
+    /* Probe /assets/ at the origin root once. 200 = real root deploy, leave
+       everything alone. 404 = subpath mirror, rewrite. */
+    var rewriteNeeded = !!window.__CHALKLE_EMBED__;
+    fetch("/assets/games/t_a555414a92.jpg", { method: "HEAD", cache: "no-store" })
+      .then(function (r) { if (!r.ok) start(); })
+      .catch(function () { /* opaque origin etc. - only embed mode rewrites */ });
+    function needsRewrite(s) {
+      if (!rewriteNeeded) return false;
+      for (var i = 0; i < P.length; i++) if (s.indexOf(P[i]) === 0) return true;
+      return false;
+    }
+    function start() {
+      if (start._on) return;
+      start._on = true;
+      rewriteNeeded = true;
+      /* Sweep images already rendered - the probe resolves async and the
+         first paint of cards can beat it. */
+      try { document.querySelectorAll("img").forEach(fixImg); } catch (e) { /* no DOM yet */ }
+      var obs = new MutationObserver(function (muts) {
+        for (var i = 0; i < muts.length; i++) {
+          var nodes = muts[i].addedNodes;
+          for (var j = 0; j < nodes.length; j++) {
+            var n = nodes[j];
+            if (!n || n.nodeType !== 1) continue;
+            if (n.tagName === "IMG") fixImg(n);
+            if (n.querySelectorAll) n.querySelectorAll("img").forEach(fixImg);
+          }
+        }
+      });
+      obs.observe(document.documentElement, { childList: true, subtree: true });
+    }
+    if (rewriteNeeded) start();
   })();
   </script>
 
@@ -267,6 +430,12 @@
               <path d="M10 9.2v5.6l5-2.8z" fill="currentColor" stroke="none"/>
             </svg>
             <span class="nav-label">YouTube</span>
+          </button>
+          <button class="nav-item" data-view="bookmarklets" title="Bookmarklets">
+            <svg class="icon tab-ico" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M6 3.5h12a1 1 0 0 1 1 1v16l-7-4-7 4v-16a1 1 0 0 1 1-1z"/>
+            </svg>
+            <span class="nav-label">Bookmarklets</span>
           </button>
         </div>
 
@@ -586,11 +755,16 @@
                 <circle cx="11" cy="11" r="6.5"/>
                 <line x1="16" y1="16" x2="20.5" y2="20.5"/>
               </svg>
-              <input id="music-q" type="search" placeholder="Search any song or artist" autocomplete="off" spellcheck="false" aria-label="Search music">
+              <input id="music-q" type="search" placeholder="Search songs, artists, albums" autocomplete="off" spellcheck="false" aria-label="Search music">
               <button class="music-search-clear" id="music-q-clear" type="button" aria-label="Clear search" hidden>×</button>
             </div>
-            <span class="music-hint">click any song to play it</span>
+            <span class="music-hint">Enter to search · Space to play/pause</span>
           </div>
+          <nav class="music-nav" aria-label="Music navigation">
+            <button type="button" class="music-nav-btn is-active" data-music-page="home">Home</button>
+            <button type="button" class="music-nav-btn" data-music-page="search">Search</button>
+            <button type="button" class="music-nav-btn" data-music-page="library">Your Library</button>
+          </nav>
 
           <div id="music-home"></div>
           <div class="music-results" id="music-results" hidden></div>
@@ -787,6 +961,19 @@
             <h1 class="board-title">The Board</h1>
             <div class="board-columns" id="board-columns"></div>
           </div>
+        </section>
+
+        <section class="view bookmarklets-view" data-view="bookmarklets">
+          <div class="view-head">
+            <div class="view-heading">
+              <h1 class="view-title">Bookmarklets</h1>
+              <span class="view-meta">one click tricks for any page</span>
+            </div>
+          </div>
+          <div class="bk-note">
+            <p>A bookmarklet is a button that lives on your bookmarks bar. Copy a code, make a new bookmark, paste the code as the URL. Open any page, click the button, done. No extensions needed.</p>
+          </div>
+          <div class="bk-grid" id="bk-grid"></div>
         </section>
 
         <section class="view" data-view="settings">
@@ -1441,28 +1628,30 @@
       </div>
     </div>
 
-  <script src="runtime-config.js?v=20260904c"></script>
-  <script src="sync.js?v=20260904c"></script>
-  <script src="games.js?v=20260904c"></script>
-  <script src="cloudgames.js?v=20260904c"></script>
-  <script src="webports.js?v=20260904c"></script>
-  <script src="sites.js?v=20260904c"></script>
-  <script src="proxies.js?v=20260904c"></script>
-  <script src="apps.js?v=20260904c"></script>
-  <script src="music.js?v=20260904c"></script>
-  <script src="launcher.js?v=20260904c"></script>
-  <script src="cloud.js?v=20260904c"></script>
-  <script src="editor.js?v=20260904c"></script>
-  <script src="urlauditor.js?v=20260904c"></script>
-  <script src="pixel.js?v=20260904c"></script>
-  <script src="domainhub.js?v=20260904c"></script>
-  <script src="ai.js?v=20260904c"></script>
-  <script src="docs.js?v=20260904c"></script>
-  <script src="partners.js?v=20260904c"></script>
-  <script src="assets/hls.min.js?v=20260904c"></script>
-  <script src="livetv.js?v=20260904c"></script>
-  <script src="youtube.js?v=20260904c"></script>
-  <script src="intro.js?v=20260904c"></script>
+  <script src="src/runtime-config.js?v=20260904k"></script>
+  <script src="src/sync.js?v=20260904k"></script>
+  <script src="src/games.js?v=20260904k"></script>
+  <script src="src/community-games.js?v=20260905a"></script>
+  <script src="src/cloudgames.js?v=20260904k"></script>
+  <script src="src/webports.js?v=20260904k"></script>
+  <script src="src/sites.js?v=20260904k"></script>
+  <script src="src/proxies.js?v=20260904k"></script>
+  <script src="src/apps.js?v=20260904k"></script>
+  <script src="src/music.js?v=20260904k"></script>
+  <script src="src/launcher.js?v=20260904k"></script>
+  <script src="src/cloud.js?v=20260904k"></script>
+  <script src="src/editor.js?v=20260904k"></script>
+  <script src="src/urlauditor.js?v=20260904k"></script>
+  <script src="src/pixel.js?v=20260904k"></script>
+  <script src="src/domainhub.js?v=20260904k"></script>
+  <script src="src/ai.js?v=20260904k"></script>
+  <script src="src/docs.js?v=20260904k"></script>
+  <script src="src/partners.js?v=20260904k"></script>
+  <script src="src/bookmarklets.js?v=20260904k"></script>
+  <script src="assets/hls.min.js?v=20260904k"></script>
+  <script src="src/livetv.js?v=20260904k"></script>
+  <script src="src/youtube.js?v=20260904k"></script>
+  <script src="src/intro.js?v=20260904k"></script>
   <script>
   /* AdSense boot: fill each slot's data-ad-slot from the CHALKLE_ADS config
      and request the unit. Slots with no configured ID stay hidden, so an
@@ -1486,6 +1675,6 @@
     }
   })();
   </script>
-  <script src="app.js?v=20260904c"></script>
+  <script src="src/app.js?v=20260904k"></script>
 </body>
 </html>

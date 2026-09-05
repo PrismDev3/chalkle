@@ -30,19 +30,19 @@ content.
 ## Run
 
 ```
-python serve-chalk.py
+python server/serve-chalk.py
 ```
 
 Then open http://127.0.0.1:4173. The relay on the same port backs the YouTube,
 music, AI, Live TV and cloud features; static mirrors (GitHub Pages) route
-those calls to `chalkle.lootline.xyz` instead (see `runtime-config.js`).
+those calls to `chalkle.lootline.xyz` instead (see `src/runtime-config.js`).
 
 ## Playtest / audit workflow
 
-- `node audit.mjs` - static checks: duplicate ids, JS-to-HTML id wiring,
+- `node scripts/audit.mjs` - static checks: duplicate ids, JS-to-HTML id wiring,
   script assets, hidden/display conflicts, nav wiring
 - `python tools/checker.py` - copy/style gate: dashes, AI vocab, gradients
-- `node build-single-chalkle.mjs` (+ `--cdn`) - regenerate the two
+- `node scripts/build-single-chalkle.mjs` (+ `--cdn`) - regenerate the two
   single-file builds after any source change
 - Bump the `?v=` cache version in `index.html` (and rebuild) every release
 
@@ -50,11 +50,11 @@ those calls to `chalkle.lootline.xyz` instead (see `runtime-config.js`).
 
 | Section | Data file |
 | --- | --- |
-| Games | `webports.js` (wasm.rip ports) + `games.js` (Chud import) |
-| Music | `music.js` (full player, relay-resolved streams) |
-| Apps/Tools | `apps.js` |
-| Proxies | `proxies.js` seeds, editable in-app, saved to localStorage |
-| Cloud Gaming | `cloudgames.js` (Stratus catalog import) + `cloud.js` |
+| Games | `webports.js` (wasm.rip ports) + `src/games.js` (Chud import) |
+| Music | `src/music.js` (full player, relay-resolved streams) |
+| Apps/Tools | `src/apps.js` |
+| Proxies | `src/proxies.js` seeds, editable in-app, saved to localStorage |
+| Cloud Gaming | `src/cloudgames.js` (Stratus catalog import) + `src/cloud.js` |
 
 ## Cloud gaming
 
@@ -86,7 +86,7 @@ descriptions, and porter credits. All URLs were verified live.
 
 ## Games from Chud
 
-`games.js` holds the working games (absolute URLs) imported from Chud's list.
+`src/games.js` holds the working games (absolute URLs) imported from Chud's list.
 Regenerate it anytime the source changes:
 
 ```
@@ -143,14 +143,14 @@ the page.
 
 ## Files
 
-- `serve-chalk.py` static server + relay (YouTube, music, AI, Live TV, cloud,
+- `server/serve-chalk.py` static server + relay (YouTube, music, AI, Live TV, cloud,
   /uv/ proxy) - the single backend for the whole site
 - `index.html` shell: top bar with search, sidebar nav, main views, overlays
-- `styles.css` all styling, responsive sidebar and drawer
-- `app.js` rendering, search, nav, cloak, admin panel, proxy list, recents
-- `launcher.js` new-tab launcher with proxy routing and in-app frame fallback
-- `music.js` / `youtube.js` / `livetv.js` / `ai.js` view modules (relay-backed)
-- `games.js` / `sites.js` / `apps.js` / `webports.js` / `cloudgames.js` data
-- `runtime-config.js` mirror/static-mode API root resolution
-- `build-single-chalkle.mjs` single-file build (local + CDN variants)
-- `tools/checker.py` + `audit.mjs` quality gates
+- `src/styles.css` all styling, responsive sidebar and drawer
+- `src/app.js` rendering, search, nav, cloak, admin panel, proxy list, recents
+- `src/launcher.js` new-tab launcher with proxy routing and in-app frame fallback
+- `src/music.js` / `src/youtube.js` / `src/livetv.js` / `src/ai.js` view modules (relay-backed)
+- `src/games.js` / `sites.js` / `src/apps.js` / `webports.js` / `src/cloudgames.js` data
+- `src/runtime-config.js` mirror/static-mode API root resolution
+- `scripts/build-single-chalkle.mjs` single-file build (local + CDN variants)
+- `tools/checker.py` + `scripts/audit.mjs` quality gates
