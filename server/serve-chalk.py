@@ -555,24 +555,36 @@ class _MusicRelay:
             # track skips instantly instead of hammering upstream every play.
             if ccached and time.time() - ccached[0] < (ccached[2] if len(ccached) > 2 else 3600):
                 return self._music_json(ccached[1], 200, cacheable=True)
-            data, code = _yt_fetch_json("/streams/" + urllib.parse.quote(vid), timeout=10, retries=1)
+            # Primary: yt-dlp (handles signatures/pot, full-length streams).
+            # Then YouTube's innertube player API (IOS client, ~1MB preview
+            # cap), then Piped /streams, then Invidious - a single dead
+            # upstream can never wedge playback.
             stream_url = ""
-            if isinstance(data, dict):
-                # Prefer a real audio stream (m4a/webm), else any muxed mp4.
-                audio = [s for s in (data.get("audioStreams") or []) if isinstance(s, dict) and (s.get("url") or "").startswith("http")]
-                video = [s for s in (data.get("videoStreams") or []) if isinstance(s, dict) and (s.get("url") or "").startswith("http") and "mp4" in (s.get("mimeType") or "")]
-                choice = None
-                for s in audio:
-                    if "m4a" in (s.get("mimeType") or "") or "mp4" in (s.get("mimeType") or ""):
-                        choice = s
-                        break
-                if not choice and audio:
-                    choice = audio[0]
-                if not choice and video:
-                    choice = video[-1]  # lowest res muxed mp4 = smallest download
-                if choice:
-                    stream_url = (choice.get("url") or "").strip()
+            via = "yt-dlp"
+            stream_url, stream_via = _yt_dlp_audio(vid)
             if not stream_url:
+                via = "innertube"
+                stream_url, stream_via = _innertube_audio(vid)
+            if not stream_url:
+                data, code = _yt_fetch_json("/streams/" + urllib.parse.quote(vid), timeout=10, retries=1)
+                via = "piped"
+                if isinstance(data, dict):
+                    # Prefer a real audio stream (m4a/webm), else any muxed mp4.
+                    audio = [s for s in (data.get("audioStreams") or []) if isinstance(s, dict) and (s.get("url") or "").startswith("http")]
+                    video = [s for s in (data.get("videoStreams") or []) if isinstance(s, dict) and (s.get("url") or "").startswith("http") and "mp4" in (s.get("mimeType") or "")]
+                    choice = None
+                    for s in audio:
+                        if "m4a" in (s.get("mimeType") or "") or "mp4" in (s.get("mimeType") or ""):
+                            choice = s
+                            break
+                    if not choice and audio:
+                        choice = audio[0]
+                    if not choice and video:
+                        choice = video[-1]  # lowest res muxed mp4 = smallest download
+                    if choice:
+                        stream_url = (choice.get("url") or "").strip()
+            if not stream_url:
+                via = "invidious"
                 stream_url = _invidious_video(vid)
             if not stream_url:
                 payload = {"url": "", "via": "youtube", "br": -1}
@@ -581,6 +593,7 @@ class _MusicRelay:
             payload = {
                 "url": "/music/stream?u=" + _music_b64u(stream_url),
                 "via": "youtube",
+                "src": via,
                 "br": 320
             }
             _yt_cache[ckey] = (time.time(), payload, 3600)
@@ -631,6 +644,29 @@ class _MusicRelay:
             return self._music_json({"error": "bad or private target"}, 403)
         headers = {"User-Agent": "Mozilla/5.0 ChalkleMusic/1.0", "Accept": "*/*"}
         rng = self.headers.get("Range")
+        # googlevideo (YouTube's CDN) rejects unbounded ranges like "bytes=0-"
+        # with 403, but browsers always send them for media. Probe the total
+        # size with a 1-byte request and rewrite the range to a bounded one
+        # ending at the real file size.
+        rewritten_range = None
+        total_size = None
+        if rng and kind == "stream" and re.search(r"bytes=\d+-$", rng.strip()):
+            probe = urllib.request.Request(url, headers=dict(headers, Range="bytes=0-0"))
+            try:
+                with urllib.request.urlopen(probe, timeout=20) as presp:
+                    cr = presp.headers.get("Content-Range") or ""
+                    m = re.search(r"/(\d+)\s*$", cr)
+                    if m:
+                        total_size = int(m.group(1))
+                        start = int(re.search(r"bytes=(\d+)-", rng.strip()).group(1))
+                        if total_size > start:
+                            rewritten_range = "bytes=%d-%d" % (start, total_size - 1)
+            except urllib.error.HTTPError as e:
+                return self._music_json({"error": "upstream http " + str(e.code)}, e.code)
+            except Exception as e:
+                return self._music_json({"error": type(e).__name__}, 502)
+        if rewritten_range:
+            rng = rewritten_range
         if rng:
             headers["Range"] = rng
         req = urllib.request.Request(url, headers=headers)
@@ -914,6 +950,139 @@ def _yt_fetch_json(path, timeout=7, retries=1):
                 ex.shutdown(wait=False)  # stragglers finish on their own socket timeout
         insts = [i for i in insts if _yt_down_until.get(i, 0) <= time.time()]
     return {"error": "all YouTube instances failed: " + str(last_err[0])}, 502
+
+
+_INNERTUBE_CLIENTS = [
+    # (name, clientName, clientVersion, user-agent). IOS is the most
+    # permissive for plain audio streams and answers from datacenter IPs
+    # where the WEB client demands a sign-in. Ordered by reliability.
+    ("ios", "IOS", "20.09.3", "com.google.ios.youtube/20.09.3 (iPhone14,3; U; CPU iOS 17_5_1 like Mac OS X)"),
+    ("ios-old", "IOS", "19.09.3", "com.google.ios.youtube/19.09.3 (iPhone14,3; U; CPU iOS 17_0_1 like Mac OS X)"),
+]
+
+
+_yt_dlp_ok = None
+
+def _yt_dlp_available():
+    """yt-dlp is optional: it handles YouTube's signature/pot tokens and
+    returns full-length streams (the raw innertube player endpoint caps
+    unauthenticated audio to a ~1MB preview). When present it is the most
+    reliable stream source; when missing we fall back to innertube/piped."""
+    global _yt_dlp_ok
+    if _yt_dlp_ok is None:
+        try:
+            import yt_dlp  # noqa: F401
+            _yt_dlp_ok = True
+        except Exception:
+            _yt_dlp_ok = False
+    return _yt_dlp_ok
+
+
+def _yt_dlp_audio(video_id, timeout=25):
+    """Resolve a full-length YouTube audio URL via yt-dlp (skip download).
+    Returns (stream_url, "") on success or ("", err)."""
+    if not _yt_dlp_available():
+        return "", "yt-dlp not installed"
+    import concurrent.futures as _cf
+    import yt_dlp
+
+    def run():
+        opts = {
+            "quiet": True,
+            "no_warnings": True,
+            "format": "bestaudio[ext=m4a]/bestaudio",
+            "skip_download": True,
+            "noplaylist": True,
+            "socket_timeout": 15,
+            "extractor_retries": 1,
+        }
+        try:
+            with yt_dlp.YoutubeDL(opts) as ydl:
+                info = ydl.extract_info("https://www.youtube.com/watch?v=" + video_id, download=False)
+            url = (info or {}).get("url") or ""
+            if isinstance(url, str) and url.startswith("http"):
+                return url.strip(), ""
+            return "", "no url from yt-dlp"
+        except Exception as e:
+            return "", type(e).__name__ + ": " + str(e)[:80]
+
+    ex = _cf.ThreadPoolExecutor(max_workers=1)
+    try:
+        fut = ex.submit(run)
+        stream, err = fut.result(timeout=timeout)
+        if stream:
+            return stream, err
+        return "", err
+    except _cf.TimeoutError:
+        return "", "yt-dlp timed out"
+    finally:
+        ex.shutdown(wait=False)
+
+
+def _innertube_audio(video_id, timeout=12):
+    """Resolve a playable YouTube audio URL via YouTube's own innertube
+    player API (the endpoint the mobile apps use). This is the most reliable
+    stream source: public Piped/Invidious pools are mostly dead or bot-checked
+    in 2026, while the innertube player endpoint still hands out plain
+    googlevideo audio URLs without any account. Clients are raced in
+    parallel; the first with a usable audio stream wins.
+
+    Returns (stream_url, via) or ("", err)."""
+    import urllib.request, urllib.error, json as _json
+    from concurrent.futures import ThreadPoolExecutor, wait, FIRST_COMPLETED
+
+    def try_one(client):
+        name, cname, cver, ua = client
+        body = _json.dumps({
+            "context": {"client": {"clientName": cname, "clientVersion": cver, "hl": "en"}},
+            "videoId": video_id,
+        }).encode("utf-8")
+        req = urllib.request.Request(
+            "https://www.youtube.com/youtubei/v1/player?prettyPrint=false",
+            data=body,
+            headers={
+                "Content-Type": "application/json",
+                "User-Agent": ua,
+                "Origin": "https://www.youtube.com",
+                "Referer": "https://www.youtube.com/",
+                "Accept": "application/json",
+            },
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                data = _json.loads(resp.read().decode("utf-8", "replace"))
+        except Exception as e:
+            return "", type(e).__name__ + " from " + name
+        if not isinstance(data, dict) or data.get("playabilityStatus", {}).get("status") != "OK":
+            ps = (data or {}).get("playabilityStatus", {}) or {}
+            return "", (str(ps.get("status")) + ": " + str(ps.get("reason") or "")[:60]).strip() or ("no player from " + name)
+        fmts = (data.get("streamingData") or {}).get("adaptiveFormats") or []
+        audio = [s for s in fmts if isinstance(s, dict)
+                 and (s.get("url") or "").startswith("http")
+                 and str(s.get("mimeType") or "").startswith("audio/")]
+        audio.sort(key=lambda s: int(s.get("averageBitrate") or 0), reverse=True)
+        if audio:
+            return (audio[0].get("url") or "").strip(), name
+        return "", "no audio formats from " + name
+
+    last_err = [""]
+    ex = ThreadPoolExecutor(max_workers=len(_INNERTUBE_CLIENTS))
+    try:
+        pending = [ex.submit(try_one, c) for c in _INNERTUBE_CLIENTS]
+        deadline = time.time() + timeout + 2
+        while pending and time.time() < deadline:
+            done, pending = wait(pending, timeout=max(0.05, deadline - time.time()),
+                                 return_when=FIRST_COMPLETED)
+            for f in done:
+                stream, via = f.result()
+                if stream:
+                    return stream, via
+                if via:
+                    last_err[0] = via
+    finally:
+        ex.shutdown(wait=False)
+    return "", last_err[0]
 
 
 def _invidious_video(video_id, timeout=6):
