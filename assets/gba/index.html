@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>GBA Player</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+  #game { width: 100vw; height: 100vh; }
+  #boot { position: fixed; inset: 0; z-index: 10; display: flex; flex-direction: column; align-items: center;
+          justify-content: center; gap: 12px; text-align: center; padding: 24px; box-sizing: border-box;
+          background: #000; color: #fff; font-family: Arial, sans-serif; }
+  #boot h1 { margin: 0; font-size: 20px; }
+  #boot p { margin: 0; font-size: 14px; color: #aaa; max-width: 460px; line-height: 1.45; }
+  #bar { width: min(360px, 80vw); height: 6px; border-radius: 3px; background: #2a2a2a; overflow: hidden; }
+  #fill { height: 100%; width: 0%; background: #ff3d81; }
+</style>
+</head>
+<body>
+<div id="boot">
+  <h1 id="title">GBA</h1>
+  <p id="status">Loading emulator&hellip;</p>
+  <div id="bar"><div id="fill"></div></div>
+</div>
+<div id="game"></div>
+
+<script>
+(function () {
+  "use strict";
+  var ROMS = {
+    "backyard-baseball":   { title: "Backyard Baseball (GBA)",   rom: "/assets/games/gba/backyard-baseball.gba" },
+    "backyard-basketball": { title: "Backyard Basketball (GBA)", rom: "/assets/games/gba/backyard-basketball.gba" },
+    "backyard-football":   { title: "Backyard Football (GBA)",   rom: "/assets/games/gba/backyard-football.gba" }
+  };
+  /* Single-file builds inject data-URI ROMs under __GBA_ROMS__ so the
+     games work with no server paths. Multi-file site uses the paths above. */
+  var over = window.__GBA_ROMS__ || {};
+  var params = new URLSearchParams(location.search);
+  var slug = (params.get("rom") || location.hash.replace(/^#/, "") || "").trim();
+  var game = ROMS[slug];
+  if (!game) {
+    document.getElementById("title").textContent = "Unknown game";
+    document.getElementById("status").textContent = "No ROM slug given. Use ?rom=backyard-baseball (or -basketball / -football).";
+    return;
+  }
+  if (over[game.rom]) game = { title: game.title, rom: over[game.rom] };
+  document.getElementById("title").textContent = game.title;
+
+  /* EmulatorJS reads these globals at script-eval time, so they must be
+     set BEFORE the loader tag below. */
+  window.EJS_player = "#game";
+  window.EJS_core = "gba";
+  window.EJS_gameUrl = game.rom;
+  window.EJS_language = "en";
+  window.EJS_startOnLoaded = true;
+  window.EJS_oldGUI = false;
+  window.EJS_defaultOptions = { volume: 0.6, saveStateSlot: 0 };
+  window.EJS_pathtodata = "https://cdn.emulatorjs.org/stable/data/";
+
+  var bootEl = document.getElementById("boot");
+  window.addEventListener("load", function () {
+    setTimeout(function () { if (bootEl) bootEl.remove(); }, 1500);
+  });
+})();
+</script>
+<script src="https://cdn.emulatorjs.org/stable/data/loader.js"></script>
+</body>
+</html>

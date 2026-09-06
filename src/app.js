@@ -947,8 +947,18 @@
       : "";
     if (rasterThumb) { item.__rasterThumb = rasterThumb; safeThumb = true; }
     /* 16:9 SVG banners (our Eaglercraft tiles) should fill the card like covers;
-       smaller square data-URIs (icons) get the centered icon treatment. */
-    var thumbLooksLikeIcon = /favicon|apple-touch-icon|google\.com\/s2|gstatic\.com\/favicon|\/logo|^data:image(?!.*%22640%22%20height=%22360%22)/i.test(item.thumb || "");
+       smaller square data-URIs (icons) get the centered icon treatment. The old
+       regex compared against the URL-encoded form (height%3D vs height=), so it
+       never matched and every 640x360 SVG cover shrank to a small centered icon.
+       Decode the data URI and check the actual SVG dimensions instead. */
+    var thumbLooksLikeIcon = /favicon|apple-touch-icon|google\.com\/s2|gstatic\.com\/favicon|\/logo/i.test(item.thumb || "");
+    if (/^data:image\/svg\+xml/i.test(item.thumb || "")) {
+      var _svgThumbDecoded = "";
+      try { _svgThumbDecoded = decodeURIComponent(item.thumb); } catch (e) { /* leave empty */ }
+      if (/viewBox\s*=\s*"0 0 640 360"|width\s*=\s*"640"[^>]*height\s*=\s*"360"/i.test(_svgThumbDecoded)) {
+        thumbLooksLikeIcon = false;
+      }
+    }
     /* thumbCover forces cover-fit for images whose URL incidentally looks like a
        logo (e.g. a big hero jpg that contains "/Logo") but should fill the box. */
     if (item.thumbCover) thumbLooksLikeIcon = false;

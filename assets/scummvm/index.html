@@ -111,19 +111,57 @@
     });
   }
 
+  /* Play straight from the player's own copy of the game - no downloads,
+     no uploads, nothing leaves the browser. This is the fallback shown when
+     the game data is not bundled yet. */
   function showMissing(game) {
-    setStatus(game.title, "The game data files are not installed yet.");
+    setStatus(game.title, "You need your own copy of the game (the original CD or the Backyard Sports re-release from GOG/Steam).");
     showHowto([
-      "Add this game's data files to assets/scummvm/games/" + game.dir.replace("games/", "") + "/ (you need your own copy of the game - the original CD or the Backyard Sports re-release from GOG/Steam).",
-      "Copy the game folder's data files there (the .HE0 / .LA0 / .LT0 style files - usually the whole CD folder).",
-      "Run: python tools/make-scummvm-manifest.py assets/scummvm/games/" + game.dir.replace("games/", ""),
-      "Then reload this page."
+      "Click \"Choose game files\" and select the .gme file (or the .HE0 / .LA0 / .LT0 data files) from it.",
+      "The game boots immediately - nothing is uploaded and nothing is stored online."
     ]);
+    var pick = document.createElement("input");
+    pick.type = "file";
+    pick.accept = ".gme,.he0,.la0,.lt0";
+    pick.multiple = true;
+    pick.style.display = "none";
     var btn = document.createElement("button");
     btn.className = "btn";
-    btn.textContent = "Reload";
-    btn.onclick = function () { location.reload(); };
-    if (howtoWrap) howtoWrap.parentNode.appendChild(btn);
+    btn.textContent = "Choose game files";
+    btn.onclick = function () { pick.click(); };
+    pick.onchange = function () {
+      if (!pick.files || !pick.files.length) return;
+      var files = Array.prototype.slice.call(pick.files);
+      var seq = Promise.resolve();
+      var out = [];
+      files.forEach(function (f) {
+        seq = seq.then(function () {
+          return new Promise(function (res, rej) {
+            var r = new FileReader();
+            r.onload = function () { out.push({ path: f.name, data: new Uint8Array(r.result) }); res(); };
+            r.onerror = rej;
+            r.readAsArrayBuffer(f);
+          });
+        });
+      });
+      seq.then(function () { bootScumm(game, out); })
+         .catch(function () { setStatus(game.title, "Could not read those files. Try again."); });
+    };
+    if (howtoWrap) {
+      howtoWrap.parentNode.appendChild(pick);
+      howtoWrap.parentNode.appendChild(btn);
+    }
+  }
+
+  /* If a single bundled game.gme file is present, boot it with zero clicks. */
+  function tryGameGme(game) {
+    return fetch(game.dir + "/game.gme", { cache: "no-store" })
+      .then(function (r) { if (!r.ok) throw new Error("no gme"); return r.arrayBuffer(); })
+      .then(function (buf) {
+        setStatus(game.title, "Starting " + game.title + "&hellip;");
+        bootScumm(game, [{ path: "game.gme", data: new Uint8Array(buf) }]);
+      })
+      .catch(function () { showMissing(game); });
   }
 
   function bootScumm(game, files) {
@@ -220,7 +258,7 @@
       bootScumm(game, files);
     })
     .catch(function () {
-      showMissing(game);
+      tryGameGme(game);
     });
 })();
 </script>

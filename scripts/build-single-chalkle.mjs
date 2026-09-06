@@ -127,7 +127,7 @@ idx = rewriteAssets(idx);
 // game-builds can't be embedded into one HTML document anyway).
 let gjsCode = bodies[SCRIPTS.indexOf('src/games.js')] || '';
 const EMBED_MAX = 512 * 1024; // per-game size cap (bytes) - keeps the file usable
-const gameUrlRe = /["'`](\/(?:ugs|gn|mc)\/[^"'`]+\.(?:html|htm)|game-builds\/[^"'`]+\.(?:html|htm))["'`]/g;
+const gameUrlRe = /["'`](\/(?:ugs|gn|mc)\/[^"'`]+\.(?:html|htm)|\/assets\/(?:gba|psx)\/index\.html[^"'`]*|game-builds\/[^"'`]+\.(?:html|htm))["'`]/g;
 const gameUrls = [];
 let gm;
 while ((gm = gameUrlRe.exec(gjsCode))) gameUrls.push(gm[1]);
@@ -144,10 +144,37 @@ const isSelfContained = (rel) => {
   return refs.length === 0;
 };
 if (!CDN_SAFE) {
+  /* GBA player: the ROMs live next to it in assets/games/gba. Inject them
+     as data URIs under window.__GBA_ROMS__ so the embedded player works
+     with zero server paths (multi-file site still uses the plain paths). */
+  const gbaPlayerURI = () => {
+    const fp = path.join(root, 'assets', 'gba', 'index.html');
+    let html = fs.readFileSync(fp, 'utf8');
+    const roms = {};
+    try {
+      const romDir = path.join(root, 'assets', 'games', 'gba');
+      for (const f of fs.readdirSync(romDir)) {
+        if (!/\.gba$/i.test(f)) continue;
+        const uri = dataURI(path.join(romDir, f));
+        if (uri) roms['/assets/games/gba/' + f] = uri;
+      }
+    } catch (e) { /* no ROM folder - fall back to path-based */ }
+    const inj = '<script>window.__GBA_ROMS__=' + JSON.stringify(roms) + ';</script>';
+    return html.replace(/<\/head>/i, inj + '\n</head>');
+  };
   for (const rel of [...new Set(gameUrls)]) {
-    if (isSelfContained(rel)) {
-      const uri = dataURI(path.join(root, rel.replace(/^\//,'')));
-      if (uri) embedMap[rel] = uri;
+    const fileRel = rel.split(/[?#]/)[0];
+    if (isSelfContained(fileRel)) {
+      /* The GBA player HTML (with every ROM injected) is identical across
+         all ?rom= URLs. Embed it ONCE under the bare path; the launcher
+         resolves /assets/gba/index.html?rom=X to this URI plus #X. */
+      let mapKey = rel;
+      let uri = dataURI(path.join(root, fileRel.replace(/^\//,'')));
+      if (fileRel === '/assets/gba/index.html') {
+        mapKey = '/assets/gba/index.html';
+        uri = gbaPlayerURI();
+      }
+      if (uri) embedMap[mapKey] = uri;
     }
   }
 }

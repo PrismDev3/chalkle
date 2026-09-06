@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>PlayStation Player</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+  #game { width: 100vw; height: 100vh; }
+  #boot { position: fixed; inset: 0; z-index: 10; display: flex; flex-direction: column; align-items: center;
+          justify-content: center; gap: 14px; text-align: center; padding: 24px; box-sizing: border-box;
+          background: #000; color: #fff; font-family: Arial, sans-serif; }
+  #boot h1 { margin: 0; font-size: 20px; }
+  #boot p { margin: 0; font-size: 14px; color: #aaa; max-width: 480px; line-height: 1.5; }
+  #pick { display: inline-flex; align-items: center; gap: 8px; padding: 12px 22px; border-radius: 8px;
+          border: 1px solid #ff3d81; background: rgba(255,61,129,0.12); color: #ff6b9f;
+          font-size: 15px; font-weight: 600; cursor: pointer; }
+  #pick:hover { background: rgba(255,61,129,0.22); }
+  #bar { width: min(360px, 80vw); height: 6px; border-radius: 3px; background: #2a2a2a; overflow: hidden; display: none; }
+  #fill { height: 100%; width: 0%; background: #ff3d81; }
+</style>
+</head>
+<body>
+<div id="boot">
+  <h1 id="title">PlayStation</h1>
+  <p id="status">Pick this game's disc files (.bin + .cue) to play right now. Nothing is uploaded and nothing is stored online.</p>
+  <button id="pick" type="button">Choose game files</button>
+  <input id="file" type="file" accept=".bin,.cue,.iso,.img" style="display:none">
+  <div id="bar"><div id="fill"></div></div>
+</div>
+<div id="game"></div>
+
+<script>
+(function () {
+  "use strict";
+  var bootEl = document.getElementById("boot");
+  var statusEl = document.getElementById("status");
+  var pickBtn = document.getElementById("pick");
+  var fileInput = document.getElementById("file");
+
+  function fail(msg) {
+    statusEl.textContent = msg;
+    pickBtn.style.display = "inline-flex";
+    bootEl.style.display = "flex";
+  }
+
+  function start(binFile, binName) {
+    /* Build a single-track cue on the fly pointing at the chosen bin. */
+    var cueText = 'FILE "' + binName + '" BINARY\n  TRACK 01 MODE2/2352\n    INDEX 01 00:00:00\n';
+    var cueUrl = "data:application/x-cue;charset=utf-8," + encodeURIComponent(cueText);
+    var binUrl = URL.createObjectURL(binFile);
+
+    /* EmulatorJS reads these globals at script-eval time, so they must be
+       set BEFORE the loader tag below. */
+    window.EJS_player = "#game";
+    window.EJS_core = "psx";
+    window.EJS_gameUrl = cueUrl;
+    window.EJS_language = "en";
+    window.EJS_startOnLoaded = true;
+    window.EJS_oldGUI = false;
+    window.EJS_pathtodata = "https://cdn.emulatorjs.org/stable/data/";
+    window.EJS_defaultOptions = { volume: 0.6, saveStateSlot: 0 };
+    window.EJS_externalFiles = {};
+    window.EJS_externalFiles[binName] = binUrl;
+
+    statusEl.textContent = "Loading emulator and disc...";
+    pickBtn.style.display = "none";
+    document.getElementById("bar").style.display = "block";
+    window.__psxFiles = { binUrl: binUrl };
+
+    var loader = document.createElement("script");
+    loader.src = "https://cdn.emulatorjs.org/stable/data/loader.js";
+    document.body.appendChild(loader);
+  }
+
+  function onFile(file) {
+    var name = (file.name || "disc.bin").toUpperCase();
+    if (/\.(CUE)$/.test(name)) {
+      /* A real .cue: load its text and re-point every FILE line at the
+         chosen bin via the object URL below. Single-bin discs are the
+         common case, so map any FILE reference to this one bin. */
+      var reader = new FileReader();
+      reader.onload = function () {
+        var cue = String(reader.result || "");
+        var m = cue.match(/FILE\s+"([^"]+)"/i) || cue.match(/FILE\s+(\S+)/i);
+        var binName = (m && m[1]) || "disc.bin";
+        start(file, binName);
+      };
+      reader.readAsText(file);
+      return;
+    }
+    /* .bin / .iso / .img directly: build a cue for it. */
+    var base = name.replace(/\.[A-Z0-9]+$/, "");
+    start(file, base + ".BIN");
+  }
+
+  pickBtn.addEventListener("click", function () { fileInput.click(); });
+  fileInput.addEventListener("change", function () {
+    if (fileInput.files && fileInput.files[0]) onFile(fileInput.files[0]);
+  });
+  document.addEventListener("dragover", function (e) { e.preventDefault(); });
+  document.addEventListener("drop", function (e) {
+    e.preventDefault();
+    if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) onFile(e.dataTransfer.files[0]);
+  });
+})();
+</script>
+</body>
+</html>
