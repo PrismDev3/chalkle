@@ -55,3 +55,6 @@ research/
 # static-hosting deploy artifact for Vercel/Netlify drag-and-drop
 # (regenerable from the single-file build; not part of the GitHub site)
 deploy-static/
+
+# 746MB PS1 disc image - served locally, never pushed (cloudflare tunnel)
+assets/games/psx/

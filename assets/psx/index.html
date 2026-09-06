@@ -23,8 +23,8 @@
 <body>
 <div id="boot">
   <h1 id="title">PlayStation</h1>
-  <p id="status">Pick this game's disc files (.bin + .cue) to play right now. Nothing is uploaded and nothing is stored online.</p>
-  <button id="pick" type="button">Choose game files</button>
+  <p id="status">Loading&hellip;</p>
+  <button id="pick" type="button" style="display:none">Choose game files</button>
   <input id="file" type="file" accept=".bin,.cue,.iso,.img" style="display:none">
   <div id="bar"><div id="fill"></div></div>
 </div>
@@ -43,20 +43,21 @@
   var CDN = "https://cdn.emulatorjs.org/stable/data/";
   var LOCAL = "/assets/emulatorjs/";
 
-  function fail(msg) {
+  /* Built-in disc, served from the site when present (the user's machine
+     hosts it; GitHub Pages mirrors fall back to the file picker). */
+  var BUILTIN = {
+    "backyard-soccer": {
+      cue: "/assets/games/psx/backyard-soccer.cue",
+      files: { "Backyard Soccer (USA).bin": "/assets/games/psx/backyard-soccer.bin" }
+    }
+  };
+
+  function showPicker(msg) {
     statusEl.textContent = msg;
     pickBtn.style.display = "inline-flex";
-    bootEl.style.display = "flex";
   }
 
-  function start(binFile, binName) {
-    /* Build a single-track cue on the fly pointing at the chosen bin. */
-    var cueText = 'FILE "' + binName + '" BINARY\n  TRACK 01 MODE2/2352\n    INDEX 01 00:00:00\n';
-    var cueUrl = "data:application/x-cue;charset=utf-8," + encodeURIComponent(cueText);
-    var binUrl = URL.createObjectURL(binFile);
-
-    /* EmulatorJS reads these globals at script-eval time, so they must be
-       set BEFORE the loader runs. */
+  function boot(cueUrl, binRef) {
     window.EJS_player = "#game";
     window.EJS_core = "psx";
     window.EJS_gameUrl = cueUrl;
@@ -71,7 +72,7 @@
     window.EJS_forceLegacyCores = true;
     window.EJS_threads = false;
     window.EJS_externalFiles = {};
-    window.EJS_externalFiles[binName] = binUrl;
+    window.EJS_externalFiles[binRef.name] = binRef.url;
     if (OFFLINE) {
       window.EJS_paths = OFFLINE.paths;
       window.EJS_filePaths = OFFLINE.filePaths;
@@ -90,25 +91,47 @@
     }
   }
 
+  /* Auto-run a built-in disc if the site serves it. */
+  function tryBuiltin(game) {
+    var entry = BUILTIN[game];
+    if (!entry) return false;
+    fetch(entry.cue, { method: "HEAD" }).then(function (r) {
+      if (!r.ok) throw new Error("cue not hosted");
+      return fetch(entry.cue).then(function (r2) { return r2.text(); });
+    }).then(function (cueText) {
+      var m = cueText.match(/FILE\s+"([^"]+)"/i) || cueText.match(/FILE\s+(\S+)/i);
+      var binName = (m && m[1]) || "disc.bin";
+      boot(entry.cue, { name: binName, url: entry.files[binName] || Object.values(entry.files)[0] });
+    }).catch(function () {
+      showPicker("Pick this game's disc files (.bin + .cue) to play right now. Nothing is uploaded and nothing is stored online.");
+    });
+    return true;
+  }
+
+  var params = new URLSearchParams(location.search);
+  var autoGame = (params.get("game") || "").trim();
+  if (autoGame && tryBuiltin(autoGame)) {
+    /* boot overlay stays up; EJS takes over when ready */
+  }
+
   function onFile(file) {
     var name = (file.name || "disc.bin").toUpperCase();
     if (/\.(CUE)$/.test(name)) {
-      /* A real .cue: load its text and re-point every FILE line at the
-         chosen bin via the object URL below. Single-bin discs are the
-         common case, so map any FILE reference to this one bin. */
       var reader = new FileReader();
       reader.onload = function () {
         var cue = String(reader.result || "");
         var m = cue.match(/FILE\s+"([^"]+)"/i) || cue.match(/FILE\s+(\S+)/i);
         var binName = (m && m[1]) || "disc.bin";
-        start(file, binName);
+        var cueUrl = "data:application/x-cue;charset=utf-8," + encodeURIComponent(cue);
+        boot(cueUrl, { name: binName, url: URL.createObjectURL(file) });
       };
       reader.readAsText(file);
       return;
     }
-    /* .bin / .iso / .img directly: build a cue for it. */
     var base = name.replace(/\.[A-Z0-9]+$/, "");
-    start(file, base + ".BIN");
+    var cueText = 'FILE "' + base + '.BIN" BINARY\n  TRACK 01 MODE2/2352\n    INDEX 01 00:00:00\n';
+    var cueUrl = "data:application/x-cue;charset=utf-8," + encodeURIComponent(cueText);
+    boot(cueUrl, { name: base + ".BIN", url: URL.createObjectURL(file) });
   }
 
   pickBtn.addEventListener("click", function () { fileInput.click(); });
