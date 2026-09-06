@@ -1875,6 +1875,16 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, Simpl
             return self._livetv_raw()
         if route.startswith("/api/live-tv/"):
             return self._livetv_stream(route[len("/api/live-tv/"):])
+        if route == "/api/manga/search":
+            return self._manga_proxy(route)
+        if route.startswith("/api/manga/"):
+            return self._manga_proxy(route)
+        if route.startswith("/api/chapters/"):
+            return self._manga_proxy(route)
+        if route.startswith("/api/chapter/"):
+            return self._manga_proxy(route)
+        if route.startswith("/api/tmdb/"):
+            return self._tmdb_proxy(route)
         return super().do_GET()
 
     def do_POST(self):
@@ -2043,6 +2053,101 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, Simpl
         self.send_header("Content-Length", str(len(out)))
         self.end_headers()
         self.wfile.write(out)
+
+    def _manga_proxy(self, route):
+        """MangaDex CORS proxy for the JS Movies tab. The browser can't call
+        api.mangadex.org directly (no Access-Control-Allow-Origin), so these
+        routes fetch server-side and hand the raw JSON back with CORS enabled."""
+        import urllib.parse
+        try:
+            if route == "/api/manga/search":
+                q = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+                title = (q.get("title") or [""])[0].strip()
+                target = "https://api.mangadex.org/manga?limit=24&includes[]=cover_art"
+                if title:
+                    target += "&title=" + urllib.parse.quote(title)
+            elif route.startswith("/api/manga/") and route.endswith("/feed"):
+                mid = route[len("/api/manga/"):-len("/feed")]
+                target = ("https://api.mangadex.org/manga/%s/feed?limit=500"
+                          "&translatedLanguage[]=en&order[chapter]=asc&includes[]=scanlation_group"
+                          % urllib.parse.quote(mid, safe=""))
+            elif route.startswith("/api/chapters/"):
+                mid = route[len("/api/chapters/"):]
+                target = ("https://api.mangadex.org/manga/%s/feed?limit=500"
+                          "&translatedLanguage[]=en&order[chapter]=asc&includes[]=scanlation_group"
+                          % urllib.parse.quote(mid, safe=""))
+            elif route.startswith("/api/chapter/"):
+                cid = route[len("/api/chapter/"):]
+                target = "https://api.mangadex.org/at-home/server/" + urllib.parse.quote(cid, safe="")
+            else:
+                return self._json_out({"error": "bad-route"}, 404)
+        except Exception as e:
+            return self._json_out({"error": type(e).__name__}, 400)
+        raw, mime, code, err = _http_get(target)
+        if raw is None:
+            return self._json_out({"error": err or "upstream-failed"}, code or 502)
+        self.send_response(code or 200)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Cache-Control", "public, max-age=300")
+        self.send_header("Content-Length", str(len(raw)))
+        self.end_headers()
+        self.wfile.write(raw)
+
+    def _tmdb_proxy(self, route):
+        """TMDB CORS proxy for the JS Movies tab. TMDB answers browser GETs with
+        Access-Control-Allow-Origin: * only for simple requests; the app's
+        Bearer-token header forces a preflight TMDB never grants, so the browser
+        blocks it. Fetching server-side with the token and handing JSON back
+        works everywhere the relay runs."""
+        import urllib.parse
+        path = route[len("/api/tmdb/"):]
+        if self.path.find("?") != -1:
+            qs = self.path[self.path.find("?") + 1:]
+        else:
+            qs = ""
+        target = "https://api.themoviedb.org/3/" + path
+        if qs:
+            target += "?" + qs
+        if "?" not in target:
+            target += "?"
+        else:
+            target += "&"
+        target += "language=en-US"
+        req = urllib.request.Request(
+            target,
+            headers={
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) ChalkleMovies/1.0",
+                "Accept": "application/json",
+                "Authorization": "Bearer " + _TMDB_BEARER,
+            },
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=FETCH_TIMEOUT) as resp:
+                raw = resp.read()
+                code = resp.getcode()
+        except urllib.error.HTTPError as e:
+            raw = e.read()
+            code = e.code
+        except Exception as e:
+            return self._json_out({"error": type(e).__name__}, 502)
+        self.send_response(code or 502)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Cache-Control", "public, max-age=300")
+        self.send_header("Content-Length", str(len(raw)))
+        self.end_headers()
+        self.wfile.write(raw)
+
+    def _json_out(self, obj, code=200):
+        data = json.dumps(obj).encode()
+        self.send_response(code)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
 
     def _fetch(self):
         """Byte proxy. Returns {ok, code, body, bodyMime, error} where body is
@@ -2956,6 +3061,12 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, Simpl
 
 
 FETCH_TIMEOUT = 9       # seconds before a target is considered unreachable
+
+# TMDB read-only bearer token used by the JS Movies tab proxy. This is the
+# project's own token (from the vendored MILKBOX app) - never user credentials.
+_TMDB_BEARER = (
+    "eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiI5NDc2MWZmMmViNWRiYTM4MDJlZDJlNGJkOTE0ZGZlOCIsIm5iZiI6MTc3NzU2MDc0My45NzMsInN1YiI6IjY5ZjM2Y2E3ZDZhZjA3Yjg2Zjg0MzA3MSIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.pNYedccUMayuOtMmH_vMWVVYjfAal3r2V1WWv433u4g"
+)
 FETCH_MAX_REDIRECTS = 5
 
 

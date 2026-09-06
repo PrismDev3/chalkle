@@ -39,6 +39,9 @@
   --lime-soft: rgba(183, 230, 63, 0.16);
   --cloud: #5fbeff;
   --cloud-soft: rgba(95, 190, 255, 0.16);
+  --movies: #818cf8;             /* JS Movies tab color: indigo, distinct from blue/purple */
+  --movies-soft: rgba(129, 140, 248, 0.16);
+  --movies-ink: #171a3d;
   --magenta: #e60073;
   --magenta-soft: rgba(230, 0, 115, 0.16);
   --pink: #ff4d8d;
@@ -233,6 +236,7 @@ body[data-view="cloud"] .topbar { border-bottom-color: var(--cloud); }
 body[data-view="livetv"] .topbar { border-bottom-color: var(--tv); }
 body[data-view="youtube"] .topbar { border-bottom-color: #ff0033; }
 body[data-view="bookmarklets"] .topbar { border-bottom-color: var(--lime); }
+body[data-view="movies"] .topbar { border-bottom-color: var(--movies); }
 
 /* A soft wash of the tab color across the top bar, fading as it goes down. */
 .topbar::after {
@@ -263,6 +267,7 @@ body[data-view="settings"] .topbar::after { background: rgba(168, 85, 247, 0.12)
 body[data-view="livetv"] .topbar::after { background: rgba(74, 184, 140, 0.12); opacity: 1; }
 body[data-view="youtube"] .topbar::after { background: rgba(255, 0, 51, 0.12); opacity: 1; }
 body[data-view="bookmarklets"] .topbar::after { background: rgba(183, 230, 63, 0.10); opacity: 1; }
+body[data-view="movies"] .topbar::after { background: rgba(129, 140, 248, 0.12); opacity: 1; }
 
 .brand {
   width: var(--side-w);
@@ -668,6 +673,11 @@ body[data-view="bookmarklets"] .topbar::after { background: rgba(183, 230, 63, 0
   --va-ink: #2b3a00;
   --va-soft: var(--lime-soft);
 }
+.view[data-view="movies"] {
+  --va: var(--movies);
+  --va-ink: var(--movies-ink);
+  --va-soft: var(--movies-soft);
+}
 
 /* Every section gets its own color when active - one per tab, matching the theme. */
 .nav-item.is-active[data-view="home"] { color: var(--pink); background: var(--pink-soft); }
@@ -684,6 +694,7 @@ body[data-view="bookmarklets"] .topbar::after { background: rgba(183, 230, 63, 0
 .nav-item.is-active[data-view="livetv"] { color: var(--tv); background: var(--tv-soft); }
 .nav-item.is-active[data-view="youtube"] { color: #ff0033; background: rgba(255, 0, 51, 0.15); }
 .nav-item.is-active[data-view="bookmarklets"] { color: var(--lime); background: var(--lime-soft); }
+.nav-item.is-active[data-view="movies"] { color: var(--movies); background: var(--movies-soft); }
 
 .youtube-icon {
   stroke: none;
@@ -10166,6 +10177,13 @@ button.side-foot:hover { color: var(--text-2); }
   background-color: #0b1103;
   background-image: none;
 }
+.view[data-view="movies"]::before {
+  /* Indigo identity: reuse the chalk texture recolored to match the tab. */
+  background-color: #10122b;
+  background-image: url("../tabs/settings.webp");
+  background-blend-mode: screen;
+  filter: hue-rotate(115deg) saturate(1.1) brightness(.8);
+}
 
 /* Docs: one cyan voice everywhere (tab, titles, buttons, links). */
 .view[data-view="docs"] {
@@ -10191,6 +10209,30 @@ button.side-foot:hover { color: var(--text-2); }
 .docs-act:hover {
   background: rgba(38, 198, 218, 0.16);
   border-color: rgba(38, 198, 218, 0.45);
+}
+
+/* JS Movies: the app fills the whole view; the frame is the page. */
+.movies-view.is-visible {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+.movies-view .view-head {
+  flex: 0 0 auto;
+  border-bottom-color: rgba(129, 140, 248, 0.28);
+}
+.movies-view .view-title {
+  color: var(--movies);
+}
+.movies-frame {
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: calc(100vh - 300px);
+  border: 1px solid rgba(129, 140, 248, 0.22);
+  border-radius: 12px;
+  background: #0d0f12;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
 }
 
 /* ---------- 2026-09 polish pass: hero scale, shelf card, banner, chrome ----------

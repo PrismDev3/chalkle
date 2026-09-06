@@ -211,6 +211,19 @@ if (!CDN_SAFE) {
     const injected = html.replace(/<\/head>/i, ejsOfflineInject() + '\n</head>');
     return 'data:text/html;base64,' + Buffer.from(injected, 'utf8').toString('base64');
   };
+  /* JS Movies: the whole tab app is one self-contained page. Embed it under
+     its origin path so the single-file build's iframe and "open full screen"
+     both resolve to the embedded copy (no network, no 404 on static hosts). */
+  const moviesPath = path.join(root, 'movies.html');
+  if (fs.existsSync(moviesPath) && fs.statSync(moviesPath).size < 2 * 1024 * 1024) {
+    embedMap['/movies.html'] = dataURI(moviesPath);
+  }
+  /* Redirector shell: apps/tools bounce through /go.html#<base64>. Embed it
+     so the single-file build's shell resolution works on static hosts. */
+  const goPath = path.join(root, 'go.html');
+  if (fs.existsSync(goPath)) {
+    embedMap['/go.html'] = dataURI(goPath);
+  }
   for (const rel of [...new Set(gameUrls)]) {
     const fileRel = rel.split(/[?#]/)[0];
     if (isSelfContained(fileRel)) {
