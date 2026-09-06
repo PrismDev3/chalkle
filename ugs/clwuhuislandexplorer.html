@@ -43,10 +43,19 @@
             <b>Could not start Wuhu Island Explorer.</b>
             <span>The game files failed to load. This is usually a network issue, not a problem with your browser.</span>
             <button id="btn-retry" type="button">Try again</button>
+            <button id="btn-backup" type="button" hidden>Try backup host</button>
         </div>
     </div>
     <script>
-        var BASE = "https://nostaligafun.pages.dev/games/games-accualy/OTHER/WuhuIslandExplorer_Data/";
+        /* The game build ships with the site (ugs/wuhu-build/) so it loads
+           from our own origin - lootline, the jsDelivr mirrors and GitHub
+           Pages all serve it, and school filters that block game CDNs can't
+           break it. If this deployment lacks the local copy (old mirror,
+           offline export), we fall back to the original host automatically
+           and expose a manual "Try backup host" retry. */
+        var REMOTE_BASE = "https://nostaligafun.pages.dev/games/games-accualy/OTHER/WuhuIslandExplorer_Data/";
+        var useRemote = /[?&]remote=1/i.test(location.search);
+        var BASE = useRemote ? REMOTE_BASE : new URL("wuhu-build/", location.href).href;
         var container = document.querySelector("#unity-container");
         var canvas = document.querySelector("#unity-canvas");
         var loadingBar = document.querySelector("#unity-loading-bar");
@@ -74,17 +83,20 @@
             updateBannerVisibility();
         }
 
-        var config = {
-            dataUrl: BASE + "Build/WuhuWeb.data",
-            frameworkUrl: BASE + "Build/WuhuWeb.framework.js",
-            codeUrl: BASE + "Build/WuhuWeb.wasm",
-            streamingAssetsUrl: BASE + "StreamingAssets",
-            companyName: "SiMON!.",
-            productName: "Wuhu Island Explorer",
-            productVersion: "0.1.0",
-            showBanner: unityShowBanner,
-            autoSyncPersistentDataPath: true
-        };
+        function makeConfig(base) {
+            return {
+                dataUrl: base + "Build/WuhuWeb.data",
+                frameworkUrl: base + "Build/WuhuWeb.framework.js",
+                codeUrl: base + "Build/WuhuWeb.wasm",
+                streamingAssetsUrl: base + "StreamingAssets",
+                companyName: "SiMON!.",
+                productName: "Wuhu Island Explorer",
+                productVersion: "0.1.0",
+                showBanner: unityShowBanner,
+                autoSyncPersistentDataPath: true
+            };
+        }
+        var config = makeConfig(BASE);
 
         /* Keep the canvas backing store matched to its on-screen size
            (device-pixel-ratio aware, capped so huge monitors don't create
@@ -115,25 +127,28 @@
         loadingBar.style.display = "block";
         fitCanvas();
 
-        var script = document.createElement("script");
-        script.src = BASE + "Build/WuhuWeb.loader.js";
-        script.onload = function () {
-            if (typeof createUnityInstance !== 'function') { showError(); return; }
-            try {
-                createUnityInstance(canvas, config, function (progress) {
-                    progressBarFull.style.width = 100 * progress + "%";
-                }).then(function (inst) {
-                    unityInstance = inst;
-                    loadingBar.style.display = "none";
-                    fitCanvas();
-                    try { canvas.focus(); } catch (e) {}
-                }).catch(function (message) {
-                    showError(String(message));
-                });
-            } catch (e) { showError(String(e)); }
-        };
-        script.onerror = function () { showError(); };
-        document.body.appendChild(script);
+        function loadWithBase(base, onError) {
+            loadingBar.style.display = "block";
+            var script = document.createElement("script");
+            script.src = base + "Build/WuhuWeb.loader.js";
+            script.onload = function () {
+                if (typeof createUnityInstance !== 'function') { onError(); return; }
+                try {
+                    createUnityInstance(canvas, makeConfig(base), function (progress) {
+                        progressBarFull.style.width = 100 * progress + "%";
+                    }).then(function (inst) {
+                        unityInstance = inst;
+                        loadingBar.style.display = "none";
+                        fitCanvas();
+                        try { canvas.focus(); } catch (e) {}
+                    }).catch(function (message) {
+                        onError(String(message));
+                    });
+                } catch (e) { onError(String(e)); }
+            };
+            script.onerror = function () { onError(); };
+            document.body.appendChild(script);
+        }
 
         function showError(msg) {
             bootFailed = true;
@@ -143,8 +158,26 @@
                 var p = bootError.querySelector("span");
                 if (p) p.textContent = msg;
             }
+            var backup = document.querySelector("#btn-backup");
+            if (backup) backup.hidden = useRemote; /* no point on the remote host */
         }
+
+        /* Primary: local build on our own origin. If the loader or the game
+           fails to fetch (mirror without the build, filter hiccup), retry the
+           original host automatically before giving up. */
+        loadWithBase(BASE, function (msg) {
+            if (!useRemote) {
+                useRemote = true;
+                BASE = REMOTE_BASE;
+                try { progressBarFull.style.width = "0%"; } catch (e) {}
+                loadWithBase(REMOTE_BASE, function (msg2) { showError(msg2 || msg); });
+                return;
+            }
+            showError(msg);
+        });
+
         document.querySelector("#btn-retry").addEventListener("click", function () { location.reload(); });
+        document.querySelector("#btn-backup").addEventListener("click", function () { location.replace(location.pathname + "?remote=1"); });
 
         /* --- in-game controls: fullscreen + restart --- */
         function enterFullscreen() {
