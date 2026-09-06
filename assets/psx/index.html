@@ -38,6 +38,11 @@
   var pickBtn = document.getElementById("pick");
   var fileInput = document.getElementById("file");
 
+  var OFFLINE = window.__EJS_OFFLINE__ || null;
+  var singleFile = location.protocol === "data:";
+  var CDN = "https://cdn.emulatorjs.org/stable/data/";
+  var LOCAL = "/assets/emulatorjs/";
+
   function fail(msg) {
     statusEl.textContent = msg;
     pickBtn.style.display = "inline-flex";
@@ -51,26 +56,38 @@
     var binUrl = URL.createObjectURL(binFile);
 
     /* EmulatorJS reads these globals at script-eval time, so they must be
-       set BEFORE the loader tag below. */
+       set BEFORE the loader runs. */
     window.EJS_player = "#game";
     window.EJS_core = "psx";
     window.EJS_gameUrl = cueUrl;
     window.EJS_language = "en";
     window.EJS_startOnLoaded = true;
     window.EJS_oldGUI = false;
-    window.EJS_pathtodata = "https://cdn.emulatorjs.org/stable/data/";
+    window.EJS_pathtodata = OFFLINE ? CDN : (singleFile ? CDN : LOCAL);
     window.EJS_defaultOptions = { volume: 0.6, saveStateSlot: 0 };
+    /* Conservative settings: Chromebook GPUs / school networks frequently
+       fail on WebGL2 + threaded cores, which manifests as a black screen
+       while audio plays. Force the legacy (WebGL1, non-threaded) builds. */
+    window.EJS_forceLegacyCores = true;
+    window.EJS_threads = false;
     window.EJS_externalFiles = {};
     window.EJS_externalFiles[binName] = binUrl;
+    if (OFFLINE) {
+      window.EJS_paths = OFFLINE.paths;
+      window.EJS_filePaths = OFFLINE.filePaths;
+    }
 
     statusEl.textContent = "Loading emulator and disc...";
     pickBtn.style.display = "none";
     document.getElementById("bar").style.display = "block";
-    window.__psxFiles = { binUrl: binUrl };
 
-    var loader = document.createElement("script");
-    loader.src = "https://cdn.emulatorjs.org/stable/data/loader.js";
-    document.body.appendChild(loader);
+    if (typeof window.__EJS_LOADER__ === "function") {
+      window.__EJS_LOADER__();
+    } else {
+      var loader = document.createElement("script");
+      loader.src = (singleFile && !OFFLINE) ? CDN + "loader.js" : LOCAL + "loader.js";
+      document.body.appendChild(loader);
+    }
   }
 
   function onFile(file) {
