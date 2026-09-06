@@ -263,8 +263,15 @@ class _CloudRelay:
         query = self.path.split("?", 1)[1] if "?" in self.path else ""
         # Keep session pings short so a tunnel request cannot sit behind
         # another long cloud request and miss Stratus' watchdog window.
-        timeout = 180 if route == "/cloud/v1/createSession" else (8 if route == "/cloud/v1/pingSession" else 20)
+        timeout = 300 if route == "/cloud/v1/createSession" else (8 if route == "/cloud/v1/pingSession" else 20)
         r = self._cloud_forward("POST", route, query, post_body=body, timeout=timeout)
+        # createSession streams NDJSON while the relay boots a throwaway
+        # account; if the stream drops (IncompleteRead from a slow upstream
+        # email verification), retry once - a fresh session is harmless since
+        # the abandoned one self-terminates.
+        if (route == "/cloud/v1/createSession" and r["code"] == 502
+                and b"IncompleteRead" in (r.get("body") or b"")):
+            r = self._cloud_forward("POST", route, query, post_body=body, timeout=timeout)
         extra = None
         if route == "/cloud/v1/startGame" and r["type"] and "json" in r["type"]:
             # Point the signal websocket back at THIS origin so the player tab
