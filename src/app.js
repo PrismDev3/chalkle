@@ -36,7 +36,8 @@
         };
         return ports
           .map(withRealArt)
-          .concat((Array.isArray(window.ChalkGames) ? window.ChalkGames : []).map(withRealArt), community);
+          .concat((Array.isArray(window.ChalkGames) ? window.ChalkGames : []).map(withRealArt), community,
+            (Array.isArray(window.ChalkNoahGames) ? window.ChalkNoahGames : []).map(withRealArt));
       }
     },
     sites: { key: "chalkle-sitelib-v2", seed: function () { return (window.ChalkSites || []).slice(); } },
@@ -242,6 +243,7 @@
        open with a stale filter (e.g. Recents) the user never picked this
        session - it looked like the tab was "auto toggling" itself. */
     gameFilter: "all",
+    gridFilter: "",
     clicks: readJson(COUNTS_KEY, {}),
     favs: readJson(FAVS_KEY, {}),
     proxies: loadProxies()
@@ -673,6 +675,14 @@
       if (window.ChalkleMusic && window.ChalkleMusic.render) window.ChalkleMusic.render();
     } else if (view === "movies") {
       loadMoviesFrame();
+    } else if (view === "chat") {
+      /* Bitcord chat is embedded as a same-origin iframe; the server proxies
+         /bitcord/api/* and /bitcord/ws to the Bitcord backend so the app
+         never talks cross-origin. */
+      var chatFrame = document.getElementById("chat-frame");
+      if (chatFrame && (!chatFrame.src || chatFrame.src.indexOf("bitcord/index.html") === -1)) {
+        chatFrame.src = "/bitcord/index.html";
+      }
     } else {
       /* Chromebook-friendly: paint the tab switch first, build the grid on
          the next frame so a 1,400-card library never blocks the click. */
@@ -1268,6 +1278,23 @@
       renderAppChips();
     }
 
+    /* Text filter for the Games tab: with a 2,700+ game library and a 480-card
+       initial render, titles below the cap are unfindable by scrolling. This
+       narrows the grid live; Escape or the native clear button resets it. */
+    if (state.view === "games" || state.view === "sites" || state.view === "apps-tools") {
+      var fq = String(state.gridFilter || "").toLowerCase().trim();
+      if (fq) {
+        items = items.filter(function (item) {
+          var title = String(item.title || item.name || "").toLowerCase();
+          if (title.indexOf(fq) !== -1) return true;
+          /* Word-start matching: "htf" won't match, but "fish" finds "How To Fish". */
+          if (title.indexOf(fq) === 0) return true;
+          var cat = String(item.category || "").toLowerCase();
+          return cat.indexOf(fq) !== -1;
+        });
+      }
+    }
+
     var grid = $(GRID_IDS[state.view]);
     var empty = $(EMPTY_IDS[state.view]);
     if (!grid || !empty) return;
@@ -1754,13 +1781,16 @@
     /* Snapshot the item (thumb/url/html) at launch time so the row keeps real
        art and stays relaunchable even if the game is renamed or removed. */
     var item = findAnyItem(key);
+    /* Same rule as sanitizeItem(): a file:/javascript: snapshot can never load
+       on a hosted site, and Chrome logs the file:/// security error the moment
+       it lands in the DOM - so never persist it into recents. */
     rec.unshift({
       key: key,
       title: String(title || ""),
       t: Date.now(),
-      thumb: item ? item.thumb : undefined,
-      url: item ? item.url : undefined,
-      html: item ? item.html : undefined
+      thumb: item && !isLocalFileUrl(item.thumb) ? item.thumb : undefined,
+      url: item && !isLocalFileUrl(item.url) ? item.url : undefined,
+      html: item && !isLocalFileUrl(item.html) ? item.html : undefined
     });
     rec = rec.slice(0, 8);
     persist(RECENTS_KEY, JSON.stringify(rec));
@@ -1800,8 +1830,16 @@
         if (item) return item;
       }
       /* Ghost: renamed/removed item, keep the launch snapshot so it still
-         shows real art and stays relaunchable. */
-      return { title: r.title, _ghost: true, thumb: r.thumb, url: r.url, html: r.html };
+         shows real art and stays relaunchable. Legacy entries may carry a
+         file:/javascript: snapshot (saved before snapshots were sanitized) -
+         strip it here so it can never reach the DOM. */
+      return {
+        title: r.title,
+        _ghost: true,
+        thumb: isLocalFileUrl(r.thumb) ? undefined : r.thumb,
+        url: isLocalFileUrl(r.url) ? undefined : r.url,
+        html: isLocalFileUrl(r.html) ? undefined : r.html
+      };
     }).filter(Boolean);
   }
 
@@ -2357,6 +2395,22 @@
     /* Clock must never block the rest of init (nav binds happen below). */
     try { startClock(); } catch (e) { /* non-critical */ }
 
+    /* sync.js restores the server snapshot AFTER this file has seeded and
+       built its catalogs. When the restore lands, re-read the libraries so
+       the UI shows the merged catalog (fresh seeds + server edits) without a
+       reload. Cheap: one JSON.parse per library, and the arrays are swapped
+       in place before any view re-renders. */
+    window.addEventListener("chalkle:sync-restored", function () {
+      try {
+        var g = loadLib("games");
+        if (g.length !== DATA.games.length) {
+          DATA.games.length = 0;
+          Array.prototype.push.apply(DATA.games, g);
+          render();
+        }
+      } catch (e) { /* non-critical */ }
+    });
+
     document.querySelectorAll(".chalkle-logo").forEach(function (el) {
       el.innerHTML = buildLogo();
     });
@@ -2379,7 +2433,8 @@
       youtube: ["#ff0033", "#b30024"],
       ai: ["#b06bff", "#6a2fbf"],
       bookmarklets: ["#b7e63f", "#7f9f14"],
-      movies: ["#818cf8", "#3730a3"]
+      movies: ["#a970ff", "#5a25c4"],
+      chat: ["#F4511E", "#a33400"]
     };
     document.querySelectorAll(".view-title").forEach(function (el) {
       var label = (el.textContent || "").trim();
@@ -3081,6 +3136,29 @@
       });
     }
 
+    /* Games/sites/apps tab filter box: live grid narrowing. Debounced so
+       typing stays smooth over the big library. */
+    var gridFilter = $("#games-filter");
+    if (gridFilter) {
+      var gfTimer = null;
+      gridFilter.addEventListener("input", function () {
+        clearTimeout(gfTimer);
+        gfTimer = setTimeout(function () {
+          state.gridFilter = gridFilter.value;
+          /* Active filter must see every match (bypass the 480 cap); an
+             empty box restores the capped grid. render(bool) persists it. */
+          render(state.gridFilter.trim() ? true : false);
+        }, 120);
+      });
+      gridFilter.addEventListener("keydown", function (e) {
+        if (e.key === "Escape") {
+          gridFilter.value = "";
+          state.gridFilter = "";
+          render();
+        }
+      });
+    }
+
     var sitesSort = $("#sites-sort");
     if (sitesSort) {
       sitesSort.value = state.sitesSort;
@@ -3337,6 +3415,9 @@
         gamesCta.addEventListener("click", function () {
           state.query = "";
           state.gameFilter = "all";
+          state.gridFilter = "";
+          var gf = $("#games-filter");
+          if (gf) gf.value = "";
           if (els.search) els.search.value = "";
           document.querySelectorAll("[data-game-filter]").forEach(function (item) {
             item.classList.toggle("is-active", item.dataset.gameFilter === "all");

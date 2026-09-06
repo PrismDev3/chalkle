@@ -47,7 +47,7 @@ except Exception:
 
 HOST = "127.0.0.1"
 WEB_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-PORT = 4173
+PORT = int(os.environ.get("CHALKLE_PORT", "4173"))
 ACTIVE_TTL = 20          # seconds a visitor stays "online" after their last ping
 PRUNE_EVERY = 4          # seconds between pruning expired visitors
 PRUNE_AFTER = ACTIVE_TTL + 4
@@ -56,6 +56,37 @@ PRUNE_AFTER = ACTIVE_TTL + 4
 STATE = {}
 LOCK = threading.Lock()
 
+# The registry is file-backed so EVERY server process shares one view of who
+# is online. Multiple instances of this server can legitimately run at once
+# (Windows lets them double-bind the port, and the tunnel/loopback split
+# connections between them) - an in-memory dict gives each process a
+# different, too-low count. A tiny JSON file on disk fixes that, and also
+# survives restarts (stale rows prune by timestamp naturally).
+ACTIVE_PATH = os.path.join(WEB_ROOT, "active-visitors.json")
+
+
+def _active_load():
+    try:
+        with open(ACTIVE_PATH, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+
+def _active_save(state):
+    # Atomic replace: a concurrent reader never sees a half-written file.
+    tmp = ACTIVE_PATH + ".tmp-" + str(os.getpid())
+    try:
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(state, f)
+        os.replace(tmp, ACTIVE_PATH)
+    except Exception:
+        try:
+            os.unlink(tmp)
+        except Exception:
+            pass
+
 
 def _prune():
     now = time.time()
@@ -63,13 +94,42 @@ def _prune():
         expired = [k for k, ts in STATE.items() if now - ts > PRUNE_AFTER]
         for k in expired:
             STATE.pop(k, None)
+        try:
+            disk = _active_load()
+            dirty = False
+            for k in [k for k, ts in disk.items() if now - ts > PRUNE_AFTER]:
+                disk.pop(k, None)
+                dirty = True
+            if dirty:
+                _active_save(disk)
+        except Exception:
+            pass
+
+
+def _active_touch(sid):
+    """Mark a visitor online in the shared registry."""
+    now = time.time()
+    with LOCK:
+        STATE[sid] = now
+        disk = _active_load()
+        disk[sid] = now
+        for k in [k for k, ts in disk.items() if now - ts > PRUNE_AFTER]:
+            disk.pop(k, None)
+        _active_save(disk)
 
 
 def _active_count():
-    _prune()
     now = time.time()
     with LOCK:
-        return sum(1 for ts in STATE.values() if now - ts <= ACTIVE_TTL)
+        disk = _active_load()
+        # Union of this process's live sessions and the shared file: whichever
+        # process handled the last ping, everyone reads the same total.
+        seen = {}
+        for src in (STATE, disk):
+            for k, ts in src.items():
+                if now - ts <= ACTIVE_TTL and (k not in seen or ts > seen[k]):
+                    seen[k] = ts
+        return len(seen)
 
 
 def _pruner():
@@ -514,6 +574,13 @@ class _MusicRelay:
             path_url = "/search?q=" + urllib.parse.quote(q) + "&filter=videos"
             data, code = _yt_fetch_json(path_url)
             items = data.get("items") if isinstance(data, dict) else data
+            if code != 200 and _music_cool():
+                stale = _yt_cache.get(key)
+                if stale:
+                    sp = dict(stale[1])
+                    sp["stale"] = True
+                    sp["stale_age"] = int(time.time() - stale[0])
+                    return self._music_json(sp, 200, cacheable=True)
             items = [i for i in (items or []) if isinstance(i, dict)]
             # Keep music-length videos (<= 9 min, > 25 s), then most-viewed first.
             songs = []
@@ -588,6 +655,14 @@ class _MusicRelay:
                 stream_url = _invidious_video(vid)
             if not stream_url:
                 payload = {"url": "", "via": "youtube", "br": -1}
+                # Total-outage fallback: last good stream URL for this video,
+                # so currently-playing audio keeps working through upstream
+                # failures (Google media URLs stay valid for hours).
+                sstale = _yt_cache.get("music:streamok:" + vid)
+                if sstale and _music_cool():
+                    sp = dict(sstale[1])
+                    sp["stale"] = True
+                    return self._music_json(sp, 200, cacheable=True)
                 _yt_cache[ckey] = (time.time(), payload, 600)
                 return self._music_json(payload, 200, cacheable=True)
             payload = {
@@ -597,6 +672,7 @@ class _MusicRelay:
                 "br": 320
             }
             _yt_cache[ckey] = (time.time(), payload, 3600)
+            _yt_cache["music:streamok:" + vid] = (time.time(), payload)
             return self._music_json(payload, 200, cacheable=True)
 
         # Cover art: use the YouTube thumbnail (rewritten to /music/pic proxy).
@@ -854,6 +930,12 @@ YT_INSTANCES = [
     "https://pipedapi.kavin.rocks",
     "https://pipedapi.adminforge.de",
     "https://pipedapi.reallyaweso.me",
+    "https://pipedapi.leptons.xyz",
+    "https://pipedapi.orangenet.cc",
+    "https://pipedapi.ducks.party",
+    "https://piapi.ggtyler.dev",
+    "https://piped-api.codespace.cz",
+    "https://pipedapi.drgns.space",
 ]
 
 # Piped search is still useful, but its stream endpoints are increasingly
@@ -863,15 +945,27 @@ YT_INSTANCES = [
 INVIDIOUS_INSTANCES = [
     "https://inv.nadeko.net",
     "https://invidious.nerdvpn.de",
+    "https://yewtu.be",
     "https://yt.chocolatemoo53.com",
     "https://invidious.tiekoetter.com",
     "https://inv.tux.pizza",
     "https://invidious.private.coffee",
+    "https://iv.melmac.space",
 ]
 
 _yt_cache = {}          # route key -> (ts, payload)
 _YT_CACHE_TTL = 180     # seconds
 _yt_down_until = {}     # instance -> ts; unreachable instances are skipped until then
+
+
+def _music_cool():
+    """True when most Piped instances are in their failure cooldown - i.e. we
+    just went through a near-total outage and stale caches are worth serving
+    instead of errors."""
+    now = time.time()
+    live = [i for i in YT_INSTANCES if _yt_down_until.get(i, 0) <= now]
+    return len(live) < max(1, len(YT_INSTANCES) // 3)
+
 
 
 def _yt_b64u(s):
@@ -1727,7 +1821,204 @@ class _SportsTV:
 
 
 
-class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, SimpleHTTPRequestHandler):
+# ---------------------------------------------------------------- /bitcord relay
+# Same-origin relay for the embedded Bitcord chat app. Bitcord is a separate
+# Node/Express + WebSocket process on 127.0.0.1:4123. The page is served as
+# static files from the bitcord/ folder (base href=/bitcord/), and every API
+# call and the WebSocket connect are tunneled through this origin so the iframe
+# never talks cross-origin and nothing is blocked by school filters.
+#
+# Bitcord's built index.html ships with <base href="/bitcord/">, so its
+# fetch("/api/..." ) calls resolve to /bitcord/api/... and its WebSocket
+# connects to /bitcord/ws. Both are forwarded here.
+BITCORD_BACKEND = "http://127.0.0.1:4123"
+BITCORD_WS = "ws://127.0.0.1:4123"
+
+class _BitcordRelay:
+    """Mixin with the Bitcord API + WebSocket proxy handlers."""
+
+    def _bitcord_is_up(self):
+        import socket
+        try:
+            s = socket.create_connection(("127.0.0.1", 4123), timeout=3)
+            s.close()
+            return True
+        except Exception:
+            return False
+
+    def _bitcord_forward(self, method, subpath, post_body=None, timeout=30):
+        """Forward one HTTP request to the Bitcord API. Returns a response dict."""
+        import urllib.request, urllib.error
+        url = BITCORD_BACKEND + subpath
+        headers = {
+            "User-Agent": "ChalkleBitcordRelay/1.0",
+            "Accept": "*/*",
+        }
+        ctype = (self.headers.get("Content-Type") or "").split(";")[0].strip()
+        if post_body is not None:
+            headers["Content-Type"] = ctype or "application/json"
+            if isinstance(post_body, str):
+                post_body = post_body.encode("utf-8")
+        # Forward cookies (session) and relevant headers so Bitcord sees the
+        # same session the iframe is authenticated with.
+        for h in ("Cookie", "Referer", "Origin", "X-Requested-With"):
+            v = self.headers.get(h)
+            if v:
+                headers[h] = v
+        req = urllib.request.Request(url, data=post_body, headers=headers, method=method)
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                raw = resp.read()
+                rtype = (resp.headers.get("Content-Type") or "application/json").split(";")[0].strip()
+                out = {"code": resp.getcode() or 200, "type": rtype, "body": raw}
+                # Mirror Set-Cookie from Bitcord so the session cookie is set on
+                # the Chalkle origin (the iframe is same-origin enough that the
+                # cookie lands on the top-level host, which is what Bitcord checks).
+                for k in ("Set-Cookie", "Cache-Control"):
+                    v = resp.headers.get(k)
+                    if v:
+                        out[k] = v
+                return out
+        except urllib.error.HTTPError as e:
+            raw = e.read()
+            return {"code": e.code, "type": e.headers.get("Content-Type", "application/json").split(";")[0].strip(), "body": raw}
+        except Exception as e:
+            return {"code": 502, "type": "application/json",
+                    "body": ("Bitcord server unreachable - is it running on port 4123?").encode()}
+
+    def _bitcord_send(self, r):
+        self.send_response(r["code"])
+        self.send_header("Content-Type", r["type"] or "application/octet-stream")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        for k in ("Set-Cookie", "Cache-Control"):
+            v = r.get(k)
+            if v:
+                self.send_header(k, v)
+        self.send_header("Content-Length", str(len(r["body"])))
+        self.end_headers()
+        try:
+            self.wfile.write(r["body"])
+        except Exception:
+            pass
+
+    def _bitcord_api(self, route):
+        """Handle /bitcord/api/* -> proxy to Bitcord backend."""
+        if not route.startswith("/bitcord/api/") and not route.startswith("/bitcord/api?"):
+            return None
+        method = "POST" if self.command == "POST" else "GET"
+        query = self.path.split("?", 1)[1] if "?" in self.path else ""
+        subpath = route[len("/bitcord"):]  # /api/... (keeps leading /)
+        if method == "POST":
+            length = int(self.headers.get("Content-Length", 0))
+            body = self.rfile.read(length) if length > 0 else None
+        else:
+            body = None
+        r = self._bitcord_forward(method, subpath, post_body=body, timeout=30)
+        if r is None:
+            return None
+        self._bitcord_send(r)
+        return True
+
+    def _bitcord_ws(self):
+        """Tunnel a WebSocket upgrade from /bitcord/ws to the Bitcord WS server."""
+        if not self.path.startswith("/bitcord/ws"):
+            return None
+        target = BITCORD_WS + "/ws"
+        import urllib.parse
+        parts = urllib.parse.urlsplit(target)
+        host = parts.hostname or "127.0.0.1"
+        port = parts.port or 4123
+        path = parts.path or "/ws"
+        if parts.query:
+            path += "?" + parts.query
+        try:
+            sock = socket.create_connection((host, port), timeout=15)
+        except Exception as e:
+            self._bitcord_json({"error": "ws connect failed: " + type(e).__name__}, 502)
+            return True
+        try:
+            key = self.headers.get("Sec-WebSocket-Key", "").strip()
+            ver = self.headers.get("Sec-WebSocket-Version", "13").strip()
+            proto = self.headers.get("Sec-WebSocket-Protocol", "").strip()
+            lines = ["GET %s HTTP/1.1" % path, "Host: %s" % host, "Upgrade: websocket", "Connection: Upgrade"]
+            if key:
+                lines.append("Sec-WebSocket-Key: " + key)
+            if ver:
+                lines.append("Sec-WebSocket-Version: " + ver)
+            if proto:
+                lines.append("Sec-WebSocket-Protocol: " + proto)
+            origin = self.headers.get("Origin", "")
+            if origin:
+                lines.append("Origin: " + origin)
+            sock.sendall(("\r\n".join(lines) + "\r\n\r\n").encode())
+            head = b""
+            while b"\r\n\r\n" not in head:
+                chunk = sock.recv(4096)
+                if not chunk:
+                    break
+                head += chunk
+                if len(head) > 65536:
+                    break
+        except Exception as e:
+            try:
+                sock.close()
+            except Exception:
+                pass
+            self._bitcord_json({"error": "ws handshake failed: " + type(e).__name__}, 502)
+            return True
+        try:
+            self.connection.sendall(head)
+            self.close_connection = True
+        except Exception:
+            try:
+                sock.close()
+            except Exception:
+                pass
+            return True
+
+        def _pump(src, dst):
+            try:
+                while True:
+                    data = src.recv(65536)
+                    if not data:
+                        break
+                    dst.sendall(data)
+            except Exception:
+                pass
+            finally:
+                try:
+                    dst.shutdown(socket.SHUT_WR)
+                except Exception:
+                    pass
+
+        t1 = threading.Thread(target=_pump, args=(self.connection, sock), daemon=True)
+        t2 = threading.Thread(target=_pump, args=(sock, self.connection), daemon=True)
+        t1.start()
+        t2.start()
+        t1.join()
+        t2.join()
+        try:
+            sock.close()
+        except Exception:
+            pass
+        return True
+
+    def _bitcord_json(self, obj, code=200):
+        data = json.dumps(obj).encode("utf-8")
+        self.send_response(code)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        try:
+            self.wfile.write(data)
+        except Exception:
+            pass
+
+
+class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, _BitcordRelay, SimpleHTTPRequestHandler):
     def log_message(self, *a):  # quieter than the default per-request logger
         pass
 
@@ -1885,6 +2176,15 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, Simpl
             return self._manga_proxy(route)
         if route.startswith("/api/tmdb/"):
             return self._tmdb_proxy(route)
+        # Bitcord chat embed: API proxy + WebSocket tunnel.
+        if route.startswith("/bitcord/"):
+            if (self.headers.get("Upgrade") or "").lower() == "websocket":
+                if self._bitcord_ws():
+                    return
+            else:
+                got = self._bitcord_api(route)
+                if got is not None:
+                    return
         return super().do_GET()
 
     def do_POST(self):
@@ -1906,6 +2206,10 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, Simpl
             if body is not None and "application/x-www-form-urlencoded" in ctype:
                 body = body.decode("utf-8", "replace")
             return self._uv_route(route[len("/uv/"):], body)
+        # Bitcord chat embed: POST API proxy. The _bitcord_api method reads
+        # the request body itself, so do_POST just delegates.
+        if route.startswith("/bitcord/api/") or route.startswith("/bitcord/api?"):
+            return self._bitcord_api(route)
         if route == "/cloud/config":
             return self._cloud_config_post()
         got = self._cloud_post(route)
@@ -2101,19 +2405,24 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, Simpl
         blocks it. Fetching server-side with the token and handing JSON back
         works everywhere the relay runs."""
         import urllib.parse
-        path = route[len("/api/tmdb/"):]
-        if self.path.find("?") != -1:
-            qs = self.path[self.path.find("?") + 1:]
-        else:
-            qs = ""
+        # Extract path and query string from the full request path
+        full_path = self.path.split("?", 1)
+        path = route[len("/api/tmdb/"):]  # route already has ? stripped
+        qs = full_path[1] if len(full_path) > 1 else ""
+        # Build target URL with proper query string handling
         target = "https://api.themoviedb.org/3/" + path
+        params = {}
         if qs:
-            target += "?" + qs
-        if "?" not in target:
-            target += "?"
-        else:
-            target += "&"
-        target += "language=en-US"
+            # Parse existing query params
+            for param in qs.split("&"):
+                if "=" in param:
+                    k, v = param.split("=", 1)
+                    params[k] = v
+        # Always add language parameter
+        params["language"] = "en-US"
+        # Encode and append query string
+        if params:
+            target += "?" + urllib.parse.urlencode(params)
         req = urllib.request.Request(
             target,
             headers={
@@ -3049,8 +3358,7 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, Simpl
         q = parse_qs(urlparse(self.path).query)
         sid = (q.get("s") or [""])[0].strip()
         if sid:
-            with LOCK:
-                STATE[sid] = time.time()
+            _active_touch(sid)
         body = json.dumps({"active": _active_count(), "ttl": ACTIVE_TTL}).encode()
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
@@ -3149,7 +3457,10 @@ _UV_PATCH_JS = (
     "function abs(u){"
     "if(!u||typeof u!=='string')return u;"
     "var s=u.trim();"
-    "if(!s||/^(data:|blob:|javascript:|mailto:|tel:|#)/i.test(s))return u;"
+    # file:/about: must never be wrapped: a file: URL routed through /uv/ would
+    # make the relay fetch it server-side (local-file-read risk), and the
+    # browser logs "may not load or link to file:///" on any file: reference.
+    "if(!s||/^(data:|blob:|javascript:|file:|about:|mailto:|tel:|#)/i.test(s))return u;"
     "if(s.indexOf('//')===0)s=location.protocol+s;"
     "if(/^(?:https?|wss?):\\/\\//i.test(s))return s;"
     "if(TARGET){try{var b=new URL(TARGET);"
@@ -3273,7 +3584,10 @@ def _uv_wrap_url(value, base_url):
     """Rewrite one URL to an absolute /uv/ route. Relative values resolve
     against base_url first; non-URL values pass through untouched."""
     v = str(value or "").strip()
-    if not v or v.startswith(("#", "data:", "blob:", "javascript:", "mailto:", "tel:")):
+    # file:/about: pass through unwrapped: wrapping them would make the relay
+    # try to fetch a local file server-side, and the browser blocks file:
+    # references from remote pages with a security error either way.
+    if not v or v.startswith(("#", "data:", "blob:", "javascript:", "file:", "about:", "mailto:", "tel:")):
         return value
     if v.startswith("//"):
         v = "https:" + v

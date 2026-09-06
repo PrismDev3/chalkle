@@ -30,8 +30,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Boogaloo&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
-  <link rel="preload" as="image" href="bg-chalk.webp" fetchpriority="high">
-  <link rel="stylesheet" href="src/styles.css?v=20260907a">
+  <link rel="preload" as="image" href="bg-chalk.webp" fetchpriority="high" id="chalkle-wallpaper-preload">
+  <link rel="stylesheet" href="src/styles.css?v=20260909a">
   <!-- AdSense. This loader powers BOTH layers:
        1. Manual units - the .ad-slot placements below, each filled when its
           slot ID is pasted into CHALKLE_ADS.slots (AdSense → Ads → By ad unit).
@@ -70,7 +70,7 @@
     }
   };
   </script>
-  <script src="src/theme.js"></script>
+  <script src="src/theme.js?v=20260909a"></script>
   <script>
   /* Panic key: press ` (backtick) three times quickly (or Ctrl+Shift+` once)
      to instantly send the tab to Google Classroom. Works from anywhere on the
@@ -298,6 +298,9 @@
   })();
   </script>
 
+  <!-- Interactive Classroom Stealth Cover Frame (Toggleable via Panic or Cloak) -->
+  <iframe id="stealth-cover-frame" src="assets/class.html" title="Google Classroom" aria-hidden="true" tabindex="-1"></iframe>
+
   <div class="boot" id="boot" aria-hidden="true">
     <div class="boot-hud">
       <div class="boot-hud-line left"></div>
@@ -338,6 +341,32 @@
         <img class="clock-gif" src="https://minecraft.wiki/images/Clock_JE3_BE3.gif?a4011" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">
         <span class="clock-time" id="clock-time">--:--</span>
         <span class="clock-ampm" id="clock-ampm"></span>
+      </div>
+      <div class="mini-music" id="mini-music">
+        <button class="mini-music-open" id="mini-music-open" type="button" title="Open Music" aria-label="Open Music tab">
+          <span class="mini-music-art" id="mini-music-art" aria-hidden="true"><span class="thumb-letter">&#9834;</span></span>
+          <span class="mini-music-txt">
+            <span class="mini-music-title" id="mini-music-title">Music</span>
+            <span class="mini-music-artist" id="mini-music-artist">tap play in Music</span>
+          </span>
+        </button>
+        <span class="mini-music-eq" id="mini-music-eq" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span class="mini-music-ctrls">
+          <button class="mini-music-btn" id="mini-music-prev" type="button" aria-label="Previous track" title="Previous">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5v14M20 5l-11 7 11 7z"/></svg>
+          </button>
+          <button class="mini-music-btn mini-music-play" id="mini-music-play" type="button" aria-label="Play or pause" title="Play / Pause">
+            <svg viewBox="0 0 24 24" aria-hidden="true" class="mm-ico-play"><path d="M8 5v14l11-7z"/></svg>
+            <svg viewBox="0 0 24 24" aria-hidden="true" class="mm-ico-pause" hidden><path d="M7 5h4v14H7zM13 5h4v14h-4z"/></svg>
+          </button>
+          <button class="mini-music-btn" id="mini-music-next" type="button" aria-label="Next track" title="Next">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 5v14M4 5l11 7-11 7z"/></svg>
+          </button>
+          <button class="mini-music-btn" id="mini-music-mute" type="button" aria-label="Mute" title="Mute">
+            <svg viewBox="0 0 24 24" aria-hidden="true" class="mm-ico-vol"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path class="mm-vol-waves" d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/></svg>
+            <svg viewBox="0 0 24 24" aria-hidden="true" class="mm-ico-muted" hidden><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16 9l5 6M21 9l-5 6"/></svg>
+          </button>
+        </span>
       </div>
       <div class="viewer-pill" id="viewer-pill" role="status" aria-live="polite" aria-label="Live viewer count" hidden>
         <svg class="viewer-eye" viewBox="0 0 24 24" aria-hidden="true">
@@ -388,6 +417,13 @@
               <path d="m10.2 9.3 5 2.7-5 2.7z" fill="currentColor" stroke="none"/>
             </svg>
             <span class="nav-label">Movies</span>
+          </button>
+
+          <button class="nav-item" data-view="chat" title="Chat">
+            <svg class="icon tab-ico" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+            </svg>
+            <span class="nav-label">Chat</span>
           </button>
 
           <button class="nav-item" data-view="apps-tools" title="Apps/Tools">
@@ -614,6 +650,7 @@
               <span class="view-meta" id="games-meta"></span>
             </div>
             <div class="view-actions">
+              <input class="field field-search games-filter-input" id="games-filter" type="search" placeholder="Filter games…" autocomplete="off" spellcheck="false" aria-label="Filter games by title">
               <select class="field field-mode" id="game-sort" aria-label="Sort games">
                 <option value="favorite">Favorites first</option>
                 <option value="popular">Most popular</option>
@@ -700,6 +737,7 @@
             </div>
           </div>
           <div class="genre-filters" id="cloud-genres" role="group" aria-label="Filter by genre" hidden></div>
+          <div class="cloud-player-host" id="cloud-player-host" hidden></div>
           <div class="grid" id="cloud-grid"></div>
           <div class="empty" id="cloud-empty" hidden>
             <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
@@ -900,6 +938,23 @@
           </div>
           <iframe class="movies-frame" id="movies-frame" title="JS Movies" data-src="/movies.html"
             allow="fullscreen" referrerpolicy="no-referrer" loading="lazy"></iframe>
+        </section>
+
+        <section class="view" data-view="chat">
+          <div class="view-head">
+            <div class="view-heading">
+              <h1 class="view-title">Chat</h1>
+              <span class="view-meta" id="chat-meta">talk with friends · realtime · no sign-in needed to browse</span>
+            </div>
+            <div class="view-actions">
+              <a class="btn" id="chat-open-tab" href="/bitcord/index.html" target="_blank" rel="noopener">
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17L17 7"/><path d="M9 7h8v8"/></svg>
+                <span>Open full screen</span>
+              </a>
+            </div>
+          </div>
+          <iframe class="movies-frame chat-frame" id="chat-frame" title="Bitcord Chat" data-src="/bitcord/index.html"
+            allow="fullscreen; autoplay; camera; microphone" referrerpolicy="no-referrer" loading="lazy"></iframe>
         </section>
 
         <section class="view" data-view="apps-tools">
@@ -1236,11 +1291,13 @@
               </button>
               <div class="settings-body" id="settings-body-advanced" hidden>
                 <div class="settings-block">
-                  <div class="settings-block-label">Saved proxies</div>
-                  <p class="settings-block-hint">Click a proxy to open it</p>
-                  <div class="proxy-links" id="settings-proxy-list"></div>
-                  <div class="settings-block-inline">
-                    <button class="btn-danger" id="opt-clear">Clear list</button>
+                  <div class="settings-block-label">Saved proxies cache</div>
+                  <p class="settings-proxy-note">Looking for proxy apps or adding new servers? Visit the dedicated <button class="settings-proxy-btn-link" type="button" data-home-go="proxies">Proxies Tab</button></p>
+                  <div class="settings-proxy-box">
+                    <div class="proxy-links" id="settings-proxy-list"></div>
+                    <div class="settings-block-inline">
+                      <button class="btn-danger" id="opt-clear">Clear cached proxies</button>
+                    </div>
                   </div>
                 </div>
                 <div class="settings-block">
@@ -1704,25 +1761,26 @@
     </div>
 
   <script src="src/runtime-config.js?v=20260905m"></script>
-  <script src="src/sync.js?v=20260905j"></script>
-  <script src="src/games.js?v=20260907c"></script>
+  <script src="src/sync.js?v=20260909a"></script>
+  <script src="src/games.js?v=20260908a"></script>
+  <script src="src/noah-games.js?v=20260908a"></script>
   <script src="src/community-games.js?v=20260905j"></script>
   <script src="src/real-shots.js?v=20260905u"></script>
-  <script src="src/cloudgames.js?v=20260905j"></script>
-  <script src="src/webports.js?v=20260905j"></script>
+  <script src="src/cloudgames.js?v=20260908c"></script>
+  <script src="src/webports.js?v=20260908d"></script>
   <script src="src/sites.js?v=20260905j"></script>
   <script src="src/proxies.js?v=20260905j"></script>
   <script src="src/apps.js?v=20260905j"></script>
-  <script src="src/music.js?v=20260908a"></script>
-  <script src="src/launcher.js?v=20260908a"></script>
-  <script src="src/cloud.js?v=20260906b"></script>
+  <script src="src/music.js?v=20260909a"></script>
+  <script src="src/launcher.js?v=20260908b"></script>
+  <script src="src/cloud.js?v=20260908c"></script>
   <script src="src/editor.js?v=20260905j"></script>
   <script src="src/urlauditor.js?v=20260905j"></script>
   <script src="src/pixel.js?v=20260905j"></script>
   <script src="src/domainhub.js?v=20260905j"></script>
   <script src="src/ai.js?v=20260905j"></script>
   <script src="src/partners.js?v=20260905j"></script>
-  <script src="src/docs.js?v=20260908a"></script>
+  <script src="src/docs.js?v=20260908c"></script>
   <script src="src/bookmarklets.js?v=20260905j"></script>
   <script src="assets/hls.min.js?v=20260905c"></script>
   <script src="src/livetv.js?v=20260905j"></script>
@@ -1778,6 +1836,6 @@
     }
   })();
   </script>
-  <script src="src/app.js?v=20260908a"></script>
+  <script src="src/app.js?v=20260909a"></script>
 </body>
 </html>
