@@ -172,6 +172,32 @@
     return true;
   }
 
+  /* Redirector shell. External links (apps/tools/proxy sites) open as
+     /go.html#<base64>, a tiny same-origin page that decodes the target and
+     window.location.replace()s to it. The destination never appears in the
+     card's href, the click's network request, or this page's DOM, so link-
+     and request-scanning filters see only our own origin. Base64 is standard
+     (btoa/atob) so the shell stays a one-liner. */
+  function shellUrl(target) {
+    var t = String(target || "").trim();
+    if (!t) return "";
+    var enc = "";
+    try { enc = btoa(t); } catch (e) { return t; }
+    var shell = "/go.html#" + enc;
+    try { shell = new URL(shell, document.baseURI || location.href).href; } catch (e) { /* keep */ }
+    return shell;
+  }
+
+  /* Open a target through the redirector shell. Popup blocked: fall back to
+     the in-app frame (which renders the shell, which redirects in-frame). */
+  function openShell(target, title) {
+    var shell = shellUrl(target);
+    if (!shell) return false;
+    var win = openTab(shell);
+    if (!win) inAppFrame(shell, title || target || "");
+    return !!win || true;
+  }
+
   /* Open a URL as a plain new tab and hand back the window handle. The
      "noopener" feature string is NOT used: per spec it makes window.open
      return null, which would break the popup-blocked fallback below and
@@ -491,6 +517,8 @@
     openDirect: openDirect,
     openProxy: openProxy,
     openProxyApp: openProxyApp,
+    openShell: openShell,
+    shellUrl: shellUrl,
     openSiteProxied: openSiteProxied,
     firstProxy: firstProxy,
     routeProxy: routeProxy,
@@ -519,6 +547,14 @@
       if (gba) {
         var shared = map["/assets/gba/index.html"] || "";
         return shared ? shared + "#" + decodeURIComponent(gba[1]) : "";
+      }
+      /* Redirector shell (/go.html#<base64>) is embedded once too - keep the
+         hash payload on the shared data URI so static single-file builds can
+         still bounce through it. */
+      var shell = u.match(/^\/go\.html#([^#]+)/);
+      if (shell) {
+        var shellShared = map["/go.html"] || "";
+        return shellShared ? shellShared + "#" + shell[1] : "";
       }
       var v = map[u];
       return v || "";

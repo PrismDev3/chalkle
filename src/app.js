@@ -605,6 +605,25 @@
     if (btn) { btn.classList.remove("is-open"); btn.setAttribute("aria-expanded", "false"); }
   }
 
+  /* JS Movies: resolve the standalone page for the current deployment.
+     The full single-file build embeds it as a data URI under /movies.html
+     (same trick as embedded games); everywhere else it is a real page. */
+  function moviesPageUrl() {
+    try {
+      var map = window.__SINGLE_GAMES__;
+      if (map && map["/movies.html"]) return map["/movies.html"];
+    } catch (e) { /* no single-file map */ }
+    try {
+      return new URL("/movies.html", document.baseURI || location.href).href;
+    } catch (e) { /* keep it simple */ }
+    return "/movies.html";
+  }
+  function loadMoviesFrame() {
+    var frame = document.getElementById("movies-frame");
+    if (!frame || frame.src && frame.src.indexOf("movies.html") !== -1) return;
+    frame.src = moviesPageUrl();
+  }
+
   function setView(view) {
     state.view = view;
     persist("chalkle-last-view", view);
@@ -648,6 +667,8 @@
     } else if (view === "music") {
       /* owned by music.js */
       if (window.ChalkleMusic && window.ChalkleMusic.render) window.ChalkleMusic.render();
+    } else if (view === "movies") {
+      loadMoviesFrame();
     } else {
       /* Chromebook-friendly: paint the tab switch first, build the grid on
          the next frame so a 1,400-card library never blocks the click. */
@@ -2353,7 +2374,8 @@
       livetv: ["#4ab88c", "#1f7a5c"],
       youtube: ["#ff0033", "#b30024"],
       ai: ["#b06bff", "#6a2fbf"],
-      bookmarklets: ["#b7e63f", "#7f9f14"]
+      bookmarklets: ["#b7e63f", "#7f9f14"],
+      movies: ["#818cf8", "#3730a3"]
     };
     document.querySelectorAll(".view-title").forEach(function (el) {
       var label = (el.textContent || "").trim();
@@ -2409,6 +2431,19 @@
         closeSidebar();
       });
     });
+
+    /* JS Movies: "Open full screen" must resolve like the in-view frame
+       (single-file builds embed movies.html, plain sites serve it). */
+    var moviesTabLink = document.getElementById("movies-open-tab");
+    if (moviesTabLink) {
+      moviesTabLink.addEventListener("click", function (e) {
+        e.preventDefault();
+        var url = moviesPageUrl();
+        if (!url) return;
+        var win = window.open(url, "_blank");
+        if (win) { try { win.opener = null; } catch (err) { /* cross-origin */ } }
+      });
+    }
 
     /* Keep the Games scroll position across tab switches (per session). */
     var mainEl = document.querySelector(".main");
@@ -3125,10 +3160,15 @@
             setView("proxies");
             return;
           }
-          if (window.ChalkleLaunch.openProxyApp) {
+          var paRouted = window.ChalkleLaunch.routeProxy(paTarget, liveProxy.url, liveProxy.mode === "frame" || !!liveProxy.hashRoute);
+          if (window.ChalkleLaunch.openShell) {
+            /* Proxy apps are walled sites - bounce even the proxied URL
+               through the redirector shell so no filter sees it as a link. */
+            window.ChalkleLaunch.openShell(paRouted, paTitle);
+          } else if (window.ChalkleLaunch.openProxyApp) {
             window.ChalkleLaunch.openProxyApp(paTarget, paTitle);
           } else {
-            window.ChalkleLaunch.open(window.ChalkleLaunch.routeProxy(paTarget, liveProxy.url, liveProxy.mode === "frame" || !!liveProxy.hashRoute), paTitle);
+            window.ChalkleLaunch.open(paRouted, paTitle);
           }
           return;
         }
@@ -3209,6 +3249,11 @@
           if (launchUrl) {
             if (isJamesEdition(launchUrl)) {
               openJamesEdition(launch.dataset.title || "Minecraft James Edition");
+            } else if (state.view === "apps-tools" && /^https?:/i.test(launchUrl) && window.ChalkleLaunch.openShell) {
+              /* Apps/Tools always bounce through the same-origin redirector
+                 shell (/go.html#<base64>) so the destination never shows up
+                 as a link or request - it stays off the filter's radar. */
+              window.ChalkleLaunch.openShell(launchUrl, launch.dataset.title || launchUrl);
             } else {
               /* Always ask before selecting direct, proxy, blank-tab, or frame. */
               window.ChalkleLaunch.openWithOptions(launchUrl, launch.dataset.title || launchUrl);

@@ -31,7 +31,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Boogaloo&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
   <link rel="preload" as="image" href="bg-chalk.webp" fetchpriority="high">
-  <link rel="stylesheet" href="src/styles.css?v=20260905o">
+  <link rel="stylesheet" href="src/styles.css?v=20260907a">
   <!-- AdSense. This loader powers BOTH layers:
        1. Manual units - the .ad-slot placements below, each filled when its
           slot ID is pasted into CHALKLE_ADS.slots (AdSense → Ads → By ad unit).
@@ -380,6 +380,14 @@
               <path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z"/>
             </svg>
             <span class="nav-label">Music</span>
+          </button>
+
+          <button class="nav-item" data-view="movies" title="JS Movies">
+            <svg class="icon tab-ico" viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="2.6" y="5" width="18.8" height="14" rx="2.2"/>
+              <path d="m10.2 9.3 5 2.7-5 2.7z" fill="currentColor" stroke="none"/>
+            </svg>
+            <span class="nav-label">Movies</span>
           </button>
 
           <button class="nav-item" data-view="apps-tools" title="Apps/Tools">
@@ -875,6 +883,23 @@
             </div>
             <div class="p-toast" id="p-toast" hidden></div>
           </div>
+        </section>
+
+        <section class="view movies-view" data-view="movies">
+          <div class="view-head">
+            <div class="view-heading">
+              <h1 class="view-title">JS Movies</h1>
+              <span class="view-meta" id="movies-meta">movies, TV, anime and manga · no sign-in</span>
+            </div>
+            <div class="view-actions">
+              <a class="btn" id="movies-open-tab" href="movies.html" target="_blank" rel="noopener">
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17L17 7"/><path d="M9 7h8v8"/></svg>
+                <span>Open full screen</span>
+              </a>
+            </div>
+          </div>
+          <iframe class="movies-frame" id="movies-frame" title="JS Movies" data-src="/movies.html"
+            allow="fullscreen" referrerpolicy="no-referrer" loading="lazy"></iframe>
         </section>
 
         <section class="view" data-view="apps-tools">
@@ -1689,7 +1714,7 @@
   <script src="src/proxies.js?v=20260905j"></script>
   <script src="src/apps.js?v=20260905j"></script>
   <script src="src/music.js?v=20260906c"></script>
-  <script src="src/launcher.js?v=20260905y"></script>
+  <script src="src/launcher.js?v=20260907b"></script>
   <script src="src/cloud.js?v=20260906b"></script>
   <script src="src/editor.js?v=20260905j"></script>
   <script src="src/urlauditor.js?v=20260905j"></script>
@@ -1753,6 +1778,6 @@
     }
   })();
   </script>
-  <script src="src/app.js?v=20260905x"></script>
+  <script src="src/app.js?v=20260907b"></script>
 </body>
 </html>
