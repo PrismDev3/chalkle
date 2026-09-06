@@ -8,6 +8,7 @@
   var PREFS_KEY = "chalkle-music-prefs-v1";
   var RECENT_KEY = "chalkle-music-recent-v1";
   var LIBRARY_KEY = "chalkle-music-library-v1";
+  var CATALOG_KEY = "chalkle-music-catalog-v1";   /* last good home catalog */
   var CHART_QUERIES = ["drake", "taylor swift", "the weeknd", "kendrick lamar", "bad bunny", "billie eilish", "kanye west", "ariana grande"];
 
   var state = {
@@ -288,14 +289,35 @@
     setPage("home");
     if (!state.catalog.length) {
       els.home.innerHTML = '<div class="music-loading"><span class="music-loading-dot"></span> Loading music for you…</div>';
-      Promise.all(CHART_QUERIES.map(function (q) { return getJSON(api({ path: "search", q: q, limit: 10 })).catch(function () { return { items: [] }; }); }))
-        .then(function (replies) {
-          var all = [];
-          replies.forEach(function (reply) { all = all.concat(reply && reply.items || []); });
-          state.catalog = sortPopular(all);
-          if (!state.catalog.length) throw new Error("empty");
-          renderHome();
-        }).catch(function () { showEmpty("Music is off-line", "The music source isn't answering right now. Try again in a minute."); });
+      /* Two silent retries before the off-line banner: every Piped instance
+         can blip at once for a few seconds; a 1.5s/4s backoff usually rides
+         it out so users never see an error that would have fixed itself. */
+      var tries = 0;
+      var loadCharts = function () {
+        Promise.all(CHART_QUERIES.map(function (q) { return getJSON(api({ path: "search", q: q, limit: 10 })).catch(function () { return { items: [] }; }); }))
+          .then(function (replies) {
+            var all = [];
+            replies.forEach(function (reply) { all = all.concat(reply && reply.items || []); });
+            state.catalog = sortPopular(all);
+            if (!state.catalog.length) throw new Error("empty");
+            try { localStorage.setItem(CATALOG_KEY, JSON.stringify(state.catalog.slice(0, 120))); } catch (e) { /* private mode */ }
+            renderHome();
+          })
+          .catch(function () {
+            /* The relay itself serves stale caches during upstream outages;
+               if we still got nothing, fall back to the last good catalog on
+               this device before showing the off-line banner. */
+            if (!state.catalog.length) {
+              try {
+                var saved = JSON.parse(localStorage.getItem(CATALOG_KEY) || "[]");
+                if (saved.length) { state.catalog = saved; renderHome(); return; }
+              } catch (e) { /* fall through */ }
+            }
+            if (++tries < 3) { setTimeout(loadCharts, tries === 1 ? 1500 : 4000); return; }
+            showEmpty("Music is off-line", "The music source isn't answering right now. Try again in a minute.");
+          });
+      };
+      loadCharts();
       return;
     }
     renderHomeFromCatalog();
@@ -483,6 +505,7 @@
     els.player.hidden = false;
     els.title.textContent = cleanName(meta.name) || "Untitled";
     els.artist.textContent = artistName(meta);
+    miniShow(meta); miniArt(cov[meta.pic_id] || meta._cover, meta);
     setPlayingUI(false);
     coverUrl(meta).then(function () { fillPlayerArt(); });
     state.ly = [];
@@ -522,21 +545,82 @@
     if (!meta || !els.pArt) return;
     var url = cov[meta.pic_id] || meta._cover;
     els.pArt.innerHTML = url ? '<img src="' + esc(url) + '" alt="">' : '<span class="thumb-letter">' + esc((meta.name || "?").charAt(0).toUpperCase()) + '</span>';
+    miniArt(url, meta);
   }
+  /* ---- Mini player (topbar) ------------------------------------------------
+     A tiny transport that lives next to the clock so play/pause/next/prev/mute
+     are always one click away without switching back to the Music tab. It is
+     driven from the same state the full player renders from. */
+  function miniQ(id) { return document.getElementById(id); }
+  function miniShow(meta) {
+    var box = miniQ("mini-music");
+    if (!box) return;
+    if (!meta) { box.classList.remove("is-active"); return; }
+    box.classList.add("is-active");
+    var t = miniQ("mini-music-title"), a = miniQ("mini-music-artist");
+    if (t) t.textContent = cleanName(meta.name) || "Untitled";
+    if (a) a.textContent = artistName(meta);
+  }
+  function miniPlaying(on) {
+    var box = miniQ("mini-music");
+    if (!box) return;
+    box.classList.toggle("is-playing", !!on);
+    var p = box.querySelector(".mm-ico-play"), pa = box.querySelector(".mm-ico-pause");
+    if (p) p.hidden = !!on;
+    if (pa) pa.hidden = !on;
+    var playBtn = miniQ("mini-music-play");
+    if (playBtn) playBtn.setAttribute("aria-label", on ? "Pause" : "Play");
+  }
+  function miniMuted(on) {
+    var box = miniQ("mini-music");
+    if (box) box.classList.toggle("is-muted", !!on);
+  }
+  function miniArt(url, meta) {
+    var art = miniQ("mini-music-art");
+    if (!art) return;
+    art.innerHTML = url
+      ? '<img src="' + esc(url) + '" alt="">'
+      : '<span class="thumb-letter">' + esc((meta && meta.name || "?").charAt(0).toUpperCase()) + "</span>";
+  }
+  function miniToggleMute() {
+    if (state.muted) { state.muted = false; if (state.vol === 0) state.vol = 50; }
+    else state.muted = true;
+    applyVol(); savePrefs();
+  }
+  function miniBind() {
+    var bPlay = miniQ("mini-music-play"), bNext = miniQ("mini-music-next"), bPrev = miniQ("mini-music-prev"), bMute = miniQ("mini-music-mute"), bOpen = miniQ("mini-music-open");
+    if (bPlay) bPlay.addEventListener("click", function (e) { e.stopPropagation(); togglePlay(); });
+    if (bNext) bNext.addEventListener("click", function (e) { e.stopPropagation(); next(); });
+    if (bPrev) bPrev.addEventListener("click", function (e) { e.stopPropagation(); prev(); });
+    if (bMute) bMute.addEventListener("click", function (e) { e.stopPropagation(); miniToggleMute(); });
+    if (bOpen) bOpen.addEventListener("click", function () {
+      var nav = document.querySelector('.nav-item[data-view="music"]');
+      if (nav) nav.click();
+    });
+  }
+
   function stopAll() {
     if (audio) { audio.pause(); audio.removeAttribute("src"); audio.load(); }
     state.idx = -1; state.queue = []; setPlayingUI(false); els.player.hidden = true; renderQueue(); highlightRows();
+    miniShow(null); miniPlaying(false);
   }
   function setPlayingUI(on) {
     state.playing = on;
-    if (!els.play) return;
-    els.play.title = on ? "Pause" : "Play"; els.play.setAttribute("aria-label", on ? "Pause" : "Play");
-    var p = els.play.querySelector(".ico-play"), pa = els.play.querySelector(".ico-pause");
-    if (p) p.hidden = !!on; if (pa) pa.hidden = !on;
+    if (els.play) {
+      els.play.title = on ? "Pause" : "Play";
+      els.play.setAttribute("aria-label", on ? "Pause" : "Play");
+      var p = els.play.querySelector(".ico-play"), pa = els.play.querySelector(".ico-pause");
+      if (p) p.hidden = !!on;
+      if (pa) pa.hidden = !on;
+    }
+    miniPlaying(on);
+    var card = document.getElementById("music-player");
+    if (card) card.classList.toggle("is-playing", !!on);
   }
   function togglePlay() {
     if (state.idx < 0 || !state.queue.length) return;
-    if (state.playing) audio.pause(); else audio.play().catch(function () {});
+    if (state.playing) { audio.pause(); }
+    else { state.playing = true; setPlayingUI(true); audio.play().catch(function () { state.playing = false; setPlayingUI(false); }); }
   }
   function next(skipBroken) {
     if (!state.queue.length) return;
@@ -561,6 +645,7 @@
     if (!audio) return;
     audio.muted = state.muted; audio.volume = Math.max(0, Math.min(1, state.vol / 100));
     els.vol.value = state.muted ? 0 : state.vol; els.mute.classList.toggle("is-on", state.muted);
+    miniMuted(state.muted);
   }
   function highlightRows() {
     var current = state.queue[state.idx];
@@ -602,6 +687,7 @@
 
   function bind() {
     els.play.addEventListener("click", togglePlay); els.next.addEventListener("click", function () { next(); }); els.prev.addEventListener("click", prev);
+    miniBind();
     els.shuffle.addEventListener("click", function () { state.shuffle = !state.shuffle; els.shuffle.classList.toggle("is-on", state.shuffle); });
     els.repeat.addEventListener("click", function () { state.repeat = state.repeat === "off" ? "all" : state.repeat === "all" ? "one" : "off"; var label = "Repeat: " + state.repeat; els.repeat.title = label; els.repeat.setAttribute("aria-label", label); els.repeat.classList.toggle("is-on", state.repeat !== "off"); });
     els.seek.addEventListener("input", function () { state.dragging = true; var d = audio && isFinite(audio.duration) ? audio.duration : 0; els.cur.textContent = fmt((+els.seek.value) / 1000 * d); });

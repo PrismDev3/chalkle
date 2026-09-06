@@ -11,37 +11,41 @@
   --panel-2: #1d2127;       /* hover, one more step */
   --line: #2b3138;          /* neutral borders */
   --line-soft: #21262c;
+  --line-strong: #3d454f;   /* 3-shade jump from --panel: hover borders that read (was undefined - all rules using it silently did nothing) */
+  --line-2: #3d454f;        /* alias of --line-strong: was referenced but never defined (music player, quick menu) */
+  --green: var(--accent);   /* alias of --accent (live - follows the theme picker): was referenced but never defined (viewer eye, hero glows) */
+  --muted-2: var(--text-3); /* alias: was referenced but never defined (partner admin lib tag) */
   --text: #e8eaed;
   --text-2: #9aa0a6;        /* secondary */
   --text-3: #7d838b;        /* muted (bumped from #62686f for WCAG AA) */
-  --accent: #34a853;        /* Google green, UI accent */
+  --accent: #3cc25e;        /* Google green, UI accent (+sat for cartridge-loud palette) */
   --accent-ink: #0a1f10;
   --accent-soft: rgba(52, 168, 83, 0.14);
-  --blue: #4285f4;
-  --blue-soft: rgba(66, 133, 244, 0.14);
-  --yellow: #fbbc05;
-  --yellow-soft: rgba(251, 188, 5, 0.15);
-  --red: #ea4335;
-  --red-soft: rgba(234, 67, 53, 0.14);
+  --blue: #4d8dff;
+  --blue-soft: rgba(77, 141, 255, 0.14);
+  --yellow: #ffc61a;
+  --yellow-soft: rgba(255, 198, 26, 0.15);
+  --red: #f04b3a;
+  --red-soft: rgba(240, 75, 58, 0.14);
   --red-ink: #ff6b5e;        /* bright red for hovers/links on dark */
   --tv: #4ab88c;             /* Live TV tab color: mint, matches the card redesign */
   --tv-soft: rgba(74, 184, 140, 0.16);
   --tv-ink: #032a1e;
-  --teal: #12b5a5;
-  --teal-soft: rgba(18, 181, 165, 0.14);
-  --cyan: #26c6da;
-  --cyan-soft: rgba(38, 198, 218, 0.14);
-  --orange: #fb8c00;
-  --orange-soft: rgba(251, 140, 0, 0.14);
+  --teal: #14c9b7;
+  --teal-soft: rgba(20, 201, 183, 0.14);
+  --cyan: #2dd3e8;
+  --cyan-soft: rgba(45, 211, 232, 0.14);
+  --orange: #ff9d0a;
+  --orange-soft: rgba(255, 157, 10, 0.14);
   --purple: #a970ff;
   --purple-soft: rgba(169, 112, 255, 0.14);
   --lime: #b7e63f;
   --lime-soft: rgba(183, 230, 63, 0.16);
   --cloud: #5fbeff;
   --cloud-soft: rgba(95, 190, 255, 0.16);
-  --movies: #818cf8;             /* JS Movies tab color: indigo, distinct from blue/purple */
-  --movies-soft: rgba(129, 140, 248, 0.16);
-  --movies-ink: #171a3d;
+  --movies: #a970ff;             /* JS Movies tab color: purple */
+  --movies-soft: rgba(169, 112, 255, 0.16);
+  --movies-ink: #241244;
   --magenta: #e60073;
   --magenta-soft: rgba(230, 0, 115, 0.16);
   --pink: #ff4d8d;
@@ -219,9 +223,7 @@ button {
   transition: background 300ms ease, border-color 300ms ease;
 }
 
-/* Top bar picks up the active tab's accent color with a smooth fade. A
-   translucent gradient of the tab color across the bar reads as the section
-   you're in without turning the whole bar loud. */
+/* Top bar picks up the active tab accent color with a smooth fade. */
 body[data-view="home"] .topbar { border-bottom-color: var(--pink); }
 body[data-view="games"] .topbar { border-bottom-color: var(--accent); }
 body[data-view="sites"] .topbar { border-bottom-color: var(--blue); }
@@ -235,10 +237,11 @@ body[data-view="settings"] .topbar { border-bottom-color: var(--purple); }
 body[data-view="cloud"] .topbar { border-bottom-color: var(--cloud); }
 body[data-view="livetv"] .topbar { border-bottom-color: var(--tv); }
 body[data-view="youtube"] .topbar { border-bottom-color: #ff0033; }
+body[data-view="ai"] .topbar { border-bottom-color: #b06bff; }
 body[data-view="bookmarklets"] .topbar { border-bottom-color: var(--lime); }
 body[data-view="movies"] .topbar { border-bottom-color: var(--movies); }
 
-/* A soft wash of the tab color across the top bar, fading as it goes down. */
+/* A soft wash of the tab color across the top bar. */
 .topbar::after {
   content: "";
   position: absolute;
@@ -249,25 +252,24 @@ body[data-view="movies"] .topbar { border-bottom-color: var(--movies); }
   z-index: -1;
   pointer-events: none;
   opacity: 0;
-  transition: opacity 300ms ease;
+  transition: opacity 250ms ease;
 }
-/* Flat tint, no gradient wash - the tab color sits on the bar as a solid
-   low-opacity fill and the border carries the signal. */
-body[data-view="home"] .topbar::after { background: transparent; opacity: 1; }
-body[data-view="games"] .topbar::after { background: rgba(52, 168, 83, 0.10); opacity: 1; }
-body[data-view="sites"] .topbar::after { background: rgba(66, 133, 244, 0.12); opacity: 1; }
-body[data-view="music"] .topbar::after { background: rgba(230, 0, 115, 0.12); opacity: 1; }
-body[data-view="apps-tools"] .topbar::after { background: rgba(251, 188, 5, 0.10); opacity: 1; }
-body[data-view="cloud"] .topbar::after { background: rgba(95, 190, 255, 0.14); opacity: 1; }
-body[data-view="proxies"] .topbar::after { background: rgba(38, 187, 165, 0.12); opacity: 1; }
-body[data-view="docs"] .topbar::after { background: rgba(38, 198, 218, 0.12); opacity: 1; }
-body[data-view="board"] .topbar::after { background: rgba(251, 140, 0, 0.12); opacity: 1; }
-body[data-view="partners"] .topbar::after { background: rgba(216, 163, 104, 0.12); opacity: 1; }
-body[data-view="settings"] .topbar::after { background: rgba(168, 85, 247, 0.12); opacity: 1; }
-body[data-view="livetv"] .topbar::after { background: rgba(74, 184, 140, 0.12); opacity: 1; }
-body[data-view="youtube"] .topbar::after { background: rgba(255, 0, 51, 0.12); opacity: 1; }
-body[data-view="bookmarklets"] .topbar::after { background: rgba(183, 230, 63, 0.10); opacity: 1; }
-body[data-view="movies"] .topbar::after { background: rgba(129, 140, 248, 0.12); opacity: 1; }
+body[data-view="home"] .topbar::after { background: var(--pink-soft); opacity: 1; }
+body[data-view="games"] .topbar::after { background: var(--accent-soft); opacity: 1; }
+body[data-view="sites"] .topbar::after { background: var(--blue-soft); opacity: 1; }
+body[data-view="music"] .topbar::after { background: var(--magenta-soft); opacity: 1; }
+body[data-view="apps-tools"] .topbar::after { background: var(--yellow-soft); opacity: 1; }
+body[data-view="cloud"] .topbar::after { background: var(--cloud-soft); opacity: 1; }
+body[data-view="proxies"] .topbar::after { background: var(--teal-soft); opacity: 1; }
+body[data-view="docs"] .topbar::after { background: var(--cyan-soft); opacity: 1; }
+body[data-view="board"] .topbar::after { background: var(--orange-soft); opacity: 1; }
+body[data-view="partners"] .topbar::after { background: var(--brown-soft); opacity: 1; }
+body[data-view="settings"] .topbar::after { background: var(--purple-soft); opacity: 1; }
+body[data-view="livetv"] .topbar::after { background: var(--tv-soft); opacity: 1; }
+body[data-view="youtube"] .topbar::after { background: rgba(255, 0, 51, 0.14); opacity: 1; }
+body[data-view="ai"] .topbar::after { background: rgba(176, 107, 255, 0.16); opacity: 1; }
+body[data-view="bookmarklets"] .topbar::after { background: var(--lime-soft); opacity: 1; }
+body[data-view="movies"] .topbar::after { background: var(--movies-soft); opacity: 1; }
 
 .brand {
   width: var(--side-w);
@@ -480,19 +482,24 @@ body[data-view="movies"] .topbar::after { background: rgba(129, 140, 248, 0.12);
   flex: none;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 7px;
   margin-left: 14px;
-  padding: 4px 12px 4px 8px;
-  background: rgba(20, 24, 29, 0.8);
+  padding: 5px 12px 5px 9px;
+  background: var(--panel-2);
   border: 1px solid var(--line);
   border-radius: 999px;
   user-select: none;
+  transition: border-color 140ms ease, background 140ms ease;
 }
 
-/* Chromebook / laptop widths: the centered search bar (cap 560px) eats the
+.topbar-clock:hover {
+  border-color: var(--line-soft);
+  background: var(--panel);
+}
+
+/* Chromebook / laptop widths: the centered search bar eats the
    flex slack and crowds the clock. Shrink the search cap and give the clock
-   a real gap so it never sits against the search box. The brand keeps its
-   full --side-w width so the wordmark lines up with the full sidebar. */
+   a real gap so it never sits against the search box. */
 @media (min-width: 861px) and (max-width: 1280px) {
   .search { max-width: 400px; }
   .topbar-clock { margin-left: 18px; }
@@ -501,29 +508,29 @@ body[data-view="movies"] .topbar::after { background: rgba(129, 140, 248, 0.12);
 }
 
 .topbar-clock .clock-gif {
-  width: 22px;
-  height: 22px;
+  width: 18px;
+  height: 18px;
   flex: none;
   image-rendering: pixelated;
-  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
 }
 
 .clock-time {
-  font-family: var(--display);
-  font-size: 19px;
+  font-family: var(--display-geo);
+  font-size: 14px;
+  font-weight: 700;
   line-height: 1;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.04em;
   color: var(--text);
-  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.35);
   font-variant-numeric: tabular-nums;
 }
 
 .clock-ampm {
-  font-family: var(--display);
-  font-size: 12px;
+  font-family: var(--display-geo);
+  font-size: 11px;
+  font-weight: 700;
   line-height: 1;
-  color: var(--text-2);
-  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.3);
+  color: var(--text-3);
+  text-transform: uppercase;
 }
 
 @media (max-width: 860px) {
@@ -649,10 +656,11 @@ body[data-view="movies"] .topbar::after { background: rgba(129, 140, 248, 0.12);
 .view[data-view="music"] { --va: var(--magenta); --va-ink: #47001f; --va-soft: var(--magenta-soft); }
 .view[data-view="apps-tools"] { --va: var(--yellow); --va-ink: #3a2b00; --va-soft: var(--yellow-soft); }
 .view[data-view="proxies"] { --va: var(--teal); --va-ink: #042522; --va-soft: var(--teal-soft); }
+.view[data-view="cloud"] { --va: var(--cloud); --va-ink: #041a29; --va-soft: var(--cloud-soft); }
 .view[data-view="docs"] {
-  --va: #6ec6ff;
+  --va: var(--cyan);
   --va-ink: #04222e;
-  --va-soft: rgba(110, 198, 255, 0.16);
+  --va-soft: var(--cyan-soft);
 }
 .view[data-view="board"] { --va: var(--orange); --va-ink: #3a2300; --va-soft: var(--orange-soft); }
 .view[data-view="livetv"] { --va: var(--tv); --va-ink: var(--tv-ink); --va-soft: var(--tv-soft); }
@@ -678,10 +686,16 @@ body[data-view="movies"] .topbar::after { background: rgba(129, 140, 248, 0.12);
   --va-ink: var(--movies-ink);
   --va-soft: var(--movies-soft);
 }
+.view[data-view="chat"] {
+  --va: #F4511E;
+  --va-ink: #3a0a00;
+  --va-soft: rgba(244, 81, 30, 0.14);
+}
 
 /* Every section gets its own color when active - one per tab, matching the theme. */
 .nav-item.is-active[data-view="home"] { color: var(--pink); background: var(--pink-soft); }
 .nav-item.is-active[data-view="games"] { color: var(--accent); background: var(--accent-soft); }
+.nav-item.is-active[data-view="cloud"] { color: var(--cloud); background: var(--cloud-soft); }
 .nav-item.is-active[data-view="sites"] { color: var(--blue); background: var(--blue-soft); }
 .nav-item.is-active[data-view="music"] { color: var(--magenta); background: var(--magenta-soft); }
 .nav-item.is-active[data-view="apps-tools"] { color: var(--yellow); background: var(--yellow-soft); }
@@ -695,6 +709,7 @@ body[data-view="movies"] .topbar::after { background: rgba(129, 140, 248, 0.12);
 .nav-item.is-active[data-view="youtube"] { color: #ff0033; background: rgba(255, 0, 51, 0.15); }
 .nav-item.is-active[data-view="bookmarklets"] { color: var(--lime); background: var(--lime-soft); }
 .nav-item.is-active[data-view="movies"] { color: var(--movies); background: var(--movies-soft); }
+.nav-item.is-active[data-view="chat"] { color: #F4511E; background: rgba(244, 81, 30, 0.14); }
 
 .youtube-icon {
   stroke: none;
@@ -851,8 +866,9 @@ body.sidebar-collapsed .collapse-btn:active { transform: scale(0.96); }
   inset: 0;
   z-index: -2;
   pointer-events: none;
-  background: #0c1210 url("../tabs/sites.webp") center / cover no-repeat;
+  background: var(--base) url("../tabs/sites.webp") center / cover no-repeat;
   opacity: 0;
+  filter: brightness(0.18) saturate(0.65);
   transition: opacity 300ms ease;
 }
 .view.is-visible::before,
@@ -871,12 +887,10 @@ body.sidebar-collapsed .collapse-btn:active { transform: scale(0.96); }
   background-image: url("../tabs/apps-tools.webp");
 }
 .view[data-view="cloud"]::before {
-  /* Electric blue identity: reuse the chalk texture but recolor it without
-     adding a decorative gradient. */
-  background-color: #071a2b;
+  background-color: #07121c;
   background-image: url("../tabs/settings.webp");
   background-blend-mode: screen;
-  filter: hue-rotate(165deg) saturate(1.35) brightness(.72);
+  filter: hue-rotate(165deg) saturate(0.7) brightness(0.22);
 }
 .view[data-view="cloud"] .view-head,
 .view[data-view="cloud"] .panel,
@@ -914,9 +928,9 @@ body.sidebar-collapsed .collapse-btn:active { transform: scale(0.96); }
 
 /* Music and YouTube share the red family but retain separate accents. */
 .view[data-view="music"]::before {
-  background-color: #260914;
+  background-color: #14080e;
   background-image: url("../tabs/music.webp");
-  filter: saturate(1.25) brightness(.78);
+  filter: saturate(0.6) brightness(0.2);
 }
 .view[data-view="music"] .view-head,
 .view[data-view="music"] .panel,
@@ -1040,8 +1054,8 @@ body.sidebar-collapsed .collapse-btn:active { transform: scale(0.96); }
 }
 
 .home-primary {
-  background: #d6487a;
-  color: #1c0a13;
+  background: var(--pink);   /* was hardcoded #d6487a - now follows the theme system */
+  color: var(--pink-ink, #1c0a13);
   border: 1px solid rgba(255, 255, 255, 0.06);
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.22);
 }
@@ -1432,6 +1446,16 @@ button.home-panel-chip:hover {
 .view[data-view="partners"] .view-meta.has-content { color: var(--brown); }
 .view[data-view="livetv"] .view-meta.has-content { color: var(--tv); }
 .view[data-view="youtube"] .view-meta.has-content { color: #ff0033; }
+.view[data-view="movies"] .view-title,
+.view[data-view="movies"] .panel-title,
+.view[data-view="movies"] .card-title { color: var(--movies); }
+.view[data-view="movies"] .view-meta.has-content { color: var(--movies); }
+.view[data-view="movies"] .btn { background: var(--movies); color: var(--movies-ink); }
+.view[data-view="chat"] .view-title,
+.view[data-view="chat"] .panel-title,
+.view[data-view="chat"] .card-title { color: #F4511E; }
+.view[data-view="chat"] .view-meta.has-content { color: #F4511E; }
+.view[data-view="chat"] .btn { background: #F4511E; color: #fff; }
 
 .game-command {
   display: grid;
@@ -4803,7 +4827,7 @@ html.motion-off *::after {
   transition: transform 140ms ease, background 140ms ease, border-color 140ms ease;
 }
 
-.home-primary:hover { background: #4abe68; transform: translateY(-1px); }
+.home-primary:hover { background: #4abe68; transform: translateY(-1px); }  /* SUPERSEDED below - kept for cascade order */
 .home-secondary:hover { border-color: rgba(232, 234, 237, 0.22); background: #24382e; transform: translateY(-1px); }
 .home-primary:active,
 .home-secondary:active,
@@ -7394,6 +7418,7 @@ body.ed-resizing iframe { pointer-events: none; }
 .mprofile-desc { color: var(--text-2); font-size: 13.5px; }
 @media (max-width: 720px) { .mprofile { grid-template-columns: 120px 1fr; gap: 16px; } .mprofile-title { font-size: 22px; } }
 
+.music-player.is-playing { background: var(--magenta-soft); border-top-color: var(--magenta); }
 .music-player { position: fixed; left: var(--side-w); right: 0; bottom: 0; z-index: 60; }
 body.sidebar-collapsed .music-player { left: var(--side-w-collapsed); }
 @media (max-width: 480px) { .music-player { left: var(--side-w-collapsed); } }
@@ -7402,15 +7427,19 @@ body.sidebar-collapsed .music-player { left: var(--side-w-collapsed); }
 .player-art img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .player-art .thumb-letter { font-size: 20px; font-weight: 700; color: var(--text-3); }
 .player-now { min-width: 0; width: 220px; flex: none; }
-.player-title { font-weight: 700; font-size: 14.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.player-title { font-weight: 700; font-size: 14.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text); }
+.music-player.is-playing .player-title { color: #ff5da2; }
 .player-artist { color: var(--text-3); font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.music-player.is-playing .player-artist { color: #ffa0c0; }
 .player-btns { display: flex; align-items: center; gap: 6px; }
 .p-btn { width: 38px; height: 38px; border-radius: 10px; border: 1px solid transparent; background: transparent; color: var(--text-2); display: grid; place-items: center; cursor: pointer; transition: background 130ms ease, color 130ms ease, border-color 130ms ease; }
 .p-btn svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .p-btn:hover { background: var(--panel-2); color: var(--text); }
 .p-btn.is-on { color: var(--magenta); border-color: var(--line); }
-.p-play { width: 46px; height: 46px; border-radius: 50%; background: var(--magenta); color: #fff; }
+.p-play { width: 46px; height: 46px; border-radius: 50%; background: var(--magenta); color: #fff; box-shadow: 0 0 0 0px rgba(230, 0, 115, 0); transition: background 130ms ease, box-shadow 130ms ease; }
 .p-play:hover { background: #c40060; color: #fff; }
+.p-play:active { transform: scale(0.95); }
+.music-player.is-playing .p-play { box-shadow: 0 0 12px rgba(230, 0, 115, 0.5); }
 .p-play .ico-play, .p-play .ico-pause { fill: currentColor; stroke: none; }
 .player-seek { flex: 1; display: flex; align-items: center; gap: 10px; min-width: 120px; }
 .p-time { font-size: 12px; color: var(--text-3); font-variant-numeric: tabular-nums; width: 40px; }
@@ -9744,7 +9773,7 @@ button.side-foot:hover { color: var(--text-2); }
 /* CTA hover: the old rule flipped the pink button green on hover - keep the
    accent family. Secondary buttons get a neutral lift instead of a green tint. */
 .home-primary:hover {
-  background: #f0558f;
+  background: color-mix(in srgb, var(--pink) 82%, #fff);   /* stays in the pink family (old rule flipped it green) */
   border-color: rgba(255, 255, 255, 0.14);
 }
 .home-secondary:hover {
@@ -10234,6 +10263,15 @@ button.side-foot:hover { color: var(--text-2); }
   background: #0d0f12;
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
 }
+.chat-frame {
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: calc(100vh - 300px);
+  border: 1px solid rgba(244, 81, 30, 0.35);
+  border-radius: 12px;
+  background: #111111;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
+}
 
 /* ---------- 2026-09 polish pass: hero scale, shelf card, banner, chrome ----------
    Flat only. The headline leads, the wordmark steps back, the right panel
@@ -10262,7 +10300,7 @@ button.side-foot:hover { color: var(--text-2); }
   padding: 0 18px;
   font-size: 14.5px;
   font-weight: 700;
-  background: #e0578c;
+  background: var(--pink);   /* was hardcoded #e0578c */
 }
 .home-secondary {
   height: 32px;
@@ -10519,4 +10557,807 @@ button.side-foot:hover { color: var(--text-2); }
   .search-results:not([hidden]) {
     animation: none;
   }
+}
+
+/* UI Overhaul: Performance Mode (instant speed for Chromebooks) */
+html.perf-mode * {
+  animation: none !important;
+  transition: none !important;
+  box-shadow: none !important;
+  text-shadow: none !important;
+}
+
+/* UI Overhaul: Modern card elevation and focus polish */
+.card,
+.home-card,
+.home-quick-card {
+  transition: transform 140ms cubic-bezier(0.2, 0, 0, 1), border-color 140ms ease, background-color 140ms ease;
+}
+.card:hover,
+.home-card:hover {
+  border-color: var(--line-soft);
+  transform: translateY(-2px);
+}
+.search input:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+.home-quick-card:hover {
+  transform: translateY(-2px);
+}
+
+/* Stealth Cloak Overlay (Interactive Google Classroom Shell) */
+#stealth-cover-frame {
+  display: none;
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 1000000;
+  border: none;
+  background: #fff;
+}
+html.stealth-active #stealth-cover-frame {
+  display: block;
+}
+
+/* --------------------------------------------------------------------------
+   FULL UI OVERHAUL: Sleek Sidebar, Decluttered Grid, and Redesigned Settings
+   -------------------------------------------------------------------------- */
+
+/* 1. Sidebar Declutter & Polish */
+.sidebar {
+  background: rgba(14, 17, 21, 0.98);
+  border-right: 1px solid var(--line);
+}
+.nav {
+  padding: 14px 10px 0;
+  gap: 4px;
+}
+.nav-item {
+  height: 40px;
+  padding: 0 14px;
+  border-radius: 10px;
+  font-size: 14.5px;
+  font-weight: 600;
+  transition: background 140ms ease, color 140ms ease, transform 100ms ease;
+}
+.nav-item:hover {
+  background: var(--panel-2);
+  color: var(--text);
+  transform: translateX(2px);
+}
+.nav-item.is-active {
+  font-weight: 700;
+}
+.nav-item.is-active::before {
+  left: -10px;
+  top: 7px;
+  bottom: 7px;
+  width: 4px;
+  border-radius: 3px;
+}
+.nav-bottom {
+  padding: 10px 10px 6px;
+  border-top: 1px solid var(--line-soft);
+  gap: 4px;
+}
+.nav-socials {
+  padding: 0 2px 8px;
+  gap: 8px;
+}
+.nav-social {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+}
+
+/* 2. Topbar Clock Polish */
+.topbar-clock {
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+}
+
+/* 3. Settings View Complete Overhaul */
+.view[data-view="settings"] {
+  max-width: 1040px;
+  margin: 0 auto;
+}
+.settings-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 8px;
+}
+.settings-panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.22);
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+.settings-panel:hover {
+  border-color: var(--line-soft);
+}
+.settings-toggle {
+  padding: 16px 18px;
+  border-radius: 14px;
+}
+.settings-toggle:hover {
+  background: var(--panel-2);
+}
+.settings-toggle-title {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.settings-panel .settings-body {
+  padding: 0 18px 18px;
+}
+.settings-row {
+  padding: 12px 0;
+  border-top: 1px solid var(--line-soft);
+}
+.settings-row-txt .setting-name {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+.settings-row-txt .setting-hint {
+  font-size: 12px;
+  color: var(--text-3);
+  margin-top: 2px;
+}
+.settings-card.settings-about {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 16px 18px;
+}
+
+/* 4. Cleaner Proxy Section in Settings */
+.settings-proxy-box {
+  background: var(--base);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px;
+  margin-top: 8px;
+}
+.settings-proxy-box .proxy-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.settings-proxy-note {
+  font-size: 12px;
+  color: var(--text-3);
+  line-height: 1.45;
+  margin-bottom: 10px;
+}
+.settings-proxy-btn-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  background: var(--teal-soft);
+  color: var(--teal);
+  border: 1px solid rgba(18, 181, 165, 0.3);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 140ms ease, border-color 140ms ease;
+}
+.settings-proxy-btn-link:hover {
+  background: var(--teal);
+  color: #042522;
+}
+
+/* 5. Clean Card Grid Spacing */
+.grid {
+  gap: 16px;
+}
+.card {
+  border-radius: 12px;
+  border-color: var(--line);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+}
+.card-thumb {
+  border-top-left-radius: 11px;
+  border-top-right-radius: 11px;
+}
+
+/* --------------------------------------------------------------------------
+   CARTRIDGE PASS - Phase 1: tokens, bug fixes, glow utility
+   Flat fills only. No new fonts, no new deps. Last so it wins the cascade.
+   -------------------------------------------------------------------------- */
+
+/* B. Reset the hover cascade. Three earlier passes left contradictory
+   .card:hover rules - one pointed at the (then) never-defined --line-strong,
+   and the last one actually DARKENED the border below its resting color.
+   Declared BEFORE the glow rule below so the --va bloom wins the cascade
+   (same specificity, later declaration takes it). */
+.card:hover {
+  border-color: var(--line-strong);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    0 10px 30px rgba(0, 0, 0, 0.38);
+}
+
+/* A. --va glow utility: the section color stops being a tint and becomes a
+   commitment. One ring + one bloom, driven entirely by each view's --va.
+   Game cards carry both .card and .game-card, so the doubled class here
+   out-specifies every plain .card:hover reset regardless of file order.
+   Performance-mode already strips box-shadows globally, so this stays cheap. */
+.card.game-card:hover,
+.home-card:hover {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    0 0 0 1px var(--va),
+    0 8px 24px -6px var(--va);
+}
+
+/* C. --green alias (defined in :root above) resolves the viewer-eye / viewer-count
+   colors that were previously silently dropping their declarations. */
+/* --------------------------------------------------------------------------
+   CARTRIDGE PASS - Phase 2: global type treatment
+   Boogaloo headlines with a --va "cartridge label" shadow, one notch bigger.
+   -------------------------------------------------------------------------- */
+
+/* Section view headers: every one of the 16 sections opens with the same
+   confident Boogaloo header, tinted and shadowed in its own color. */
+.view .view-title {
+  font-size: 32px;
+  letter-spacing: 0.015em;
+  text-shadow: 0 2px 0 color-mix(in srgb, var(--va) 35%, transparent),
+               0 0 22px color-mix(in srgb, var(--va) 22%, transparent);
+}
+
+/* Home section titles (Home --va is pink): recents, picks, popular. */
+.home-block-title,
+.home-recents-title {
+  font-size: 24px;
+  text-shadow: 0 2px 0 color-mix(in srgb, var(--va) 35%, transparent);
+}
+
+/* Hero title: one notch up, same cartridge-label shadow. */
+.home-title {
+  font-size: clamp(24px, 3vw, 36px);
+  text-shadow: 0 2px 0 color-mix(in srgb, var(--va) 32%, transparent),
+               0 0 26px color-mix(in srgb, var(--va) 18%, transparent);
+}
+
+/* Active nav item reads as "lit up", not just tinted: heavier weight,
+   wider tracking, and a soft glow in the tab's own color. */
+.nav-item.is-active .nav-label {
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-shadow: 0 0 14px color-mix(in srgb, currentColor 45%, transparent);
+}
+
+/* Non-Home sections get a faint radial --va glow behind their header so
+   switching sections is a felt color shift, not just a nav-icon shift.
+   Home keeps the chalk wallpaper as its own signature. */
+.view-head {
+  position: relative;
+}
+.view-head::before {
+  content: "";
+  position: absolute;
+  inset: -46px -70px -34px;
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(ellipse 60% 90% at 18% 0%,
+              color-mix(in srgb, var(--va) 7%, transparent), transparent 70%);
+}
+
+/* --------------------------------------------------------------------------
+   CARTRIDGE PASS - Phase 3: Home re-hierarchy
+   One focal point: the hero. Everything else steps back a tier. The featured
+   banner already sits directly under the hero in the DOM; the fix is weight,
+   not order. All ids/hooks untouched - app.js keeps filling its containers.
+   -------------------------------------------------------------------------- */
+
+/* Hero: restore the confident scale the last pass shrank away. */
+.home-logo {
+  font-size: clamp(46px, 6vw, 78px);
+  margin-bottom: 6px;
+}
+.home-kicker {
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+.home-text {
+  font-size: 14px;
+  color: var(--text-2);
+  max-width: 48ch;
+}
+.home-trust {
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+/* The one primary CTA: bigger, pinker, glowing like it means it. */
+.home-primary {
+  height: 44px;
+  padding: 0 24px;
+  font-size: 15.5px;
+  border: 0;
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--pink) 35%, transparent);
+}
+.home-primary:hover {
+  background: color-mix(in srgb, var(--pink) 82%, #fff);
+  border-color: transparent;
+  box-shadow: 0 6px 20px color-mix(in srgb, var(--pink) 45%, transparent);
+}
+
+/* Secondary actions quiet down to text-tier buttons. */
+.home-secondary {
+  height: 40px;
+  font-size: 13.5px;
+  background: transparent;
+}
+
+/* Hero grid: the focal panel takes the room; the utility panel steps back. */
+.home-hero { grid-template-columns: 1.6fr 0.75fr; }
+
+/* Quick launch: utility-sized. Smaller icons, quieter labels. */
+.home-quick-card {
+  padding: 7px 6px;
+  gap: 6px;
+  font-size: 12px;
+}
+.home-quick-card .home-quick-ico { width: 18px; height: 18px; }
+.home-quick-card .home-quick-t { color: var(--text-2); }
+.home-quick-card:hover .home-quick-t { color: var(--text); }
+
+/* Shelf metrics: compact counters, not dashboard tiles. */
+.home-metric-value { font-size: 15px; }
+.home-metric-label { font-size: 9px; }
+.home-surface-text { font-size: 11px; }
+
+/* Featured banner: the singular "next thing" under the hero - a gentle
+   pink lift so it reads as curated, not as another tile. */
+.home-featured {
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--pink) 18%, transparent),
+              0 10px 26px -10px color-mix(in srgb, var(--pink) 30%, transparent);
+}
+
+/* Discord bar: demoted to utility. Quieter fill, muted border, outline CTA. */
+.home-join {
+  background: rgba(88, 101, 242, 0.07);
+  border-color: rgba(114, 137, 218, 0.22);
+  padding: 7px 10px 7px 12px;
+}
+.home-join-title { font-size: 13px; }
+.home-join-sub { font-size: 11px; color: var(--text-3); }
+.home-join-btn {
+  height: 28px;
+  padding: 0 12px;
+  background: transparent;
+  color: #aab4ff;
+  border: 1px solid rgba(114, 137, 218, 0.45);
+  font-size: 12px;
+}
+.home-join-btn:hover { background: rgba(114, 137, 218, 0.16); }
+
+/* Ad slots: still here (revenue keeps the lights on), just visually silent. */
+.ad-slot { opacity: 0.8; }
+
+/* --------------------------------------------------------------------------
+   CARTRIDGE PASS - Phase 4: card system
+   Bigger art frames, glow-on-hover, slight scale. The thumb fallback system
+   (thumb-art / thumb-fallback / thumb-icon) is untouched - only sizing and
+   hover treatment change.
+   -------------------------------------------------------------------------- */
+
+/* Shelf cards: art becomes the hero of the tile, not a thumbnail beside a
+   title. 190 -> 215px min column. */
+.home-shelf {
+  grid-template-columns: repeat(auto-fill, minmax(215px, 1fr));
+}
+
+/* Square/icon-style thumbs (opengraph covers, icon art) render at 58% of the
+   tile - nudge up so icon art fills its frame with more presence. */
+.card-thumb img.thumb-icon {
+  width: 62%;
+  height: 62%;
+  inset: 19%;
+}
+
+/* All interactive cards lift together; consistent timing everywhere. */
+.game-card:hover,
+.home-card:hover,
+.home-mini-card:hover,
+.song-card:hover {
+  transform: translateY(-3px) scale(1.02);
+}
+
+/* Song rows keep their horizontal art frame but inherit the hover lift. */
+.song-card:hover {
+  transform: translateY(-3px);
+}
+
+/* Card titles: drop the permanent shadow; let the title glow only when its
+   card is hovered. Static state stays clean and readable. */
+.card-title {
+  text-shadow: none;
+}
+.game-card:hover .card-title,
+.home-card:hover .home-card-title,
+.song-card:hover .card-title {
+  text-shadow: 0 0 16px color-mix(in srgb, var(--va) 45%, transparent);
+}
+
+/* Mini-cards (recents, editor's picks row) get the same glow language in
+   Home's pink. */
+.home-mini-card:hover {
+  border-color: color-mix(in srgb, var(--pink) 55%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--pink) 25%, transparent),
+              0 8px 22px -8px color-mix(in srgb, var(--pink) 35%, transparent);
+}
+
+/* Glow needs a transition to bloom instead of snap. */
+.home-card,
+.home-mini-card {
+  transition: transform 140ms cubic-bezier(0.2, 0, 0, 1), border-color 140ms ease,
+              background-color 140ms ease, box-shadow 140ms ease;
+}
+
+/* --------------------------------------------------------------------------
+   CARTRIDGE PASS - Phase 5: sidebar + topbar
+   The active tab reads as lit up in its own color, in both expanded and
+   collapsed rail states. currentColor follows the 16 per-tab active rules.
+   -------------------------------------------------------------------------- */
+.nav-item.is-active {
+  box-shadow: 0 0 0 1px color-mix(in srgb, currentColor 26%, transparent),
+              0 6px 16px -8px color-mix(in srgb, currentColor 55%, transparent);
+}
+
+/* --------------------------------------------------------------------------
+   CARTRIDGE PASS - Phase 6: settings panels
+   Same card/section language as the rest of the app, in Settings' purple.
+   -------------------------------------------------------------------------- */
+.view[data-view="settings"] .settings-panel:hover,
+.view[data-view="settings"] .settings-toggle:hover {
+  border-color: color-mix(in srgb, var(--purple) 40%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--purple) 16%, transparent),
+              0 10px 28px -14px color-mix(in srgb, var(--purple) 40%, transparent);
+}
+.view[data-view="settings"] .panel-title,
+.view[data-view="settings"] .settings-toggle-title {
+  font-family: var(--display);
+  font-size: 20px;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+  color: var(--purple);
+  text-shadow: 0 2px 0 color-mix(in srgb, var(--purple) 30%, transparent);
+}
+
+/* --------------------------------------------------------------------------
+   CARTRIDGE PASS - Phase 7: motion polish
+   Everything stays under 180ms. Existing press states (scale .98) and the
+   160ms view fade already cover buttons and view switches; add the
+   reduced-motion guard for the new card lift so it degrades gracefully.
+   -------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  .game-card:hover,
+  .home-card:hover,
+  .home-mini-card:hover,
+  .song-card:hover {
+    transform: none;
+  }
+}
+
+/* Mobile re-asserts: the rules above land after the responsive blocks in the
+   file, so re-state the intended phone sizes at matching specificity. */
+@media (max-width: 900px) {
+  .home-hero { grid-template-columns: 1fr; }
+}
+@media (max-width: 640px) {
+  .home-title { font-size: clamp(38px, 13vw, 52px); }
+  .view .view-title { font-size: 28px; }
+}
+
+/* --------------------------------------------------------------------------
+   CARTRIDGE PASS - final details
+   Native controls follow the theme, Firefox scrollbars tint like the webkit
+   ones, and display headlines balance their line breaks instead of leaving
+   one lonely word on the last line.
+   -------------------------------------------------------------------------- */
+input[type="checkbox"],
+input[type="radio"],
+input[type="range"],
+progress { accent-color: var(--accent); }
+
+.main,
+.nav {
+  scrollbar-color: var(--line-strong) transparent;
+}
+
+.home-title,
+.home-block-title,
+.view .view-title,
+.panel-title {
+  text-wrap: balance;
+}
+
+/* ---------- Mini music player (topbar) ----------
+   A pocket version of the Music player so play/pause/next/prev/mute are
+   always one click away — no need to switch back to the Music tab. Driven
+   by music.js through the window.ChalkleMusicMini hook. Magenta theme to
+   match the Music section color. */
+.mini-music {
+  flex: none;
+  display: none;
+  align-items: center;
+  gap: 2px;
+  margin-left: 12px;
+  padding: 4px 8px 4px 4px;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  box-shadow: 0 0 0 1px rgba(230, 0, 115, 0.08);
+  user-select: none;
+  transition: border-color 140ms ease, box-shadow 140ms ease;
+}
+.mini-music:hover {
+  border-color: rgba(230, 0, 115, 0.55);
+  box-shadow: 0 0 0 1px rgba(230, 0, 115, 0.22), 0 6px 18px -8px rgba(230, 0, 115, 0.5);
+}
+.mini-music.is-active {
+  display: inline-flex;
+}
+.mini-music-open {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 0;
+  background: none;
+  border: none;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+.mini-music-art {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 9px;
+  background: linear-gradient(135deg, rgba(230, 0, 115, 0.28), rgba(230, 0, 115, 0.08));
+  border: 1px solid rgba(230, 0, 115, 0.35);
+}
+.mini-music-art img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.mini-music-art .thumb-letter {
+  color: #ff5da2;
+  font-family: var(--display);
+  font-size: 15px;
+}
+.mini-music-txt {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  max-width: 128px;
+  text-align: left;
+  line-height: 1.15;
+}
+.mini-music-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mini-music-artist {
+  font-size: 10.5px;
+  color: var(--text-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mini-music-eq {
+  flex: none;
+  display: none;
+  align-items: flex-end;
+  gap: 2px;
+  height: 12px;
+  margin: 0 3px 0 6px;
+}
+.mini-music.is-playing .mini-music-eq { display: inline-flex; }
+.mini-music-eq i {
+  width: 3px;
+  border-radius: 1px;
+  background: var(--magenta);
+  animation: mini-music-eq 0.9s ease-in-out infinite;
+}
+.mini-music-eq i:nth-child(1) { height: 60%; animation-delay: 0s; }
+.mini-music-eq i:nth-child(2) { height: 100%; animation-delay: 0.25s; }
+.mini-music-eq i:nth-child(3) { height: 45%; animation-delay: 0.5s; }
+@keyframes mini-music-eq {
+  0%, 100% { transform: scaleY(0.4); }
+  50% { transform: scaleY(1); }
+}
+.mini-music-ctrls {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+}
+.mini-music-btn {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: none;
+  color: var(--text-2);
+  cursor: pointer;
+  transition: color 120ms ease, background 120ms ease, transform 120ms ease;
+}
+.mini-music-btn:hover {
+  color: var(--text);
+  background: rgba(230, 0, 115, 0.14);
+}
+.mini-music-btn:active { transform: scale(0.9); }
+.mini-music-btn svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+/* solid glyphs (play/pause/wedges) read better filled */
+.mini-music-btn svg path[d^="M8 5v14"],
+.mini-music-btn svg path[d^="M7 5h4"],
+.mini-music-btn svg path[d^="M13 5h4"],
+.mini-music-btn svg path[d^="M6 5v14"],
+.mini-music-btn svg path[d^="M18 5v14"],
+.mini-music-btn svg path[d^="M4 9v6"],
+.mini-music-btn svg path[d^="M4 5l11"] {
+  fill: currentColor;
+  stroke: none;
+}.mini-music-play { width: 30px; height: 30px; background: var(--magenta); color: #fff; border-radius: 50%; transition: background 130ms ease, box-shadow 130ms ease; }
+.mini-music-play:hover { background: #ff1e88; }
+.mini-music-play:active { transform: scale(0.9); }
+.mini-music.is-playing .mini-music-play { box-shadow: 0 0 8px rgba(230, 0, 115, 0.6); }
+  color: #fff;
+}
+.mini-music-play svg { width: 16px; height: 16px; }
+.mini-music.is-muted .mm-ico-vol { display: none; }
+.mini-music:not(.is-muted) .mm-ico-muted { display: none; }
+.mini-music.is-muted .mini-music-btn[aria-label="Mute"] { color: var(--text-3); }
+.mini-music.is-muted .mini-music-btn[aria-label="Mute"]:hover { color: var(--text); }
+@media (prefers-reduced-motion: reduce) {
+  .mini-music-eq i { animation: none; }
+}
+/* Space is tight next to the clock + viewer pill: drop the text block on
+   smaller screens, keep the transport controls. */
+@media (max-width: 1280px) {
+  .mini-music-txt { display: none; }
+}
+@media (max-width: 980px) {
+  .mini-music { display: none; }
+}
+
+/* ---------- Cloud games inline player ----------
+   Same-tab streaming: clicking a cloud tile mounts this panel over the grid,
+   shows session progress, then swaps to the WebRTC player. The X (or Esc,
+   or browser Back) tears the panel - and the stream - down. Cloud (--cloud)
+   accent to match the tab. */
+.cloud-player-host {
+  margin: 14px 0 22px;
+}
+.cloud-player-bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 9px 14px;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-bottom: none;
+  border-radius: 12px 12px 0 0;
+}
+.cloud-player-title {
+  font-family: var(--display);
+  font-size: 15px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cloud-player-status {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--text-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cloud-player-x {
+  flex: none;
+  padding: 5px 13px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--text-2);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
+}
+.cloud-player-x:hover {
+  color: #fff;
+  border-color: var(--red);
+  background: rgba(255, 59, 48, 0.18);
+}
+.cloud-player-stage {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  background: #000;
+  border: 1px solid var(--line);
+  border-radius: 0 0 12px 12px;
+  overflow: hidden;
+}
+.cloud-player-frame {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+.cloud-player-spin {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 40px;
+  height: 40px;
+  margin: -20px 0 0 -20px;
+  border: 3px solid rgba(95, 191, 255, 0.25);
+  border-top-color: var(--cloud, #5fbeff);
+  border-radius: 50%;
+  animation: cloud-player-spin 1s linear infinite;
+}
+@keyframes cloud-player-spin {
+  to { transform: rotate(360deg); }
+}
+.cloud-player-err {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 24px;
+  text-align: center;
+}
+.cloud-player-err h3 {
+  margin: 0;
+  font-family: var(--display);
+  font-size: 19px;
+  color: var(--red);
+}
+.cloud-player-err p {
+  margin: 0;
+  max-width: 480px;
+  font-size: 13px;
+  color: var(--text-2);
+  line-height: 1.5;
+  word-break: break-word;
+}
+@media (prefers-reduced-motion: reduce) {
+  .cloud-player-spin { animation-duration: 2.4s; }
 }
