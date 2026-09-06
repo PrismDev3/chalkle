@@ -12,7 +12,7 @@
           background: #000; color: #fff; font-family: Arial, sans-serif; }
   #boot h1 { margin: 0; font-size: 20px; }
   #boot p { margin: 0; font-size: 14px; color: #aaa; max-width: 460px; line-height: 1.45; }
-  #bar { width: min(360px, 80vw); height: 6px; border-radius: 3px; background: #2a2a2a; overflow: hidden; }
+  #bar { width: min(360px, 80vw); height: 6px; border-radius: 3px; background: #2a2a2a; overflow: hidden; display: none; }
   #fill { height: 100%; width: 0%; background: #ff3d81; }
 </style>
 </head>
@@ -47,7 +47,12 @@
   document.getElementById("title").textContent = game.title;
 
   /* EmulatorJS reads these globals at script-eval time, so they must be
-     set BEFORE the loader tag below. */
+     set BEFORE the loader runs. */
+  var OFFLINE = window.__EJS_OFFLINE__ || null;
+  var singleFile = location.protocol === "data:";
+  var CDN = "https://cdn.emulatorjs.org/stable/data/";
+  var LOCAL = "/assets/emulatorjs/";
+
   window.EJS_player = "#game";
   window.EJS_core = "gba";
   window.EJS_gameUrl = game.rom;
@@ -55,14 +60,36 @@
   window.EJS_startOnLoaded = true;
   window.EJS_oldGUI = false;
   window.EJS_defaultOptions = { volume: 0.6, saveStateSlot: 0 };
-  window.EJS_pathtodata = "https://cdn.emulatorjs.org/stable/data/";
+  /* Conservative settings: Chromebook GPUs / school networks frequently
+     fail on WebGL2 + threaded cores, which manifests as a black screen
+     while audio plays. Force the legacy (WebGL1, non-threaded) builds. */
+  window.EJS_forceLegacyCores = true;
+  window.EJS_threads = false;
+  if (OFFLINE) {
+    window.EJS_pathtodata = CDN; /* base for anything not overridden */
+    window.EJS_paths = OFFLINE.paths;
+    window.EJS_filePaths = OFFLINE.filePaths;
+  } else {
+    window.EJS_pathtodata = singleFile ? CDN : LOCAL;
+  }
 
   var bootEl = document.getElementById("boot");
   window.addEventListener("load", function () {
     setTimeout(function () { if (bootEl) bootEl.remove(); }, 1500);
   });
+
+  /* Load the EmulatorJS loader. The single-file build injects it as
+     window.__EJS_LOADER__ (a function, so it can run after the globals
+     above); otherwise fetch it from our origin (or the CDN for single-file
+     builds without the offline injection). */
+  if (typeof window.__EJS_LOADER__ === "function") {
+    window.__EJS_LOADER__();
+  } else {
+    var loader = document.createElement("script");
+    loader.src = (singleFile && !OFFLINE) ? CDN + "loader.js" : LOCAL + "loader.js";
+    document.body.appendChild(loader);
+  }
 })();
 </script>
-<script src="https://cdn.emulatorjs.org/stable/data/loader.js"></script>
 </body>
 </html>

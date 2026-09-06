@@ -147,6 +147,49 @@ if (!CDN_SAFE) {
   /* GBA player: the ROMs live next to it in assets/games/gba. Inject them
      as data URIs under window.__GBA_ROMS__ so the embedded player works
      with zero server paths (multi-file site still uses the plain paths). */
+  const ejsOfflineInject = () => {
+    /* Every file the EmulatorJS loader / core can fetch, as data URIs, so
+       the embedded players work with zero network access to CDNs. */
+    const paths = {};   // loader.js loadScript/loadStyle keys
+    const filePaths = {}; // downloadFile basename keys (cores, reports...)
+    const uriOf = (rel, mime) => {
+      const fp = path.join(root, rel);
+      if (!fs.existsSync(fp)) return null;
+      return `data:${mime};base64,` + fs.readFileSync(fp).toString('base64');
+    };
+    for (const rel of [
+      'assets/emulatorjs/emulator.min.js',
+      'assets/emulatorjs/emulator.min.css',
+      'assets/emulatorjs/src/emulator.js',
+      'assets/emulatorjs/src/nipplejs.js',
+      'assets/emulatorjs/src/shaders.js',
+      'assets/emulatorjs/src/storage.js',
+      'assets/emulatorjs/src/gamepad.js',
+      'assets/emulatorjs/src/GameManager.js',
+      'assets/emulatorjs/src/socket.io.min.js',
+      'assets/emulatorjs/src/compression.js'
+    ]) {
+      const key = rel.replace(/^assets\/emulatorjs\//, '');
+      const u = uriOf(rel, rel.endsWith('.css') ? 'text/css' : 'text/javascript');
+      if (u) paths[key] = u;
+    }
+    for (const [rel, mime] of [
+      ['assets/emulatorjs/cores/mgba-wasm.data', 'application/octet-stream'],
+      ['assets/emulatorjs/cores/mgba-legacy-wasm.data', 'application/octet-stream'],
+      ['assets/emulatorjs/cores/pcsx_rearmed-wasm.data', 'application/octet-stream'],
+      ['assets/emulatorjs/cores/pcsx_rearmed-legacy-wasm.data', 'application/octet-stream'],
+      ['assets/emulatorjs/cores/reports/mgba.json', 'application/json'],
+      ['assets/emulatorjs/cores/reports/pcsx_rearmed.json', 'application/json'],
+      ['assets/emulatorjs/compression/extract7z.js', 'text/javascript'],
+      ['assets/emulatorjs/version.json', 'application/json']
+    ]) {
+      const u = uriOf(rel, mime);
+      if (u) filePaths[path.basename(rel)] = u;
+    }
+    const loader = fs.readFileSync(path.join(root, 'assets', 'emulatorjs', 'loader.js'), 'utf8');
+    return '<script>window.__EJS_OFFLINE__=' + JSON.stringify({ paths, filePaths }) + ';</script>' +
+      '<script>window.__EJS_LOADER__=function(){"use strict";' + loader + '};</script>';
+  };
   const gbaPlayerURI = () => {
     const fp = path.join(root, 'assets', 'gba', 'index.html');
     let html = fs.readFileSync(fp, 'utf8');
@@ -159,8 +202,14 @@ if (!CDN_SAFE) {
         if (uri) roms['/assets/games/gba/' + f] = uri;
       }
     } catch (e) { /* no ROM folder - fall back to path-based */ }
-    const inj = '<script>window.__GBA_ROMS__=' + JSON.stringify(roms) + ';</script>';
+    const inj = '<script>window.__GBA_ROMS__=' + JSON.stringify(roms) + ';</script>\n' + ejsOfflineInject();
     return html.replace(/<\/head>/i, inj + '\n</head>');
+  };
+  const psxPlayerURI = () => {
+    const fp = path.join(root, 'assets', 'psx', 'index.html');
+    const html = fs.readFileSync(fp, 'utf8');
+    const injected = html.replace(/<\/head>/i, ejsOfflineInject() + '\n</head>');
+    return 'data:text/html;base64,' + Buffer.from(injected, 'utf8').toString('base64');
   };
   for (const rel of [...new Set(gameUrls)]) {
     const fileRel = rel.split(/[?#]/)[0];
@@ -169,10 +218,14 @@ if (!CDN_SAFE) {
          all ?rom= URLs. Embed it ONCE under the bare path; the launcher
          resolves /assets/gba/index.html?rom=X to this URI plus #X. */
       let mapKey = rel;
-      let uri = dataURI(path.join(root, fileRel.replace(/^\//,'')));
+      let uri;
       if (fileRel === '/assets/gba/index.html') {
         mapKey = '/assets/gba/index.html';
         uri = gbaPlayerURI();
+      } else if (fileRel === '/assets/psx/index.html') {
+        uri = psxPlayerURI();
+      } else {
+        uri = dataURI(path.join(root, fileRel.replace(/^\//,'')));
       }
       if (uri) embedMap[mapKey] = uri;
     }
