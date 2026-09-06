@@ -302,10 +302,42 @@
     );
   }
 
+  /* The cloud player opens in a fresh tab before the session exists (so
+     Chromebook popup policy doesn't eat the window). Write real content into
+     that tab immediately - a loading page while the session boots, and a
+     clear error page if it fails - so it is never a blank about:blank tab. */
+  function writePlayerPage(win, kind, g, msg) {
+    if (!win || win.closed) return;
+    var title = (g && g.title) || "Cloud Play";
+    var body, sub;
+    if (kind === "error") {
+      body = "Couldn't start " + title;
+      sub = (msg || "The session could not be created. Close this tab and try again.").slice(0, 300);
+    } else {
+      body = "Starting " + title;
+      sub = "Preparing your session\u2026 this tab switches to the game when it's ready.";
+    }
+    try {
+      var doc = win.document;
+      doc.open();
+      doc.write(
+        '<!doctype html><html><head><meta charset="utf-8"><title>' + (kind === "error" ? "Couldn't start" : "Connecting") + '</title>' +
+        '<style>html,body{height:100%;margin:0;background:#12101a;color:#f2eef7;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;display:flex;align-items:center;justify-content:center}.box{text-align:center;max-width:420px;padding:24px}.spin{width:38px;height:38px;margin:0 auto 18px;border:3px solid rgba(255,61,129,.25);border-top-color:#ff3d81;border-radius:50%;animation:sp 1s linear infinite}.err{font-size:30px;margin-bottom:8px}h2{margin:0 0 8px;font-size:17px;color:#ff5d8f}p{margin:0;font-size:13.5px;color:#9aa0b4;line-height:1.5;word-break:break-word}.x{margin-top:18px;padding:9px 20px;border:none;border-radius:9px;background:#ff3d81;color:#fff;font-weight:700;font-size:13px;cursor:pointer}@keyframes sp{to{transform:rotate(360deg)}}</style>' +
+        '</head><body><div class="box">' +
+        (kind === "error" ? '<div class="err">\u26a0\ufe0f</div>' : '<div class="spin"></div>') +
+        '<h2>' + esc(body) + '</h2><p>' + esc(sub) + '</p>' +
+        (kind === "error" ? '<button class="x" onclick="window.close()">Close tab</button>' : '') +
+        '</div></body></html>'
+      );
+      doc.close();
+    } catch (e) { /* cross-origin/closed mid-write; nothing left to show */ }
+  }
+
   function play(key, playerWindow) {
     var g = byKey(key);
     if (!g) return;
     setStatus("Starting " + g.title, "busy");
+    writePlayerPage(playerWindow, "loading", g);
     createSession(g)
       .then(function (uuid) {
         setStatus("Waiting in queue for " + g.title, "busy");
@@ -316,7 +348,7 @@
         });
       })
       .catch(function (err) {
-        if (playerWindow && !playerWindow.closed) playerWindow.close();
+        writePlayerPage(playerWindow, "error", g, err && err.message ? err.message : String(err));
         setStatus("Could not start: " + (err && err.message ? err.message : err), "offline");
       });
   }
