@@ -512,7 +512,15 @@
     try {
       var map = window.__SINGLE_GAMES__;
       if (!map) return "";
-      var v = map[String(url || "")];
+      var u = String(url || "");
+      /* The GBA player is embedded once (with every ROM as data URIs);
+         the ?rom=X is passed along as a hash on the shared data URI. */
+      var gba = u.match(/^\/assets\/gba\/index\.html\?rom=([^#&]+)/);
+      if (gba) {
+        var shared = map["/assets/gba/index.html"] || "";
+        return shared ? shared + "#" + decodeURIComponent(gba[1]) : "";
+      }
+      var v = map[u];
       return v || "";
     } catch (e) { return ""; }
   }
