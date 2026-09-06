@@ -141,7 +141,13 @@ const isSelfContained = (rel) => {
     .filter(r => !/^(https?:|data:|blob:|#|javascript:|mailto:|tel:|<)/i.test(r)
       && !r.startsWith('//') && r!=='' && !/^\//.test(r) && !r.startsWith('window.')
       && !r.includes('://'));
-  return refs.length === 0;
+  /* Also reject pages whose inline JS pulls sibling-folder assets (e.g.
+     "wuhu-build/Build/WuhuWeb.loader.js"). As a data URI the relative path
+     cannot resolve, so the game would silently fall back to a remote host.
+     Leaving it path-based lets static mirrors (jsDelivr / Pages) serve the
+     committed folder next to the page, which works fully offline-free. */
+  const siblingRef = /["'`]([A-Za-z0-9_\-]+\/)[^"'`]{0,160}\.(?:js|wasm|data|json|png|jpe?g|webp|css|unityweb|htm|html)/i.test(html);
+  return refs.length === 0 && !siblingRef;
 };
 if (!CDN_SAFE) {
   /* GBA player: the ROMs live next to it in assets/games/gba. Inject them
@@ -263,17 +269,31 @@ window.__CHALKLE_ARCTIC_EMBEDDED__ = ${JSON.stringify(embeddedArcticB64)};
   var map = window.__SINGLE_GAMES__||{};
   function resolve(u){ var s=String(u); if(map[s]) return map[s]; return null; }
   var _fetch = window.fetch;
+  /* Root-absolute local paths (/ugs/x.html) must resolve against the page's
+     base, not the origin root: static mirrors are served from a subpath
+     (jsDelivr /gh/user/repo@ref/), where /ugs/... 404s. Non-http contexts
+     (file://, opaque data URIs) can't resolve - keep the raw path. */
+  function baseAbs(u){
+    try {
+      var s = String(u);
+      if (s.charAt(0) === '/' && s.charAt(1) !== '/') {
+        var b = document.baseURI || location.href;
+        if (/^https?:/i.test(b)) return new URL(s, b).href;
+      }
+    } catch (e) {}
+    return u;
+  }
   if (window.fetch) {
     window.fetch = function(u, o) {
       var uri = resolve(u);
       if (uri) return Promise.resolve(new Response(new Blob([atob(uri.split(',')[1]||'')], {type:'text/html'})));
-      return _fetch(u, o);
+      return _fetch(baseAbs(u), o);
     };
   }
   var _OXHR = window.XMLHttpRequest;
   if (_OXHR) {
     var _open = _OXHR.prototype.open;
-    _OXHR.prototype.open = function(m, u){ this.__map = resolve(u); return _open.apply(this, arguments); };
+    _OXHR.prototype.open = function(m, u){ this.__map = resolve(u); this.__abs = baseAbs(u); return _open.call(this, m, this.__abs || u); };
     var _send = _OXHR.prototype.send;
     _OXHR.prototype.send = function(_b){
       if (this.__map) {

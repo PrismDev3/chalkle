@@ -151,6 +151,7 @@
     var overlay = document.getElementById("proxy-overlay");
     var frame = document.getElementById("proxy-frame");
     if (!overlay || !frame) return false;
+    pauseMusicForTarget(url);
     var label = document.getElementById("overlay-title");
     if (label) label.textContent = title || "Playing";
     var notice = document.getElementById("overlay-notice");
@@ -204,7 +205,19 @@
      make every caller report failure. We sever opener access manually
      instead - cross-origin tabs cannot touch us either way, and a same-origin
      wrapper page has nothing sensitive to reach. */
+  /* Opening YouTube (tab, app card or in-app frame) means audio is about to
+     come from somewhere else - stop the Music tab's playback first. */
+  function pauseMusicForTarget(url) {
+    try {
+      var h = String(url || "").toLowerCase();
+      if (h.indexOf("youtube.com") !== -1 || h.indexOf("youtu.be") !== -1) {
+        if (window.ChalkleMusic && window.ChalkleMusic.pause) window.ChalkleMusic.pause();
+      }
+    } catch (e) { /* no music module / no storage - ignore */ }
+  }
+
   function openTab(url) {
+    pauseMusicForTarget(url);
     /* Embedded single-file games (build/chalkle-single*.html): the game's
        HTML is stored in __SINGLE_GAMES__ keyed by its origin path. A static
        host can't serve /ugs/... so resolve to the embedded data URI before
@@ -358,6 +371,7 @@
   function openBlankEmbed(url, title) {
     var target = String(url || "").trim();
     if (!target) return false;
+    pauseMusicForTarget(target);
     if (target.indexOf("//") === 0) target = location.protocol + target;
     if (target.indexOf("://") === -1) target = "https://" + target;
     /* A cloaked tab that loads a blocked URL is still a blocked tab - when

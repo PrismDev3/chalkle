@@ -646,6 +646,14 @@
   }
 
   window.ChalkMusic = [];
-  window.ChalkleMusic = { render: function () { if (!state.catalog.length) renderHome(); else if (state.page === "home") renderHomeFromCatalog(); highlightRows(); }, play: playList, retry: function () { state.catalog = []; renderHome(); } };
+  /* pause() / isPlaying() let the rest of the app stop playback when the user
+     opens something that makes noise itself (YouTube, a movie, a game). */
+  window.ChalkleMusic = {
+    render: function () { if (!state.catalog.length) renderHome(); else if (state.page === "home") renderHomeFromCatalog(); highlightRows(); },
+    play: playList,
+    pause: function () { if (audio) { try { audio.pause(); } catch (e) {} } },
+    isPlaying: function () { return !!state.playing; },
+    retry: function () { state.catalog = []; renderHome(); }
+  };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init); else init();
 })();
