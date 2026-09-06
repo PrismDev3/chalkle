@@ -248,8 +248,14 @@
           throw new Error("no session returned");
         });
       }).catch(function (err) {
-        if (n > 0 && String(err && err.message || err).indexOf("IncompleteRead") !== -1) {
+        var msg = String(err && err.message || err);
+        if (n > 0 && msg.indexOf("IncompleteRead") !== -1) {
           return sleep(1500).then(function () { return attempt(n - 1); });
+        }
+        /* Mirrors / static hosts serve the site but not the /cloud/v1 relay,
+           so every session 404s there. Say so instead of a bare "HTTP 404". */
+        if (/HTTP 404|Failed to fetch|NetworkError/i.test(msg)) {
+          throw new Error("Cloud streaming only runs on the main Chalkle site. This mirror doesn't host the game servers - open the main site for cloud games.");
         }
         throw err;
       });
