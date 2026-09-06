@@ -81,8 +81,11 @@ css = css.replace(
 /* The cineby-style restyle block (MILKBOX's own flat gray skin) sets the
    body background with !important and would fight the Chalkle theme - retheme
    it to the same indigo-on-charcoal palette as the rest of the app. */
-css = css.replace(/--cb-bg:\s*#171717;/, "--cb-bg: #0d0f12;");
-css = css.replace(/--cb-bg-soft:\s*#1c1c1c;/, "--cb-bg-soft: #15181d;");
+/* The Cineby skin paints body { background-color: var(--cb-bg) !important;
+   background-image: none !important; } - so --cb-bg is what actually shows.
+   Keep it the same purple as the JS bgColor default (#1a1538). */
+css = css.replace(/--cb-bg:\s*#171717;/, "--cb-bg: #1a1538;");
+css = css.replace(/--cb-bg-soft:\s*#1c1c1c;/, "--cb-bg-soft: #211a42;");
 css = css.replace(/--cb-surface:\s*#1f1f1f;/, "--cb-surface: #15181d;");
 css = css.replace(/--cb-surface-2:\s*#262626;/, "--cb-surface-2: #1d2127;");
 css = css.replace(/--cb-text:\s*#fff;/, "--cb-text: #e8eaed;");
@@ -115,6 +118,25 @@ css = css.replace(
   /linear-gradient\(180deg, #0b0b0f 0%, #0e0e14 100%\)/,
   "linear-gradient(180deg, #0d0f12 0%, #101318 100%)"
 );
+/* The original MILKBOX body block leaves a red/orange glow behind - make the
+   whole background clearly purple (indigo wash on a violet-tinted charcoal)
+   and swap the red shadow for an indigo one. */
+css = css.replace(
+  /--bg-shadow: rgba\(229, 9, 20, 0\.4\);/,
+  "--bg-shadow: rgba(129, 140, 248, 0.45);"
+);
+css = css.replace(
+  /background-color: #141414;/,
+  "background-color: #1a1538;"
+);
+css = css.replace(
+  /linear-gradient\(180deg, #0d0f12 0%, #101318 100%\)/,
+  "linear-gradient(180deg, #161131 0%, #1d1540 100%)"
+);
+css = css.replace(
+  /radial-gradient\(1200px 600px at 80% -10%, rgba\(129, 140, 248, 0\.10\), transparent 60%\)/,
+  "radial-gradient(1200px 600px at 80% -10%, rgba(129, 140, 248, 0.20), transparent 60%)"
+);
 /* Fonts -> Chalkle stack */
 css = css.replace(
   /font-family: 'Inter', sans-serif;/g,
@@ -138,12 +160,25 @@ js = js.replace(/`MILKBOX`/g, "`JS Movies`");
 js = js.replace(/'LUCKYFLIX'/g, "'JS Movies'");
 js = js.replace(/Welcome to MILKBOX/g, "Welcome to JS Movies");
 
-/* Default background -> Chalkle charcoal everywhere it appears (settings
-   default, theme presets, color inputs, reset button). */
-js = js.replace(/'#141414'/g, "'#0d0f12'");
-js = js.replace(/"#141414"/g, '"#0d0f12"');
-js = js.replace(/value="#141414"/g, 'value="#0d0f12"');
-js = js.replace(/placeholder="#141414"/g, 'placeholder="#0d0f12"');
+/* Tab / clock icon -> the bundled Chalkle movie icon (assets/movies-icon.png).
+   Embedded as a data URI so it works on the multi-file site, static mirrors
+   and the single-file data-URI embed with zero external requests. */
+const iconPath = path.join(root, "assets", "movies-icon.png");
+const iconDataURI = fs.existsSync(iconPath)
+  ? "data:image/png;base64," + fs.readFileSync(iconPath).toString("base64")
+  : "";
+if (iconDataURI) {
+  js = js.replace(/https:\/\/64\.media\.tumblr\.com\/[^'"`\s)]*/g, iconDataURI);
+}
+
+/* Default background -> Chalkle purple everywhere it appears (settings
+   default, theme presets, color inputs, reset button). The app paints
+   body.style.backgroundColor from this at runtime, overriding the CSS, so
+   the JS default is what actually shows. */
+js = js.replace(/'#141414'/g, "'#1a1538'");
+js = js.replace(/"#141414"/g, '"#1a1538"');
+js = js.replace(/value="#141414"/g, 'value="#1a1538"');
+js = js.replace(/placeholder="#141414"/g, 'placeholder="#1a1538"');
 
 /* TMDB: route through the site's same-origin /api/tmdb proxy first (TMDB
    never grants the Bearer-header preflight, so direct calls are blocked in
@@ -190,9 +225,12 @@ html = html.replace(
   /<title id="siteTitle">[^<]*<\/title>/,
   '<title id="siteTitle">JS Movies</title>'
 );
+/* Tab icon -> the user's PNG (falls back to the clapperboard SVG). */
 html = html.replace(
   /<link rel="icon"[^>]*>/,
-  '<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'64\' height=\'64\' viewBox=\'0 0 64 64\'%3E%3Crect width=\'64\' height=\'64\' rx=\'12\' fill=\'%236a5cff\'/%3E%3Crect x=\'8\' y=\'18\' width=\'48\' height=\'30\' rx=\'4\' fill=\'none\' stroke=\'white\' stroke-width=\'3\'/%3E%3Cpath d=\'M8 26 L56 26 L48 18 L8 18 Z\' fill=\'white\'/%3E%3Cpath d=\'M26 30 L42 33 L26 38 Z\' fill=\'white\'/%3E%3C/svg%3E">'
+  iconDataURI
+    ? '<link rel="icon" type="image/png" href="' + iconDataURI + '">'
+    : '<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'64\' height=\'64\' viewBox=\'0 0 64 64\'%3E%3Crect width=\'64\' height=\'64\' rx=\'12\' fill=\'%236a5cff\'/%3E%3Crect x=\'8\' y=\'18\' width=\'48\' height=\'30\' rx=\'4\' fill=\'none\' stroke=\'white\' stroke-width=\'3\'/%3E%3Cpath d=\'M8 26 L56 26 L48 18 L8 18 Z\' fill=\'white\'/%3E%3Cpath d=\'M26 30 L42 33 L26 38 Z\' fill=\'white\'/%3E%3C/svg%3E">'
 );
 /* Fonts -> Chalkle's */
 html = html.replace(

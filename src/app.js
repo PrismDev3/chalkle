@@ -628,6 +628,10 @@
     state.view = view;
     persist("chalkle-last-view", view);
     closeMoreNav();
+    /* The YouTube tab plays its own audio - stop the Music tab first. */
+    if (view === "youtube" && window.ChalkleMusic && window.ChalkleMusic.pause) {
+      window.ChalkleMusic.pause();
+    }
     /* Mirror the active tab on <body> so the top bar + chrome can tint with
        the section's accent color. */
     document.body.setAttribute("data-view", view);
