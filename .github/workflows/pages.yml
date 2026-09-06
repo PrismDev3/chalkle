@@ -38,3 +38,9 @@ jobs:
       - name: Deploy
         id: deployment
         uses: actions/deploy-pages@v4
+
+      - name: Purge jsDelivr mirrors
+        run: |
+          for repo in PrismDev3/chalkle PrismDev3/chalkle-auto; do
+            curl -sS --max-time 60 "https://purge.jsdelivr.net/gh/$repo" >/dev/null || true
+          done
