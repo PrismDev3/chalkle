@@ -220,44 +220,66 @@
   }
 
   function createSession(g) {
-    return apiFetch("/cloud/v1/createSession", {
-      method: "POST",
-      body: JSON.stringify({ game_key: g.key })
-    }).then(function (res) {
-      return res.text().then(function (text) {
-        if (!res.ok) {
-          var msg = "HTTP " + res.status;
-          try { msg = JSON.parse(text).error || msg; } catch (e) { /* keep */ }
-          throw new Error(msg);
+    /* The relay boots a throwaway cloud account per session, which can take
+       a while and occasionally drops the stream. Retry once server-side is
+       exhausted (the relay retries on IncompleteRead), then give up. */
+    function attempt(n) {
+      return apiFetch("/cloud/v1/createSession", {
+        method: "POST",
+        body: JSON.stringify({ game_key: g.key })
+      }).then(function (res) {
+        return res.text().then(function (text) {
+          if (!res.ok) {
+            var msg = "HTTP " + res.status;
+            try { msg = JSON.parse(text).error || msg; } catch (e) { /* keep */ }
+            throw new Error(msg);
+          }
+          var events = readNdjson(text);
+          var queuedUuid = "";
+          for (var i = 0; i < events.length; i++) {
+            var ev = events[i];
+            /* finished_queue means the game is ready; queue means the game is
+               busy and pollQueue will wait it out. Both carry the session id. */
+            if (ev.status === "finished_queue" && ev.uuid) return ev.uuid;
+            if (ev.status === "queue" && ev.uuid) queuedUuid = ev.uuid;
+            if (ev.status === "error") throw new Error(ev.error || "session failed");
+          }
+          if (queuedUuid) return queuedUuid;
+          throw new Error("no session returned");
+        });
+      }).catch(function (err) {
+        if (n > 0 && String(err && err.message || err).indexOf("IncompleteRead") !== -1) {
+          return sleep(1500).then(function () { return attempt(n - 1); });
         }
-        var events = readNdjson(text);
-        for (var i = 0; i < events.length; i++) {
-          var ev = events[i];
-          if (ev.status === "finished_queue" && ev.uuid) return ev.uuid;
-          if (ev.status === "error") throw new Error(ev.error || "session failed");
-        }
-        throw new Error("no session returned");
+        throw err;
       });
-    });
+    }
+    return attempt(1);
   }
 
   function pollQueue(uuid, tries) {
-    /* Cloud queues can legitimately take more than a minute. Five 1.5s polls
-       made a healthy session look dead, especially through a Chromebook
-       tunnel. Keep polling for about five minutes, with a small backoff. */
-    if (tries >= 100) return Promise.reject(new Error("Server busy or offline (queue timeout)"));
-    return apiFetch("/cloud/v1/getQueue?uuid=" + encodeURIComponent(uuid), { method: "GET" })
-      .then(function (res) {
-        if (!res.ok) throw new Error("Server returned HTTP " + res.status);
-        return res.json();
-      })
-      .then(function (j) {
-        if (j.status === "finished_queue") return;
-        if (j.status === "queue" || j.status === "queued" || j.status === "pending") {
-          return sleep(Math.min(5000, 1200 + tries * 80)).then(function () { return pollQueue(uuid, tries + 1); });
-        }
-        throw new Error((j.error || "Session ended") + (j.queue_pos != null ? " (spot " + j.queue_pos + ")" : ""));
-      });
+    /* The relay allows one getQueue poll every 3 seconds and abandons a
+       queued session after 60s without a poll, so pace ourselves accordingly:
+       3.2s spacing, up to ~10 minutes (upstream queues can be long). */
+    if (tries >= 180) return Promise.reject(new Error("Server busy or offline (queue timeout)"));
+    return sleep(3200).then(function () {
+      return apiFetch("/cloud/v1/getQueue?uuid=" + encodeURIComponent(uuid), { method: "GET" })
+        .then(function (res) {
+          if (!res.ok) {
+            /* "Too fast" polls are harmless - just wait and try again. */
+            if (res.status === 429) return pollQueue(uuid, tries + 1);
+            throw new Error("Server returned HTTP " + res.status);
+          }
+          return res.json();
+        })
+        .then(function (j) {
+          if (j.status === "finished_queue") return;
+          if (j.status === "queue" || j.status === "queued" || j.status === "pending") {
+            return pollQueue(uuid, tries + 1);
+          }
+          throw new Error((j.error || "Session ended") + (j.queue_pos != null ? " (spot " + j.queue_pos + ")" : ""));
+        });
+    });
   }
 
   function startGame(uuid) {

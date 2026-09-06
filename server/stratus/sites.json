@@ -1,0 +1,16 @@
+{
+  "sites": {
+    "chalkle": {
+      "api_key": "sk_chalkle_local_7f2c9a",
+      "enabled": true,
+      "max_concurrent_sessions": 8,
+      "max_session_seconds": 1140,
+      "limits": {
+        "per_minute": 60,
+        "per_hour": 2000,
+        "per_day": 20000,
+        "per_month": 600000
+      }
+    }
+  }
+}
