@@ -11334,8 +11334,6 @@ progress { accent-color: var(--accent); }
 .mini-music-play:hover { background: #ff1e88; }
 .mini-music-play:active { transform: scale(0.9); }
 .mini-music.is-playing .mini-music-play { box-shadow: 0 0 8px rgba(230, 0, 115, 0.6); }
-  color: #fff;
-}
 .mini-music-play svg { width: 16px; height: 16px; }
 .mini-music.is-muted .mm-ico-vol { display: none; }
 .mini-music:not(.is-muted) .mm-ico-muted { display: none; }
