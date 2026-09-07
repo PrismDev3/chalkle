@@ -4064,6 +4064,13 @@ img.coin {
 .fp-votes .vt-btn.on-down { color: var(--dan) }
 .frm-reply .fr-del { margin-left: auto }
 
+
+/* ---- Owner / Admin badges (keyed on username, shown everywhere) ---- */
+.lb-badge{display:inline-flex;align-items:center;gap:4px;padding:1px 7px 1px 4px;margin-left:6px;border-radius:3px;font-family:'VT323',monospace;font-size:12px;line-height:1.5;vertical-align:middle;white-space:nowrap;box-shadow:inset 0 1px 0 rgba(255,255,255,.12),0 1px 2px rgba(0,0,0,.35)}
+.lb-badge .pixi{width:13px;height:13px;image-rendering:pixelated}
+.lb-owner-badge{background:#2a1d05;color:#ffd700;border:1px solid #9a7b00;text-shadow:0 1px 0 rgba(0,0,0,.65)}
+.lb-admin-badge{background:#0b1a26;color:#7fd4ff;border:1px solid #2b6f9e;text-shadow:0 1px 0 rgba(0,0,0,.65)}
+
 </style>
 </head>
 
@@ -5251,7 +5258,7 @@ img.coin {
   </div>
   <div id="toasts"></div>
 
-  <script>window.LB_API_BASE = "__LB_ORIGIN__" || "";</script>
+  <script>window.LB_API_BASE = "https://lunchbreak.dyercountylawncare.workers.dev";</script>
 <script>
 /*
  * fb-shim.js — Lunchbreak's Firestore-compat client.
@@ -6929,6 +6936,28 @@ const firebaseConfig = {
 
     /** Extra classes for a border id, e.g. " lb-border lb-b-gold". */
     function bcls(id) { return id ? ' lb-border lb-b-' + id : ''; }
+    /* ---- Owner / Admin badges: keyed on USERNAME (never display name). ---- */
+    var OWNER_UNAME = 'alexdingleberries', ADMIN_UNAME = 'jexel_dev';
+    var roleUids = {};
+    function isOwnerU(u){ return String(u || '').toLowerCase() === OWNER_UNAME; }
+    function isAdminU(u){ return String(u || '').toLowerCase() === ADMIN_UNAME; }
+    function rememberRole(uid, uname){ if (!uid) return; if (isOwnerU(uname)) roleUids[uid] = 'owner'; else if (isAdminU(uname)) roleUids[uid] = 'admin'; }
+    function roleOf(uname, uid){ if (isOwnerU(uname)) return 'owner'; if (isAdminU(uname)) return 'admin'; return (uid && roleUids[uid]) || null; }
+    var LB_OWNER_ICON = '<img class="pixi" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAASwAAAEsBAMAAACLU5NGAAAAKlBMVEUAAAD////27+XlxKWqrLKbnaOmbzJ1eIF+WVFfQDl1NilOKCIzJz8uGgFa3566AAAAAXRSTlMAQObYZgAAAptJREFUeNrt2rFuE0EURuHtaHCxIEHjxuM2FPFIocFd8ggWtGDJDQ1CQF6BV0DUNFDRIISb4EhQsAUk9b4L2nubPxqPssYrZ43OqSzZ4/vZzXjWW3TRrVPrWDqZNT0+lV4U7YMFCxYsWLBgdQh6PbN8epENFixYsGDB+s9YlfTTJK+OpZmnW3UlncGCBQsWLFh7wLpdtSlIo7Lpvk93ihJPdA9/GZoOKgkWLFiwYMGC5bUDrYJUSSsxlAtpHjM9TI/bb2zF09JKZ5zBggULFixYN8uqrPPYdGgrhpUVrdK6p5RoLXK55MlbKWq6vLTuxqZHlQULFixYsGDBWsP6nj6ve/yPRdJH6YNT3PDOer9M+pJ+Nj2aD2HBggULFqz+sIbyuIyWsp4vLacspa8OWrbpmy9X3KF/JzoQFixYsGDBgrUJ65e+YzIk36fsa5dWtCahaQwLFixYsGDdLKu2/ghrFSzHBeugcpyUgSTqjDFYeh17DgsWLFiwYMHKsi5k+nm0ZGGTqaV1AxWUk34upWgdGetZsGDBggULFqxesHSrjtIkSOU/didIervUXGe4BxYsWLBgwYJ1hXUZm6ZOTE/V4ygFKz8w19Eiac0FcFiwYMGCBavXrNF2+3LQuRosWLBgwYIF6zqWN6itTliKgwULFixYsPaNleLqXbMeKAgWLFiwYMGC5ZI8Llq7YHlTWLBgwYIFC1bKyldbQRp1zgry2+F3YcGCBQsWLFg9ZUVr0jlLm8KCBQsWLFiwNmcp7mI7VkwLVq0gWLBgwYIFq6csbSC4sAkoZU0UVHiwYMGCBQsWrG1r/29xkMbX3KYFCxYsWLBg7R1Lq6VLH9hqX75yhIYFCxYsWLBgFTtoULep0GDBggULFqx+sv4CfbLDr1bAaVkAAAAASUVORK5CYII=" alt="">';
+    var LB_ADMIN_ICON = '<img class="pixi" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAMAAAAoLQ9TAAAAAXNSR0IArs4c6QAAAe9QTFRFAAAAOQQuZwxSnhRg0CRw9jN0qiuR/GeM/7PEAAAAOQQFZgsgmRM/rCRnzSFB9TxA/3d6/6aLGBgYKioqOjo6QUFBSUlJVlZWbW1tmZmZXl5egoKCmpqaubm5z8/P5+fn////dS0msCIQ4lYh84Io/J41/8dmOBQPVCIadTEm/9on//Fk//epLwoDTxsKk0Ya5XkZ8KwlCiYYE0AjG1gtHns1KbA7R9ZSevN5I2dRHA9ACClJDjxbDFJ4FXyqG57TF77cKPDigf/vMxl+SCK2OEr5VXH/g6P/FRsmMDs+TVZZYWtvj5ydtL2+7fHzTC0IXEMIelwKlH4YzLVI7tp6//m34C5ANwQ5VBoaILkwK9kuT/Y+7a818849//o0axOZQDTUpxzK1zz1/GJm3ZI5Hpwvaoj/TwtmjBi0s8z/cC8Ss2QmmHtWs5Nj1phC07Nz8NWG/++htf/wICslOCohSTkrOEk+dVxDTWVUcY14pbmn1+LYN3vT+fnfazDE72n//6X6/+b+PyYlUjQwg1NLvot53KmR9cqu/+jT//nz1lAW/8/B7bdZ88x5+dySf39/OA8UsEMkyj5R8PDwJhYVVR4AejcSlkMWxm8r4ptM/+LD3to9/+ewl/9zzf+f//rdmzUd/YunHGoxcCSs1dnaVbE0aQAAAKV0Uk5TAP//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////Cv2L1AAAAFRJREFUGJWdz7ERwDAIQ1HNRYukUdh/hBzguxQ5N/kVvAYbuMRupsxZq5s5K0nV5myw6ANyNvgFLeg/+Arnik0FsmRK0YkMIEjOm4GIBsRZlz7ffgCuUTv7vQ6h5wAAAABJRU5ErkJggg==" alt="">';
+    function roleBadgeHtml(uname, uid){
+      var r = roleOf(uname, uid);
+      rememberRole(uid, uname);
+      if (!r) return '';
+      if (r === 'owner') return '<span class="lb-badge lb-owner-badge" title="Owner">' + LB_OWNER_ICON + 'Owner</span>';
+      return '<span class="lb-badge lb-admin-badge" title="Admin">' + LB_ADMIN_ICON + 'Admin</span>';
+    }
+    function setSelfBadge(){
+      var lh = document.getElementById('lhandle'); if (!lh) return;
+      var old = document.getElementById('lb-self-badge'); if (old) old.remove();
+      var b = roleBadgeHtml(CP && CP.username, CU && CU.uid);
+      if (b) lh.insertAdjacentHTML('afterend', '<span id="lb-self-badge">' + b + '</span>');
+    }
     /** Apply (or clear) a border ring on an avatar container element. */
     function applyBorder(el, id) {
       if (!el) return;
@@ -7138,9 +7167,9 @@ const firebaseConfig = {
         // be holding the username as our display name. Sync it up now.
         CP = { ...(CP || {}), uid, name: dn, username: u.toLowerCase(), photoB64: regB64 || null };
         const lun = document.getElementById('lun'); if (lun && CP.name) lun.textContent = CP.name;
-        const lh = document.getElementById('lhandle'); if (lh && CP.username) lh.textContent = '@' + CP.username;
+        const lh = document.getElementById('lhandle'); if (lh && CP.username) lh.textContent = '@' + CP.username; setSelfBadge();
         uld(); toast('Welcome to Lunchbreak, ' + dn + '!');
-      } catch (e) { uld(); err.textContent = fbe(e.code) || e.message; }
+      } catch (e) { uld(); err.textContent = fbe(e.code, e) || e.message; }
     }
     async function doLogin() {
       const u = document.getElementById('liu').value.trim(), p = document.getElementById('lip').value;
@@ -7148,9 +7177,9 @@ const firebaseConfig = {
       if (!u || !p) { err.textContent = 'Username and password required.'; return; }
       ld('Signing in...');
       try { await auth.signInWithEmailAndPassword(toEmail(u), p); uld(); }
-      catch (e) { uld(); err.textContent = fbe(e.code); }
+      catch (e) { uld(); err.textContent = fbe(e.code, e); }
     }
-    function fbe(c) {
+    function fbe(c, e) {
       const m = { 'auth/user-not-found': 'No account with that username.', 'auth/wrong-password': 'Incorrect password.', 'auth/invalid-email': 'Invalid username.', 'auth/email-already-in-use': 'Username already registered.', 'auth/weak-password': 'Password too weak.', 'auth/invalid-credential': 'Invalid username or password.', 'auth/too-many-requests': 'Too many attempts. Try again later.' }[c];
       if (m) return m;
       if (c === 'network-error') {
@@ -7158,7 +7187,7 @@ const firebaseConfig = {
         const hint = location.protocol === 'file:' ? ' Open the site at http://127.0.0.1:8787 (or wherever Lunchbreak is hosted) to log in.' : '';
         return 'Cannot reach the Lunchbreak server' + (sv ? ' (' + sv + ')' : '') + '.' + hint;
       }
-      return 'Error: ' + c;
+      return (e && e.message) ? e.message : 'Something went wrong. Try again.';
     }
 
     function startPresence() { stopPresence(); if (!CU) return; const tick = () => db.collection('users').doc(CU.uid).update({ lastSeen: firebase.firestore.FieldValue.serverTimestamp() }).catch(() => { }); tick(); presenceInterval = setInterval(tick, 30000); }
@@ -7213,7 +7242,7 @@ const firebaseConfig = {
     function enterLobby() {
       if (!CP) { show('aw'); return; }
       document.getElementById('lun').textContent = CP.name || 'User';
-      document.getElementById('lhandle').textContent = CP.username ? ('@' + CP.username) : '';
+      document.getElementById('lhandle').textContent = CP.username ? ('@' + CP.username) : ''; setSelfBadge();
       document.getElementById('lustatus').textContent = CP.statusMsg || '';
       const av = document.getElementById('lav'); av.innerHTML = CP.photoB64 ? `<img src="${eh(CP.photoB64)}" alt="">` : (CP.name || 'U').charAt(0).toUpperCase(); applyBorder(av, CP.borderId);
       syncProf(); show('lw'); loadLobby(); startFriendListeners(); runCleanup(); startPresence(); startGlobalDMListener(); startGlobalMentionListeners();
@@ -7339,7 +7368,7 @@ const firebaseConfig = {
           const av = peerPhoto ? `<img src="${eh(peerPhoto)}" alt="" style="width:100%;height:100%;image-rendering:pixelated">` : eh((peerName || '?').charAt(0).toUpperCase());
           const nameStyle = unread ? 'font-weight:bold;color:var(--txt2)' : '';
           const msgStyle = unread ? 'font-weight:bold;color:var(--acc2)' : '';
-          row.innerHTML = `<div class="frav">${av}</div><div class="finfo" style="min-width:0;overflow:hidden"><div class="frname" style="${nameStyle}">${eh(peerName)}</div><div style="display:flex;align-items:center;gap:4px">${lastMsg ? `<div style="font-size:9px;color:var(--txt3);${msgStyle}white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%">${eh(lastMsg.slice(0, 40))}</div>` : '<div style="font-size:9px;color:var(--txt3)">No messages yet</div>'}</div></div>${unread ? `<span class="dm-badge">${unread}</span>` : ''}`;
+          row.innerHTML = `<div class="frav">${av}</div><div class="finfo" style="min-width:0;overflow:hidden"><div class="frname" style="${nameStyle}">${eh(peerName)}${roleBadgeHtml((d.usernames || {})[peerUid], peerUid)}</div><div style="display:flex;align-items:center;gap:4px">${lastMsg ? `<div style="font-size:9px;color:var(--txt3);${msgStyle}white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%">${eh(lastMsg.slice(0, 40))}</div>` : '<div style="font-size:9px;color:var(--txt3)">No messages yet</div>'}</div></div>${unread ? `<span class="dm-badge">${unread}</span>` : ''}`;
 
           const rmBtn = document.createElement('button');
           rmBtn.className = 'btn btnsm dm-rm-btn'; rmBtn.style.cssText = 'position:absolute;right:2px;top:50%;transform:translateY(-50%);font-size:8px;padding:0 3px;color:var(--dan2);background:var(--bg3);border-color:var(--blo);min-width:0';
@@ -7470,7 +7499,7 @@ const firebaseConfig = {
         const row = document.createElement('div'); row.className = 'frow'; row.dataset.uid = fuid;
         row.innerHTML = `<div class="frav" onclick="showProfile(event,'${fuid}')">${av}</div>
       <div class="finfo" onclick="showProfile(event,'${fuid}')">
-        <div class="frname" id="frname-${fuid}">${eh(displayName)}${nick ? `<span class="friend-nick" onclick="event.stopPropagation();editNickname('${fuid}','${ea(nick)}')" title="Edit nickname"><img class="pixi" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAMAAAAoLQ9TAAAAAXNSR0IArs4c6QAAAe9QTFRFAAAAOQQuZwxSnhRg0CRw9jN0qiuR/GeM/7PEAAAAOQQFZgsgmRM/rCRnzSFB9TxA/3d6/6aLGBgYKioqOjo6QUFBSUlJVlZWbW1tmZmZXl5egoKCmpqaubm5z8/P5+fn////dS0msCIQ4lYh84Io/J41/8dmOBQPVCIadTEm/9on//Fk//epLwoDTxsKk0Ya5XkZ8KwlCiYYE0AjG1gtHns1KbA7R9ZSevN5I2dRHA9ACClJDjxbDFJ4FXyqG57TF77cKPDigf/vMxl+SCK2OEr5VXH/g6P/FRsmMDs+TVZZYWtvj5ydtL2+7fHzTC0IXEMIelwKlH4YzLVI7tp6//m34C5ANwQ5VBoaILkwK9kuT/Y+7a818849//o0axOZQDTUpxzK1zz1/GJm3ZI5Hpwvaoj/TwtmjBi0s8z/cC8Ss2QmmHtWs5Nj1phC07Nz8NWG/++htf/wICslOCohSTkrOEk+dVxDTWVUcY14pbmn1+LYN3vT+fnfazDE72n//6X6/+b+PyYlUjQwg1NLvot53KmR9cqu/+jT//nz1lAW/8/B7bdZ88x5+dySf39/OA8UsEMkyj5R8PDwJhYVVR4AejcSlkMWxm8r4ptM/+LD3to9/+ewl/9zzf+f//rdmzUd/YunHGoxcCSs1dnaVbE0aQAAAKV0Uk5TAP//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////Cv2L1AAAAFlJREFUGJVjYEACTEwMKMCTnR1FxNOXFUVEQ8vXh5WVEc7X1NLR8vEWQuZrGxig89WR+TrofEND3HwNLR1tfPzSQm0U8xlKCwtR+AxCYgUFyHwGIaGSEmQ+ANb3EXhwh9wRAAAAAElFTkSuQmCC" alt=""></span>` : ''}</div>
+        <div class="frname" id="frname-${fuid}">${eh(displayName)}${roleBadgeHtml(username, fuid)}${nick ? `<span class="friend-nick" onclick="event.stopPropagation();editNickname('${fuid}','${ea(nick)}')" title="Edit nickname"><img class="pixi" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAMAAAAoLQ9TAAAAAXNSR0IArs4c6QAAAe9QTFRFAAAAOQQuZwxSnhRg0CRw9jN0qiuR/GeM/7PEAAAAOQQFZgsgmRM/rCRnzSFB9TxA/3d6/6aLGBgYKioqOjo6QUFBSUlJVlZWbW1tmZmZXl5egoKCmpqaubm5z8/P5+fn////dS0msCIQ4lYh84Io/J41/8dmOBQPVCIadTEm/9on//Fk//epLwoDTxsKk0Ya5XkZ8KwlCiYYE0AjG1gtHns1KbA7R9ZSevN5I2dRHA9ACClJDjxbDFJ4FXyqG57TF77cKPDigf/vMxl+SCK2OEr5VXH/g6P/FRsmMDs+TVZZYWtvj5ydtL2+7fHzTC0IXEMIelwKlH4YzLVI7tp6//m34C5ANwQ5VBoaILkwK9kuT/Y+7a818849//o0axOZQDTUpxzK1zz1/GJm3ZI5Hpwvaoj/TwtmjBi0s8z/cC8Ss2QmmHtWs5Nj1phC07Nz8NWG/++htf/wICslOCohSTkrOEk+dVxDTWVUcY14pbmn1+LYN3vT+fnfazDE72n//6X6/+b+PyYlUjQwg1NLvot53KmR9cqu/+jT//nz1lAW/8/B7bdZ88x5+dySf39/OA8UsEMkyj5R8PDwJhYVVR4AejcSlkMWxm8r4ptM/+LD3to9/+ewl/9zzf+f//rdmzUd/YunHGoxcCSs1dnaVbE0aQAAAKV0Uk5TAP//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////Cv2L1AAAAFlJREFUGJVjYEACTEwMKMCTnR1FxNOXFUVEQ8vXh5WVEc7X1NLR8vEWQuZrGxig89WR+TrofEND3HwNLR1tfPzSQm0U8xlKCwtR+AxCYgUFyHwGIaGSEmQ+ANb3EXhwh9wRAAAAAElFTkSuQmCC" alt=""></span>` : ''}</div>
         <div class="frhandle" id="frhandle-${fuid}">${nick ? `<span style="color:var(--txt3)">${eh(name)}</span>` : (username ? '@' + eh(username) : '')}</div>
         <div class="frstatus" id="fstatus-${fuid}"></div>
       </div>
@@ -7635,6 +7664,7 @@ const firebaseConfig = {
           document.getElementById('ppop-nick-row').style.display = 'none';
         }
         document.getElementById('ppop-name').textContent = ud.name || uid;
+        document.getElementById('ppop-name').insertAdjacentHTML('beforeend', roleBadgeHtml(ud.username, uid));
         document.getElementById('ppop-handle').textContent = ud.username ? ('@' + ud.username) : '';
         document.getElementById('ppop-status').textContent = ud.statusMsg || '';
         const avEl = document.getElementById('ppop-av');
@@ -7884,7 +7914,7 @@ const firebaseConfig = {
         replyCtx = `<div class="msg-reply-ctx" onclick="scrollToDMMsg('${data.replyTo.msgId || ''}')"><span class="msg-reply-name">${eh(data.replyTo.name || '')}:</span> ${eh((data.replyTo.text || '').slice(0, 60))}</div>`;
       }
       const reactionsHtml = renderReactions(data.reactions || {}, docId, false);
-      div.innerHTML = `<div class="mav${bcls(data.borderId)}" onclick="showProfile(event,'${data.uid}')">${av}</div><div class="mbd"><div class="mhdr"><span class="mun">${eh(data.name || '?')}</span><span class="mts">${ts}</span></div>${replyCtx}<div class="mtxt">${procTxt(data.text || '', data.isImage, data.imageData)}</div>${reactionsHtml}</div>${dmActionsMenu}`;
+      div.innerHTML = `<div class="mav${bcls(data.borderId)}" onclick="showProfile(event,'${data.uid}')">${av}</div><div class="mbd"><div class="mhdr"><span class="mun">${eh(data.name || '?')}</span>${roleBadgeHtml(data.username, data.uid)}<span class="mts">${ts}</span></div>${replyCtx}<div class="mtxt">${procTxt(data.text || '', data.isImage, data.imageData)}</div>${reactionsHtml}</div>${dmActionsMenu}`;
       scroll.appendChild(div);
       trimMsgHistory('dmscroll', MSG_HISTORY_LIMIT);
     }
@@ -8133,7 +8163,7 @@ const firebaseConfig = {
           const av = u.photoB64 ? `<div class="usr-av${bcls(u.borderId)}" style="width:28px;height:28px;flex-shrink:0;overflow:hidden;border:1px solid var(--blo)"><img src="${eh(u.photoB64)}" style="width:100%;height:100%;image-rendering:pixelated"></div>` : `<div class="usr-av${bcls(u.borderId)}" style="width:28px;height:28px;flex-shrink:0;background:var(--bg3);border:1px solid var(--blo);display:flex;align-items:center;justify-content:center;font-size:13px">${eh((u.name || '?').charAt(0))}</div>`;
           const row = document.createElement('div');
           row.style.cssText = 'display:flex;align-items:center;gap:6px;padding:5px 6px;border-bottom:1px solid var(--blo);cursor:pointer';
-          row.innerHTML = `${av}<div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:bold;color:var(--txt2)">${eh(censorText(u.name || ''))}</div><div style="font-size:10px;color:var(--txt3)">${u.username ? '@' + eh(u.username) : ''}</div></div><span style="font-size:9px;color:${online ? '#44ee44' : 'var(--txt3)'}">${online ? '●' : '○'}</span><button class="btn btnsm btna" style="font-size:9px;padding:1px 5px" onclick="event.stopPropagation();closeUserSearch();showProfile(event,'${u.id}')">View</button>`;
+          row.innerHTML = `${av}<div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:bold;color:var(--txt2)">${eh(censorText(u.name || ''))}${roleBadgeHtml(u.username, u.id)}</div><div style="font-size:10px;color:var(--txt3)">${u.username ? '@' + eh(u.username) : ''}</div></div><span style="font-size:9px;color:${online ? '#44ee44' : 'var(--txt3)'}">${online ? '●' : '○'}</span><button class="btn btnsm btna" style="font-size:9px;padding:1px 5px" onclick="event.stopPropagation();closeUserSearch();showProfile(event,'${u.id}')">View</button>`;
           row.onmouseover = () => row.style.background = 'var(--bg3)';
           row.onmouseout = () => row.style.background = '';
           L.appendChild(row);
@@ -8571,7 +8601,7 @@ const firebaseConfig = {
         replyCtx = `<div class="msg-reply-ctx" onclick="scrollToMsg('${data.replyTo.msgId}')"><span class="msg-reply-name">${eh(data.replyTo.name || '')}:</span> ${eh(previewText)}</div>`;
       }
       const reactionsHtml = renderReactions(data.reactions || {}, docId, true);
-      div.innerHTML = `<div class="mav${bcls(data.borderId)}" onclick="showProfile(event,'${data.uid}')">${av}</div><div class="mbd"><div class="mhdr"><span class="mun${isHostMsg ? ' host' : ''}">${eh(data.name || '?')}</span><span class="mts">${ts}</span></div>${replyCtx}<div class="mtxt">${procTxt(data.text || '', data.isImage, data.imageData)}</div>${reactionsHtml}</div>${actionsMenu}`;
+      div.innerHTML = `<div class="mav${bcls(data.borderId)}" onclick="showProfile(event,'${data.uid}')">${av}</div><div class="mbd"><div class="mhdr"><span class="mun${isHostMsg ? ' host' : ''}">${eh(data.name || '?')}</span>${roleBadgeHtml(data.username, data.uid)}<span class="mts">${ts}</span></div>${replyCtx}<div class="mtxt">${procTxt(data.text || '', data.isImage, data.imageData)}</div>${reactionsHtml}</div>${actionsMenu}`;
       const roomPins = Array.isArray(RD?.pinnedMessages) ? RD.pinnedMessages : (RD?.pinnedMessage?.text ? [RD.pinnedMessage] : []);
       if (roomPins.some(p => p.msgId === docId)) div.classList.add('pinned-msg');
       scroll.appendChild(div);
@@ -8702,7 +8732,7 @@ const firebaseConfig = {
         const kickBtn = (iAmHost && !isMe && !isRH) ? `<button class="btn btnsm btnd" style="font-size:8px;padding:1px 2px" title="Kick" onclick="event.stopPropagation();kickUser('${uid}','${ea(m.name || '')}')">✕</button>` : '';
         const muteBtn = (iAmHost && !isMe && !isRH) ? `<button class="btn btnsm" style="font-size:8px;padding:1px 2px;background:var(--bg4)" title="${isMuted ? 'Unmute' : 'Mute'}" onclick="event.stopPropagation();toggleMuteMember('${uid}','${ea(m.name || '')}')"><img class="pixi" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAMAAAAoLQ9TAAAAAXNSR0IArs4c6QAAAe9QTFRFAAAAOQQuZwxSnhRg0CRw9jN0qiuR/GeM/7PEAAAAOQQFZgsgmRM/rCRnzSFB9TxA/3d6/6aLGBgYKioqOjo6QUFBSUlJVlZWbW1tmZmZXl5egoKCmpqaubm5z8/P5+fn////dS0msCIQ4lYh84Io/J41/8dmOBQPVCIadTEm/9on//Fk//epLwoDTxsKk0Ya5XkZ8KwlCiYYE0AjG1gtHns1KbA7R9ZSevN5I2dRHA9ACClJDjxbDFJ4FXyqG57TF77cKPDigf/vMxl+SCK2OEr5VXH/g6P/FRsmMDs+TVZZYWtvj5ydtL2+7fHzTC0IXEMIelwKlH4YzLVI7tp6//m34C5ANwQ5VBoaILkwK9kuT/Y+7a818849//o0axOZQDTUpxzK1zz1/GJm3ZI5Hpwvaoj/TwtmjBi0s8z/cC8Ss2QmmHtWs5Nj1phC07Nz8NWG/++htf/wICslOCohSTkrOEk+dVxDTWVUcY14pbmn1+LYN3vT+fnfazDE72n//6X6/+b+PyYlUjQwg1NLvot53KmR9cqu/+jT//nz1lAW/8/B7bdZ88x5+dySf39/OA8UsEMkyj5R8PDwJhYVVR4AejcSlkMWxm8r4ptM/+LD3to9/+ewl/9zzf+f//rdmzUd/YunHGoxcCSs1dnaVbE0aQAAAKV0Uk5TAP//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////Cv2L1AAAAFBJREFUGJVtj0EKwEAIA/OuXI36/x8VKbtqqbcMTlDgjCQzocciMycAybAJoODO3rkK5eQllpnm7rqk+sixMvuOj4/fevlL/7tng+2/P82VByuvGEGasUnoAAAAAElFTkSuQmCC" alt=""></button>` : '';
         const dotHtml = `<span class="online-dot ${online ? 'dot-online' : 'dot-offline'}" title="${online ? 'Online' : 'Offline'}"></span>`;
-        row.innerHTML = `<div class="mbrav${bcls(m.borderId)}">${av}</div>${dotHtml}<span class="mbrn${isRH ? ' host' : ''}">${eh(m.name || uid)}</span>${friendBtn}${muteBtn}${kickBtn}`;
+        row.innerHTML = `<div class="mbrav${bcls(m.borderId)}">${av}</div>${dotHtml}<span class="mbrn${isRH ? ' host' : ''}">${eh(m.name || uid)}</span>${roleBadgeHtml(m.username, uid)}${friendBtn}${muteBtn}${kickBtn}`;
         (online ? activeRows : awayRows).push(row);
       });
       L.innerHTML = '';
@@ -9098,13 +9128,15 @@ const firebaseConfig = {
     async function downloadClient() {
       try {
         toast('⟳ Building client…');
-        const res = await fetch('lunchbreak-client.html', { cache: 'no-store' });
+        let res = await fetch('lunchbreak-client.html', { cache: 'no-store' });
+        const _lbSrv = (window.LBShim && window.LBShim.server) || '';
+        if (!res.ok && _lbSrv) res = await fetch(_lbSrv + '/lunchbreak-client.html', { cache: 'no-store' });
         if (!res.ok) throw new Error('bad response');
         let html = await res.text();
         // Bake this site's origin into the copy so it can reach the backend
         // even when opened straight from disk (double-click) or on another device.
         if (location.protocol.indexOf('http') === 0) {
-          html = html.split('__LB_ORIGIN__').join(location.origin);
+          html = html.split('__LB_ORIGIN__').join(_lbSrv || location.origin);
         }
         const blob = new Blob([html], { type: 'text/html' });
         const blobUrl = URL.createObjectURL(blob);
@@ -10321,7 +10353,7 @@ const firebaseConfig = {
             actItemsR += `<span class="msg-action-item" onclick="showReactionPicker('${doc.id}',true,document.querySelector('#m${doc.id} .msg-actions-btn'))">＋ React</span>`;
             const actMenuR = actItemsR ? `<div class="msg-actions-menu"><button class="msg-actions-btn" onclick="event.stopPropagation();this.nextElementSibling.classList.toggle('on')">···</button><div class="msg-actions-dropdown">${actItemsR}</div></div>` : '';
 
-            div.innerHTML = `<div class="mav${bcls(data.borderId)}" onclick="showProfile(event,'${data.uid}')">${av}</div><div class="mbd"><div class="mhdr"><span class="mun">${eh(data.name || '?')}</span><span class="mts">${ts2}</span></div><div class="mtxt">${procTxt(data.text || '', data.isImage, data.imageData)}</div>${renderReactions(data.reactions || {}, doc.id, true)}</div>${actMenuR}`;
+            div.innerHTML = `<div class="mav${bcls(data.borderId)}" onclick="showProfile(event,'${data.uid}')">${av}</div><div class="mbd"><div class="mhdr"><span class="mun">${eh(data.name || '?')}</span>${roleBadgeHtml(data.username, data.uid)}<span class="mts">${ts2}</span></div><div class="mtxt">${procTxt(data.text || '', data.isImage, data.imageData)}</div>${renderReactions(data.reactions || {}, doc.id, true)}</div>${actMenuR}`;
           }
           frag.insertBefore(div, frag.firstChild);
         });
@@ -10371,7 +10403,7 @@ const firebaseConfig = {
             dmActItemsD += `<span class="msg-action-item" onclick="startDMReply('${doc.id}','${ea(data.name || '')}','${ea((data.text || '').slice(0, 80))}')">↩ Reply</span>`;
             dmActItemsD += `<span class="msg-action-item" onclick="showReactionPicker('${doc.id}',false,document.querySelector('#dm${doc.id} .msg-actions-btn'))">＋ React</span>`;
             const dmActMenuD = `<div class="msg-actions-menu"><button class="msg-actions-btn" onclick="event.stopPropagation();this.nextElementSibling.classList.toggle('on')">···</button><div class="msg-actions-dropdown">${dmActItemsD}</div></div>`;
-            div.innerHTML = `<div class="mav${bcls(data.borderId)}" onclick="showProfile(event,'${data.uid}')">${av}</div><div class="mbd"><div class="mhdr"><span class="mun">${eh(data.name || '?')}</span><span class="mts">${ts3}</span></div><div class="mtxt">${procTxt(data.text || '', data.isImage, data.imageData)}</div>${renderReactions(data.reactions || {}, doc.id, false)}</div>${dmActMenuD}`;
+            div.innerHTML = `<div class="mav${bcls(data.borderId)}" onclick="showProfile(event,'${data.uid}')">${av}</div><div class="mbd"><div class="mhdr"><span class="mun">${eh(data.name || '?')}</span>${roleBadgeHtml(data.username, data.uid)}<span class="mts">${ts3}</span></div><div class="mtxt">${procTxt(data.text || '', data.isImage, data.imageData)}</div>${renderReactions(data.reactions || {}, doc.id, false)}</div>${dmActMenuD}`;
           }
           frag.insertBefore(div, frag.firstChild);
         });
