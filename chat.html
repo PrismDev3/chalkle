@@ -4070,6 +4070,7 @@ img.coin {
 .lb-badge .pixi{width:13px;height:13px;image-rendering:pixelated}
 .lb-owner-badge{background:#2a1d05;color:#ffd700;border:1px solid #9a7b00;text-shadow:0 1px 0 rgba(0,0,0,.65)}
 .lb-admin-badge{background:#0b1a26;color:#7fd4ff;border:1px solid #2b6f9e;text-shadow:0 1px 0 rgba(0,0,0,.65)}
+#lb-self-badge{display:inline-flex;vertical-align:middle}
 
 </style>
 </head>
@@ -4528,7 +4529,13 @@ img.coin {
                 <input type="text" id="pstatus" placeholder="What's on your mind?" maxlength="30">
                 <div style="font-size:10px;color:var(--txt3);margin-top:2px" id="status-chars">0/30</div>
               </div>
-              <div class="err" id="perr"></div>
+              
+              <div class="gbox">
+                <div class="glbl">Borders</div>
+                <div id="pset-borders" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center"><span style="font-size:10px;color:var(--txt3)">Loading…</span></div>
+                <div style="font-size:10px;color:var(--txt3);margin-top:4px">Bought borders — click to equip. Get more in the Shop.</div>
+              </div>
+<div class="err" id="perr"></div>
               <button class="btn btna" onclick="saveProfile()">Save Changes</button>
             </div>
 
@@ -6956,7 +6963,7 @@ const firebaseConfig = {
       var lh = document.getElementById('lhandle'); if (!lh) return;
       var old = document.getElementById('lb-self-badge'); if (old) old.remove();
       var b = roleBadgeHtml(CP && CP.username, CU && CU.uid);
-      if (b) lh.insertAdjacentHTML('afterend', '<span id="lb-self-badge">' + b + '</span>');
+      if (b) lh.insertAdjacentHTML('beforeend', '<span id="lb-self-badge">' + b + '</span>');
     }
     /** Apply (or clear) a border ring on an avatar container element. */
     function applyBorder(el, id) {
@@ -7060,7 +7067,7 @@ const firebaseConfig = {
       toast('Changes reverted.');
     }
     function openSettings() {
-      buildThemeGrid(); syncProf(); updateSoundUI(); updateCensorUI(); updatePreviewUI(); updatePrivacyUI(); updateCloakUI(); updateTimeFmtUI();
+      buildThemeGrid(); syncProf(); renderSettingsBorders(); updateSoundUI(); updateCensorUI(); updatePreviewUI(); updatePrivacyUI(); updateCloakUI(); updateTimeFmtUI();
       _snapshotSettings();
       const el = document.getElementById('settings-unsaved'); if (el) el.classList.remove('on');
       document.getElementById('sw').classList.add('on');
@@ -7098,6 +7105,28 @@ const firebaseConfig = {
     makeWinDraggable('forumwin', 'ftbar');
     makeWinDraggable('shopwin', 'shbar');
     document.getElementById('pstatus').addEventListener('input', function () { document.getElementById('status-chars').textContent = this.value.length + '/30'; });
+    async function renderSettingsBorders() {
+      const box = document.getElementById('pset-borders'); if (!box) return;
+      box.innerHTML = '<span style="font-size:10px;color:var(--txt3)">Loading…</span>';
+      try {
+        const d = await window.LBShim.api('/api/shop');
+        const mk = (id, equipped) => {
+          const cls = id ? 'avbox lb-border lb-b-' + id : 'avbox';
+          const inner = CP && CP.photoB64 ? '<img src="' + eh(CP.photoB64) + '" style="width:100%;height:100%;image-rendering:pixelated">' : eh((CP && CP.name || 'U').charAt(0).toUpperCase());
+          return '<div class="' + cls + '" data-bid="' + (id || '') + '" style="width:34px;height:34px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;box-sizing:border-box;' + (equipped ? 'outline:2px solid var(--acc2);outline-offset:1px' : '') + '" title="' + (id || 'No border') + '" onclick="settingsEquip(this.dataset.bid)">' + inner + '</div>';
+        };
+        box.innerHTML = mk(null, !d.equipped) + d.owned.map(function (id) { return mk(id, d.equipped === id); }).join('');
+      } catch (e) { box.innerHTML = '<span style="font-size:10px;color:var(--dan2)">Could not load borders.</span>'; }
+    }
+    window.settingsEquip = async function (id) {
+      try {
+        await window.LBShim.api('/api/shop/equip', { method: 'POST', body: { borderId: id || null } });
+        if (CP) CP.borderId = id || null;
+        toast('Border equipped.');
+        applyBorder(document.getElementById('lav'), CP && CP.borderId);
+        syncProf(); renderSettingsBorders();
+      } catch (e) { toast('Could not equip: ' + e.message); }
+    };
     function syncProf() { if (!CP) return; applyBorder(document.getElementById('pavb'), CP.borderId); const pn = document.getElementById('pname'); if (pn) { pn.value = CP.name || ''; const pc = document.getElementById('pname-chars'); if (pc) pc.textContent = (CP.name || '').length + '/20'; } document.getElementById('pstatus').value = CP.statusMsg || ''; document.getElementById('status-chars').textContent = (CP.statusMsg || '').length + '/30'; document.getElementById('aun').textContent = CP.username || '—'; const img = document.getElementById('pavimg'), ico = document.getElementById('pavi'); if (CP.photoB64) { img.src = CP.photoB64; img.style.display = 'block'; ico.style.display = 'none'; } else { img.style.display = 'none'; ico.style.display = ''; ico.textContent = (CP.name || 'U').charAt(0).toUpperCase(); } }
 
     function authTab(t) { document.getElementById('tab-login').classList.toggle('on', t === 'login'); document.getElementById('tab-reg').classList.toggle('on', t === 'register'); document.getElementById('tlogin').classList.toggle('on', t === 'login'); document.getElementById('treg').classList.toggle('on', t === 'register'); }
