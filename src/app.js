@@ -697,6 +697,21 @@
      same-origin even from file://. */
   function openResolvedTab(url) {
     if (!url) return;
+    /* Inside embed wrappers the CDN serves .html as text/plain, so a direct
+       new-tab navigation would show raw source. Fetch + blob (same trick as
+       the data: branch below) so the new tab renders the app. */
+    if (window.__CHALKLE_EMBED__ && url.indexOf("data:") !== 0) {
+      fetch(url).then(function (r) { return r.blob(); }).then(function (b) {
+        var u = URL.createObjectURL(b);
+        var win = window.open(u, "_blank");
+        if (win) { try { win.opener = null; } catch (e) { } }
+        setTimeout(function () { try { URL.revokeObjectURL(u); } catch (e) { } }, 180000);
+      }).catch(function () {
+        var win = window.open(url, "_blank");
+        if (win) { try { win.opener = null; } catch (e) { } }
+      });
+      return;
+    }
     if (url.indexOf("data:") === 0) {
       fetch(url).then(function (r) { return r.blob(); }).then(function (b) {
         var u = URL.createObjectURL(b);
