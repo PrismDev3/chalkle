@@ -630,21 +630,56 @@
       if (apiRoot) {
         var apiMovies = (apiRoot.replace(/\/+$/, "") + "/movies.html").replace(/https?:\/\/([a-z0-9-]+\.)?lootline\.xyz/i, "");
         if (!apiMovies.startsWith("http")) {
-          var fromCurrent = (window.location.origin || "") + apiMovies;
-          try { var probe = new URL(fromCurrent, document.baseURI || location.href); if (/\/movies\.html$/i.test(probe.pathname)) return probe.href; } catch (e) {}
+          /* location.origin is the literal string "null" in sandboxed/srcdoc
+             frames (svgbulk wrappers) - concatenating it produced the infamous
+             /null/movies.html 404. Only build an origin-absolute URL from a
+             real http(s) origin; otherwise fall through to the baseURI-
+             relative resolution below, which the injected <base href> of
+             wrapper/mirror pages resolves correctly. */
+          var orgM = String(window.location.origin || "");
+          if (/^https?:/i.test(orgM)) {
+            var fromCurrent = orgM + apiMovies;
+            try { var probe = new URL(fromCurrent, document.baseURI || location.href); if (/\/movies\.html$/i.test(probe.pathname)) return probe.href; } catch (e) {}
+          }
+        }
+        if (apiMovies && apiMovies.indexOf("/null/") === 0) {
+          // The wrapper advertised a bad path like /null/movies.html - ignore it and
+          // fall through to the normal same-origin route instead of surfacing an
+          // "Invalid URL" / 404 to the user.
+          apiMovies = "";
+        }
+        if (apiMovies && apiMovies.indexOf("data:") !== 0 && apiMovies.indexOf("http") !== 0) {
+          // Drop obviously broken paths (empty string, absolute path with no host,
+          // or anything that isn't an http(s) URL / data URI) so we land on the
+          // normal same-origin /movies.html page instead of surfacing an invalid URL.
+          apiMovies = "";
         }
       }
     } catch (e) { /* keep it simple */ }
 
     try {
-      return new URL("/movies.html", document.baseURI || location.href).href;
+      /* Relative (not root-absolute): under an injected <base href> (svgbulk
+         wrappers, jsDelivr subpaths) a leading slash resolves against the CDN
+         ORIGIN ROOT and 404s, while the bare path resolves via <base> to the
+         correct /gh/<repo>/<branch>/movies.html. Root deploys are unaffected
+         (document base IS the root). */
+      var resolved = new URL("movies.html", document.baseURI || location.href).href;
+      if (resolved.indexOf("data:") === 0 || resolved.indexOf("http") === 0) return resolved;
+      return "movies.html";
     } catch (e) { /* keep it simple */ }
-    return "/movies.html";
+    return "movies.html";
   }
   function loadMoviesFrame() {
     var frame = document.getElementById("movies-frame");
     if (!frame || frame.src && frame.src.indexOf("movies.html") !== -1) return;
-    frame.src = moviesPageUrl();
+    var url = moviesPageUrl();
+    if (!url || url.indexOf("data:") !== 0 && url.indexOf("http") !== 0) {
+      // If the resolver produced a broken path (for example a /null/... route from
+      // a wrapper configured with a bad base), ignore it so the iframe keeps its
+      // normal same-origin /movies.html behavior instead of surfacing an invalid URL.
+      return;
+    }
+    frame.src = url;
   }
 
   /* Open a resolved page URL in a new tab. Data URIs (the single-file
@@ -693,13 +728,22 @@
            is genuinely a different host that already serves chat. */
         var apiChat = (apiRoot.replace(/\/+$/, "") + "/chat.html").replace(/https?:\/\/([a-z0-9-]+\.)?lootline\.xyz/i, "");
         if (!apiChat.startsWith("http")) {
-          var fromCurrent = (window.location.origin || "") + apiChat;
-          try { var probe = new URL(fromCurrent, document.baseURI || location.href); if (/\/chat\.html$/i.test(probe.pathname)) return probe.href; } catch (e3) {}
+          /* Same "null"-origin guard as moviesPageUrl(): sandboxed/srcdoc
+             frames report location.origin === "null" and used to produce
+             /null/chat.html. Skip origin-absolute assembly for non-http(s)
+             origins and fall through to baseURI-relative resolution. */
+          var orgC = String(window.location.origin || "");
+          if (/^https?:/i.test(orgC)) {
+            var fromCurrent = orgC + apiChat;
+            try { var probe = new URL(fromCurrent, document.baseURI || location.href); if (/\/chat\.html$/i.test(probe.pathname)) return probe.href; } catch (e3) {}
+          }
         }
       }
     } catch (e4) { /* keep it simple */ }
     try {
-      return new URL("/chat.html", document.baseURI || location.href).href;
+      /* Relative, for the injected <base href> in wrappers/mirrors - see the
+         moviesPageUrl() note above. */
+      return new URL("chat.html", document.baseURI || location.href).href;
     } catch (e5) { /* keep it simple */ }
     return "chat.html";
   }

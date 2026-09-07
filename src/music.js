@@ -199,24 +199,29 @@
   function saveButton(meta) {
     return '<button class="music-save ' + (isSaved(meta) ? "is-saved" : "") + '" data-msave="' + esc(trackId(meta)) + '" aria-label="' + (isSaved(meta) ? "Remove from library" : "Add to library") + '" title="' + (isSaved(meta) ? "Remove from library" : "Add to library") + '">' + (isSaved(meta) ? "♥" : "♡") + "</button>";
   }
-  function playIcon() { return '<span class="music-play-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></span>'; }
+  function playIcon() {
+    return '<span class="music-play-icon" aria-hidden="true">' +
+      '<svg viewBox="0 0 24 24" aria-hidden="true">' +
+        '<path d="M8 5v14l11-7z" fill="currentColor" stroke="none"/>' +
+      '</svg></span>';
+  }
   function trackCard(meta, list, prefix) {
     var item = cloneMeta(meta, list, prefix);
     return '<article class="music-card" data-mplay="' + esc(item._key) + '" tabindex="0" role="button">' +
-      '<span class="music-card-art">' + artHtml(item, "music-art") + playIcon() + '</span>' +
+      '<span class="music-card-art">' + artHtml(item, "music-art") + '<span class="music-play-overlay" aria-hidden="true">' + playIcon() + '</span></span>' +
       '<span class="music-card-copy"><span class="music-card-title">' + esc(cleanName(item.name) || "Untitled") + '</span><span class="music-card-sub">' + esc(artistName(item)) + '</span></span>' +
       saveButton(item) + '</article>';
   }
   function albumCard(album, artist, meta, tracks) {
     var key = "album:" + album + "|" + artist;
     return '<button class="music-cover-card" data-mcollection="album" data-mcollection-key="' + esc(key) + '">' +
-      '<span class="music-cover-art">' + artHtml(meta, "music-art") + playIcon() + '</span>' +
+      '<span class="music-cover-art">' + artHtml(meta, "music-art") + '<span class="music-play-overlay" aria-hidden="true">' + playIcon() + '</span></span>' +
       '<span class="music-cover-title">' + esc(album || "Unknown album") + '</span>' +
       '<span class="music-cover-sub">' + esc(artist || "Unknown artist") + " · " + trackCountLabel(tracks.length) + "</span></button>";
   }
   function artistCard(name, meta) {
     return '<button class="music-artist-card" data-mcollection="artist" data-mcollection-key="' + esc(name) + '">' +
-      '<span class="music-artist-art">' + artHtml(meta, "music-art") + playIcon() + '</span><span class="music-artist-name">' + esc(name) + '</span><span class="music-cover-sub">Artist</span></button>';
+      '<span class="music-artist-art">' + artHtml(meta, "music-art") + '<span class="music-play-overlay" aria-hidden="true">' + playIcon() + '</span></span><span class="music-artist-name">' + esc(name) + '</span><span class="music-cover-sub">Artist</span></button>';
   }
   function section(title, note, body, extra) {
     return '<section class="music-section ' + (extra || "") + '"><div class="music-section-head"><div><h2>' + esc(title) + '</h2>' + (note ? '<span>' + esc(note) + '</span>' : '') + '</div><button class="music-show-all" type="button" data-music-show="' + esc(title) + '">Show all</button></div>' + body + '</section>';
@@ -338,7 +343,7 @@
     var heroSave = saveButton(heroItem).replace("music-save", "music-hero-save");
     var html = '<div class="music-home-shell">' +
       '<div class="music-home-intro"><div><span class="music-eyebrow">Chalkle Music</span><h1>' + greeting() + '</h1><p>Find something to play, then keep browsing without losing your place.</p></div><span class="music-source-note">Live catalog · relay powered</span></div>' +
-      '<div class="music-hero"><div class="music-hero-art">' + artHtml(heroItem, "music-art") + '</div><div class="music-hero-copy"><span class="music-eyebrow">Featured track</span><h2>' + esc(cleanName(hero.name) || "Untitled") + '</h2><p class="music-hero-artist">' + esc(artistName(hero)) + '</p><p class="music-hero-album">' + esc(albumLabel(hero)) + '</p><div class="music-hero-actions">' + heroPlay + heroSave + '</div></div></div>' +
+      '<div class="music-hero"><div class="music-hero-art">' + artHtml(heroItem, "music-art") + '<span class="music-play-overlay" aria-hidden="true">' + playIcon() + '</span></div><div class="music-hero-copy"><span class="music-eyebrow">Featured track</span><h2>' + esc(cleanName(hero.name) || "Untitled") + '</h2><p class="music-hero-artist">' + esc(artistName(hero)) + '</p><p class="music-hero-album">' + esc(albumLabel(hero)) + '</p><div class="music-hero-actions">' + heroPlay + heroSave + '</div></div></div>' +]
       section(recentTitle, recent.length ? "Pick up where you left off" : "Popular picks to get you started", '<div class="music-card-row">' + recentDisplay.map(function (m, i) { return trackCard(m, recentDisplay, "recent" + i); }).join("") + '</div>', "music-section-cards") +
       section("Made for you", "Based on what is popular right now", '<div class="music-card-row">' + made.map(function (m, i) { return trackCard(m, made, "made" + i); }).join("") + '</div>', "music-section-cards") +
       section("Popular albums", "Albums and collections", '<div class="music-cover-row">' + albums.map(function (a) { return albumCard(a.album, a.artist, a.meta, a.tracks); }).join("") + '</div>', "music-section-covers") +
@@ -391,7 +396,7 @@
     var title = type === "artist" ? col.name : col.name;
     var subtitle = type === "artist" ? "Artist" : (col.artist || "Album");
     var playListMeta = cloneMeta(tracks[0], tracks, "detail-play");
-    els.profile.innerHTML = '<div class="music-detail-head"><div class="music-detail-art">' + artHtml(first, "music-art") + '</div><div class="music-detail-copy"><span class="music-eyebrow">' + esc(subtitle) + '</span><h1>' + esc(title) + '</h1><p>' + esc(type === "artist" ? "Popular tracks from this artist" : (col.artist || "Album")) + ' · ' + tracks.length + ' songs</p><div class="music-hero-actions"><button class="music-primary-btn" data-mplay="' + esc(playListMeta._key) + '">' + playIcon() + ' Play all</button><button class="music-secondary-btn" data-msave-collection="' + esc(type + ":" + key) + '">+ Add to library</button></div></div></div>' +
+    els.profile.innerHTML =      '<div class="music-detail-head"><div class="music-detail-art">' + artHtml(first, "music-art") + '<span class="music-play-overlay" aria-hidden="true">' + playIcon() + '</span></div><div class="music-detail-copy"><span class="music-eyebrow">' + esc(subtitle) + '</span><h1>' + esc(title) + '</h1><p>' + esc(type === "artist" ? "Popular tracks from this artist" : (col.artist || "Album")) + ' · ' + tracks.length + ' songs</p><div class="music-hero-actions"><button class="music-primary-btn" data-mplay="' + esc(playListMeta._key) + '">' + playIcon() + ' Play all</button><button class="music-secondary-btn" data-msave-collection="' + esc(type + ":" + key) + '">+ Add to library</button></div></div></div>' +]
       '<div class="music-detail-list">' + tracks.map(function (m, i) { return rowHtml(m, i, tracks, "detail"); }).join("") + '</div>';
     setPage("profile");
     els.profileBack.hidden = false;
@@ -408,7 +413,7 @@
       metaIndex = {};
       var first = tracks[0];
       var playlistMeta = cloneMeta(first, tracks, "playlist-play");
-      els.profile.innerHTML = '<div class="music-detail-head"><div class="music-detail-art">' + artHtml(first, "music-art") + '</div><div class="music-detail-copy"><span class="music-eyebrow">Playlist</span><h1>' + esc(first.album || "Playlist") + '</h1><p>' + tracks.length + ' songs from the music relay</p><button class="music-primary-btn" data-mplay="' + esc(playlistMeta._key) + '">' + playIcon() + ' Play playlist</button></div></div><div class="music-detail-list">' + tracks.map(function (m, i) { return rowHtml(m, i, tracks, "playlist"); }).join("") + '</div>';
+      els.profile.innerHTML = '<div class="music-detail-head"><div class="music-detail-art">' + artHtml(first, "music-art") + '<span class="music-play-overlay" aria-hidden="true">' + playIcon() + '</span></div><div class="music-detail-copy"><span class="music-eyebrow">Playlist</span><h1>' + esc(first.album || "Playlist") + '</h1><p>' + tracks.length + ' songs from the music relay</p><button class="music-primary-btn" data-mplay="' + esc(playlistMeta._key) + '">' + playIcon() + ' Play playlist</button></div></div><div class="music-detail-list">' + tracks.map(function (m, i) { return rowHtml(m, i, tracks, "playlist"); }).join("") + '</div>';
       bindInteractive(els.profile);
       watchArts(els.profile);
     }).catch(function () { showEmpty("Playlist failed", "The music server did not answer. Try again in a moment."); });
