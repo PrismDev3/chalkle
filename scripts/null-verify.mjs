@@ -109,6 +109,17 @@ for (let i = 0; i < 90; i++) {
 }
 console.log("wrapper:", ready);
 
+/* Wait for the two big script parts to actually execute (11.5MB each; the
+   wrapper's sequential inline loader needs time, and a failed inline fetch
+   falls back to a slow async <script src>). */
+let gamesCount = -1;
+for (let i = 0; i < 90; i++) {
+  gamesCount = (await evalJs("(window.ChalkGames || []).length")) || 0;
+  if (gamesCount > 0) break;
+  await sleep(1000);
+}
+console.log("ChalkGames settled at:", gamesCount);
+
 const results = await evalJs(`(async function(){
   const out = { origin: String(location.origin) };
   out.games = (window.ChalkGames || []).length;
@@ -148,7 +159,7 @@ function srcOk(r) {
 }
 let pass = true;
 if (ready !== "WRAPPED-READY") { console.log("FAIL: wrapper never became ready"); pass = false; }
-if (!results.gamesIsArray || results.games < 400) { console.log("FAIL: ChalkGames not assembled from both parts"); pass = false; }
+if (!results.gamesIsArray || results.games < 400) { console.log("FAIL: ChalkGames not assembled from both parts (got " + gamesCount + ")"); pass = false; }
 else console.log("PASS: ChalkGames assembled (" + results.games + " games)");
 if (!srcOk(results.chat)) { console.log("FAIL: chat frame src bad:", results.chat); pass = false; }
 else console.log("PASS: chat frame src:", String(results.chat.src).slice(0, 90));
