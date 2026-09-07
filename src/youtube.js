@@ -368,7 +368,7 @@
     var profile = null;
     var uploads = [], shorts = [], playlists = [], other = [];
 
-    Promise.all([
+    Promise.allSettled([
       api("/yt/channel/" + encodeURIComponent(cid)).then(function (d) { profile = d; }).catch(function () { /* optional */ }),
       search("channel:" + cid, "videos").then(function (j) {
         uploads = (j.items || []).filter(function (it) { return (it.uploaderUrl || "").indexOf(cid) !== -1; });
@@ -389,6 +389,14 @@
         });
       }).catch(function () { /* nothing */ })
     ]).then(function () {
+      // Timeout fallback: show whatever we have after 8s even if some requests are still pending
+      if (!profile && !uploads.length && !shorts.length) {
+        setTimeout(function () {
+          if (!profile && !uploads.length) {
+            box.innerHTML = '<div class="yt-channel-page"><div class="yt-profile"><span class="yt-profile-ava"><span class="yt-profile-ava-letter">' + esc((state.channelName || "Channel").charAt(0).toUpperCase()) + '</span></span><div class="yt-profile-info"><h2 class="yt-profile-name">' + esc(state.channelName || "Channel") + '</h2><span class="yt-profile-subs">loading...</span></div></div><p class="yt-profile-desc">Loading channel content...</p></div>';
+          }
+        }, 8000);
+      }
       var p = profile || {};
       var pname = esc(p.name || state.channelName || "Channel");
       var avatar = p.avatarUrl
@@ -541,7 +549,13 @@
     frame.src = "https://www.youtube-nocookie.com/embed/" + encodeURIComponent(id) +
       "?autoplay=1&rel=0&modestbranding=1";
     els.player.hidden = false;
+    els.msg.hidden = true;
     document.body.classList.add("no-scroll");
+    setTimeout(function () {
+      if (frame.src && frame.src.indexOf("youtube-nocookie.com/embed/") !== -1) {
+        try { frame.contentWindow.document; } catch (e) {}
+      }
+    }, 100);
   }
 
   /* Playlists play through the official playlist embed (videoseries) - it
@@ -647,9 +661,28 @@
       render();
     });
 
-    /* player close */
+    /* player controls: close + action buttons */
     if (els.player) {
       $("yt-player-close").addEventListener("click", closePlayer);
+      const actionsEl = els.player.querySelector && els.player.querySelector('.player-actions');
+      if (actionsEl) {
+        actionsEl.addEventListener('click', (e) => {
+          const btn = e.target.closest('.player-action');
+          if (!btn) return;
+          const action = btn.getAttribute('data-action');
+          if (action === 'fullscreen') {
+            const stage = els.player.querySelector && els.player.querySelector('.yt-player-stage');
+            if (stage && stage.requestFullscreen) {
+              stage.requestFullscreen().catch(() => {});
+            }
+          } else if (action === 'open-tab') {
+            const src = els.frame && els.frame.src;
+            if (src) {
+              window.open(src, '_blank', 'noopener');
+            }
+          }
+        });
+      }
       document.addEventListener("keydown", function (e) {
         if (e.key === "Escape" && !els.player.hidden) closePlayer();
       });

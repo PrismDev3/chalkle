@@ -31,7 +31,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Boogaloo&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
   <link rel="preload" as="image" href="bg-chalk.webp" fetchpriority="high" id="chalkle-wallpaper-preload">
-  <link rel="stylesheet" href="src/styles.css?v=20260909a">
+  <link rel="stylesheet" href="src/styles.css?v=20260910d">
   <!-- AdSense. This loader powers BOTH layers:
        1. Manual units - the .ad-slot placements below, each filled when its
           slot ID is pasted into CHALKLE_ADS.slots (AdSense → Ads → By ad unit).
@@ -70,7 +70,7 @@
     }
   };
   </script>
-  <script src="src/theme.js?v=20260909a"></script>
+  <script src="src/theme.js?v=20260910d"></script>
   <script>
   /* Panic key: press ` (backtick) three times quickly (or Ctrl+Shift+` once)
      to instantly send the tab to Google Classroom. Works from anywhere on the
@@ -548,13 +548,11 @@
           <div class="home-hero">
             <div class="home-hero-main">
               <span class="chalkle-logo home-logo" role="img" aria-label="Chalkle"></span>
-              <span class="home-kicker">No sign-in. Just play.</span>
-              <h1 class="home-title">Everything fun, always ready.</h1>
-              <p class="home-text">Games, music, sites, and tools pulled together in one place. Pick one and go.</p>
-              <p class="home-trust"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4.5 6v5c0 4.6 3.2 8.3 7.5 9.5 4.3-1.2 7.5-4.9 7.5-9.5V6L12 3z"/><path d="m9 12 2 2 4-4"/></svg><span>No accounts. No downloads. Nothing tracked. Your shelf stays in this browser.</span></p>
+              <h1 class="home-title">Games, music, and tools. Pick one and go.</h1>
+              <p class="home-text">No accounts, no downloads, nothing tracked. Your shelf stays in this browser.</p>
               <div class="home-actions">
                 <button class="home-primary" data-home-go="games">Browse games</button>
-                <button class="home-secondary" data-home-go="music">Open Music</button>
+                <button class="home-secondary" data-home-go="music">Music</button>
                 <button class="home-secondary" data-home-go="apps-tools">Tools</button>
               </div>
             </div>
@@ -930,31 +928,46 @@
               <span class="view-meta" id="movies-meta">movies, TV, anime and manga · no sign-in</span>
             </div>
             <div class="view-actions">
-              <a class="btn" id="movies-open-tab" href="movies.html" target="_blank" rel="noopener">
+              <button class="btn" id="movies-fullscreen" type="button" aria-pressed="false">
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+                <span class="fx-fs-label">Fullscreen</span>
+              </button>
+              <a class="btn" id="movies-open-tab" href="/movies.html" target="_blank" rel="noopener">
                 <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17L17 7"/><path d="M9 7h8v8"/></svg>
-                <span>Open full screen</span>
+                <span>Open in new tab</span>
               </a>
             </div>
-          </div>
-          <iframe class="movies-frame" id="movies-frame" title="JS Movies" data-src="/movies.html"
-            allow="fullscreen" referrerpolicy="no-referrer" loading="lazy"></iframe>
+          </div>            <iframe class="movies-frame" id="movies-frame" title="JS Movies" data-src="/movies.html"
+            allow="fullscreen" allowfullscreen
+            referrerpolicy="no-referrer" loading="lazy"></iframe>
         </section>
 
         <section class="view" data-view="chat">
           <div class="view-head">
             <div class="view-heading">
-              <h1 class="view-title">Chat</h1>
-              <span class="view-meta" id="chat-meta">talk with friends · realtime · no sign-in needed to browse</span>
+              <h1 class="view-title" id="chat-title">Chat</h1>
+              <span class="view-meta" id="chat-meta">Lunchbreak · realtime rooms and DMs · no sign-in needed to browse</span>
             </div>
             <div class="view-actions">
-              <a class="btn" id="chat-open-tab" href="/bitcord/index.html" target="_blank" rel="noopener">
-                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17L17 7"/><path d="M9 7h8v8"/></svg>
-                <span>Open full screen</span>
+              <button class="btn" id="chat-fullscreen" type="button" aria-pressed="false">
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+                <span class="fx-fs-label">Fullscreen</span>
+              </button>
+              <a class="btn" id="chat-open-tab" href="/chat.html" target="_blank" rel="noopener">
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 6H3v2h18V6zM4 14H3v2h18v-2H4zM4 18H3v2h18v-2H4z"/></svg>
+                <span>Open in new tab</span>
               </a>
             </div>
           </div>
-          <iframe class="movies-frame chat-frame" id="chat-frame" title="Bitcord Chat" data-src="/bitcord/index.html"
-            allow="fullscreen; autoplay; camera; microphone" referrerpolicy="no-referrer" loading="lazy"></iframe>
+          <iframe class="movies-frame chat-frame" id="chat-frame" title="Lunchbreak Chat" data-src="bitcord/index.html"
+            allow="fullscreen" allowfullscreen
+            referrerpolicy="no-referrer" loading="lazy"></iframe>
+          <noscript>
+            <div class="chat-fallback">
+              <p class="chat-fallback-title">Chat needs JavaScript</p>
+              <p class="chat-fallback-hint">Enable JavaScript or open <a href="/chat.html">Lunchbreak Chat</a> in a new tab.</p>
+            </div>
+          </noscript>
         </section>
 
         <section class="view" data-view="apps-tools">
@@ -1417,9 +1430,7 @@
 
     <div class="admin-modal" id="admin-modal" hidden>
       <div class="admin-cover" data-admin-close></div>
-      <div class="admin-card">
-        <div class="admin-head">
-          <span class="admin-title">Admin</span>
+      <div class="admin-card">                  <div class="admin-head">                    <span class="admin-title">Admin</span>
           <button class="launch-x" data-admin-close aria-label="Close">
             <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
           </button>
@@ -1500,23 +1511,22 @@
       <div class="livetv-player-stage">
         <video id="livetv-video" controls playsinline autoplay muted style="display:none;"></video>
         <iframe id="livetv-embed-frame" class="livetv-embed-frame" title="Live stream player"
-          allow="autoplay; fullscreen; encrypted-media; picture-in-picture" allowfullscreen
+          allow="fullscreen" allowfullscreen
           referrerpolicy="no-referrer-when-downgrade" style="display:none;"></iframe>
         <div class="livetv-player-msg" id="livetv-player-msg" hidden></div>
       </div>
-    </div>
-
-    <div class="yt-player" id="yt-player" hidden>
-      <div class="yt-player-top">
-        <span class="yt-player-title" id="yt-player-title"></span>
-        <span class="yt-player-sub" id="yt-player-sub"></span>
-        <button class="launch-x" id="yt-player-close" aria-label="Close">
+    </div>  <div class="yt-player" id="yt-player" hidden>      <div class="yt-player-top">        <span class="yt-player-title" id="yt-player-title"></span>        <span class="yt-player-sub" id="yt-player-sub"></span>        <div class="player-actions">
+          <button type="button" class="player-action" data-action="fullscreen" aria-label="Enter fullscreen">            <svg class="icon icon-fullscreen" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h3v-3H3v3zM21 12h-3v3h3v-3zM12 3v3h-3V3h3zM12 21v-3h3v3h-3z"/></svg>            <span>Fullscreen</span>
+          </button>          <button type="button" class="player-action" data-action="open-tab" aria-label="Open in new tab">
+        <svg class="icon icon-open-tab" viewBox="0 0 24 24" aria-hidden="true">            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><path d="M10 18h6"/></svg>            <span>Open in new tab</span>
+          </button>
+    </div>        <button class="launch-x" id="yt-player-close" aria-label="Close YouTube player">
           <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
         </button>
       </div>
       <div class="yt-player-stage">
         <iframe id="yt-frame" class="yt-embed-frame" title="YouTube player"
-          allow="autoplay; fullscreen; encrypted-media; picture-in-picture" allowfullscreen
+          allow="fullscreen" allowfullscreen
           referrerpolicy="no-referrer-when-downgrade" scrolling="no"></iframe>
         <div class="yt-player-msg" id="yt-player-msg" hidden></div>
       </div>
@@ -1524,11 +1534,9 @@
 
     <div class="admin-modal editor-modal" id="editor-modal" hidden>
       <div class="admin-cover" data-editor-close></div>
-      <div class="admin-card editor-card">
-        <div class="admin-head">
-          <span class="admin-title">
+      <div class="admin-card editor-card">      <div class="admin-head">            <span class="admin-title">
             <svg class="ed-title-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/><path d="m9 14 2 2 4-4"/></svg>
-            HTML Editor
+              HTML Editor
           </span>
           <div class="editor-tools">
             <div class="ed-toolbar" role="toolbar" aria-label="Editor tools">
@@ -1600,9 +1608,7 @@
 
     <div class="admin-modal docs-modal" id="docs-modal" hidden>
       <div class="admin-cover" data-docs-close></div>
-      <div class="admin-card docs-card">
-        <div class="admin-head">
-          <span class="admin-title">New doc</span>
+      <div class="admin-card docs-card">                  <div class="admin-head">                    <span class="admin-title">New doc</span>
           <button class="launch-x" data-docs-close aria-label="Close">
             <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
           </button>
@@ -1691,9 +1697,7 @@
 
     <div class="admin-modal ua-modal" id="urlauditor-modal" hidden>
       <div class="admin-cover" data-ua-close></div>
-      <div class="admin-card ua-card">
-        <div class="admin-head">
-          <span class="admin-title"><span class="ua-title-icon"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 7a5 5 0 0 0-9 4L3 13l4 4 2-2a4 4 0 0 0 5 0l2 2 4-4-2-2a5 5 0 0 0-1-14z" transform="translate(0 2)"/></svg></span> URL Auditor</span>
+      <div class="admin-card ua-card">                  <div class="admin-head">                    <span class="admin-title"><span class="ua-title-icon"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 7a5 5 0 0 0-9 4L3 13l4 4 2-2a4 4 0 0 0 5 0l2 2 4-4-2-2a5 5 0 0 0-1-14z" transform="translate(0 2)"/></svg></span> URL Auditor</span>
           <div class="ua-tools">
             <button class="btn-ghost" id="ua-copy-all">Copy results</button>
             <button class="btn-ghost" id="ua-download">Export .txt</button>
@@ -1730,9 +1734,7 @@
 
     <div class="admin-modal pixel-modal" id="pixel-modal" hidden>
       <div class="admin-cover" data-pixel-close></div>
-      <div class="admin-card pixel-card">
-        <div class="admin-head">
-          <span class="admin-title">
+      <div class="admin-card pixel-card">                  <div class="admin-head">                    <span class="admin-title">
             <svg class="ed-title-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6" width="18" height="13" rx="1.5"/><path d="M7 3v3M12 3v3M17 3v3"/><circle cx="6.6" cy="10.6" r="0.6" fill="currentColor" stroke="none"/><circle cx="9.4" cy="12.6" r="0.6" fill="currentColor" stroke="none"/><circle cx="12.4" cy="9.8" r="0.6" fill="currentColor" stroke="none"/><circle cx="15.4" cy="13.4" r="0.6" fill="currentColor" stroke="none"/><circle cx="17.4" cy="10.2" r="0.6" fill="currentColor" stroke="none"/></svg>
             Pixel Sprite Editor
           </span>
@@ -1747,9 +1749,8 @@
     <div class="admin-modal domainhub-modal" id="domainhub-modal" hidden>
       <div class="admin-cover" data-domainhub-close></div>
       <div class="admin-card domainhub-card">
-        <div class="admin-head domainhub-head">
-          <span class="admin-title">
-            <svg class="ed-title-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M4.5 8H20M4.5 16H20M12 3v18" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>
+        <div class="admin-head domainhub-head">                  <span class="admin-title">
+      <svg class="ed-title-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M4.5 8H20M4.5 16H20M12 3v18" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>
             Domain Hub
           </span>
           <button class="launch-x" data-domainhub-close aria-label="Close">
@@ -1762,11 +1763,11 @@
 
   <script src="src/runtime-config.js?v=20260905m"></script>
   <script src="src/sync.js?v=20260909a"></script>
-  <script src="src/games.js?v=20260908a"></script>
-  <script src="src/noah-games.js?v=20260908a"></script>
+  <script src="src/games.js?v=20260909b"></script>
+  <script src="src/noah-games.js?v=20260909a"></script>
   <script src="src/community-games.js?v=20260905j"></script>
   <script src="src/real-shots.js?v=20260905u"></script>
-  <script src="src/cloudgames.js?v=20260908c"></script>
+  <script src="src/cloudgames.js?v=20260910a"></script>
   <script src="src/webports.js?v=20260908d"></script>
   <script src="src/sites.js?v=20260905j"></script>
   <script src="src/proxies.js?v=20260905j"></script>
@@ -1836,6 +1837,6 @@
     }
   })();
   </script>
-  <script src="src/app.js?v=20260909a"></script>
+  <script src="src/app.js?v=20260910g"></script>
 </body>
 </html>

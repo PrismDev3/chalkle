@@ -6,62 +6,70 @@
 
 :root {
   color-scheme: dark;
-  --base: #0d0f12;          /* neutral near-black (green was too heavy) */
-  --panel: #15181d;         /* neutral dark panel */
-  --panel-2: #1d2127;       /* hover, one more step */
-  --line: #2b3138;          /* neutral borders */
-  --line-soft: #21262c;
-  --line-strong: #3d454f;   /* 3-shade jump from --panel: hover borders that read (was undefined - all rules using it silently did nothing) */
-  --line-2: #3d454f;        /* alias of --line-strong: was referenced but never defined (music player, quick menu) */
-  --green: var(--accent);   /* alias of --accent (live - follows the theme picker): was referenced but never defined (viewer eye, hero glows) */
-  --muted-2: var(--text-3); /* alias: was referenced but never defined (partner admin lib tag) */
-  --text: #e8eaed;
-  --text-2: #9aa0a6;        /* secondary */
-  --text-3: #7d838b;        /* muted (bumped from #62686f for WCAG AA) */
-  --accent: #3cc25e;        /* Google green, UI accent (+sat for cartridge-loud palette) */
-  --accent-ink: #0a1f10;
-  --accent-soft: rgba(52, 168, 83, 0.14);
+  /* ---- Chalkle 2.0 design tokens ----
+     Solid, restrained surfaces. Deliberate contrast steps (not hue shifts).
+     One primary accent, per-view accents for section identity, no glow. */
+  --base: #0b0d10;             /* page background: deep neutral */
+  --panel: #14171b;            /* primary surface */
+  --panel-2: #1c2026;          /* raised surface / hover fill */
+  --panel-3: #23282f;          /* pressed / input fields */
+  --line: #272d34;             /* default border: 2 clean steps above panel */
+  --line-soft: #1f242a;        /* quiet internal dividers */
+  --line-strong: #39414b;      /* hover borders that clearly read */
+  --line-2: #39414b;           /* alias of --line-strong (music player, quick menu) */
+  --green: var(--accent);      /* alias (live - follows the theme picker) */
+  --muted-2: var(--text-3);    /* alias (partner admin lib tag) */
+  --text: #e9ebee;
+  --text-2: #9ba3ad;           /* secondary */
+  --text-3: #79828d;           /* muted, WCAG AA on --panel */
+  --accent: #3cc25e;           /* Chalkle green: primary accent */
+  --accent-ink: #06180c;
+  --accent-soft: rgba(60, 194, 94, 0.12);
   --blue: #4d8dff;
-  --blue-soft: rgba(77, 141, 255, 0.14);
+  --blue-soft: rgba(77, 141, 255, 0.12);
   --yellow: #ffc61a;
-  --yellow-soft: rgba(255, 198, 26, 0.15);
+  --yellow-soft: rgba(255, 198, 26, 0.13);
   --red: #f04b3a;
-  --red-soft: rgba(240, 75, 58, 0.14);
-  --red-ink: #ff6b5e;        /* bright red for hovers/links on dark */
-  --tv: #4ab88c;             /* Live TV tab color: mint, matches the card redesign */
-  --tv-soft: rgba(74, 184, 140, 0.16);
+  --red-soft: rgba(240, 75, 58, 0.12);
+  --red-ink: #ff6b5e;
+  --tv: #3fb98a;
+  --tv-soft: rgba(63, 185, 138, 0.14);
   --tv-ink: #032a1e;
   --teal: #14c9b7;
-  --teal-soft: rgba(20, 201, 183, 0.14);
+  --teal-soft: rgba(20, 201, 183, 0.12);
   --cyan: #2dd3e8;
-  --cyan-soft: rgba(45, 211, 232, 0.14);
+  --cyan-soft: rgba(45, 211, 232, 0.12);
   --orange: #ff9d0a;
-  --orange-soft: rgba(255, 157, 10, 0.14);
+  --orange-soft: rgba(255, 157, 10, 0.12);
   --purple: #a970ff;
-  --purple-soft: rgba(169, 112, 255, 0.14);
+  --purple-soft: rgba(169, 112, 255, 0.12);
   --lime: #b7e63f;
-  --lime-soft: rgba(183, 230, 63, 0.16);
+  --lime-soft: rgba(183, 230, 63, 0.14);
   --cloud: #5fbeff;
-  --cloud-soft: rgba(95, 190, 255, 0.16);
-  --movies: #a970ff;             /* JS Movies tab color: purple */
-  --movies-soft: rgba(169, 112, 255, 0.16);
+  --cloud-soft: rgba(95, 190, 255, 0.14);
+  --movies: #a970ff;
+  --movies-soft: rgba(169, 112, 255, 0.14);
   --movies-ink: #241244;
   --magenta: #e60073;
-  --magenta-soft: rgba(230, 0, 115, 0.16);
+  --magenta-soft: rgba(230, 0, 115, 0.14);
   --pink: #ff4d8d;
-  --pink-soft: rgba(255, 77, 141, 0.14);
+  --pink-soft: rgba(255, 77, 141, 0.12);
   --brown: #d8a368;
-  --brown-soft: rgba(216, 163, 104, 0.14);
-  --radius: 8px;
-  --radius-lg: 16px;
-  --shadow-card: 0 10px 28px rgba(0, 0, 0, 0.18);
-  --side-w: 232px;
-  --side-w-collapsed: 64px;
+  --brown-soft: rgba(216, 163, 104, 0.12);
+  /* Geometry: smaller radii, flatter shadows. Cards are tiles, not bubbles. */
+  --radius: 6px;
+  --radius-lg: 10px;
+  --shadow-card: 0 2px 10px rgba(0, 0, 0, 0.24);
+  --shadow-pop: 0 8px 22px rgba(0, 0, 0, 0.34);
+  --side-w: 208px;
+  --side-w-collapsed: 56px;
   /* Literal fallbacks for very old browsers: if CSS variables fail, the
      sidebar keeps a real width instead of collapsing to 0 and vanishing. */
-  --side-w-fallback: 232px;
-  --side-w-collapsed-fallback: 64px;
-  --topbar-h: 56px;
+  --side-w-fallback: 208px;
+  --side-w-collapsed-fallback: 56px;
+  --topbar-h: 52px;
+  --topbar-bg: #101317;        /* theme.js writes this live (header surface) */
+  --pink-ink: #2a0716;         /* theme.js writes this live (pink CTA text) */
   --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --mono: ui-monospace, "Cascadia Mono", Consolas, monospace;
   --display: "Boogaloo", system-ui, "Segoe UI", Roboto, Arial, sans-serif;
@@ -80,15 +88,15 @@ body {
      some Chromebooks, leaving a flat green page. The body only shows through
      the gaps anyway; each tab paints its own colored layer on top. */
   background-color: var(--base);
-  background-image: var(--wallpaper-image, url("/bg-chalk.webp"));
+  background-image: var(--wallpaper-image, none);
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
   background-attachment: scroll;
   color: var(--text);
   font-family: var(--font);
-  font-size: 17px;
-  line-height: 1.45;
+  font-size: 15px;
+  line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   cursor: var(--custom-cursor, auto);
 }
@@ -211,65 +219,34 @@ button {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 0 16px;
-  background: var(--topbar-bg, rgba(12, 18, 16, 0.94));
+  padding: 0 14px;
+  background: var(--topbar-bg, #101317); /* solid, always. No tint washes, no translucency. theme.js writes --topbar-bg live. */
   border-bottom: 1px solid var(--line);
   position: relative;
   z-index: 20;
   /* No overflow clip here: the search dropdown is absolutely positioned
-     inside this bar and must be able to paint below it. The accent wash
-     (::after) is height:100% and contained on its own. */
+     inside this bar and must be able to paint below it. */
   overflow: visible;
-  transition: background 300ms ease, border-color 300ms ease;
 }
 
-/* Top bar picks up the active tab accent color with a smooth fade. */
-body[data-view="home"] .topbar { border-bottom-color: var(--pink); }
-body[data-view="games"] .topbar { border-bottom-color: var(--accent); }
-body[data-view="sites"] .topbar { border-bottom-color: var(--blue); }
-body[data-view="music"] .topbar { border-bottom-color: var(--magenta); }
-body[data-view="apps-tools"] .topbar { border-bottom-color: var(--yellow); }
-body[data-view="proxies"] .topbar { border-bottom-color: var(--teal); }
-body[data-view="docs"] .topbar { border-bottom-color: var(--cyan); }
-body[data-view="board"] .topbar { border-bottom-color: var(--orange); }
-body[data-view="partners"] .topbar { border-bottom-color: var(--brown); }
-body[data-view="settings"] .topbar { border-bottom-color: var(--purple); }
-body[data-view="cloud"] .topbar { border-bottom-color: var(--cloud); }
-body[data-view="livetv"] .topbar { border-bottom-color: var(--tv); }
-body[data-view="youtube"] .topbar { border-bottom-color: #ff0033; }
-body[data-view="ai"] .topbar { border-bottom-color: #b06bff; }
-body[data-view="bookmarklets"] .topbar { border-bottom-color: var(--lime); }
-body[data-view="movies"] .topbar { border-bottom-color: var(--movies); }
-
-/* A soft wash of the tab color across the top bar. */
-.topbar::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 100%;
-  z-index: -1;
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 250ms ease;
-}
-body[data-view="home"] .topbar::after { background: var(--pink-soft); opacity: 1; }
-body[data-view="games"] .topbar::after { background: var(--accent-soft); opacity: 1; }
-body[data-view="sites"] .topbar::after { background: var(--blue-soft); opacity: 1; }
-body[data-view="music"] .topbar::after { background: var(--magenta-soft); opacity: 1; }
-body[data-view="apps-tools"] .topbar::after { background: var(--yellow-soft); opacity: 1; }
-body[data-view="cloud"] .topbar::after { background: var(--cloud-soft); opacity: 1; }
-body[data-view="proxies"] .topbar::after { background: var(--teal-soft); opacity: 1; }
-body[data-view="docs"] .topbar::after { background: var(--cyan-soft); opacity: 1; }
-body[data-view="board"] .topbar::after { background: var(--orange-soft); opacity: 1; }
-body[data-view="partners"] .topbar::after { background: var(--brown-soft); opacity: 1; }
-body[data-view="settings"] .topbar::after { background: var(--purple-soft); opacity: 1; }
-body[data-view="livetv"] .topbar::after { background: var(--tv-soft); opacity: 1; }
-body[data-view="youtube"] .topbar::after { background: rgba(255, 0, 51, 0.14); opacity: 1; }
-body[data-view="ai"] .topbar::after { background: rgba(176, 107, 255, 0.16); opacity: 1; }
-body[data-view="bookmarklets"] .topbar::after { background: var(--lime-soft); opacity: 1; }
-body[data-view="movies"] .topbar::after { background: var(--movies-soft); opacity: 1; }
+/* Chalkle 2.0: the top bar is a fixed neutral. Section color lives in the
+   view content and a 2px accent line under the bar, nothing else. */
+body[data-view="home"] .topbar { border-bottom-color: var(--line); }
+body[data-view="games"] .topbar { border-bottom-color: var(--line); }
+body[data-view="sites"] .topbar { border-bottom-color: var(--line); }
+body[data-view="music"] .topbar { border-bottom-color: var(--line); }
+body[data-view="apps-tools"] .topbar { border-bottom-color: var(--line); }
+body[data-view="proxies"] .topbar { border-bottom-color: var(--line); }
+body[data-view="docs"] .topbar { border-bottom-color: var(--line); }
+body[data-view="board"] .topbar { border-bottom-color: var(--line); }
+body[data-view="partners"] .topbar { border-bottom-color: var(--line); }
+body[data-view="settings"] .topbar { border-bottom-color: var(--line); }
+body[data-view="cloud"] .topbar { border-bottom-color: var(--line); }
+body[data-view="livetv"] .topbar { border-bottom-color: var(--line); }
+body[data-view="youtube"] .topbar { border-bottom-color: var(--line); }
+body[data-view="ai"] .topbar { border-bottom-color: var(--line); }
+body[data-view="bookmarklets"] .topbar { border-bottom-color: var(--line); }
+body[data-view="movies"] .topbar { border-bottom-color: var(--line); }
 
 .brand {
   width: var(--side-w);
@@ -566,7 +543,7 @@ body[data-view="movies"] .topbar::after { background: var(--movies-soft); opacit
   flex: none;
   display: flex;
   flex-direction: column;
-  background: rgba(20, 24, 29, 0.96);
+  background: #101318; /* solid, same family as the topbar */
   border-right: 1px solid var(--line);
   transition: width 160ms ease;
   position: relative;
@@ -576,10 +553,10 @@ body[data-view="movies"] .topbar::after { background: var(--movies-soft); opacit
 
 .nav {
   flex: 1;
-  padding: 20px 10px 0;
+  padding: 12px 8px 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 3px;
   overflow-y: auto;
 }
 
@@ -628,11 +605,13 @@ body[data-view="movies"] .topbar::after { background: var(--movies-soft); opacit
   position: relative;
   display: flex;
   align-items: center;
-  gap: 12px;
-  height: 44px;
-  padding: 0 12px;
-  border-radius: 8px;
+  gap: 11px;
+  height: 36px;
+  padding: 0 10px;
+  border-radius: 6px;
   color: var(--text-2);
+  font-size: 14px;
+  font-weight: 500;
   white-space: nowrap;
   /* Never let flexbox squish nav items on short screens (Chromebooks) -
      overflow must scroll inside .nav instead of crushing the buttons. */
@@ -642,13 +621,28 @@ body[data-view="movies"] .topbar::after { background: var(--movies-soft); opacit
 
 .nav-item:hover { background: var(--panel-2); color: var(--text); }
 
+/* Active tab: solid raised tile, bright text, and a 2px accent bar on the
+   left edge in the section color. Reads instantly, no glow, no wash. */
 .nav-item.is-active {
-  background: var(--accent-soft);
-  color: var(--accent);
+  background: var(--panel-3);
+  color: var(--text);
+  font-weight: 650;
 }
 
-/* ---- Per-tab accent variables: each section's content tints with its own
-   color (Sites content blue, YouTube red, Proxies teal, …). ---- */
+.nav-item.is-active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 7px;
+  bottom: 7px;
+  width: 2px;
+  border-radius: 1px;
+  background: var(--accent);
+}
+
+/* Per-view accent variables: kept (content tints with the section color),
+   but Chalkle 2.0 uses them sparingly: section identity in headers, the nav
+   bar, and small highlights. No washes, no glow. */
 .view { --va: var(--accent); --va-ink: var(--accent-ink); --va-soft: var(--accent-soft); }
 .view[data-view="home"] { --va: var(--pink); --va-ink: #3a0a22; --va-soft: var(--pink-soft); }
 .view[data-view="games"] { --va: var(--accent); --va-ink: var(--accent-ink); --va-soft: var(--accent-soft); }
@@ -686,50 +680,64 @@ body[data-view="movies"] .topbar::after { background: var(--movies-soft); opacit
   --va-ink: var(--movies-ink);
   --va-soft: var(--movies-soft);
 }
+
+/* Movies tab gets its own purple backdrop so it no longer inherits the
+   site's default black chalk chrome. */
+.view[data-view="movies"]::before { background-color: #9b4dff }
+
 .view[data-view="chat"] {
-  --va: #F4511E;
-  --va-ink: #3a0a00;
-  --va-soft: rgba(244, 81, 30, 0.14);
+  --va: #008080;
+  --va-ink: #001a1a;
+  --va-soft: rgba(0, 128, 128, 0.16);
+  /* Lunchbreak palette: teal desktop + navy titlebar (Win95 chat). The embed
+     themes itself with its own built-in theme system; these vars only tint
+     the Chalkle chrome around the frame. */
+  --bc-bg: #0a1f1f;
+  --bc-accent: #008080;
+  --bc-fg: #eafffa;
+}
+
+/* Chat: the 92% color-mix teal wash further down is the tab background;
+   a full-opacity teal here would glare against --base. */
+
+.view[data-view="chat"] #chat-frame {
+  --bc-bg: #0a1f1f;
+  --bc-accent: #008080;
+  --bc-fg: #eafffa;
 }
 
 /* Every section gets its own color when active - one per tab, matching the theme. */
-.nav-item.is-active[data-view="home"] { color: var(--pink); background: var(--pink-soft); }
-.nav-item.is-active[data-view="games"] { color: var(--accent); background: var(--accent-soft); }
-.nav-item.is-active[data-view="cloud"] { color: var(--cloud); background: var(--cloud-soft); }
-.nav-item.is-active[data-view="sites"] { color: var(--blue); background: var(--blue-soft); }
-.nav-item.is-active[data-view="music"] { color: var(--magenta); background: var(--magenta-soft); }
-.nav-item.is-active[data-view="apps-tools"] { color: var(--yellow); background: var(--yellow-soft); }
-.nav-item.is-active[data-view="proxies"] { color: var(--teal); background: var(--teal-soft); }
-.nav-item.is-active[data-view="docs"] { color: var(--cyan); background: var(--cyan-soft); }
-.nav-item.is-active[data-view="board"] { color: var(--orange); background: var(--orange-soft); }
-.nav-item.is-active[data-view="partners"] { color: var(--brown); background: var(--brown-soft); }
-.nav-item.is-active[data-view="settings"] { color: var(--purple); background: var(--purple-soft); }
-.nav-item.is-active[data-view="ai"] { color: #b06bff; background: rgba(176, 107, 255, 0.16); }
-.nav-item.is-active[data-view="livetv"] { color: var(--tv); background: var(--tv-soft); }
-.nav-item.is-active[data-view="youtube"] { color: #ff0033; background: rgba(255, 0, 51, 0.15); }
-.nav-item.is-active[data-view="bookmarklets"] { color: var(--lime); background: var(--lime-soft); }
-.nav-item.is-active[data-view="movies"] { color: var(--movies); background: var(--movies-soft); }
-.nav-item.is-active[data-view="chat"] { color: #F4511E; background: rgba(244, 81, 30, 0.14); }
+/* (Chalkle 2.0: active tiles stay solid neutral; section color is the
+   2px ::before bar only. The old per-view tinted backgrounds are gone.) */
+.nav-item.is-active[data-view="chat"] { color: var(--text); }
 
 .youtube-icon {
   stroke: none;
 }
 
-.nav-item.is-active::before {
-  content: "";
-  position: absolute;
-  left: -10px;
-  top: 9px;
-  bottom: 9px;
-  width: 3px;
-  border-radius: 2px;
-  background: currentColor;
-}
+/* Per-section accent bar color for the active nav item. */
+.nav-item.is-active[data-view="home"]::before { background: var(--pink); }
+.nav-item.is-active[data-view="games"]::before { background: var(--accent); }
+.nav-item.is-active[data-view="cloud"]::before { background: var(--cloud); }
+.nav-item.is-active[data-view="sites"]::before { background: var(--blue); }
+.nav-item.is-active[data-view="music"]::before { background: var(--magenta); }
+.nav-item.is-active[data-view="apps-tools"]::before { background: var(--yellow); }
+.nav-item.is-active[data-view="proxies"]::before { background: var(--teal); }
+.nav-item.is-active[data-view="docs"]::before { background: var(--cyan); }
+.nav-item.is-active[data-view="board"]::before { background: var(--orange); }
+.nav-item.is-active[data-view="partners"]::before { background: var(--brown); }
+.nav-item.is-active[data-view="settings"]::before { background: var(--purple); }
+.nav-item.is-active[data-view="ai"]::before { background: #b06bff; }
+.nav-item.is-active[data-view="livetv"]::before { background: var(--tv); }
+.nav-item.is-active[data-view="youtube"]::before { background: #ff0033; }
+.nav-item.is-active[data-view="bookmarklets"]::before { background: var(--lime); }
+.nav-item.is-active[data-view="movies"]::before { background: var(--movies); }
+.nav-item.is-active[data-view="chat"]::before { background: #008080; }
 
 .nav-label {
   font-family: var(--font);
-  font-size: 16px;
-  font-weight: 700;
+  font-size: 13.5px;
+  font-weight: 500;
   letter-spacing: 0.01em;
   overflow: hidden;
   transition: opacity 120ms ease;
@@ -846,7 +854,7 @@ body.sidebar-collapsed .collapse-btn:active { transform: scale(0.96); }
   flex: 1;
   min-width: 0;
   overflow-y: auto;
-  padding: 30px 30px 40px;
+  padding: 22px 26px 48px;
   position: relative;
 }
 
@@ -866,72 +874,52 @@ body.sidebar-collapsed .collapse-btn:active { transform: scale(0.96); }
   inset: 0;
   z-index: -2;
   pointer-events: none;
-  background: var(--base) url("../tabs/sites.webp") center / cover no-repeat;
+  /* Chalkle 2.0: per-tab backgrounds are a flat wash of the section color
+     at very low opacity over --base. Same layer, same crossfade, no photo
+     textures, no filters. The wallpaper (if the user sets one) still wins
+     because body::after / --wallpaper-image draw independently. */
+  background: var(--base);
   opacity: 0;
-  filter: brightness(0.18) saturate(0.65);
   transition: opacity 300ms ease;
 }
 .view.is-visible::before,
 .view[data-view="sites"].is-visible::before { opacity: 1; }
 
-.view[data-view="home"]::before {
-  background-image: url("../tabs/home.webp");
-}
-.view[data-view="games"]::before {
-  background-image: url("../tabs/games.webp");
-}
-.view[data-view="music"]::before {
-  background-image: url("../tabs/music.webp");
-}
-.view[data-view="apps-tools"]::before {
-  background-image: url("../tabs/apps-tools.webp");
-}
-.view[data-view="cloud"]::before {
-  background-color: #07121c;
-  background-image: url("../tabs/settings.webp");
-  background-blend-mode: screen;
-  filter: hue-rotate(165deg) saturate(0.7) brightness(0.22);
-}
+.view[data-view="home"]::before { background-color: color-mix(in srgb, var(--base) 96%, var(--pink)); }
+.view[data-view="games"]::before { background-color: color-mix(in srgb, var(--base) 96%, var(--accent)) }
+
+.view[data-view="music"]::before { background-color: #e91e63 }
+
+.view[data-view="apps-tools"]::before { background-color: color-mix(in srgb, var(--base) 96%, var(--yellow)) }
+
+.view[data-view="music"] .main { background-color: color-mix(in srgb, var(--base) 82%, #f5c433); }
+.view[data-view="cloud"]::before { background-color: color-mix(in srgb, var(--base) 96%, var(--accent)) }
+
 .view[data-view="cloud"] .view-head,
 .view[data-view="cloud"] .panel,
 .view[data-view="cloud"] .card {
-  border-color: rgba(95, 190, 255, 0.34);
+  border-color: var(--line);
 }
 .view[data-view="cloud"] .view-title,
 .view[data-view="cloud"] .panel-title,
 .view[data-view="cloud"] .card-title { color: var(--cloud); }
 .view[data-view="cloud"] .chip.is-active,
 .view[data-view="cloud"] .cloud-play:hover { border-color: var(--cloud); color: var(--cloud); background: var(--cloud-soft); }
-.view[data-view="proxies"]::before {
-  background-image: url("../tabs/proxies.webp");
-}
-.view[data-view="docs"]::before {
-  background-image: url("../tabs/docs.webp");
-}
-.view[data-view="board"]::before {
-  background-image: url("../tabs/board.webp");
-}
-.view[data-view="partners"]::before {
-  background-image: url("../tabs/partners.webp");
-}
-.view[data-view="settings"]::before {
-  background-image: url("../tabs/settings.webp");
-}
-.view[data-view="ai"]::before {
-  background-image: url("../tabs/settings.webp");
-  background-size: cover;
-  background-position: center;
-}
+.view[data-view="proxies"]::before { background-color: color-mix(in srgb, var(--base) 96%, var(--teal)); }
+.view[data-view="docs"]::before { background-color: color-mix(in srgb, var(--base) 96%, var(--teal)) }
+
+.view[data-view="board"]::before { background-color: color-mix(in srgb, var(--base) 96%, var(--orange)); }
+.view[data-view="partners"]::before { background-color: color-mix(in srgb, var(--base) 96%, var(--accent)) }
+
+.view[data-view="settings"]::before { background-color: color-mix(in srgb, var(--base) 96%, var(--purple)); }
+.view[data-view="ai"]::before { background-color: color-mix(in srgb, var(--base) 96%, var(--accent)) }
+
 
 /* Live TV: mint-tinted backdrop so the tab reads as its own section. */
-.view[data-view="livetv"]::before { background-color: #0d1a15; }
+.view[data-view="livetv"]::before { background-color: color-mix(in srgb, var(--base) 96%, var(--tv)); }
 
 /* Music and YouTube share the red family but retain separate accents. */
-.view[data-view="music"]::before {
-  background-color: #14080e;
-  background-image: url("../tabs/music.webp");
-  filter: saturate(0.6) brightness(0.2);
-}
+.view[data-view="music"]::before { background-color: color-mix(in srgb, var(--base) 96%, var(--magenta)); }
 .view[data-view="music"] .view-head,
 .view[data-view="music"] .panel,
 .view[data-view="music"] .song-card {
@@ -951,7 +939,11 @@ body.sidebar-collapsed .collapse-btn:active { transform: scale(0.96); }
   box-shadow: 0 6px 16px rgba(0, 0, 0, .35);
 }
 /* YouTube: red-tinted backdrop. */
-.view[data-view="youtube"]::before { background-color: #1a0d0f; }
+.view[data-view="youtube"]::before { background-color: #42a5f5 }
+
+
+/* Chat: Lunchbreak teal backdrop so the tab reads as its own section. */
+.view[data-view="chat"]::before { background-color: color-mix(in srgb, var(--base) 92%, #008080); }
 
 /* ---------- View headers ---------- */
 
@@ -978,7 +970,7 @@ body.sidebar-collapsed .collapse-btn:active { transform: scale(0.96); }
 .home-hero {
   display: grid;
   grid-template-columns: 1.3fr 0.9fr;
-  gap: 18px;
+  gap: 14px;
   align-items: stretch;
 }
 
@@ -986,26 +978,23 @@ body.sidebar-collapsed .collapse-btn:active { transform: scale(0.96); }
 .home-panel {
   background: var(--panel);
   border: 1px solid var(--line);
-  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.18);
-  border-radius: 22px;
-  padding: 28px;
+  border-radius: var(--radius-lg);
+  padding: 22px 24px;
 }
 
 .home-logo {
   display: block;
-  font-size: clamp(42px, 6vw, 72px);
+  font-size: clamp(34px, 4.4vw, 54px);
   line-height: 0.9;
   letter-spacing: 0.02em;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
   -webkit-user-select: none;
   user-select: none;
-  transform: rotate(-1.5deg);
 }
 
 .home-logo .bubble-letter {
-  -webkit-text-stroke: 4px rgba(0, 0, 0, 0.22);
-  filter: drop-shadow(0 6px 0 rgba(0, 0, 0, 0.28))
-          drop-shadow(0 14px 26px rgba(0, 0, 0, 0.4));
+  -webkit-text-stroke: 3px rgba(0, 0, 0, 0.2);
+  filter: drop-shadow(0 3px 0 rgba(0, 0, 0, 0.25));
 }
 
 .home-kicker {
@@ -1022,10 +1011,10 @@ body.sidebar-collapsed .collapse-btn:active { transform: scale(0.96); }
 .home-title {
   margin: 0;
   font-family: var(--display);
-  font-size: clamp(25px, 3.3vw, 40px);
-  line-height: 1.04;
-  letter-spacing: -0.04em;
-  max-width: 16ch;
+  font-size: clamp(24px, 2.8vw, 34px);
+  line-height: 1.05;
+  letter-spacing: -0.035em;
+  max-width: 18ch;
   padding-bottom: 2px;
 }
 
@@ -1178,11 +1167,11 @@ button.home-panel-chip:hover {
 }
 
 .home-block {
-  background: rgba(20, 24, 29, 0.92);
-  border: 1px solid rgba(132, 180, 146, 0.12);
-  border-radius: 22px;
-  padding: 20px;
-  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.14);
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  box-shadow: none;
 }
 
 .home-block-head {
@@ -1190,14 +1179,18 @@ button.home-panel-chip:hover {
   align-items: baseline;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 14px;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line-soft);
 }
 
 .home-block-title {
   margin: 0;
-  font-family: var(--display);
-  font-size: 22px;
-  line-height: 1;
+  font-family: var(--font);
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
   color: var(--text);
 }
 
@@ -1276,15 +1269,15 @@ button.home-panel-chip:hover {
   width: 100%;
   display: flex;
   align-items: center;
-  gap: 18px;
-  padding: 16px 20px;
-  border-radius: 18px;
+  gap: 16px;
+  padding: 12px 14px;
+  border-radius: var(--radius-lg);
   background: var(--panel);
-  border: 1px solid rgba(255, 77, 141, 0.3);
+  border: 1px solid var(--line);
   cursor: pointer;
   text-align: left;
   overflow: hidden;
-  transition: border-color 140ms ease, transform 140ms ease;
+  transition: border-color 140ms ease, transform 140ms ease, box-shadow 140ms ease;
 }
 
 .home-featured .home-featured-cta {
@@ -1294,16 +1287,17 @@ button.home-panel-chip:hover {
 }
 
 .home-featured:hover {
-  border-color: var(--pink);
+  border-color: var(--line-strong);
   transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3);
 }
 
 .home-featured-img {
   position: relative;
-  width: 132px;
-  height: 132px;
+  width: 108px;
+  height: 108px;
   flex: none;
-  border-radius: 14px;
+  border-radius: var(--radius);
   overflow: hidden;
   background: var(--panel-2);
   display: grid;
@@ -1326,17 +1320,19 @@ button.home-panel-chip:hover {
 }
 
 .home-featured-eyebrow {
-  font-family: var(--display);
+  font-family: var(--font);
   font-size: 11px;
-  letter-spacing: 0.16em;
+  font-weight: 650;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--pink);
 }
 
 .home-featured-title {
   font-family: var(--display-geo);
-  font-size: 22px;
+  font-size: 19px;
   font-weight: 700;
+  letter-spacing: -0.01em;
   color: var(--text);
 }
 
@@ -1407,12 +1403,12 @@ button.home-panel-chip:hover {
 
 .view-title {
   margin: 0;
-  font-family: var(--display);   /* Boogaloo bubble letters, same as the home hero */
-  font-size: 42px;
+  font-family: var(--display);   /* Boogaloo: the Chalkle display voice */
+  font-size: 32px;
   font-weight: 400;              /* Boogaloo only ships 400; synthesized bold looks lumpy */
   line-height: 1.05;
   letter-spacing: 0.01em;
-  padding-bottom: 8px;          /* room for the 4px drop shadow + glow */
+  padding-bottom: 4px;
   user-select: none;
 }
 
@@ -1453,30 +1449,29 @@ button.home-panel-chip:hover {
 .view[data-view="movies"] .btn { background: var(--movies); color: var(--movies-ink); }
 .view[data-view="chat"] .view-title,
 .view[data-view="chat"] .panel-title,
-.view[data-view="chat"] .card-title { color: #F4511E; }
-.view[data-view="chat"] .view-meta.has-content { color: #F4511E; }
-.view[data-view="chat"] .btn { background: #F4511E; color: #fff; }
+.view[data-view="chat"] .card-title { color: #0fa8a0; }
+.view[data-view="chat"] .view-meta.has-content { color: #0fa8a0; }
+.view[data-view="chat"] .btn { background: #008080; color: #fff; }
 
 .game-command {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: stretch;
-  gap: 14px;
-  margin: 0 0 18px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 12px;
 }
 
 .game-stats {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  display: inline-flex;
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: rgba(20, 24, 29, 0.72);
+  background: var(--panel);
   overflow: hidden;
 }
 
 .game-stat {
   min-width: 0;
-  padding: 11px 14px;
+  padding: 6px 12px;
   border-right: 1px solid var(--line-soft);
 }
 
@@ -1485,9 +1480,9 @@ button.home-panel-chip:hover {
 .game-stat-value {
   display: block;
   font-family: var(--display-geo);
-  font-size: 22px;
+  font-size: 16px;
   font-weight: 700;
-  line-height: 1;
+  line-height: 1.1;
   color: var(--text);
   font-variant-numeric: tabular-nums;
 }
@@ -1514,8 +1509,9 @@ button.home-panel-chip:hover {
   align-items: center;
   align-content: center;
   justify-content: flex-end;
-  gap: 8px;
+  gap: 6px;
   flex-wrap: wrap;
+  margin-left: auto;
 }
 
 /* Second row of toggles below the stats: category / genre chips. */
@@ -1523,8 +1519,8 @@ button.home-panel-chip:hover {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 8px;
-  margin: 0 0 16px;
+  gap: 6px;
+  margin: 0 0 12px;
 }
 
 .genre-filters .chip { background: var(--panel); }
@@ -1635,8 +1631,8 @@ button.home-panel-chip:hover {
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(204px, 1fr));
-  gap: 14px;
+  grid-template-columns: repeat(auto-fill, minmax(186px, 1fr));
+  gap: 10px;
 }
 
 .grid-more {
@@ -1671,20 +1667,13 @@ button.home-panel-chip:hover {
   border-radius: var(--radius);
   overflow: hidden;
   position: relative;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.28);
   transition: transform 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
-  /* Layered depth: a soft inner top-light + a hairline inner ring so the
-     cards read as raised tiles against the textured background. */
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.05),
-    0 4px 16px rgba(0, 0, 0, 0.28);
 }
 
 .card:hover {
   border-color: var(--line-strong);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.07),
-    0 10px 30px rgba(0, 0, 0, 0.38);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.32);
 }
 
 /* While a thumbnail is still loading (lazy images), pulse a flat highlight
@@ -1777,16 +1766,15 @@ button.home-panel-chip:hover {
   top: 8px;
   right: 8px;
   z-index: 5;
-  width: 30px;
-  height: 30px;
+  width: 28px;
+  height: 28px;
   display: grid;
   place-items: center;
-  border-radius: 7px;
-  background: rgba(10, 11, 13, 0.72);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: rgba(232, 234, 237, 0.6);
+  border-radius: 6px;
+  background: rgba(8, 10, 12, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: rgba(232, 234, 237, 0.62);
   transition: color 140ms ease, border-color 140ms ease, background 140ms ease, transform 140ms ease;
-  backdrop-filter: blur(4px);
 }
 
 .fav-btn .icon {
@@ -1823,12 +1811,11 @@ button.home-panel-chip:hover {
   height: 30px;
   display: grid;
   place-items: center;
-  border-radius: 7px;
-  background: rgba(10, 11, 13, 0.72);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: rgba(232, 234, 237, 0.6);
+  border-radius: 6px;
+  background: rgba(8, 10, 12, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: rgba(232, 234, 237, 0.62);
   transition: color 140ms ease, border-color 140ms ease, background 140ms ease, transform 140ms ease;
-  backdrop-filter: blur(4px);
 }
 
 .proxy-btn .icon {
@@ -1901,6 +1888,8 @@ button.home-panel-chip:hover {
   transition: transform 160ms ease;
   transform-origin: center;
 }
+
+.card:hover .card-thumb img { transform: scale(1.03); }
 
 /* Square/icon-style images stay clean without turning into letter cards. */
 .card-thumb img.thumb-icon {
@@ -2345,7 +2334,7 @@ button.home-panel-chip:hover {
 .chip-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
   justify-content: flex-end;
 }
 
@@ -2354,26 +2343,27 @@ button.home-panel-chip:hover {
   align-items: center;
   gap: 6px;
   cursor: pointer;
-  padding: 5px 12px;
-  border-radius: 999px;
+  padding: 4px 11px;
+  border-radius: 5px;
   border: 1px solid var(--line);
-  background: var(--panel-2);
+  background: var(--panel);
   color: var(--text-2);
-  font-size: 14px;
-  font-weight: 600;
+  font-size: 13px;
+  font-weight: 550;
   user-select: none;
-  transition: all 120ms ease;
+  transition: border-color 120ms ease, background 120ms ease, color 120ms ease;
 }
 
-.chip:hover { border-color: var(--va, var(--accent)); color: var(--text); }
+.chip:hover { border-color: var(--line-strong); color: var(--text); }
 
 .chip input { display: none; }
 
 .chip:has(input:checked),
 .chip.is-active {
-  background: var(--va-soft, var(--accent-soft));
+  background: var(--panel-3);
   border-color: var(--va, var(--accent));
   color: var(--va, var(--accent));
+  font-weight: 650;
 }
 
 /* Docs type filter (All / Lists / SVGs / HTMLs). Sits in the view header next
@@ -3138,8 +3128,7 @@ button.home-panel-chip:hover {
 }
 
 .editor-modal .admin-cover {
-  background: rgba(5, 6, 9, 0.82);
-  backdrop-filter: blur(6px);
+  background: rgba(5, 6, 9, 0.94);
 }
 
 .editor-modal .admin-card {
@@ -3220,8 +3209,7 @@ button.home-panel-chip:hover {
 .admin-cover {
   position: absolute;
   inset: 0;
-  background: rgba(5, 6, 9, 0.72);
-  backdrop-filter: blur(5px);
+  background: rgba(5, 6, 9, 0.88);
 }
 
 .admin-card {
@@ -4077,8 +4065,6 @@ button.home-panel-chip:hover {
   letter-spacing: 0.09em;
   text-transform: uppercase;
   white-space: nowrap;
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
@@ -4441,7 +4427,7 @@ body.size-compact .card-source { display: none; }
 .nav-item { height: 42px; padding: 0 13px; border-radius: 10px; font-size: 15px; }
 .nav-item:hover { background: #1b2026; }
 .nav-item.is-active { font-weight: 700; }
-.nav-item.is-active::before { left: -12px; }
+.nav-item.is-active::before { left: 0; top: 8px; bottom: 8px; }
 .nav-bottom { padding: 12px 12px 0; }
 .nav-social { width: 38px; height: 38px; border-radius: 10px; }
 .collapse-btn { margin: 9px 12px; }
@@ -4787,13 +4773,12 @@ html.motion-off *::after {
 @media (hover: none) {
   .song-fav { opacity: 1; }
 }
-/* Final surface pass: consistent depth, clean hierarchy, and better touch targets. */
+/* Final surface pass (Chalkle 2.0): solid topbar, no blur, no wash. */
 .topbar {
-  background: rgba(12, 18, 16, 0.88);
-  backdrop-filter: blur(18px);
+  background: #101317;
 }
 
-.search input { border-radius: 10px; }
+.search input { border-radius: 8px; }
 .search:focus-within .icon { color: var(--accent); }
 
 .main { padding: 34px 34px 52px; }
@@ -4815,20 +4800,21 @@ html.motion-off *::after {
 
 .home-copy,
 .home-panel {
-  padding: 30px;
-  border-radius: 20px;
+  padding: 22px 24px;
+  border-radius: var(--radius-lg);
 }
 
-.home-title { max-width: 15ch; }
+.home-title { max-width: 18ch; }
 
 .home-primary,
 .home-secondary {
-  font-weight: 700;
+  font-weight: 650;
+  border-radius: 6px;
   transition: transform 140ms ease, background 140ms ease, border-color 140ms ease;
 }
 
-.home-primary:hover { background: #4abe68; transform: translateY(-1px); }  /* SUPERSEDED below - kept for cascade order */
-.home-secondary:hover { border-color: rgba(232, 234, 237, 0.22); background: #24382e; transform: translateY(-1px); }
+.home-primary:hover { background: color-mix(in srgb, var(--pink) 88%, #fff); transform: translateY(-1px); }
+.home-secondary:hover { border-color: var(--line-strong); background: var(--panel-3); transform: translateY(-1px); }
 .home-primary:active,
 .home-secondary:active,
 .home-mini-card:active,
@@ -5375,9 +5361,8 @@ html.motion-off *::after {
 .home-hero-side {
   background: var(--panel);
   border: 1px solid var(--line);
-  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.18);
-  border-radius: 18px;
-  padding: 18px 20px;
+  border-radius: var(--radius-lg);
+  padding: 16px 18px;
 }
 
 .home-hero-main {
@@ -5428,42 +5413,43 @@ html.motion-off *::after {
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  padding: 7px 12px 7px 10px;
-  border-radius: 999px;
-  background: rgba(15, 18, 22, 0.6);
+  padding: 6px 12px 6px 10px;
+  border-radius: 6px;
+  background: var(--panel-2);
   border: 1px solid var(--line);
   color: var(--text);
-  font-family: var(--display);
+  font-family: var(--font);
   font-size: 13px;
-  font-weight: 650;
+  font-weight: 600;
   line-height: 1;
   white-space: nowrap;
-  transition: transform 140ms ease, border-color 140ms ease, background 140ms ease;
+  transition: border-color 140ms ease, background 140ms ease, color 140ms ease;
 }
-.home-quick-card:hover { transform: translateY(-2px); }
-.home-quick-ico { width: 20px; height: 20px; flex: none; display: grid; place-items: center; }
+.home-quick-card:hover { border-color: var(--line-strong); background: var(--panel-3); }
+.home-quick-ico { width: 18px; height: 18px; flex: none; display: grid; place-items: center; }
 .home-quick-ico .icon { width: 100%; height: 100%; stroke: currentColor; }
 .home-quick-ico .youtube-icon { fill: currentColor; stroke: none; }
-.home-quick-card.q-games .home-quick-ico { color: #34a853; }
-.home-quick-card.q-sites .home-quick-ico { color: #4285f4; }
-.home-quick-card.q-yt .home-quick-ico { color: #ea4335; width: 28px; height: 28px; filter: drop-shadow(0 2px 6px rgba(234, 67, 53, 0.35)); }
-.home-quick-card.q-tools .home-quick-ico { color: #fbbc05; }
-.home-quick-card.q-proxy .home-quick-ico { color: #ff9a3c; }
-.home-quick-card.q-board .home-quick-ico { color: #ab47e8; }
-.home-quick-card.q-docs .home-quick-ico { color: #26c6da; }
-.home-quick-card.q-partners .home-quick-ico { color: #d8a368; }
-.home-quick-card.q-settings .home-quick-ico { color: #a970ff; }
-.home-quick-card.q-games:hover { border-color: #34a853; background: rgba(52, 168, 83, 0.12); }
-.home-quick-card.q-sites:hover { border-color: #4285f4; background: rgba(66, 133, 244, 0.12); }
-.home-quick-card.q-yt:hover { border-color: #ea4335; background: rgba(234, 67, 53, 0.12); }
-.home-quick-card.q-tools:hover { border-color: #fbbc05; background: rgba(251, 188, 5, 0.12); }
-.home-quick-card.q-proxy:hover { border-color: #ff9a3c; background: rgba(255, 154, 60, 0.12); }
-.home-quick-card.q-board:hover { border-color: #ab47e8; background: rgba(171, 71, 232, 0.12); }
-.home-quick-card.q-docs:hover { border-color: #26c6da; background: rgba(38, 198, 218, 0.12); }
-.home-quick-card.q-partners:hover { border-color: #d8a368; background: rgba(216, 163, 104, 0.12); }
-.home-quick-card.q-settings:hover { border-color: #a970ff; background: rgba(169, 112, 255, 0.12); }
+/* Section color only on the icon: the tile itself stays neutral. */
+.home-quick-card.q-games .home-quick-ico { color: var(--accent); }
+.home-quick-card.q-sites .home-quick-ico { color: var(--blue); }
+.home-quick-card.q-yt .home-quick-ico { color: var(--magenta); width: 18px; height: 18px; filter: none; }
+.home-quick-card.q-tools .home-quick-ico { color: var(--yellow); }
+.home-quick-card.q-proxy .home-quick-ico { color: var(--teal); }
+.home-quick-card.q-board .home-quick-ico { color: var(--orange); }
+.home-quick-card.q-docs .home-quick-ico { color: var(--cyan); }
+.home-quick-card.q-partners .home-quick-ico { color: var(--brown); }
+.home-quick-card.q-settings .home-quick-ico { color: var(--purple); }
 .home-quick-card.q-tv .home-quick-ico { color: var(--tv); }
-.home-quick-card.q-tv:hover { border-color: var(--tv); background: var(--tv-soft); }
+.home-quick-card.q-games:hover { border-color: var(--line-strong); background: var(--panel-3); }
+.home-quick-card.q-sites:hover { border-color: var(--line-strong); background: var(--panel-3); }
+.home-quick-card.q-yt:hover { border-color: var(--line-strong); background: var(--panel-3); }
+.home-quick-card.q-tools:hover { border-color: var(--line-strong); background: var(--panel-3); }
+.home-quick-card.q-proxy:hover { border-color: var(--line-strong); background: var(--panel-3); }
+.home-quick-card.q-board:hover { border-color: var(--line-strong); background: var(--panel-3); }
+.home-quick-card.q-docs:hover { border-color: var(--line-strong); background: var(--panel-3); }
+.home-quick-card.q-partners:hover { border-color: var(--line-strong); background: var(--panel-3); }
+.home-quick-card.q-settings:hover { border-color: var(--line-strong); background: var(--panel-3); }
+.home-quick-card.q-tv:hover { border-color: var(--line-strong); background: var(--panel-3); }
 
 /* All tabs dropdown - the Jump back in grid keeps the headline tabs and
    folds the rest into a menu so the hero never turns into a wall of tiles. */
@@ -5541,9 +5527,9 @@ html.motion-off *::after {
 /* Horizontal cover-card shelves for Continue / Popular / Watch next. */
 .home-shelf {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
-  gap: 14px;
-  padding: 4px 2px 12px;
+  grid-template-columns: repeat(auto-fill, minmax(172px, 1fr));
+  gap: 10px;
+  padding: 2px 0 10px;
 }
 
 .home-card {
@@ -8271,13 +8257,11 @@ input[type="submit"]:not([disabled]), input[type="range"]:not([disabled]) {
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: #fff;
-  background: rgba(10, 11, 13, 0.66);
+  background: rgba(10, 11, 13, 0.82);
   border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 6px;
   padding: 3px 8px;
   pointer-events: none;
-  -webkit-backdrop-filter: blur(3px);
-  backdrop-filter: blur(3px);
 }
 .livetv-match-cat-dot {
   width: 7px;
@@ -8322,8 +8306,7 @@ input[type="submit"]:not([disabled]), input[type="range"]:not([disabled]) {
   z-index: 90;
   display: flex;
   flex-direction: column;
-  background: rgba(6, 8, 10, 0.92);
-  backdrop-filter: blur(10px);
+  background: rgba(6, 8, 10, 0.97);
   padding: 18px;
 }
 
@@ -9022,7 +9005,44 @@ input[type="submit"]:not([disabled]), input[type="range"]:not([disabled]) {
   text-overflow: ellipsis;
 }
 
-.yt-player-top .launch-x {
+.yt-player-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.yt-player-actions .player-action {
+  height: 30px;
+  padding: 0 10px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--text-2);
+  font-weight: 600;
+  font-size: 13px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+  transition: color 140ms ease, border-color 140ms ease, background 140ms ease;
+}
+
+.yt-player-actions .player-action .icon {
+  width: 16px;
+  height: 16px;
+}
+
+.yt-player-actions .player-action[data-action="fullscreen"] .icon-fullscreen {
+  stroke-linejoin: miter;
+}
+
+.yt-player-actions .player-action:hover {
+  color: var(--text);
+  border-color: var(--line-strong);
+  background: var(--panel-2);
+}
+
+.yt-player-top .player-actions {
   margin-left: auto;
   flex: none;
 }
@@ -9133,7 +9153,6 @@ input[type="submit"]:not([disabled]), input[type="range"]:not([disabled]) {
   letter-spacing: 0.08em;
   box-shadow: 0 4px 12px rgba(234, 67, 53, 0.4), inset 0 1px 2px rgba(255, 255, 255, 0.3);
   text-transform: uppercase;
-  backdrop-filter: blur(4px);
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -9182,8 +9201,7 @@ input[type="submit"]:not([disabled]), input[type="range"]:not([disabled]) {
    ───────────────────────────────────────────────────────────────────────────── */
 
 .livetv-card-play-overlay {
-  background: rgba(0, 0, 0, 0.35);
-  backdrop-filter: blur(2px);
+  background: rgba(0, 0, 0, 0.42);
   transition: opacity 180ms ease, background 180ms ease;
 }
 
@@ -9537,11 +9555,11 @@ button.home-metric:focus-visible {
   align-items: center;
   gap: 12px 16px;
   flex-wrap: wrap;
-  margin: 0 0 20px;
-  padding: 12px 12px 12px 16px;
-  border-radius: 14px;
-  background: rgba(88, 101, 242, 0.13);
-  border: 1px solid rgba(114, 137, 218, 0.42);
+  margin: 0 0 18px;
+  padding: 10px 10px 10px 14px;
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+  border: 1px solid var(--line);
 }
 .home-join-ico {
   display: grid;
@@ -9641,8 +9659,7 @@ button.side-foot:hover { color: var(--text-2); }
   display: grid;
   place-items: center;
   padding: 24px;
-  background: rgba(6, 8, 10, 0.72);
-  backdrop-filter: blur(3px);
+  background: rgba(6, 8, 10, 0.88);
 }
 .whatsnew-card {
   width: min(480px, 100%);
@@ -9770,15 +9787,14 @@ button.side-foot:hover { color: var(--text-2); }
   .home-quick { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
-/* CTA hover: the old rule flipped the pink button green on hover - keep the
-   accent family. Secondary buttons get a neutral lift instead of a green tint. */
+/* CTA hover: stays in the pink family. Secondary gets a neutral lift. */
 .home-primary:hover {
-  background: color-mix(in srgb, var(--pink) 82%, #fff);   /* stays in the pink family (old rule flipped it green) */
+  background: color-mix(in srgb, var(--pink) 82%, #fff);
   border-color: rgba(255, 255, 255, 0.14);
 }
 .home-secondary:hover {
-  border-color: var(--accent);
-  background: rgba(255, 255, 255, 0.055);
+  border-color: var(--line-strong);
+  background: var(--panel-3);
 }
 
 /* Soft depth behind the hero copy - two blurred colour glows in the panel's
@@ -10207,11 +10223,8 @@ button.side-foot:hover { color: var(--text-2); }
   background-image: none;
 }
 .view[data-view="movies"]::before {
-  /* Indigo identity: reuse the chalk texture recolored to match the tab. */
-  background-color: #10122b;
-  background-image: url("../tabs/settings.webp");
-  background-blend-mode: screen;
-  filter: hue-rotate(115deg) saturate(1.1) brightness(.8);
+  /* Movies: purple backdrop so the tab reads as its own section. */
+  background-color: color-mix(in srgb, var(--base) 55%, var(--movies));
 }
 
 /* Docs: one cyan voice everywhere (tab, titles, buttons, links). */
@@ -10271,6 +10284,86 @@ button.side-foot:hover { color: var(--text-2); }
   border-radius: 12px;
   background: #111111;
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
+  display: block;
+  margin: 0;
+}
+
+/* Standalone chat.html / tablet / mobile: keep the frame centered and not
+   overly tall, so the embedded room fills the available viewport nicely. */
+#chat-frame.is-standalone {
+  display: block;
+  width: 100%;
+  max-width: 1120px;
+  margin: 0 auto;
+  border-radius: 12px;
+  min-height: 0;
+  height: auto;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
+}
+
+/* Responsive chat inside the app shell on tablets / phones. */
+@media (max-width: 900px) {
+  .view[data-view="chat"] .chat-frame {
+    min-height: calc(100dvh - 120px);
+    border-radius: 10px;
+  }
+}
+
+/* When JS is disabled, at least show a friendly fallback in the chat tab. */
+.chat-fallback {
+  margin-top: 18px;
+  padding: 18px 20px;
+  border: 1px dashed var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+  color: var(--text-2);
+  text-align: center;
+}
+.chat-fallback-title {
+  margin: 0 0 6px;
+  color: var(--text);
+  font-weight: 650;
+}
+.chat-fallback-hint { margin: 0; }
+.chat-fallback a { color: var(--accent); }
+
+/* --- In-app fullscreen (Chat / Movies): the view section goes fixed and
+   covers everything, header and sidebar included. Esc or the button exits;
+   on Firefox Esc is native fullscreen exit and the fullscreenchange
+   handler catches it. --- */
+.view.fx-full {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  border-radius: 0;
+  padding: 0;
+  background: var(--bg, #0d0f12);
+  /* The chat view is block-layout normally; fullscreen needs the frame to
+     flex-fill the leftover space under the titlebar. */
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.view.fx-full .view-head {
+  margin: 0;
+  padding: 8px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  background: inherit;
+}
+.view.fx-full .view-actions .btn {
+  padding: 6px 10px;
+}
+.view.fx-full .movies-frame {
+  min-height: 0;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
 }
 
 /* ---------- 2026-09 polish pass: hero scale, shelf card, banner, chrome ----------
@@ -10407,11 +10500,11 @@ button.side-foot:hover { color: var(--text-2); }
 /* Discord banner: shorter, site-styled button, X at the edge. */
 .home-join {
   padding: 9px 10px 9px 12px;
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   margin-bottom: 16px;
   gap: 10px 14px;
 }
-.home-join-ico { width: 30px; height: 30px; border-radius: 9px; }
+.home-join-ico { width: 30px; height: 30px; border-radius: 6px; }
 .home-join-ico .icon { width: 16px; height: 16px; }
 .home-join-title { font-size: 14px; }
 .home-join-sub { font-size: 11.5px; }
@@ -10471,8 +10564,8 @@ button.side-foot:hover { color: var(--text-2); }
   position: sticky;
   top: 0;
   z-index: 18;
-  background: rgba(10, 14, 12, 0.92);
-  backdrop-filter: blur(6px);
+  background: #101317;
+  border-bottom: 1px solid var(--line-soft);
   padding: 8px 2px 10px;
   margin: 0 -2px 16px;
 }
@@ -10631,11 +10724,11 @@ html.stealth-active #stealth-cover-frame {
   font-weight: 700;
 }
 .nav-item.is-active::before {
-  left: -10px;
+  left: 0;
   top: 7px;
   bottom: 7px;
-  width: 4px;
-  border-radius: 3px;
+  width: 2px;
+  border-radius: 1px;
 }
 .nav-bottom {
   padding: 10px 10px 6px;
@@ -10840,15 +10933,6 @@ html.stealth-active #stealth-cover-frame {
    Home keeps the chalk wallpaper as its own signature. */
 .view-head {
   position: relative;
-}
-.view-head::before {
-  content: "";
-  position: absolute;
-  inset: -46px -70px -34px;
-  z-index: -1;
-  pointer-events: none;
-  background: radial-gradient(ellipse 60% 90% at 18% 0%,
-              color-mix(in srgb, var(--va) 7%, transparent), transparent 70%);
 }
 
 /* --------------------------------------------------------------------------
@@ -11128,7 +11212,7 @@ progress { accent-color: var(--accent); }
   place-items: center;
   overflow: hidden;
   border-radius: 9px;
-  background: linear-gradient(135deg, rgba(230, 0, 115, 0.28), rgba(230, 0, 115, 0.08));
+  background: rgba(230, 0, 115, 0.14);
   border: 1px solid rgba(230, 0, 115, 0.35);
 }
 .mini-music-art img {
