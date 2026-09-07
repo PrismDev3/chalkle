@@ -10106,10 +10106,29 @@ button.side-foot:hover { color: var(--text-2); }
 .music-artist-card { flex: 0 0 154px; min-width: 0; }
 .music-card { position: relative; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); cursor: pointer; padding: 8px; text-align: left; transition: transform 140ms ease, border-color 140ms ease, background 140ms ease; }
 .music-card:hover,
-.music-card:focus-visible { transform: translateY(-3px); border-color: rgba(230, 0, 115, .68); background: var(--panel-2); }
-.music-card-art,
-.music-cover-art { position: relative; display: block; aspect-ratio: 1; overflow: hidden; border-radius: 7px; background: #25111c; }
-.music-art { display: grid; place-items: center; width: 100%; height: 100%; color: #ff75b8; background: #25111c; }
+.music-card:focus-visible { transform: translateY(-3px); border-color: rgba(230, 0, 115, .68); background: var(--panel-2); }  .music-card-art,
+  .music-cover-art { position: relative; display: block; aspect-ratio: 1; overflow: hidden; border-radius: 7px; background: #25111c; }
+  .music-art { display: grid; place-items: center; width: 100%; height: 100%; color: #ff75b8; background: #25111c; }
+  .music-card-art .music-play-overlay,
+  .music-cover-art .music-play-overlay,
+  .music-hero-art .music-play-overlay,
+  .music-detail-art .music-play-overlay,
+  .music-artist-art .music-play-overlay {
+    position: absolute; inset: 0; display: grid; place-items: center;
+    color: #fff; text-shadow: 0 2px 8px rgba(0,0,0,.55); opacity: 0;
+    transition: opacity 140ms ease; pointer-events: none;
+  }
+  .music-card:hover .music-play-overlay,
+  .music-cover-card:hover .music-play-overlay,
+  .music-artist-card:hover .music-play-overlay,
+  .music-hero-art:hover .music-play-overlay,
+  .music-detail-art:hover .music-play-overlay,
+  .music-card-art:focus-visible .music-play-overlay,
+  .music-cover-card:focus-visible .music-play-overlay,
+  .music-artist-card:focus-visible .music-play-overlay {
+    opacity: 1;
+  }
+  .music-play-overlay > svg { width: 46px; height: 46px; fill: currentColor; stroke: none; }
 .music-art img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .thumb-letter { font-family: var(--display-geo); font-size: 28px; font-weight: 800; }
 .music-play-icon { position: absolute; right: 7px; bottom: 7px; display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; background: var(--magenta); color: #fff; opacity: 0; transform: translateY(4px); transition: opacity 140ms ease, transform 140ms ease; box-shadow: 0 4px 12px rgba(0,0,0,.35); }
@@ -10135,10 +10154,9 @@ button.side-foot:hover { color: var(--text-2); }
 .music-cover-card:hover .music-cover-title,
 .music-artist-card:hover .music-artist-name { color: var(--magenta); }
 .music-cover-title { margin-top: 8px; color: var(--text); font-size: 13.5px; font-weight: 750; }
-.music-artist-card { flex-basis: 128px; text-align: center; }
-.music-artist-art { position: relative; display: block; width: 112px; height: 112px; margin: 0 auto; overflow: hidden; border: 1px solid var(--line); border-radius: 50%; background: #25111c; }
-.music-artist-art .music-play-icon { right: 50%; bottom: 50%; transform: translate(50%, 50%); }
-.music-artist-card:hover .music-play-icon { transform: translate(50%, 50%); }
+.music-artist-card { flex-basis: 128px; text-align: center; }  .music-artist-art { position: relative; display: block; width: 112px; height: 112px; margin: 0 auto; overflow: hidden; border: 1px solid var(--line); border-radius: 50%; background: #25111c; }
+  .music-artist-art .music-play-overlay { inset: 0; opacity: 0.85; }
+  .music-artist-card:hover .music-play-overlay { opacity: 1; }
 .music-artist-name { margin-top: 9px; color: var(--text); font-size: 13px; font-weight: 750; }
 .music-track-list { overflow: hidden; border-top: 1px solid var(--line-soft); }
 .music-track-row { display: grid; grid-template-columns: 30px 42px minmax(150px, 2fr) minmax(100px, 1fr) 90px 42px; gap: 11px; align-items: center; min-height: 58px; padding: 6px 10px; border-bottom: 1px solid var(--line-soft); color: var(--text-2); cursor: pointer; }

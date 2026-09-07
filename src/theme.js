@@ -33,25 +33,26 @@
   }
 
   var CURSORS = {
-    cat: { label: "cat", css: "url('/assets/cursors/cursor-cat.png') 24 24, auto", preview: "/assets/cursors/cursor-cat.png", hover: "/assets/cursors/cursor-cat-hover.png" },
-    "cat-black": { label: "black cat", css: "url('/assets/cursors/cursor-cat-black.png') 24 24, auto", preview: "/assets/cursors/cursor-cat-black.png", hover: "/assets/cursors/cursor-cat-black-hover.png" },
-    puppy: { label: "puppy", css: "url('/assets/cursors/cursor-puppy.png') 24 24, auto", preview: "/assets/cursors/cursor-puppy.png", hover: "/assets/cursors/cursor-puppy-hover.png" },
-    kyro: { label: "kyro", css: "url('/assets/cursors/cursor-kyro.png') 18 18, auto", preview: "/assets/cursors/cursor-kyro.png", hover: "/assets/cursors/cursor-kyro-hover.png" },
-    neoos: { label: "neo os", css: "url('/assets/cursors/cursor-neoos.png') 18 18, auto", preview: "/assets/cursors/cursor-neoos.png", hover: "/assets/cursors/cursor-neoos-hover.png" },
-    godlylinks: { label: "godly links", css: "url('/assets/cursors/cursor-godlylinks.png') 18 17, auto", preview: "/assets/cursors/cursor-godlylinks.png", hover: "/assets/cursors/cursor-godlylinks-hover.png" },
-    projectbugs: { label: "project bugs", css: "url('/assets/cursors/cursor-projectbugs.png') 18 18, auto", preview: "/assets/cursors/cursor-projectbugs.png", hover: "/assets/cursors/cursor-projectbugs-hover.png" },
-    frosted: { label: "frosted", css: "url('/assets/cursors/cursor-frosted.png') 18 18, auto", preview: "/assets/cursors/cursor-frosted.png", hover: "/assets/cursors/cursor-frosted-hover.png" },
-    p2pgames: { label: "p2p games", css: "url('/assets/cursors/cursor-p2pgames.png') 18 17, auto", preview: "/assets/cursors/cursor-p2pgames.png", hover: "/assets/cursors/cursor-p2pgames-hover.png" },
-    sv: { label: "s.v", css: "url('/assets/cursors/cursor-sv.png') 18 18, auto", preview: "/assets/cursors/cursor-sv.png", hover: "/assets/cursors/cursor-sv-hover.png" },
-    anko: { label: "anko", css: "url('/assets/cursors/cursor-anko.png') 18 18, auto", preview: "/assets/cursors/cursor-anko.png", hover: "/assets/cursors/cursor-anko-hover.png" },
-    ghostproxy: { label: "ghost proxy", css: "url('/assets/cursors/cursor-ghostproxy.png') 18 18, auto", preview: "/assets/cursors/cursor-ghostproxy.png", hover: "/assets/cursors/cursor-ghostproxy-hover.png" },
-    array: { label: "array", css: "url('/assets/cursors/cursor-array.png') 18 18, auto", preview: "/assets/cursors/cursor-array.png", hover: "/assets/cursors/cursor-array-hover.png" },
-    sizzle: { label: "sizzle studios", css: "url('/assets/cursors/cursor-sizzle.png') 18 18, auto", preview: "/assets/cursors/cursor-sizzle.png", hover: "/assets/cursors/cursor-sizzle-hover.png" },
+    cat: { label: "cat", css: "url('assets/cursors/cursor-cat.png') 24 24, auto", preview: "assets/cursors/cursor-cat.png", hover: "assets/cursors/cursor-cat-hover.png" },
+    "cat-black": { label: "black cat", css: "url('assets/cursors/cursor-cat-black.png') 24 24, auto", preview: "assets/cursors/cursor-cat-black.png", hover: "assets/cursors/cursor-cat-black-hover.png" },
+    puppy: { label: "puppy", css: "url('assets/cursors/cursor-puppy.png') 24 24, auto", preview: "assets/cursors/cursor-puppy.png", hover: "assets/cursors/cursor-puppy-hover.png" },
+    kyro: { label: "kyro", css: "url('assets/cursors/cursor-kyro.png') 18 18, auto", preview: "assets/cursors/cursor-kyro.png", hover: "assets/cursors/cursor-kyro-hover.png" },
+    neoos: { label: "neo os", css: "url('assets/cursors/cursor-neoos.png') 18 18, auto", preview: "assets/cursors/cursor-neoos.png", hover: "assets/cursors/cursor-neoos-hover.png" },
+    godlylinks: { label: "godly links", css: "url('assets/cursors/cursor-godlylinks.png') 18 17, auto", preview: "assets/cursors/cursor-godlylinks.png", hover: "assets/cursors/cursor-godlylinks-hover.png" },
+    projectbugs: { label: "project bugs", css: "url('assets/cursors/cursor-projectbugs.png') 18 18, auto", preview: "assets/cursors/cursor-projectbugs.png", hover: "assets/cursors/cursor-projectbugs-hover.png" },
+    frosted: { label: "frosted", css: "url('assets/cursors/cursor-frosted.png') 18 18, auto", preview: "assets/cursors/cursor-frosted.png", hover: "assets/cursors/cursor-frosted-hover.png" },
+    p2pgames: { label: "p2p games", css: "url('assets/cursors/cursor-p2pgames.png') 18 17, auto", preview: "assets/cursors/cursor-p2pgames.png", hover: "assets/cursors/cursor-p2pgames-hover.png" },
+    sv: { label: "s.v", css: "url('assets/cursors/cursor-sv.png') 18 18, auto", preview: "assets/cursors/cursor-sv.png", hover: "assets/cursors/cursor-sv-hover.png" },
+    anko: { label: "anko", css: "url('assets/cursors/cursor-anko.png') 18 18, auto", preview: "assets/cursors/cursor-anko.png", hover: "assets/cursors/cursor-anko-hover.png" },
+    ghostproxy: { label: "ghost proxy", css: "url('assets/cursors/cursor-ghostproxy.png') 18 18, auto", preview: "assets/cursors/cursor-ghostproxy.png", hover: "assets/cursors/cursor-ghostproxy-hover.png" },
+    array: { label: "array", css: "url('assets/cursors/cursor-array.png') 18 18, auto", preview: "assets/cursors/cursor-array.png", hover: "assets/cursors/cursor-array-hover.png" },
+    sizzle: { label: "sizzle studios", css: "url('assets/cursors/cursor-sizzle.png') 18 18, auto", preview: "assets/cursors/cursor-sizzle.png", hover: "assets/cursors/cursor-sizzle-hover.png" },
     none: { label: "default", css: "auto", preview: null }
   };
 
   var WALLPAPERS = {
-    chalk: "url('/bg-chalk.webp')",
+    /* Relative - see the CURSORS note above (svgbulk <base> docs). */
+    chalk: "url('bg-chalk.webp')",
     aurora: "#20343b",
     sunset: "#4a1d2d",
     citrus: "#5a4514",
@@ -215,7 +216,7 @@
         link.id = ID;
         link.rel = "preload";
         link.as = "image";
-        link.href = "/bg-chalk.webp";
+        link.href = "bg-chalk.webp";
         try { link.fetchPriority = "high"; } catch (e) {}
         document.head.appendChild(link);
       }
