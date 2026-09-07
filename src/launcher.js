@@ -380,30 +380,83 @@
     if (p && /^https?:/i.test(target) && !shouldOpenDirect(target)) {
       target = routeProxy(target, p.url, p.mode === "frame" || !!p.hashRoute);
     }
+    /* file: can never load inside a data: page (Chrome logs "Content at … may
+       not load or link to file:///" the instant it lands in the DOM), and
+       about: here would blank the cloak instead of loading the game. */
+    if (/^(file:|about:)/i.test(String(target).trim())) return false;
     var ident = cloakIdentity();
-    var win = window.open("about:blank", "_blank");
-    if (!win) return inAppFrame(url, title || url);
-    try { win.opener = null; } catch (e) { /* ignore */ }
+    
+    /* Build a self-contained cloaked page as a data URL. This avoids any
+       timing issues with document.write and ensures the guard is in place
+       before the iframe even loads. The page immediately intercepts any
+       attempt to steer the top window. */
+    var cloakPage = '' +
+      '<!doctype html><html><head><meta charset="utf-8">' +
+      '<title>' + escHtml(ident.title) + '</title>' +
+      '<link rel="icon" href="' + escHtml(ident.icon) + '">' +
+      '<meta http-equiv="refresh" content="0;url=about:blank" id="navGuard">' +
+      '<style>' +
+      'html,body{margin:0;height:100%;overflow:hidden;background:#fff}' +
+      'iframe{position:fixed;inset:0;width:100vw;height:100vh;border:0;background:#fff}' +
+      '</style>' +
+      '</head><body>' +
+      '<iframe id="gameFrame" src="about:blank" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-orientation-lock allow-pointer-lock allow-presentation" allow="fullscreen; autoplay; clipboard-write; picture-in-picture" allowfullscreen></iframe>' +
+      '<script>' +
+      '(function(){' +
+      '  var locked = false;' +
+      '  var frame = document.getElementById("gameFrame");' +
+      '  ' +
+      '  // Lock the top location immediately' +
+      '  try {' +
+      '    if (top.location !== self.location) {' +
+      '      top.location.replace("about:blank");' +
+      '    }' +
+      '  } catch(e) {}' +
+      '  ' +
+      '  // Monitor every 50ms for top-level navigation attempts' +
+      '  setInterval(function(){' +
+      '    try {' +
+      '      if (top.location.href !== "about:blank" && top.location.href !== self.location.href) {' +
+      '        top.location.replace("about:blank");' +
+      '      }' +
+      '    } catch(e) {}' +
+      '  }, 50);' +
+      '  ' +
+      '  // Load the actual game into the iframe' +
+      '  try {' +
+      '    frame.src = "' + target + '";' +
+      '  } catch(e) {' +
+      '    frame.src = target;' +
+      '  }' +
+      '  ' +
+      '  // If the iframe tries to navigate, catch it' +
+      '  frame.onload = function(){' +
+      '    try {' +
+      '      if (frame.contentWindow && frame.contentWindow.top && frame.contentWindow.top !== frame.contentWindow) {' +
+      '        frame.contentWindow.top.location.replace("about:blank");' +
+      '      }' +
+      '    } catch(e) {}' +
+      '  };' +
+      '})();' +
+      '</script>' +
+      '</body></html>';
+    
     try {
-      var doc = win.document;
-      doc.open();
-      doc.write(
-        '<!doctype html><html><head><meta charset="utf-8">' +
-        '<title>' + escHtml(ident.title) + '</title>' +
-        '<link rel="icon" href="' + escHtml(ident.icon) + '">' +
-        '</head><body style="margin:0;height:100vh;background:#fff"></body></html>'
-      );
-      doc.close();
-      var frame = doc.createElement("iframe");
-      frame.setAttribute("src", target);
-      frame.setAttribute("referrerpolicy", "no-referrer");
-      frame.setAttribute("allow", "fullscreen; autoplay; clipboard-read; clipboard-write; encrypted-media; picture-in-picture");
-      frame.setAttribute("allowfullscreen", "");
-      frame.style.cssText = "position:fixed;inset:0;width:100vw;height:100vh;border:0;margin:0;display:block;background:#fff";
-      doc.body.appendChild(frame);
+      var win = window.open("data:text/html;charset=utf-8," + encodeURIComponent(cloakPage), "_blank");
+      if (!win) {
+        // data URL blocked - fall back to about:blank with document.write
+        win = window.open("about:blank", "_blank");
+        if (!win) return inAppFrame(url, title || url);
+        try { win.opener = null; } catch(e) { /* ignore */ }
+        var doc = win.document;
+        doc.open();
+        doc.write(cloakPage);
+        doc.close();
+      }
+      try { win.opener = null; } catch(e) { /* ignore */ }
       window.ChalkleLaunch.lastOpenUrl = target;
     } catch (e) {
-      try { win.close(); } catch (e2) { /* ignore */ }
+      try { win.close(); } catch(e2) { /* ignore */ }
       return inAppFrame(url, title || url);
     }
     return true;

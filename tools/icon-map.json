@@ -1,0 +1,860 @@
+{
+ "✕": {
+  "file": "Emojis_16x16_249.png",
+  "numbered": "Emojis_16x16_249.png",
+  "named": false,
+  "dist": 35076.9,
+  "top6": [
+   "Emojis_16x16_249.png",
+   "Emojis_16x16_24.png",
+   "Emojis_16x16_66.png",
+   "Emojis_16x16_86.png",
+   "Emojis_16x16_106.png",
+   "Emojis_16x16_167.png"
+  ],
+  "top6_dist": [
+   35076.9,
+   40135.6,
+   40389.6,
+   41106.9,
+   41386.2,
+   41626.5
+  ]
+ },
+ "⚠": {
+  "file": "warning_triangle_yellow.png",
+  "numbered": "Emojis_16x16_19.png",
+  "named": true,
+  "dist": 22636.7,
+  "top6": [
+   "Emojis_16x16_19.png",
+   "Emojis_16x16_296.png",
+   "Emojis_16x16_278.png",
+   "Emojis_16x16_298.png",
+   "Emojis_16x16_169.png",
+   "Emojis_16x16_145.png"
+  ],
+  "top6_dist": [
+   22636.7,
+   35093.4,
+   36169.2,
+   36925.0,
+   37960.3,
+   38557.2
+  ]
+ },
+ "☕": {
+  "file": "Emojis_16x16_305.png",
+  "numbered": "Emojis_16x16_305.png",
+  "named": false,
+  "dist": 42385.5,
+  "top6": [
+   "Emojis_16x16_305.png",
+   "Emojis_16x16_34.png",
+   "Emojis_16x16_185.png",
+   "Emojis_16x16_294.png",
+   "Emojis_16x16_77.png",
+   "Emojis_16x16_70.png"
+  ],
+  "top6_dist": [
+   42385.5,
+   42551.7,
+   42650.0,
+   44112.9,
+   44349.9,
+   44350.0
+  ]
+ },
+ "📌": {
+  "file": "Emojis_16x16_249.png",
+  "numbered": "Emojis_16x16_249.png",
+  "named": false,
+  "dist": 38374.7,
+  "top6": [
+   "Emojis_16x16_249.png",
+   "Emojis_16x16_247.png",
+   "Emojis_16x16_66.png",
+   "Emojis_16x16_106.png",
+   "Emojis_16x16_60.png",
+   "Emojis_16x16_24.png"
+  ],
+  "top6_dist": [
+   38374.7,
+   40663.6,
+   41796.3,
+   42844.3,
+   42917.3,
+   43052.6
+  ]
+ },
+ "✉": {
+  "file": "envelope_gray.png",
+  "numbered": "Emojis_16x16_87.png",
+  "named": true,
+  "dist": 43001.1,
+  "top6": [
+   "Emojis_16x16_87.png",
+   "Emojis_16x16_98.png",
+   "Emojis_16x16_97.png",
+   "Emojis_16x16_198.png",
+   "Emojis_16x16_89.png",
+   "Emojis_16x16_152.png"
+  ],
+  "top6_dist": [
+   43001.1,
+   47129.9,
+   49183.4,
+   51796.9,
+   54673.0,
+   56934.3
+  ]
+ },
+ "🗑": {
+  "file": "Emojis_16x16_249.png",
+  "numbered": "Emojis_16x16_249.png",
+  "named": false,
+  "dist": 37232.8,
+  "top6": [
+   "Emojis_16x16_249.png",
+   "Emojis_16x16_66.png",
+   "Emojis_16x16_106.png",
+   "Emojis_16x16_24.png",
+   "Emojis_16x16_247.png",
+   "Emojis_16x16_167.png"
+  ],
+  "top6_dist": [
+   37232.8,
+   41179.8,
+   42443.4,
+   43754.6,
+   43921.4,
+   44487.1
+  ]
+ },
+ "✏": {
+  "file": "crayon_pink.png",
+  "numbered": "Emojis_16x16_92.png",
+  "named": true,
+  "dist": 21882.8,
+  "top6": [
+   "Emojis_16x16_92.png",
+   "Emojis_16x16_172.png",
+   "Emojis_16x16_167.png",
+   "Emojis_16x16_72.png",
+   "Emojis_16x16_178.png",
+   "Emojis_16x16_79.png"
+  ],
+  "top6_dist": [
+   21882.8,
+   26472.4,
+   28345.4,
+   29539.4,
+   30210.9,
+   30327.8
+  ]
+ },
+ "✓": {
+  "file": "Emojis_16x16_249.png",
+  "numbered": "Emojis_16x16_249.png",
+  "named": false,
+  "dist": 32176.3,
+  "top6": [
+   "Emojis_16x16_249.png",
+   "Emojis_16x16_24.png",
+   "Emojis_16x16_125.png",
+   "Emojis_16x16_167.png",
+   "Emojis_16x16_247.png",
+   "Emojis_16x16_122.png"
+  ],
+  "top6_dist": [
+   32176.3,
+   37733.6,
+   38586.9,
+   39424.6,
+   41129.1,
+   41909.2
+  ]
+ },
+ "👤": {
+  "file": "Emojis_16x16_249.png",
+  "numbered": "Emojis_16x16_249.png",
+  "named": false,
+  "dist": 38008.0,
+  "top6": [
+   "Emojis_16x16_249.png",
+   "Emojis_16x16_106.png",
+   "Emojis_16x16_66.png",
+   "Emojis_16x16_24.png",
+   "Emojis_16x16_60.png",
+   "Emojis_16x16_47.png"
+  ],
+  "top6_dist": [
+   38008.0,
+   42407.9,
+   44007.8,
+   44869.6,
+   46112.3,
+   46365.9
+  ]
+ },
+ "👥": {
+  "file": "Emojis_16x16_249.png",
+  "numbered": "Emojis_16x16_249.png",
+  "named": false,
+  "dist": 41712.4,
+  "top6": [
+   "Emojis_16x16_249.png",
+   "Emojis_16x16_106.png",
+   "Emojis_16x16_24.png",
+   "Emojis_16x16_66.png",
+   "Emojis_16x16_47.png",
+   "Emojis_16x16_122.png"
+  ],
+  "top6_dist": [
+   41712.4,
+   43549.4,
+   44276.6,
+   46363.6,
+   47715.8,
+   48762.5
+  ]
+ },
+ "📎": {
+  "file": "Emojis_16x16_249.png",
+  "numbered": "Emojis_16x16_249.png",
+  "named": false,
+  "dist": 41569.8,
+  "top6": [
+   "Emojis_16x16_249.png",
+   "Emojis_16x16_106.png",
+   "Emojis_16x16_247.png",
+   "Emojis_16x16_66.png",
+   "Emojis_16x16_24.png",
+   "Emojis_16x16_64.png"
+  ],
+  "top6_dist": [
+   41569.8,
+   41638.5,
+   42300.5,
+   43051.5,
+   44243.6,
+   45659.6
+  ]
+ },
+ "💡": {
+  "file": "Emojis_16x16_249.png",
+  "numbered": "Emojis_16x16_249.png",
+  "named": false,
+  "dist": 39787.7,
+  "top6": [
+   "Emojis_16x16_249.png",
+   "Emojis_16x16_247.png",
+   "Emojis_16x16_66.png",
+   "Emojis_16x16_106.png",
+   "Emojis_16x16_167.png",
+   "Emojis_16x16_47.png"
+  ],
+  "top6_dist": [
+   39787.7,
+   41062.5,
+   41624.2,
+   42550.8,
+   45466.2,
+   45566.5
+  ]
+ },
+ "📡": {
+  "file": "Emojis_16x16_249.png",
+  "numbered": "Emojis_16x16_249.png",
+  "named": false,
+  "dist": 40526.8,
+  "top6": [
+   "Emojis_16x16_249.png",
+   "Emojis_16x16_106.png",
+   "Emojis_16x16_24.png",
+   "Emojis_16x16_66.png",
+   "Emojis_16x16_245.png",
+   "Emojis_16x16_247.png"
+  ],
+  "top6_dist": [
+   40526.8,
+   45479.1,
+   45834.6,
+   46529.9,
+   47564.9,
+   47787.1
+  ]
+ },
+ "🔔": {
+  "file": "Emojis_16x16_249.png",
+  "numbered": "Emojis_16x16_249.png",
+  "named": false,
+  "dist": 35850.6,
+  "top6": [
+   "Emojis_16x16_249.png",
+   "Emojis_16x16_24.png",
+   "Emojis_16x16_66.png",
+   "Emojis_16x16_125.png",
+   "Emojis_16x16_106.png",
+   "Emojis_16x16_167.png"
+  ],
+  "top6_dist": [
+   35850.6,
+   40564.6,
+   42018.3,
+   42580.9,
+   43153.5,
+   43290.4
+  ]
+ },
+ "🔗": {
+  "file": "Emojis_16x16_249.png",
+  "numbered": "Emojis_16x16_249.png",
+  "named": false,
+  "dist": 37008.6,
+  "top6": [
+   "Emojis_16x16_249.png",
+   "Emojis_16x16_24.png",
+   "Emojis_16x16_167.png",
+   "Emojis_16x16_66.png",
+   "Emojis_16x16_247.png",
+   "Emojis_16x16_122.png"
+  ],
+  "top6_dist": [
+   37008.6,
+   39987.6,
+   43417.8,
+   43587.6,
+   44174.5,
+   44670.5
+  ]
+ },
+ "🔇": {
+  "file": "Emojis_16x16_249.png",
+  "numbered": "Emojis_16x16_249.png",
+  "named": false,
+  "dist": 36899.6,
+  "top6": [
+   "Emojis_16x16_249.png",
+   "Emojis_16x16_24.png",
+   "Emojis_16x16_167.png",
+   "Emojis_16x16_66.png",
+   "Emojis_16x16_247.png",
+   "Emojis_16x16_122.png"
+  ],
+  "top6_dist": [
+   36899.6,
+   39984.6,
+   43414.8,
+   43682.6,
+   44137.5,
+   44667.5
+  ]
+ },
+ "🔍": {
+  "file": "Emojis_16x16_249.png",
+  "numbered": "Emojis_16x16_249.png",
+  "named": false,
+  "dist": 42495.5,
+  "top6": [
+   "Emojis_16x16_249.png",
+   "Emojis_16x16_24.png",
+   "Emojis_16x16_247.png",
+   "Emojis_16x16_167.png",
+   "Emojis_16x16_122.png",
+   "Emojis_16x16_66.png"
+  ],
+  "top6_dist": [
+   42495.5,
+   42883.5,
+   43442.6,
+   44908.2,
+   45466.6,
+   45711.6
+  ]
+ },
+ "🏠": {
+  "file": "Emojis_16x16_249.png",
+  "numbered": "Emojis_16x16_249.png",
+  "named": false,
+  "dist": 38475.0,
+  "top6": [
+   "Emojis_16x16_249.png",
+   "Emojis_16x16_106.png",
+   "Emojis_16x16_66.png",
+   "Emojis_16x16_247.png",
+   "Emojis_16x16_194.png",
+   "Emojis_16x16_47.png"
+  ],
+  "top6_dist": [
+   38475.0,
+   41899.3,
+   42315.0,
+   43839.2,
+   43939.2,
+   44043.1
+  ]
+ },
+ "🕵": {
+  "file": "Emojis_16x16_249.png",
+  "numbered": "Emojis_16x16_249.png",
+  "named": false,
+  "dist": 37398.7,
+  "top6": [
+   "Emojis_16x16_249.png",
+   "Emojis_16x16_106.png",
+   "Emojis_16x16_66.png",
+   "Emojis_16x16_47.png",
+   "Emojis_16x16_24.png",
+   "Emojis_16x16_167.png"
+  ],
+  "top6_dist": [
+   37398.7,
+   40846.9,
+   41784.3,
+   43622.8,
+   44602.6,
+   45208.4
+  ]
+ },
+ "💬": {
+  "file": "Emojis_16x16_249.png",
+  "numbered": "Emojis_16x16_249.png",
+  "named": false,
+  "dist": 38686.8,
+  "top6": [
+   "Emojis_16x16_249.png",
+   "Emojis_16x16_247.png",
+   "Emojis_16x16_66.png",
+   "Emojis_16x16_106.png",
+   "Emojis_16x16_60.png",
+   "Emojis_16x16_24.png"
+  ],
+  "top6_dist": [
+   38686.8,
+   40174.5,
+   40968.0,
+   41787.6,
+   43070.2,
+   43655.6
+  ]
+ },
+ "🔕": {
+  "file": "Emojis_16x16_249.png",
+  "numbered": "Emojis_16x16_249.png",
+  "named": false,
+  "dist": 39193.7,
+  "top6": [
+   "Emojis_16x16_249.png",
+   "Emojis_16x16_24.png",
+   "Emojis_16x16_66.png",
+   "Emojis_16x16_106.png",
+   "Emojis_16x16_167.png",
+   "Emojis_16x16_247.png"
+  ],
+  "top6_dist": [
+   39193.7,
+   40761.6,
+   43949.0,
+   44114.3,
+   44472.5,
+   44616.7
+  ]
+ },
+ "⚙": {
+  "file": "gear_gray.png",
+  "numbered": "Emojis_16x16_62.png",
+  "named": true,
+  "dist": 42820.1,
+  "top6": [
+   "Emojis_16x16_62.png",
+   "Emojis_16x16_359.png",
+   "Emojis_16x16_290.png",
+   "Emojis_16x16_239.png",
+   "Emojis_16x16_128.png",
+   "Emojis_16x16_360.png"
+  ],
+  "top6_dist": [
+   42820.1,
+   43739.2,
+   45394.6,
+   45815.6,
+   46506.1,
+   46961.5
+  ]
+ },
+ "📣": {
+  "file": "Emojis_16x16_249.png",
+  "numbered": "Emojis_16x16_249.png",
+  "named": false,
+  "dist": 41241.8,
+  "top6": [
+   "Emojis_16x16_249.png",
+   "Emojis_16x16_106.png",
+   "Emojis_16x16_24.png",
+   "Emojis_16x16_66.png",
+   "Emojis_16x16_47.png",
+   "Emojis_16x16_100.png"
+  ],
+  "top6_dist": [
+   41241.8,
+   44923.0,
+   45696.6,
+   46616.1,
+   47672.1,
+   47751.3
+  ]
+ },
+ "🎨": {
+  "file": "Emojis_16x16_249.png",
+  "numbered": "Emojis_16x16_249.png",
+  "named": false,
+  "dist": 39033.1,
+  "top6": [
+   "Emojis_16x16_249.png",
+   "Emojis_16x16_106.png",
+   "Emojis_16x16_66.png",
+   "Emojis_16x16_64.png",
+   "Emojis_16x16_247.png",
+   "Emojis_16x16_47.png"
+  ],
+  "top6_dist": [
+   39033.1,
+   39977.4,
+   43967.1,
+   44432.3,
+   44602.5,
+   44613.2
+  ]
+ },
+ "🎉": {
+  "file": "Emojis_16x16_249.png",
+  "numbered": "Emojis_16x16_249.png",
+  "named": false,
+  "dist": 41168.8,
+  "top6": [
+   "Emojis_16x16_249.png",
+   "Emojis_16x16_66.png",
+   "Emojis_16x16_106.png",
+   "Emojis_16x16_194.png",
+   "Emojis_16x16_122.png",
+   "Emojis_16x16_247.png"
+  ],
+  "top6_dist": [
+   41168.8,
+   41241.8,
+   41860.3,
+   45150.3,
+   45392.4,
+   45424.2
+  ]
+ },
+ "📢": {
+  "file": "Emojis_16x16_249.png",
+  "numbered": "Emojis_16x16_249.png",
+  "named": false,
+  "dist": 42319.5,
+  "top6": [
+   "Emojis_16x16_249.png",
+   "Emojis_16x16_106.png",
+   "Emojis_16x16_47.png",
+   "Emojis_16x16_24.png",
+   "Emojis_16x16_66.png",
+   "Emojis_16x16_100.png"
+  ],
+  "top6_dist": [
+   42319.5,
+   46286.7,
+   46301.4,
+   46365.6,
+   46388.5,
+   48159.2
+  ]
+ },
+ "🛡": {
+  "file": "Emojis_16x16_249.png",
+  "numbered": "Emojis_16x16_249.png",
+  "named": false,
+  "dist": 40169.7,
+  "top6": [
+   "Emojis_16x16_249.png",
+   "Emojis_16x16_247.png",
+   "Emojis_16x16_66.png",
+   "Emojis_16x16_47.png",
+   "Emojis_16x16_106.png",
+   "Emojis_16x16_24.png"
+  ],
+  "top6_dist": [
+   40169.7,
+   41723.9,
+   42036.8,
+   44454.6,
+   44604.4,
+   46231.6
+  ]
+ },
+ "🔒": {
+  "file": "Emojis_16x16_249.png",
+  "numbered": "Emojis_16x16_249.png",
+  "named": false,
+  "dist": 39301.6,
+  "top6": [
+   "Emojis_16x16_249.png",
+   "Emojis_16x16_24.png",
+   "Emojis_16x16_47.png",
+   "Emojis_16x16_66.png",
+   "Emojis_16x16_247.png",
+   "Emojis_16x16_100.png"
+  ],
+  "top6_dist": [
+   39301.6,
+   42444.6,
+   43814.8,
+   43916.8,
+   44077.6,
+   44940.9
+  ]
+ },
+ "💾": {
+  "file": "bow_wooden.png",
+  "numbered": "Emojis_16x16_106.png",
+  "named": true,
+  "dist": 41256.7,
+  "top6": [
+   "Emojis_16x16_106.png",
+   "Emojis_16x16_249.png",
+   "Emojis_16x16_247.png",
+   "Emojis_16x16_66.png",
+   "Emojis_16x16_24.png",
+   "Emojis_16x16_47.png"
+  ],
+  "top6_dist": [
+   41256.7,
+   41415.8,
+   41871.5,
+   42675.7,
+   44772.6,
+   46078.5
+  ]
+ },
+ "🤝": {
+  "file": "Emojis_16x16_249.png",
+  "numbered": "Emojis_16x16_249.png",
+  "named": false,
+  "dist": 40011.9,
+  "top6": [
+   "Emojis_16x16_249.png",
+   "Emojis_16x16_24.png",
+   "Emojis_16x16_247.png",
+   "Emojis_16x16_66.png",
+   "Emojis_16x16_167.png",
+   "Emojis_16x16_86.png"
+  ],
+  "top6_dist": [
+   40011.9,
+   41903.6,
+   42185.0,
+   42515.6,
+   44053.6,
+   44748.6
+  ]
+ },
+ "🕐": {
+  "file": "Emojis_16x16_249.png",
+  "numbered": "Emojis_16x16_249.png",
+  "named": false,
+  "dist": 39878.2,
+  "top6": [
+   "Emojis_16x16_249.png",
+   "Emojis_16x16_247.png",
+   "Emojis_16x16_24.png",
+   "Emojis_16x16_66.png",
+   "Emojis_16x16_167.png",
+   "Emojis_16x16_194.png"
+  ],
+  "top6_dist": [
+   39878.2,
+   42941.1,
+   42947.6,
+   43923.6,
+   44118.3,
+   44991.5
+  ]
+ },
+ "🚫": {
+  "file": "Emojis_16x16_249.png",
+  "numbered": "Emojis_16x16_249.png",
+  "named": false,
+  "dist": 41197.3,
+  "top6": [
+   "Emojis_16x16_249.png",
+   "Emojis_16x16_247.png",
+   "Emojis_16x16_106.png",
+   "Emojis_16x16_66.png",
+   "Emojis_16x16_24.png",
+   "Emojis_16x16_122.png"
+  ],
+  "top6_dist": [
+   41197.3,
+   42613.7,
+   43247.1,
+   44616.7,
+   44780.6,
+   46078.8
+  ]
+ },
+ "👋": {
+  "file": "Emojis_16x16_249.png",
+  "numbered": "Emojis_16x16_249.png",
+  "named": false,
+  "dist": 41613.5,
+  "top6": [
+   "Emojis_16x16_249.png",
+   "Emojis_16x16_24.png",
+   "Emojis_16x16_167.png",
+   "Emojis_16x16_122.png",
+   "Emojis_16x16_247.png",
+   "Emojis_16x16_106.png"
+  ],
+  "top6_dist": [
+   41613.5,
+   43353.8,
+   44470.2,
+   44756.0,
+   45060.7,
+   45854.1
+  ]
+ },
+ "✨": {
+  "file": "Emojis_16x16_179.png",
+  "numbered": "Emojis_16x16_179.png",
+  "named": false,
+  "dist": 43412.3,
+  "top6": [
+   "Emojis_16x16_179.png",
+   "Emojis_16x16_219.png",
+   "Emojis_16x16_267.png",
+   "Emojis_16x16_278.png",
+   "Emojis_16x16_172.png",
+   "Emojis_16x16_6.png"
+  ],
+  "top6_dist": [
+   43412.3,
+   46510.1,
+   46588.0,
+   48907.5,
+   49868.6,
+   50743.1
+  ]
+ },
+ "🔥": {
+  "file": "Emojis_16x16_249.png",
+  "numbered": "Emojis_16x16_249.png",
+  "named": false,
+  "dist": 39838.7,
+  "top6": [
+   "Emojis_16x16_249.png",
+   "Emojis_16x16_24.png",
+   "Emojis_16x16_106.png",
+   "Emojis_16x16_66.png",
+   "Emojis_16x16_167.png",
+   "Emojis_16x16_47.png"
+  ],
+  "top6_dist": [
+   39838.7,
+   41464.6,
+   43433.3,
+   44420.0,
+   45175.5,
+   45367.5
+  ]
+ },
+ "❤": {
+  "file": "heart_pink.png",
+  "numbered": "Emojis_16x16_1.png",
+  "named": true,
+  "dist": 21474.7,
+  "top6": [
+   "Emojis_16x16_1.png",
+   "Emojis_16x16_2.png",
+   "Emojis_16x16_9.png",
+   "Emojis_16x16_85.png",
+   "Emojis_16x16_5.png",
+   "Emojis_16x16_119.png"
+  ],
+  "top6_dist": [
+   21474.7,
+   24488.4,
+   30528.4,
+   32850.2,
+   35453.7,
+   35565.7
+  ]
+ },
+ "👍": {
+  "file": "Emojis_16x16_249.png",
+  "numbered": "Emojis_16x16_249.png",
+  "named": false,
+  "dist": 43687.4,
+  "top6": [
+   "Emojis_16x16_249.png",
+   "Emojis_16x16_247.png",
+   "Emojis_16x16_24.png",
+   "Emojis_16x16_167.png",
+   "Emojis_16x16_100.png",
+   "Emojis_16x16_122.png"
+  ],
+  "top6_dist": [
+   43687.4,
+   44195.3,
+   44365.3,
+   46198.2,
+   46319.4,
+   46583.7
+  ]
+ },
+ "👎": {
+  "file": "Emojis_16x16_249.png",
+  "numbered": "Emojis_16x16_249.png",
+  "named": false,
+  "dist": 41004.2,
+  "top6": [
+   "Emojis_16x16_249.png",
+   "Emojis_16x16_24.png",
+   "Emojis_16x16_247.png",
+   "Emojis_16x16_167.png",
+   "Emojis_16x16_122.png",
+   "Emojis_16x16_66.png"
+  ],
+  "top6_dist": [
+   41004.2,
+   42412.5,
+   44421.7,
+   44658.1,
+   45195.2,
+   45703.8
+  ]
+ },
+ "😂": {
+  "file": "Emojis_16x16_249.png",
+  "numbered": "Emojis_16x16_249.png",
+  "named": false,
+  "dist": 39138.3,
+  "top6": [
+   "Emojis_16x16_249.png",
+   "Emojis_16x16_24.png",
+   "Emojis_16x16_125.png",
+   "Emojis_16x16_100.png",
+   "Emojis_16x16_247.png",
+   "Emojis_16x16_47.png"
+  ],
+  "top6_dist": [
+   39138.3,
+   42079.6,
+   44390.6,
+   44516.3,
+   44727.3,
+   45303.9
+  ]
+ }
+}

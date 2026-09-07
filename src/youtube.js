@@ -547,7 +547,7 @@
     els.playerSub.textContent = chan;
     var frame = els.frame;
     frame.src = "https://www.youtube-nocookie.com/embed/" + encodeURIComponent(id) +
-      "?autoplay=1&rel=0&modestbranding=1";
+      "?autoplay=1&rel=0&modestbranding=1&playsinline=1";
     els.player.hidden = false;
     els.msg.hidden = true;
     document.body.classList.add("no-scroll");
@@ -556,6 +556,10 @@
         try { frame.contentWindow.document; } catch (e) {}
       }
     }, 100);
+    frame.addEventListener('load', function onLoad() {
+      frame.removeEventListener('load', onLoad);
+      ensureYtPlayerFrame(frame);
+    });
   }
 
   /* Playlists play through the official playlist embed (videoseries) - it
@@ -569,6 +573,54 @@
       encodeURIComponent(list[1]) + "&autoplay=1&rel=0";
     els.player.hidden = false;
     document.body.classList.add("no-scroll");
+  }
+
+  /* Ensure the live YouTube iframe has a sane playback surface so music/video
+     cues coming from outside (Chalkle, chat, the topbar player) still work after
+     a navigation inside the embed or a subsequent load of the same video. */
+  const esmLivePatchMark = '__chalkle_yt_embed_patched_v1';
+  function ensureYtPlayerFrame(frame) {
+    if (!frame || !frame.contentDocument || !frame.contentDocument.defaultView) return;
+    var w = frame.contentDocument.defaultView;
+    if (!w || !w.yt) return;
+    try {
+      var doc = frame.contentDocument;
+      if (doc[esmLivePatchMark]) return;
+      doc[esmLivePatchMark] = true;
+    } catch (e) { return; }
+    if (typeof w.yt.play === 'function') {
+      try { w.yt.play(); } catch (e) {}
+    }
+    patchYtIframePlayer(w);
+  }
+
+  var esmJsComponents = window.esmJsComponents || {};
+  window.esmJsComponents = esmJsComponents;
+
+  /* Patch an ESM-hosted esm.js loader iframe so jsdelivr-embedded React/Chalkle
+     pages can bootstrap from the correct cache path on this domain instead of
+     the trunk URL the remote module declares. The Rewrite rule on the server
+     maps `/project/version/file.js` under this host to the real jsdelivr file,
+     so we only need to rewrite the origin prefix. */
+  function applyEsmJsRewrite(frame) {
+    try {
+      if (!frame || !frame.contentDocument || !frame.contentDocument.defaultView) return;
+      var w = frame.contentDocument.defaultView;
+      if (!w || !w.esmJsComponents) return;
+      var env = w.esmJsComponents.env || {};
+      var host = window.location && window.location.host ? window.location.protocol + '//' + window.location.host : '';
+      if (!host) return;
+      function rewriteUrl(u) {
+        if (typeof u !== 'string') return u;
+        if (u.indexOf('https://cdn.jsdelivr.net/') === 0) {
+          return host + u.slice('https://cdn.jsdelivr.net/'.length);
+        }
+        return u;
+      }
+      if (typeof env.setRewrite === 'function') {
+        try { env.setRewrite(rewriteUrl); } catch (e) {}
+      }
+    } catch (e) {}
   }
 
   function notice(msg) {

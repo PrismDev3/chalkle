@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+<meta charset="utf-8">
+<title>Beatblock</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<style>
+  html,body{margin:0;height:100%;background:#0d0d11;overflow:hidden}
+  iframe{position:fixed;inset:0;width:100%;height:100%;border:0;display:block;background:#0d0d11}
+  #err{position:fixed;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:#e8e6ea;font-family:system-ui,sans-serif;text-align:center;padding:24px}
+  #err b{color:#ff5d8f}
+</style>
+</head>
+<body>
+<iframe src="data:text/html;base64,PCFkb2N0eXBlIGh0bWw+CjxodG1sIGxhbmc9ImVuLXVzIj4KICA8aGVhZD4KICAgIDxtZXRhIGh0dHAtZXF1aXY9IkNvbnRlbnQtVHlwZSIgY29udGVudD0idGV4dC9odG1sOyBjaGFyc2V0PXV0Zi04IiAvPgogICAgPG1ldGEgbmFtZT0idmlld3BvcnQiIGNvbnRlbnQ9IndpZHRoPWRldmljZS13aWR0aCx1c2VyLXNjYWxhYmxlPW5vIiAvPgogICAgPGJhc2UKICAgICAgaHJlZj0iaHR0cHM6Ly9jZG4uanNkZWxpdnIubmV0L2doL1NvbWVSYW5kb21GZWxsYS9wb3J0c2FuZHJpcHNAbWFzdGVyL2Jsb2NrYmxhc3QtcG9ydC9wbGF5LyIKICAgIC8+CiAgICA8bWV0YQogICAgICBodHRwLWVxdWl2PSJDYWNoZS1Db250cm9sIgogICAgICBjb250ZW50PSJuby1jYWNoZSwgbm8tc3RvcmUsIG11c3QtcmV2YWxpZGF0ZSIKICAgIC8+CiAgICA8bWV0YSBodHRwLWVxdWl2PSJQcmFnbWEiIGNvbnRlbnQ9Im5vLWNhY2hlIiAvPgogICAgPG1ldGEgaHR0cC1lcXVpdj0iRXhwaXJlcyIgY29udGVudD0iMCIgLz4KICAgIDx0aXRsZT5sw7Z2ZS5qczwvdGl0bGU+CiAgICA8bGluayByZWw9InN0eWxlc2hlZXQiIGhyZWY9InN0eWxlLmNzcyIgLz4KICA8L2hlYWQ+CiAgPGJvZHk+CiAgICA8Y2FudmFzIGlkPSJjYW52YXMiPjwvY2FudmFzPgogICAgPGRpdiBpZD0ic3Bpbm5lciIgY2xhc3M9InBlbmRpbmciPjwvZGl2PgogICAgPHNjcmlwdD4KICAgICAgKGFzeW5jICgpID0+IHsKICAgICAgICBjb25zdCBwYXJ0cyA9IFsKICAgICAgICAgICJnYW1lLmxvdmUucGFydDAwMCIsCiAgICAgICAgICAiZ2FtZS5sb3ZlLnBhcnQwMDEiLAogICAgICAgICAgImdhbWUubG92ZS5wYXJ0MDAyIiwKICAgICAgICAgICJnYW1lLmxvdmUucGFydDAwMyIsCiAgICAgICAgICAiZ2FtZS5sb3ZlLnBhcnQwMDQiLAogICAgICAgIF07CiAgICAgICAgY29uc3QgYnVmZmVycyA9IGF3YWl0IFByb21pc2UuYWxsKAogICAgICAgICAgcGFydHMubWFwKChwKSA9PiBmZXRjaChwKS50aGVuKChyKSA9PiByLmFycmF5QnVmZmVyKCkpKSwKICAgICAgICApOwogICAgICAgIGNvbnN0IG1lcmdlZCA9IG5ldyBCbG9iKGJ1ZmZlcnMsIHsgdHlwZTogImFwcGxpY2F0aW9uL29jdGV0LXN0cmVhbSIgfSk7CiAgICAgICAgY29uc3QgdXJsID0gVVJMLmNyZWF0ZU9iamVjdFVSTChtZXJnZWQpOwogICAgICAgIGNvbnN0IHMgPSBkb2N1bWVudC5jcmVhdGVFbGVtZW50KCJzY3JpcHQiKTsKICAgICAgICBzLnNyYyA9ICJwbGF5ZXIuanM/Zz0iICsgZW5jb2RlVVJJQ29tcG9uZW50KHVybCkgKyAiJm49MSI7CiAgICAgICAgZG9jdW1lbnQuYm9keS5hcHBlbmRDaGlsZChzKTsKICAgICAgfSkoKTsKICAgIDwvc2NyaXB0PgogIDwvYm9keT4KPC9odG1sPgo=" title="Beatblock" allow="autoplay; fullscreen; gamepad; clipboard-write" allowfullscreen></iframe>
+<div id="err"><b>Beatblock failed to load.</b><span>This can happen on offline exports where the build files are unreachable.</span></div>
+<script>
+  var frame = document.querySelector("iframe");
+  var shown = false;
+  frame.addEventListener("load", function(){ shown = true; document.getElementById("err").style.display = "none"; });
+  setTimeout(function(){ if(!shown){ document.getElementById("err").style.display = "flex"; } }, 20000);
+  document.addEventListener("click", function(){ try { frame.contentWindow.focus(); } catch(e){} });
+</script>
+</body>
+</html>

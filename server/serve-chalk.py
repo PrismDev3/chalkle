@@ -33,9 +33,12 @@ import time
 import mmap
 import socket
 import base64
+import hashlib
 import threading
 import mimetypes
 from urllib.parse import urljoin
+import urllib.parse
+import urllib.request
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 
 # WebAssembly (ScummVM runtime) needs the right MIME type for
@@ -63,6 +66,63 @@ LOCK = threading.Lock()
 # different, too-low count. A tiny JSON file on disk fixes that, and also
 # survives restarts (stale rows prune by timestamp naturally).
 ACTIVE_PATH = os.path.join(WEB_ROOT, "active-visitors.json")
+
+
+def _sanitize_sync_blob(raw: bytes) -> bytes:
+    """Sync relay sanitizer: the relay used to echo client state verbatim, so
+    any visitor's stale library resurrected deleted junk titles (bad 'Examples'
+    placeholders, Scratch embeds, broken 1v1/Arena/2048-Cupcakes style entries)
+    into every other visitor's library. Filter the gamelib on both GET and POST
+    so removed entries stay removed no matter what clients send."""
+    try:
+        d = json.loads(raw.decode("utf-8"))
+        if isinstance(d, dict) and isinstance(d.get("chalkle-gamelib-v4"), str):
+            lib = json.loads(d["chalkle-gamelib-v4"])
+            if isinstance(lib, list) and lib and isinstance(lib[0], dict):
+                kept = [
+                    g for g in lib
+                    if isinstance(g, dict) and _lib_entry_ok(g)
+                ]
+                d["chalkle-gamelib-v4"] = json.dumps(kept, separators=(",", ":"), ensure_ascii=False)
+        return json.dumps(d, ensure_ascii=False).encode("utf-8")
+    except Exception:
+        return raw
+
+
+_BAD_TITLE_BITS = (
+    "achievmentunlocked", "achievement unlocked", "scratch", "games -3", "games -b",
+    "cat hear", "pagetitle", "maybeidk", "10-103nk", "13 days in hell", "1v1.space",
+    "2048 cupcakes", "2048 lite", "3d car driver", "agario minigame", "amberial",
+    "all boss 1", "admist the sky", "arsonaate", "asriel dreemurr", "attogram",
+    "ballz |", "bearsus", "big neon tower", "big neon", "1 v 1 maybe",
+    "$(", "${",
+)
+# junk titles that must match EXACTLY (substrings would kill legit games:
+# "arena" hits Quake III Arena / Thing-Thing Arena 3, "guard" hits Lifeguard)
+_BAD_TITLES_EXACT = {"arena", "guard"}
+_BAD_URL_BITS = (
+    "scratch.mit.edu", "turbowarp.org", "clarena.html", "clbadbodyguards.html",
+    "clballz.html", "clbearsus.html", "cl2048cupcakes.html", "cl1v1maybeidk.html",
+    "clnullkevin.html", "clmotox3mm.html", "clachievmentunlocked.html",
+    "clachievementunlocked.html", "clbntts.html", "clbigneontowertinysquare.html",
+    "clallbossesin1.html", "cl1v1.html", "terrariamods-scratch",
+    "clbuckshotroulette.html", "clarena", "geodash", "amberial.swf",
+    "13-days-in-hell.swf", "3D-Car-Driver.swf", "agario-minigame",
+    "1v1space", "asriel_fight",
+)
+
+
+def _lib_entry_ok(g) -> bool:
+    t = str(g.get("title") or "").strip()
+    tl = t.lower()
+    u = str(g.get("url") or "").lower()
+    if len(t) < 2:
+        return False
+    if tl in _BAD_TITLES_EXACT:
+        return False
+    if any(b in tl for b in _BAD_TITLE_BITS) or any(b in u for b in _BAD_URL_BITS):
+        return False
+    return True
 
 
 def _active_load():
@@ -1903,17 +1963,20 @@ class _BitcordRelay:
             pass
 
     def _bitcord_api(self, route):
-        """Handle /bitcord/api/* -> proxy to Bitcord backend."""
+        """Handle /bitcord/api/* -> proxy to Bitcord backend. Any HTTP method."""
         if not route.startswith("/bitcord/api/") and not route.startswith("/bitcord/api?"):
             return None
-        method = "POST" if self.command == "POST" else "GET"
+        method = (self.command or "GET").upper()
+        if method in ("GET", "HEAD"):
+            body = None
+        else:
+            length = int(self.headers.get("Content-Length", 0) or 0)
+            body = self.rfile.read(length) if length > 0 else None
         query = self.path.split("?", 1)[1] if "?" in self.path else ""
         subpath = route[len("/bitcord"):]  # /api/... (keeps leading /)
-        if method == "POST":
-            length = int(self.headers.get("Content-Length", 0))
-            body = self.rfile.read(length) if length > 0 else None
-        else:
-            body = None
+        if query:
+            sep = "&" if "?" in subpath else "?"
+            subpath += sep + query
         r = self._bitcord_forward(method, subpath, post_body=body, timeout=30)
         if r is None:
             return None
@@ -2017,8 +2080,197 @@ class _BitcordRelay:
         except Exception:
             pass
 
+    def _bitcord_static(self, route):
+        """Serve Bitcord static files directly from the bitcord/ folder."""
+        if not route.startswith("/bitcord/") and route != "/bitcord":
+            return None
+        rel = route[len("/bitcord"):] or "/"
+        if not rel.startswith("/"):
+            rel = "/" + rel
+        body_root = os.path.join(WEB_ROOT, "bitcord")
+        dest = os.path.normpath(os.path.join(body_root, rel.lstrip("/")))
+        if not dest.startswith(body_root) or not os.path.isfile(dest):
+            return None
+        ctype, _ = mimetypes.guess_type(dest)
+        if not ctype:
+            ext = os.path.splitext(dest)[1].lower()
+            ctype = {
+                ".js": "application/javascript",
+                ".mjs": "application/javascript",
+                ".css": "text/css",
+                ".html": "text/html",
+                ".json": "application/json",
+                ".svg": "image/svg+xml",
+                ".png": "image/png",
+                ".jpg": "image/jpeg",
+                ".jpeg": "image/jpeg",
+                ".webp": "image/webp",
+                ".wasm": "application/wasm",
+                ".ico": "image/x-icon",
+                ".webmanifest": "application/manifest+json",
+            }.get(ext, "application/octet-stream")
+        try:
+            with open(dest, "rb") as f:
+                raw = f.read()
+        except Exception:
+            return None
+        self.send_response(200)
+        self.send_header("Content-Type", ctype)
+        self.send_header("Cache-Control", "no-store, max-age=0")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Content-Length", str(len(raw)))
+        self.end_headers()
+        try:
+            self.wfile.write(raw)
+        except Exception:
+            pass
+        return True
 
-class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, _BitcordRelay, SimpleHTTPRequestHandler):
+
+
+class _ChatUpload:
+    """Chat image uploads -> Cloudflare R2 (free tier, zero egress).
+
+    POST /chat-upload-image  multipart "file" -> {"ok":true,"url":...}
+    GET  /chat-image/<key>   stream the stored image back (fallback when the
+                             bucket has no public base configured).
+
+    Keys are content-addressed (images/<sha256>.<ext>) and immutable, so
+    re-uploads are free and caching is safe. Disabled (503) unless the R2_*
+    env vars are set, so nothing changes until credentials exist.
+    """
+
+    MAX_IMAGE_BYTES = 1_500_000
+
+    _MAGIC_EXT = (
+        (bytes([0xFF, 0xD8, 0xFF]), "jpg"),
+        (bytes([0x89]) + b"PNG", "png"),
+        (b"GIF8", "gif"),
+        (b"RIFF", "webp"),
+    )
+    _CTYPES = {"jpg": "image/jpeg", "png": "image/png", "gif": "image/gif", "webp": "image/webp"}
+
+    def _r2_client(self):
+        if getattr(self, "_r2", None) is not None:
+            return self._r2
+        if getattr(self, "_r2_checked", False):
+            return None
+        self._r2_checked = True
+        acct = os.environ.get("R2_ACCOUNT_ID", "")
+        key = os.environ.get("R2_ACCESS_KEY_ID", "")
+        secret = os.environ.get("R2_SECRET_ACCESS_KEY", "")
+        bucket = os.environ.get("R2_BUCKET", "")
+        if not (acct and key and secret and bucket):
+            return None
+        try:
+            import boto3
+            from botocore.config import Config
+            self._r2 = boto3.client(
+                "s3",
+                endpoint_url="https://%s.r2.cloudflarestorage.com" % acct,
+                aws_access_key_id=key,
+                aws_secret_access_key=secret,
+                config=Config(signature_version="s3v4"),
+            )
+            self._r2_bucket = bucket
+            pub = os.environ.get("R2_PUBLIC_BASE", "").strip().rstrip("/")
+            self._r2_public_base = pub or None
+            return self._r2
+        except Exception as e:
+            print("[chat-upload] R2 unavailable: %s" % e)
+            return None
+
+    def _chat_upload_json(self, code, obj):
+        data = json.dumps(obj).encode("utf-8")
+        self.send_response(code)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
+    def handle_chat_upload_image(self):
+        client = self._r2_client()
+        if not client:
+            return self._chat_upload_json(503, {"ok": False, "error": "upload not configured"})
+        try:
+            length = int(self.headers.get("Content-Length") or 0)
+            if length <= 0 or length > self.MAX_IMAGE_BYTES + 64 * 1024:
+                return self._chat_upload_json(413, {"ok": False, "error": "too large"})
+            body = self.rfile.read(length)
+            ctype = self.headers.get("Content-Type", "")
+            m = re.search(r"boundary=([^;]+)", ctype)
+            if not m:
+                return self._chat_upload_json(400, {"ok": False, "error": "expected multipart"})
+            boundary = m.group(1).strip().encode()
+            part = None
+            for chunk in body.split(b"--" + boundary):
+                if b"Content-Disposition" in chunk and b"filename" in chunk:
+                    part = chunk
+                    break
+            if not part:
+                return self._chat_upload_json(400, {"ok": False, "error": "no file part"})
+            idx = part.find(b"\r\n\r\n")
+            if idx < 0:
+                return self._chat_upload_json(400, {"ok": False, "error": "malformed part"})
+            data = part[idx + 4:]
+            if data.endswith(b"\r\n"):
+                data = data[:-2]
+            if len(data) > self.MAX_IMAGE_BYTES:
+                return self._chat_upload_json(413, {"ok": False, "error": "too large"})
+
+            ext = None
+            for magic, e2 in self._MAGIC_EXT:
+                if data[:16].startswith(magic):
+                    ext = e2
+                    break
+            ext = ext or "png"
+            digest = hashlib.sha256(data).hexdigest()[:32]
+            key = "images/%s.%s" % (digest, ext)
+            client.put_object(
+                Bucket=self._r2_bucket,
+                Key=key,
+                Body=data,
+                ContentType=self._CTYPES.get(ext, "application/octet-stream"),
+                CacheControl="public, max-age=31536000, immutable",
+            )
+            base = getattr(self, "_r2_public_base", None)
+            url = ("%s/%s" % (base, key)) if base else ("/chat-image/%s" % key.split("/", 1)[1])
+            self._chat_upload_json(200, {"ok": True, "url": url, "key": key})
+        except Exception as e:
+            print("[chat-upload] error: %s" % e)
+            self._chat_upload_json(500, {"ok": False, "error": str(e)[:200]})
+
+    def handle_chat_image_get(self, key):
+        client = self._r2_client()
+        if not client or not re.fullmatch(r"[a-f0-9]{32}\.(jpg|png|gif|webp)", key or ""):
+            self.send_response(404)
+            self.send_header("Content-Type", "text/plain")
+            self.send_header("Content-Length", "9")
+            self.end_headers()
+            self.wfile.write(b"not found")
+            return
+        try:
+            obj = client.get_object(Bucket=self._r2_bucket, Key="images/%s" % key)
+            data = obj["Body"].read()
+            ext = key.rsplit(".", 1)[-1].lower()
+            payload = data
+            self.send_response(200)
+            self.send_header("Content-Type", self._CTYPES.get(ext, "application/octet-stream"))
+            self.send_header("Cache-Control", "public, max-age=31536000, immutable")
+            self.send_header("Content-Length", str(len(payload)))
+            self.end_headers()
+            self.wfile.write(payload)
+        except Exception:
+            self.send_response(404)
+            self.send_header("Content-Type", "text/plain")
+            self.send_header("Content-Length", "9")
+            self.end_headers()
+            self.wfile.write(b"not found")
+
+
+class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, _BitcordRelay, _ChatUpload, SimpleHTTPRequestHandler):
     def log_message(self, *a):  # quieter than the default per-request logger
         pass
 
@@ -2051,11 +2303,18 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, _Bitc
         bits = self.path.split("?", 1)
         route = bits[0].lower()
         q = bits[1] if len(bits) > 1 else ""
-        if route.endswith((".webp", ".png", ".jpg", ".jpeg", ".gif", ".ico", ".avif")):
+        # Never let an error response be hard-cached: Cloudflare will happily
+        # cache a 404 for a day otherwise, and the file stays broken at the
+        # edge even after it exists on disk (exact bug hit /src/bg-chalk.webp).
+        if code >= 400:
+            self.send_header("Cache-Control", "no-store, max-age=0")
+        elif route.endswith((".webp", ".png", ".jpg", ".jpeg", ".gif", ".ico", ".avif")):
             self.send_header("Cache-Control", "public, max-age=86400")
         elif route.endswith((".js", ".css", ".mjs")) and q.startswith("v="):
             self.send_header("Cache-Control", "public, max-age=86400")
-        elif route.endswith((".html", ".htm", ".css", ".js", ".json", ".svg", ".mjs")):
+        elif route.startswith("/bitcord/") or route == "/bitcord":
+            # Bitcord assets change on every rebuild (hashed filenames), and the
+            # embed page itself should never be stale-cached for offline users.
             self.send_header("Cache-Control", "no-store, max-age=0")
         else:
             # Safety net: anything not explicitly cacheable (the bare index
@@ -2116,6 +2375,8 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, _Bitc
             return self._dh_dns()
         if route == "/_dhgeo":
             return self._dh_geo()
+        if route.startswith("/chat-image/"):
+            return self.handle_chat_image_get(route[len("/chat-image/"):])
         if route == "/api/ai/models":
             return self._ai_models()
         if route == "/api/ai/convos":
@@ -2176,15 +2437,16 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, _Bitc
             return self._manga_proxy(route)
         if route.startswith("/api/tmdb/"):
             return self._tmdb_proxy(route)
-        # Bitcord chat embed: API proxy + WebSocket tunnel.
-        if route.startswith("/bitcord/"):
+        # Bitcord chat embed: API proxy + WebSocket tunnel + static assets.
+        if route.startswith("/bitcord/") or route == "/bitcord":
             if (self.headers.get("Upgrade") or "").lower() == "websocket":
                 if self._bitcord_ws():
                     return
-            else:
-                got = self._bitcord_api(route)
-                if got is not None:
-                    return
+            got = self._bitcord_api(route)
+            if got is not None:
+                return
+            # Static files (index.html, assets/) - serve from the bitcord/ folder.
+            return self._bitcord_static(route) or super().do_GET()
         return super().do_GET()
 
     def do_POST(self):
@@ -2210,8 +2472,12 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, _Bitc
         # the request body itself, so do_POST just delegates.
         if route.startswith("/bitcord/api/") or route.startswith("/bitcord/api?"):
             return self._bitcord_api(route)
+        if route.startswith("/bitcord/") or route == "/bitcord":
+            return self._bitcord_static(route)
         if route == "/cloud/config":
             return self._cloud_config_post()
+        if route == "/chat-upload-image":
+            return self.handle_chat_upload_image()
         got = self._cloud_post(route)
         if got is not None:
             return got
@@ -2219,7 +2485,56 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, _Bitc
             length = int(self.headers.get("Content-Length", 0))
             body = self.rfile.read(length) if length > 0 else b"{}"
             return self._livetv_save(body)
-        self.send_response(405)
+        # Unknown POST: answer with a real JSON 404 (NOT a bare 405, which
+        # Firefox renders as a scary "Method Not Allowed" error page). The
+        # old bare 405 here is exactly what broke the Chat tab whenever any
+        # embedded app POSTed a route this relay did not know about.
+        self.send_response(404)
+        self.send_header("Content-Type", "application/json")
+        try:
+            self.wfile.write(b'{"error":"Unknown endpoint"}')
+        except Exception:
+            pass
+
+    def do_PATCH(self):
+        route = self.path.split("?", 1)[0]
+        if route.startswith("/bitcord/api/") or route.startswith("/bitcord/api?"):
+            return self._bitcord_api(route)
+        self.send_response(404)
+        self.send_header("Content-Type", "application/json")
+        try:
+            self.wfile.write(b'{"error":"Unknown endpoint"}')
+        except Exception:
+            pass
+
+    def do_DELETE(self):
+        route = self.path.split("?", 1)[0]
+        if route.startswith("/bitcord/api/") or route.startswith("/bitcord/api?"):
+            return self._bitcord_api(route)
+        self.send_response(404)
+        self.send_header("Content-Type", "application/json")
+        try:
+            self.wfile.write(b'{"error":"Unknown endpoint"}')
+        except Exception:
+            pass
+
+    def do_PUT(self):
+        route = self.path.split("?", 1)[0]
+        if route.startswith("/bitcord/api/") or route.startswith("/bitcord/api?"):
+            return self._bitcord_api(route)
+        self.send_response(404)
+        self.send_header("Content-Type", "application/json")
+        try:
+            self.wfile.write(b'{"error":"Unknown endpoint"}')
+        except Exception:
+            pass
+
+    def do_OPTIONS(self):
+        # CORS preflight (needed by embeds on mirror hosts).
+        self.send_response(204)
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With")
+        self.send_header("Access-Control-Max-Age", "86400")
         self.end_headers()
 
     # ---------------------------------------------------------------- cherri list
@@ -2332,8 +2647,7 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, _Bitc
         db_path = os.path.join(WEB_ROOT, "sync.json")
         data = b"{}"
         if os.path.isfile(db_path):
-            with open(db_path, "rb") as f:
-                data = f.read()
+            data = _sanitize_sync_blob(open(db_path, "rb").read())
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
         self.send_header("Access-Control-Allow-Origin", "*")
@@ -2343,9 +2657,27 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, _Bitc
 
     def _sync_post(self):
         length = int(self.headers.get("Content-Length", 0))
-        data = self.rfile.read(length) if length > 0 else b"{}"
+        data = _sanitize_sync_blob(self.rfile.read(length) if length > 0 else b"{}")
         db_path = os.path.join(WEB_ROOT, "sync.json")
         try:
+            # Merge-protection: a client that is NOT carrying the shared game
+            # library (fresh profile, cleared storage, first visit) must not
+            # erase the canonical library for everyone else. Only replace the
+            # stored library when the payload actually includes one.
+            try:
+                incoming = json.loads(data.decode("utf-8"))
+                has_lib = isinstance(incoming, dict) and isinstance(incoming.get("chalkle-gamelib-v4"), str)
+            except Exception:
+                has_lib = False
+            if not has_lib and os.path.isfile(db_path):
+                try:
+                    stored = json.loads(open(db_path, "rb").read().decode("utf-8"))
+                    if isinstance(stored, dict) and isinstance(stored.get("chalkle-gamelib-v4"), str):
+                        if isinstance(incoming, dict):
+                            incoming["chalkle-gamelib-v4"] = stored["chalkle-gamelib-v4"]
+                            data = json.dumps(incoming, ensure_ascii=False).encode("utf-8")
+                except Exception:
+                    pass
             with open(db_path, "wb") as f:
                 f.write(data)
             out = b'{"ok":true}'
@@ -2440,6 +2772,10 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, _Bitc
             code = e.code
         except Exception as e:
             return self._json_out({"error": type(e).__name__}, 502)
+        if code in (401, 403):
+            fb = _cinemeta_serve(path, qs)
+            if fb is not None:
+                return _cinemeta_respond(self, fb)
         self.send_response(code or 502)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Access-Control-Allow-Origin", "*")
@@ -3372,10 +3708,297 @@ FETCH_TIMEOUT = 9       # seconds before a target is considered unreachable
 
 # TMDB read-only bearer token used by the JS Movies tab proxy. This is the
 # project's own token (from the vendored MILKBOX app) - never user credentials.
-_TMDB_BEARER = (
+_TMDB_BEARER = os.environ.get("TMDB_BEARER") or (
     "eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiI5NDc2MWZmMmViNWRiYTM4MDJlZDJlNGJkOTE0ZGZlOCIsIm5iZiI6MTc3NzU2MDc0My45NzMsInN1YiI6IjY5ZjM2Y2E3ZDZhZjA3Yjg2Zjg0MzA3MSIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.pNYedccUMayuOtMmH_vMWVVYjfAal3r2V1WWv433u4g"
 )
 FETCH_MAX_REDIRECTS = 5
+# --- Cinemeta fallback for the TMDB proxy (keyless catalog when the token is
+# rejected). Persists a tmdb_id -> imdb_id map harvested from every served
+# catalog row so numeric detail lookups can be answered later. ---
+_CINEMETA = "https://v3-cinemeta.strem.io"
+_CINEMETA_MAP_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "tmdb-imdb-map.json")
+_CINEMETA_TTL = 600  # seconds per route cache entry
+_cinemeta_route_cache = {}
+_cinemeta_id_map = None
+
+
+def _cinemap_map_load():
+    global _cinemeta_id_map
+    if _cinemeta_id_map is None:
+        try:
+            with open(_CINEMETA_MAP_PATH, "r", encoding="utf-8") as fh:
+                _cinemeta_id_map = json.load(fh)
+        except Exception:
+            _cinemeta_id_map = {}
+    return _cinemeta_id_map
+
+
+def _cinemap_map_save():
+    try:
+        with open(_CINEMETA_MAP_PATH, "w", encoding="utf-8") as fh:
+            json.dump(_cinemap_map_load(), fh)
+    except Exception:
+        pass
+
+
+def _cinemap_harvest(metas, mtype):
+    mp = _cinemap_map_load()
+    changed = False
+    for m in metas or []:
+        mid, mdb = str(m.get("id") or ""), m.get("moviedb_id")
+        if mid.startswith("tt") and mdb:
+            key = str(int(mdb))
+            if mp.get(key) != {"i": mid, "t": mtype}:
+                mp[key] = {"i": mid, "t": mtype}
+                changed = True
+    if changed:
+        _cinemap_map_save()
+
+
+def _cinemeta_get(path):
+    req = urllib.request.Request(
+        _CINEMETA + path,
+        headers={"User-Agent": "Mozilla/5.0 ChalkleMovies/1.0", "Accept": "application/json"},
+    )
+    with urllib.request.urlopen(req, timeout=8) as resp:
+        return json.loads(resp.read().decode("utf-8", "replace"))
+
+
+def _cimg(v):
+    return v if isinstance(v, str) and v.startswith("http") else ""
+
+
+def _cinemeta_item(m, mtype):
+    """Cinemeta meta -> TMDB catalog row shape (posters/backdrops absolute)."""
+    try:
+        mdb = int(m.get("moviedb_id") or 0)
+    except Exception:
+        mdb = 0
+    year = (m.get("releaseInfo") or "").split("\u2013")[0].split("-")[0]
+    row = {
+        "id": mdb if mdb else m.get("id"),
+        "imdb_id": m.get("id"),
+        "media_type": mtype,
+        "overview": m.get("description") or "",
+        "poster_path": _cimg(m.get("poster")),
+        "backdrop_path": _cimg(m.get("background") or m.get("poster")),
+        "vote_average": float(m.get("imdbRating") or 0) or None,
+        "release_date": year if mtype == "movie" else None,
+        "first_air_date": year if mtype == "tv" else None,
+        "genre_ids": [],
+        "popularity": m.get("popularity") or 0,
+    }
+    if mtype == "movie":
+        row["title"] = m.get("name")
+    else:
+        row["name"] = m.get("name")
+    return row
+
+
+def _cinemeta_detail(m, mtype, want_id):
+    """Cinemeta meta -> TMDB detail shape."""
+    genres = [{"id": i + 1, "name": g} for i, g in enumerate(m.get("genres") or [])]
+    runtime = None
+    rt = m.get("runtime")
+    if isinstance(rt, str) and rt.strip().endswith("min"):
+        try:
+            runtime = int(rt.strip().split()[0])
+        except Exception:
+            runtime = None
+    elif isinstance(rt, (int, float)):
+        runtime = int(rt)
+    year = (m.get("releaseInfo") or "").split("\u2013")[0].split("-")[0]
+    d = {
+        "id": want_id,
+        "imdb_id": m.get("id"),
+        "overview": m.get("description") or "",
+        "poster_path": _cimg(m.get("poster")),
+        "backdrop_path": _cimg(m.get("background") or m.get("poster")),
+        "vote_average": float(m.get("imdbRating") or 0) or None,
+        "genres": genres,
+        "status": "Released",
+        "tagline": "",
+        "production_companies": [],
+        "credits": {
+            "cast": [{"name": n} for n in (m.get("cast") or [])[:15]],
+            "crew": [{"name": n, "job": "Director"} for n in (m.get("director") or [])[:3]],
+        },
+        "images": {"logos": ( [{"file_path": _cimg(m.get("logo"))}] if _cimg(m.get("logo")) else [] )},
+    }
+    if mtype == "movie":
+        d["title"] = m.get("name")
+        d["release_date"] = year
+        d["runtime"] = runtime
+    else:
+        d["name"] = m.get("name")
+        d["first_air_date"] = year
+        vids = m.get("videos") or []
+        seasons = {}
+        for v in vids:
+            sn = v.get("season")
+            if isinstance(sn, int):
+                seasons[sn] = seasons.get(sn, 0) + 1
+        d["number_of_seasons"] = len(seasons)
+        d["number_of_episodes"] = len(vids)
+        d["seasons"] = [
+            {"season_number": sn, "episode_count": c, "name": "Season %d" % sn}
+            for sn, c in sorted(seasons.items())
+        ]
+        d["last_episode_to_air"] = None
+        d["next_episode_to_air"] = None
+    return d
+
+
+def _cinemeta_rows(catalog_path, mtype):
+    d = _cinemeta_get(catalog_path)
+    metas = d.get("metas") or []
+    _cinemap_harvest(metas, mtype)
+    return [_cinemeta_item(m, mtype) for m in metas]
+
+
+def _cinemeta_respond(self, payload):
+    raw = json.dumps(payload).encode()
+    self.send_response(200)
+    self.send_header("Content-Type", "application/json; charset=utf-8")
+    self.send_header("Access-Control-Allow-Origin", "*")
+    self.send_header("Cache-Control", "public, max-age=300")
+    self.send_header("Content-Length", str(len(raw)))
+    self.end_headers()
+    self.wfile.write(raw)
+
+
+def _cinemeta_serve(path_tail, qs):
+    """Return a TMDB-shaped JSON payload for the requested TMDB route using
+    Cinemeta, or None when the route is not coverable."""
+    import time as _time
+    params = {}
+    for kv in (qs or "").split("&"):
+        if "=" in kv:
+            k, v = kv.split("=", 1)
+            params[k] = urllib.parse.unquote_plus(v)
+    cache_key = path_tail + "?" + qs
+    hit = _cinemeta_route_cache.get(cache_key)
+    if hit and _time.time() - hit[0] < _CINEMETA_TTL:
+        return hit[1]
+
+    results = None
+    try:
+        mm = re.match(r"^(trending|search|discover)/([a-z]+)(?:/([a-z]+))?", path_tail)
+        if mm:
+            kind, sub, sub2 = mm.group(1), mm.group(2), mm.group(3)
+            if kind == "trending":
+                mtype = sub if sub in ("movie", "tv") else "all"
+                page = int(params.get("page") or 1)
+                skip = max(0, (page - 1) * 50)
+                movies = _cinemeta_rows("/catalog/movie/top.json?skip=%d" % skip, "movie")
+                series = _cinemeta_rows("/catalog/series/top.json?skip=%d" % skip, "tv")
+                rows = movies if mtype == "movie" else series if mtype == "tv" else movies + series
+                results = {"page": page, "results": rows, "total_pages": 500, "total_results": 25000}
+            elif kind == "search":
+                q = (params.get("query") or "").strip()
+                if q:
+                    enc = urllib.parse.quote(q)
+                    movies = _cinemeta_rows("/catalog/movie/top/search=%s.json" % enc, "movie")
+                    series = _cinemeta_rows("/catalog/series/top/search=%s.json" % enc, "tv")
+                    if sub == "movie":
+                        rows = movies
+                    elif sub == "tv":
+                        rows = series
+                    else:
+                        rows = movies + series
+                    results = {"page": 1, "results": rows, "total_pages": 1, "total_results": len(rows)}
+            elif kind == "discover":
+                mtype = "tv" if sub == "tv" else "movie"
+                rows = _cinemeta_rows("/catalog/%s/top.json" % ("series" if mtype == "tv" else "movie"), mtype)
+                results = {"page": 1, "results": rows, "total_pages": 1, "total_results": len(rows)}
+        elif path_tail.startswith("find/"):
+            imdb = path_tail.split("find/", 1)[1].split("?")[0].split("/")[0]
+            payload = {"movie_results": [], "tv_results": [], "person_results": [], "tv_episode_results": [], "tv_season_results": []}
+            try:
+                m = (_cinemeta_get("/meta/movie/%s.json" % imdb).get("meta") or {})
+                if m.get("id"):
+                    _cinemap_harvest([m], "movie")
+                    payload["movie_results"] = [_cinemeta_item(m, "movie")]
+            except Exception:
+                pass
+            try:
+                m = (_cinemeta_get("/meta/series/%s.json" % imdb).get("meta") or {})
+                if m.get("id"):
+                    _cinemap_harvest([m], "tv")
+                    payload["tv_results"] = [_cinemeta_item(m, "tv")]
+            except Exception:
+                pass
+            results = payload
+        elif re.match(r"^tv/.+/season/\d+$", path_tail):
+            # /tv/{id}/season/{n} -> per-episode list from the series meta
+            parts = path_tail.split("/")
+            ident, sn = parts[1], int(parts[3])
+            imdb = None
+            if ident.startswith("tt"):
+                imdb = ident
+            else:
+                rec = _cinemap_map_load().get(str(ident))
+                if rec:
+                    imdb = rec["i"]
+                else:
+                    _cinemeta_rows("/catalog/series/top.json", "tv")
+                    rec = _cinemap_map_load().get(str(ident))
+                    imdb = rec["i"] if rec else None
+            if imdb:
+                m = (_cinemeta_get("/meta/series/%s.json" % imdb).get("meta") or {})
+                vids = m.get("videos") or []
+                eps = []
+                for v in vids:
+                    if int(v.get("season") or 0) != sn:
+                        continue
+                    still = v.get("thumbnail") or ""
+                    eps.append({
+                        "episode_number": int(v.get("episode") or 0),
+                        "season_number": sn,
+                        "name": v.get("name") or ("Episode %s" % v.get("episode")),
+                        "overview": v.get("overview") or v.get("description") or "",
+                        "still_path": still if str(still).startswith("http") else "",
+                        "air_date": (v.get("released") or "")[:10] or None,
+                        "vote_average": float(v.get("rating") or 0) or None,
+                    })
+                eps.sort(key=lambda e: e["episode_number"])
+                results = {"id": int(ident) if ident.isdigit() else ident,
+                           "season_number": sn, "episodes": eps}
+        elif re.match(r"^(movie|tv)/", path_tail):
+            mtype = "movie" if path_tail.startswith("movie/") else "tv"
+            ident = path_tail.split("/", 1)[1].split("?")[0].split("/")[0]
+            imdb = None
+            if ident.startswith("tt"):
+                imdb = ident
+            else:
+                rec = _cinemap_map_load().get(str(ident))
+                if rec:
+                    imdb = rec["i"]
+                else:
+                    # cold map: warm it from top catalogs once, then retry
+                    _cinemeta_rows("/catalog/movie/top.json", "movie")
+                    _cinemeta_rows("/catalog/series/top.json", "tv")
+                    rec = _cinemap_map_load().get(str(ident))
+                    imdb = rec["i"] if rec else None
+            if imdb:
+                ctype = "series" if mtype == "tv" else "movie"
+                m = (_cinemeta_get("/meta/%s/%s.json" % (ctype, imdb)).get("meta") or {})
+                if m.get("id"):
+                    results = _cinemeta_detail(m, mtype, int(ident) if ident.isdigit() else ident)
+        elif path_tail.startswith("configuration"):
+            results = {
+                "images": {"secure_base_url": "https://image.tmdb.org/t/p/", "poster_sizes": ["w500"], "backdrop_sizes": ["w1920"], "logo_sizes": ["w780"]},
+                "change_keys": [],
+            }
+    except Exception:
+        results = None
+
+    if results is None:
+        return None
+    _cinemeta_route_cache[cache_key] = (_time.time(), results)
+    return results
+
+
 
 
 def _is_private_ip(ip):

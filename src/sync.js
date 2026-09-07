@@ -26,6 +26,34 @@
          server restore. After this one-time wipe, server copies get replaced
          by the clean state and normal syncing resumes. */
       var dropThemes = !!window.__chalkleThemeAutoReset;
+      /* Library keys are seed-merged, never blindly overwritten: the seed in
+         games.js / noah-games.js may be NEWER than the server snapshot (e.g. a
+         newly imported catalog), and a blind restore would clobber it on every
+         load, permanently hiding the new entries. Union by title: server copy
+         first (keeps edits made on other devices), then local-only entries
+         (fresh seeds + locally added items) appended. */
+      var LIB_KEYS = { "chalkle-gamelib-v4": 1, "chalkle-sitelib-v2": 1, "chalkle-toollib-v6": 1, "chalkle-boardlib-v1": 1 };
+      function mergeLib(serverVal, localVal) {
+        try {
+          var s = JSON.parse(serverVal), l = JSON.parse(localVal);
+          if (!Array.isArray(s) || !Array.isArray(l)) return null;
+          var byTitle = {}, out = [];
+          s.forEach(function (it) { if (it && it.title && !(it.title in byTitle)) { byTitle[it.title] = it; out.push(it); } });
+          l.forEach(function (it) {
+            if (!it || !it.title) return;
+            if (!(it.title in byTitle)) { byTitle[it.title] = it; out.push(it); }
+            else {
+              var hit = byTitle[it.title];
+              /* A server row that lost its url is stale damage; the local
+                 copy still knows where to launch. */
+              if (!String(hit.url || "").trim() && String(it.url || "").trim()) {
+                for (var i = 0; i < out.length; i++) { if (out[i] === hit) { out[i] = it; break; } }
+              }
+            }
+          });
+          return JSON.stringify(out);
+        } catch (e) { return null; }
+      }
       fetch('/_sync')
         .then(function (r) { return r.ok ? r.json() : null; })
         .then(function (data) {
@@ -35,8 +63,22 @@
           }
           var keys = Object.keys(data);
           for (var i = 0; i < keys.length; i++) {
-            try { storage.setItem(keys[i], data[keys[i]]); } catch (e) {}
+            try {
+              var k = keys[i];
+              if (LIB_KEYS[k]) {
+                var local = storage.getItem(k);
+                var merged = local ? mergeLib(data[k], local) : null;
+                storage.setItem(k, merged || data[k]);
+              } else {
+                storage.setItem(k, data[k]);
+              }
+            } catch (e) {}
           }
+          /* The app may have already built its in-memory catalogs from the
+             pre-restore state; let it re-read the libraries now that the
+             server snapshot (and any fresh seeds preserved by the merge)
+             has landed. */
+          try { window.dispatchEvent(new CustomEvent("chalkle:sync-restored")); } catch (e) {}
         })
         .catch(function () {});
     } catch (e) {}
