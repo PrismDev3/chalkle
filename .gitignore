@@ -58,3 +58,16 @@ deploy-static/
 
 # 746MB PS1 disc image - served locally, never pushed (cloudflare tunnel)
 assets/games/psx/
+
+# local runtime / audit artifacts
+active-visitors.json
+shots/
+svgbulk-links-embedded.txt
+linkduper-links.txt
+chalkle-links*.txt
+server/tmdb-imdb-map.json
+tmp_patch_*.py
+
+# full single-file build exceeds GitHub 100MB limit; regenerate locally:
+#   node scripts/build-single-chalkle.mjs
+/build/chalkle-single.html

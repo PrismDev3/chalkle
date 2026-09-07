@@ -125,7 +125,7 @@ idx = rewriteAssets(idx);
 // inline. Everything else keeps its origin path (served by the multi-file
 // site's Python relay / Cloudflare folder; huge MC builds and multi-file
 // game-builds can't be embedded into one HTML document anyway).
-let gjsCode = bodies[SCRIPTS.indexOf('src/games.js')] || '';
+let gjsCode = (bodies[SCRIPTS.indexOf('src/games.js')] || '') + '\n' + (bodies[SCRIPTS.indexOf('src/webports.js')] || '');
 const EMBED_MAX = 512 * 1024; // per-game size cap (bytes) - keeps the file usable
 const gameUrlRe = /["'`](\/(?:ugs|gn|mc)\/[^"'`]+\.(?:html|htm)|\/assets\/(?:gba|psx)\/index\.html[^"'`]*|game-builds\/[^"'`]+\.(?:html|htm))["'`]/g;
 const gameUrls = [];
@@ -224,6 +224,13 @@ if (!CDN_SAFE) {
   if (fs.existsSync(moviesPath) && fs.statSync(moviesPath).size < 2 * 1024 * 1024) {
     embedMap['/movies.html'] = dataURI(moviesPath);
   }
+  /* Lunchbreak chat: fully client-side (Firebase), so the whole page embeds
+     like movies.html and chat works from the single file / any static host
+     with zero backend. */
+  const chatPath = path.join(root, 'chat.html');
+  if (fs.existsSync(chatPath) && fs.statSync(chatPath).size < 2 * 1024 * 1024) {
+    embedMap['/chat.html'] = dataURI(chatPath);
+  }
   /* Redirector shell: apps/tools bounce through /go.html#<base64>. Embed it
      so the single-file build's shell resolution works on static hosts. */
   const goPath = path.join(root, 'go.html');
@@ -248,6 +255,21 @@ if (!CDN_SAFE) {
       }
       if (uri) embedMap[mapKey] = uri;
     }
+  }
+}
+/* Movies, Lunchbreak chat and the go.html redirector are small, fully
+   client-side pages. They are embedded in BOTH builds (CDN-safe included):
+   those tabs must never depend on lootline reachability, and on a blocked
+   network the api-root fallback is a lootline host anyway, which the app
+   strips. chat.html is ~370KB and movies.html ~180KB; worth every byte. */
+for (const [p, key] of [
+  [path.join(root, 'movies.html'), '/movies.html'],
+  [path.join(root, 'chat.html'), '/chat.html'],
+  [path.join(root, 'go.html'), '/go.html'],
+]) {
+  if (fs.existsSync(p) && !embedMap[key]) {
+    const uri = dataURI(p);
+    if (uri) embedMap[key] = uri;
   }
 }
 console.log(`${CDN_SAFE ? 'CDN-safe build; external game/assets paths stay relative' : 'embedded self-contained html games'}: ${Object.keys(embedMap).length}`);

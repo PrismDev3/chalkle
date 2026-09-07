@@ -339,23 +339,83 @@
     } catch (e) { /* cross-origin/closed mid-write; nothing left to show */ }
   }
 
+  /* Same-tab inline player: the game boots inside the Cloud tab instead of a
+     new window. The panel mounts synchronously on click, the session
+     bootstraps behind it, and the stage swaps to /cloud-play.html when the
+     stream is ready. Exit via the X button, ESC, or browser Back. */
+  var currentInlineExit = null;
+
+  function mountInline(g) {
+    var host = document.getElementById("cloud-player-host");
+    if (!host) return null;
+    var gesc = esc(g.title || "Cloud Play");
+    host.innerHTML =
+      '<div class="cloud-player-bar">' +
+        '<span class="cloud-player-title">' + gesc + '</span>' +
+        '<span class="cloud-player-status" id="cloud-player-status">Preparing session\u2026</span>' +
+        '<button class="cloud-player-x" id="cloud-player-exit" type="button" aria-label="Exit game" title="Exit (Esc)">\u2715 Exit</button>' +
+      '</div>' +
+      '<div class="cloud-player-stage" id="cloud-player-stage"><div class="cloud-player-spin"></div></div>';
+    host.hidden = false;
+    var grid = document.getElementById("cloud-grid");
+    if (grid) grid.hidden = true;
+    var empty = document.getElementById("cloud-empty");
+    if (empty) empty.hidden = true;
+
+    function teardown() {
+      host.hidden = true;
+      host.innerHTML = "";   /* removing the iframe ends the WebRTC stream */
+      var grid2 = document.getElementById("cloud-grid");
+      if (grid2) grid2.hidden = false;
+      currentInlineExit = null;
+      if (location.hash.indexOf("#cloud-play=") === 0) {
+        try { history.replaceState(null, "", location.pathname + location.search); } catch (e) { /* file:// */ }
+      }
+    }
+    currentInlineExit = teardown;
+    var x = document.getElementById("cloud-player-exit");
+    if (x) x.addEventListener("click", teardown);
+    return {
+      status: function (msg) { var el = document.getElementById("cloud-player-status"); if (el) el.textContent = msg; },
+      ready: function (url) {
+        var stage = document.getElementById("cloud-player-stage");
+        if (!stage) return;
+        stage.innerHTML = '<iframe class="cloud-player-frame" src="' + esc(url) + '" title="Cloud game" allow="autoplay; fullscreen; gamepad; clipboard-write" allowfullscreen></iframe>';
+      },
+      fail: function (msg) {
+        var stage = document.getElementById("cloud-player-stage");
+        if (stage) stage.innerHTML = '<div class="cloud-player-err"><h3>Couldn\'t start ' + gesc + '</h3><p>' + esc(String(msg || "").slice(0, 300)) + '</p><button class="cloud-player-x" id="cloud-player-err-back" type="button">Back</button></div>';
+        var b = document.getElementById("cloud-player-err-back");
+        if (b) b.addEventListener("click", teardown);
+      }
+    };
+  }
+
   function play(key, playerWindow) {
     var g = byKey(key);
     if (!g) return;
+    /* No popup window handed in + a host in the DOM = same-tab mode. */
+    var ui = (!playerWindow && document.getElementById("cloud-player-host")) ? mountInline(g) : null;
     setStatus("Starting " + g.title, "busy");
-    writePlayerPage(playerWindow, "loading", g);
+    if (ui) ui.status("Preparing session\u2026");
+    else writePlayerPage(playerWindow, "loading", g);
     createSession(g)
       .then(function (uuid) {
         setStatus("Waiting in queue for " + g.title, "busy");
+        if (ui) ui.status("Waiting in queue\u2026 you are spot-holding, this can take a minute.");
         return pollQueue(uuid, 0).then(function () { return startGame(uuid); }).then(function () {
           setStatus("Launching " + g.title, "online");
-          if (playerWindow && !playerWindow.closed) playerWindow.location.replace(playerUrl(g, uuid));
-          else window.open(playerUrl(g, uuid), "_blank", "noopener");
+          var url = playerUrl(g, uuid);
+          if (ui) ui.ready(url);
+          else if (playerWindow && !playerWindow.closed) playerWindow.location.replace(url);
+          else window.open(url, "_blank", "noopener");
         });
       })
       .catch(function (err) {
-        writePlayerPage(playerWindow, "error", g, err && err.message ? err.message : String(err));
-        setStatus("Could not start: " + (err && err.message ? err.message : err), "offline");
+        var msg = err && err.message ? err.message : String(err);
+        if (ui) ui.fail(msg);
+        else writePlayerPage(playerWindow, "error", g, msg);
+        setStatus("Could not start: " + msg, "offline");
       });
   }
 
@@ -386,10 +446,16 @@
             }
             return;
           }
-          /* Open synchronously from the user's click. Chromebook popup
-             policy otherwise blocks the window after the queue promises. */
-          var playerWindow = window.open("about:blank", "_blank");
-          play(playBtn.dataset.cloudPlay, playerWindow);
+          /* Same tab by default: the inline panel mounts synchronously from
+             the user's click so nothing is lost to popup policy. A popup
+             path stays for embeds without the host element. */
+          if (document.getElementById("cloud-player-host")) {
+            try { history.replaceState(null, "", "#cloud-play=" + playBtn.dataset.cloudPlay); } catch (e) { /* file:// */ }
+            play(playBtn.dataset.cloudPlay, null);
+          } else {
+            var playerWindow = window.open("about:blank", "_blank");
+            play(playBtn.dataset.cloudPlay, playerWindow);
+          }
         }
       });
     }
@@ -461,4 +527,14 @@
   }
 
   window.ChalkleCloud = { render: render, play: play, checkServer: checkServer };
+
+  /* Exit the inline player on ESC and on browser Back (hash restore). */
+  document.addEventListener("keydown", function (e) {
+    if (e.key !== "Escape" || !currentInlineExit) return;
+    var host = document.getElementById("cloud-player-host");
+    if (host && !host.hidden) currentInlineExit();
+  });
+  window.addEventListener("hashchange", function () {
+    if (currentInlineExit && location.hash.indexOf("#cloud-play=") !== 0) currentInlineExit();
+  });
 })();

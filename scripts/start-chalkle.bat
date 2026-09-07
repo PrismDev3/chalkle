@@ -20,11 +20,22 @@ if not exist "%CF%" set "CF=cloudflared"
 set "TUNNEL_ID=4b871657-7390-4c4a-b6b1-a51f9710a2de"
 set "LOG=%ROOT%\keeper.log"
 
+rem ---- Cloudflare R2 (chat image uploads). Optional: without these the
+rem      chat upload endpoint answers 503 and chat falls back to inline
+rem      base64 images. Fill in from Cloudflare Dashboard > R2. ----
+set "R2_ACCOUNT_ID="
+set "R2_ACCESS_KEY_ID="
+set "R2_SECRET_ACCESS_KEY="
+set "R2_BUCKET="
+set "R2_PUBLIC_BASE="
+
 echo [%date% %time%] Chalkle keeper starting >> "%LOG%"
 
 :LOOP
 call :check_server
 call :check_music
+call :check_cloud
+call :check_bitcord
 call :check_tunnel
 timeout /t 20 /nobreak >nul 2>&1
 goto LOOP
@@ -49,6 +60,28 @@ if not "%mus%"=="200" (
   echo [%date% %time%] music backend down, starting >> "%LOG%"
   powershell -NoProfile -Command "Start-Process -FilePath 'node' -ArgumentList @('server.mjs') -WorkingDirectory '%ROOT%\music-backend' -WindowStyle Hidden -RedirectStandardOutput '%ROOT%\chalkle-music.log' -RedirectStandardError '%ROOT%\chalkle-music-err.log'"
 )
+goto :eof
+
+rem ---- cloud backend on :3001 (node, needed for the Cloud Gaming tab) ----
+:check_cloud
+rem Any HTTP answer (even 400) means the Stratus backend is alive; 000 means
+rem curl could not connect at all.
+curl -s -o nul -w "%%{http_code}" --max-time 3 http://127.0.0.1:3001/cloud/v1/embed > "%TEMP%\ck-cld.txt" 2>nul
+set /p cld=<"%TEMP%\ck-cld.txt"
+if not "%cld%"=="000" if not "%cld%"=="" goto :eof
+echo [%date% %time%] cloud backend down, starting >> "%LOG%"
+powershell -NoProfile -Command "Start-Process -FilePath 'node' -ArgumentList @('api.js') -WorkingDirectory '%ROOT%\stratus-api' -WindowStyle Hidden -RedirectStandardOutput '%ROOT%\chalkle-cloud.log' -RedirectStandardError '%ROOT%\chalkle-cloud-err.log'"
+goto :eof
+
+rem ---- bitcord chat backend on :4123 (node; legacy embed + /bitcord proxy) ----
+:check_bitcord
+rem Any HTTP answer (even 401/404) means the chat backend is alive; 000 means
+rem curl could not connect at all.
+curl -s -o nul -w "%%{http_code}" --max-time 3 "http://127.0.0.1:4123/api/auth/me" > "%TEMP%\ck-bcd.txt" 2>nul
+set /p bcd=<"%TEMP%\ck-bcd.txt"
+if not "%bcd%"=="000" if not "%bcd%"=="" goto :eof
+echo [%date% %time%] bitcord backend down, starting >> "%LOG%"
+powershell -NoProfile -Command "Start-Process -FilePath 'node' -ArgumentList @('server.cjs') -WorkingDirectory '%ROOT%\bitcord-backend' -WindowStyle Hidden -RedirectStandardOutput '%ROOT%\chalkle-bitcord.log' -RedirectStandardError '%ROOT%\chalkle-bitcord-err.log'"
 goto :eof
 
 rem ---- named tunnel for lootline.xyz ----

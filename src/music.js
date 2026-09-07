@@ -712,7 +712,7 @@
       if (save && !save._musicBound) { e.preventDefault(); toggleSavedById(save.getAttribute("data-msave")); }
     });
     document.addEventListener("keydown", function (e) { if ((e.key === " " || e.key === "Spacebar") && !/INPUT|TEXTAREA/.test(document.activeElement && document.activeElement.tagName || "")) { if (!state.viewHidden) { e.preventDefault(); togglePlay(); } } });
-    audio.addEventListener("play", function () { setPlayingUI(true); }); audio.addEventListener("pause", function () { setPlayingUI(false); }); audio.addEventListener("ended", function () { next(); });
+    audio.addEventListener("play", function () { setPlayingUI(true); }); audio.addEventListener("pause", function () { if (audio.src) setPlayingUI(false); }); audio.addEventListener("ended", function () { next(); });
     audio.addEventListener("timeupdate", function () { if (state.dragging) return; var d = isFinite(audio.duration) ? audio.duration : 0; els.seek.value = d ? Math.round(audio.currentTime / d * 1000) : 0; els.cur.textContent = fmt(audio.currentTime); els.dur.textContent = fmt(d); tickLyrics(); });
     audio.addEventListener("loadedmetadata", function () { if (isFinite(audio.duration)) els.dur.textContent = fmt(audio.duration); });
     audio.addEventListener("error", function () { var m = state.queue[state.idx]; if (m) toast("Couldn't load: " + m.name); setTimeout(function () { if (state.queue.length) next(true); }, 900); });

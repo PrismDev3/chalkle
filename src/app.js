@@ -615,6 +615,27 @@
       var map = window.__SINGLE_GAMES__;
       if (map && map["/movies.html"]) return map["/movies.html"];
     } catch (e) { /* no single-file map */ }
+
+    /* Prefer the in-memory /movies.html route when it is available (the
+       deployed wrapper injects it through /api/chalkle). Otherwise fall back
+       to the built-in single-file path. Once the wrapper is removed from the
+       public URL plan, this can be simplified to just return "/movies.html" 
+       everywhere. */
+    try {
+      var root = window.CHALKLE_API_ROOT || "";
+      if (!root && window.ChalkleApi && typeof window.ChalkleApi.root === "function") {
+        try { root = window.ChalkleApi.root(); } catch (e) {}
+      }
+      var apiRoot = root.trim() || "";
+      if (apiRoot) {
+        var apiMovies = (apiRoot.replace(/\/+$/, "") + "/movies.html").replace(/https?:\/\/([a-z0-9-]+\.)?lootline\.xyz/i, "");
+        if (!apiMovies.startsWith("http")) {
+          var fromCurrent = (window.location.origin || "") + apiMovies;
+          try { var probe = new URL(fromCurrent, document.baseURI || location.href); if (/\/movies\.html$/i.test(probe.pathname)) return probe.href; } catch (e) {}
+        }
+      }
+    } catch (e) { /* keep it simple */ }
+
     try {
       return new URL("/movies.html", document.baseURI || location.href).href;
     } catch (e) { /* keep it simple */ }
@@ -626,17 +647,93 @@
     frame.src = moviesPageUrl();
   }
 
+  /* Open a resolved page URL in a new tab. Data URIs (the single-file
+     embeds) are blocked from top-level navigation by every browser, so
+     convert them to a blob: URL first - blob: opens fine and stays
+     same-origin even from file://. */
+  function openResolvedTab(url) {
+    if (!url) return;
+    if (url.indexOf("data:") === 0) {
+      fetch(url).then(function (r) { return r.blob(); }).then(function (b) {
+        var u = URL.createObjectURL(b);
+        var win = window.open(u, "_blank");
+        if (win) { try { win.opener = null; } catch (e) { } }
+        setTimeout(function () { try { URL.revokeObjectURL(u); } catch (e) { } }, 180000);
+      }).catch(function () {
+        var win = window.open(url, "_blank");
+        if (win) { try { win.opener = null; } catch (e) { } }
+      });
+      return;
+    }
+    var win2 = window.open(url, "_blank");
+    if (win2) { try { win2.opener = null; } catch (e) { } }
+  }
+
+  function chatPageUrl() {
+    /* Lunchbreak chat is fully client-side (Firebase), so it runs from any
+       host. Resolution mirrors moviesPageUrl(): single-file embed first, then
+       the api-root mirror copy, then same-origin. Never a blocked external
+       chat host. */
+    try {
+      var map = window.__SINGLE_GAMES__;
+      if (map && map["/chat.html"]) return map["/chat.html"];
+    } catch (e) { /* no single-file map */ }
+    try {
+      var root = window.CHALKLE_API_ROOT || "";
+      if (!root && window.ChalkleApi && typeof window.ChalkleApi.root === "function") {
+        try { root = window.ChalkleApi.root(); } catch (e2) {}
+      }
+      var apiRoot = (root || "").trim();
+      if (apiRoot) {
+        /* Strip ANY lootline host (lootline.xyz, chalkle.lootline.xyz, ...
+           subdomains included): if the file is being run from a blocked
+           network, the api root IS a lootline host and must never be used
+           as the frame source. Same-origin /chat.html is always tried
+           first by the caller anyway, so this only fires when same-origin
+           is genuinely a different host that already serves chat. */
+        var apiChat = (apiRoot.replace(/\/+$/, "") + "/chat.html").replace(/https?:\/\/([a-z0-9-]+\.)?lootline\.xyz/i, "");
+        if (!apiChat.startsWith("http")) {
+          var fromCurrent = (window.location.origin || "") + apiChat;
+          try { var probe = new URL(fromCurrent, document.baseURI || location.href); if (/\/chat\.html$/i.test(probe.pathname)) return probe.href; } catch (e3) {}
+        }
+      }
+    } catch (e4) { /* keep it simple */ }
+    try {
+      return new URL("/chat.html", document.baseURI || location.href).href;
+    } catch (e5) { /* keep it simple */ }
+    return "chat.html";
+  }
+  function loadChatFrame() {
+    var frame = document.getElementById("chat-frame");
+    if (!frame || frame.src && frame.src.indexOf("chat.html") !== -1) return;
+    frame.src = chatPageUrl();
+    frame.allow = "fullscreen";
+    frame.setAttribute("allowfullscreen", "");
+  }
+
   function setView(view) {
     state.view = view;
     persist("chalkle-last-view", view);
     closeMoreNav();
-    /* The YouTube tab plays its own audio - stop the Music tab first. */
+    /*
+      YouTube no longer pauses the Music tab by default.
+      If you still want that behaviour, uncomment the block below.
+    */
+    /*
     if (view === "youtube" && window.ChalkleMusic && window.ChalkleMusic.pause) {
       window.ChalkleMusic.pause();
     }
+    */
     /* Mirror the active tab on <body> so the top bar + chrome can tint with
        the section's accent color. */
     document.body.setAttribute("data-view", view);
+
+    /* Lazy-load the big embedded frames only once the view is active. */
+    if (view === "movies") {
+      loadMoviesFrame();
+    } else if (view === "chat") {
+      loadChatFrame();
+    }
 
     document.querySelectorAll(".nav-item").forEach(function (btn) {
       var active = btn.dataset.view === view;
@@ -676,13 +773,11 @@
     } else if (view === "movies") {
       loadMoviesFrame();
     } else if (view === "chat") {
-      /* Bitcord chat is embedded as a same-origin iframe; the server proxies
-         /bitcord/api/* and /bitcord/ws to the Bitcord backend so the app
-         never talks cross-origin. */
-      var chatFrame = document.getElementById("chat-frame");
-      if (chatFrame && (!chatFrame.src || chatFrame.src.indexOf("bitcord/index.html") === -1)) {
-        chatFrame.src = "/bitcord/index.html";
-      }
+      /* Lunchbreak chat is embedded as a fully client-side page (Firebase
+         auth/firestore straight from the browser). loadChatFrame resolves it
+         from the single-file embed, the api-root mirror, or same-origin - the
+         same chain as the Movies tab, so it stays unblocked everywhere. */
+      loadChatFrame();
     } else {
       /* Chromebook-friendly: paint the tab switch first, build the grid on
          the next frame so a 1,400-card library never blocks the click. */
@@ -2434,7 +2529,7 @@
       ai: ["#b06bff", "#6a2fbf"],
       bookmarklets: ["#b7e63f", "#7f9f14"],
       movies: ["#a970ff", "#5a25c4"],
-      chat: ["#F4511E", "#a33400"]
+      chat: ["#00b3b3", "#00575c"]
     };
     document.querySelectorAll(".view-title").forEach(function (el) {
       var label = (el.textContent || "").trim();
@@ -2497,12 +2592,84 @@
     if (moviesTabLink) {
       moviesTabLink.addEventListener("click", function (e) {
         e.preventDefault();
-        var url = moviesPageUrl();
-        if (!url) return;
-        var win = window.open(url, "_blank");
-        if (win) { try { win.opener = null; } catch (err) { /* cross-origin */ } }
+        openResolvedTab(moviesPageUrl());
       });
     }
+
+    var chatTabLink = document.getElementById("chat-open-tab");
+    if (chatTabLink) {
+      chatTabLink.addEventListener("click", function (e) {
+        e.preventDefault();
+        openResolvedTab(chatPageUrl());
+      });
+    }
+
+    /* In-app fullscreen for Chat / Movies: maximize the view section over
+       the whole app, and on top of that request the browser Fullscreen API
+       so the browser chrome disappears too. Esc (or the button) backs out. */
+    function setupInlineFullscreen(frameId, btnId) {
+      var view = document.getElementById(frameId);
+      var section = view ? view.closest(".view") : null;
+      var btn = document.getElementById(btnId);
+      if (!section || !btn) return;
+      var label = btn.querySelector(".fx-fs-label");
+      function apply() {
+        var on = section.classList.contains("fx-full");
+        btn.setAttribute("aria-pressed", on ? "true" : "false");
+        if (label) label.textContent = on ? "Exit fullscreen" : "Fullscreen";
+      }
+      function exit() {
+        section.classList.remove("fx-full");
+        var fsEl = document.fullscreenElement || document.webkitFullscreenElement;
+        if (fsEl && (fsEl === section || section.contains(fsEl))) {
+          var ex = document.exitFullscreen || document.webkitExitFullscreen;
+          if (ex) { try { ex.call(document); } catch (e2) { /* ignore */ } }
+        }
+        apply();
+      }
+      btn.addEventListener("click", function () {
+        if (section.classList.contains("fx-full")) { exit(); return; }
+        section.classList.add("fx-full");
+        apply();
+        var req = section.requestFullscreen || section.webkitRequestFullscreen;
+        if (req) {
+          try {
+            var p = req.call(section);
+            if (p && p.catch) p.catch(function () { /* CSS maximize still holds */ });
+          } catch (e3) { /* CSS maximize still holds */ }
+        }
+      });
+      document.addEventListener("fullscreenchange", syncFromBrowser);
+      document.addEventListener("webkitfullscreenchange", syncFromBrowser);
+      function syncFromBrowser() {
+        var fsEl = document.fullscreenElement || document.webkitFullscreenElement;
+        /* Native exit (Esc on Chromium) -> drop the CSS maximize too, so one
+           Esc always lands the user back on the normal layout. */
+        if (!fsEl && section.classList.contains("fx-full")) {
+          section.classList.remove("fx-full");
+        }
+        apply();
+      }
+      /* Esc fallback: when the browser Fullscreen API never engaged (iframe
+         focus, denied gesture, old browser), Esc should still exit. */
+      document.addEventListener("keydown", function (e) {
+        if (e.key !== "Escape") return;
+        if (!section.classList.contains("fx-full")) return;
+        var fsEl = document.fullscreenElement || document.webkitFullscreenElement;
+        if (fsEl) return; /* native exit path handles it */
+        exit();
+      });
+      /* Leaving the tab always restores normal layout. */
+      var mo = new MutationObserver(function () {
+        if (section.hidden) {
+          section.classList.remove("fx-full");
+          apply();
+        }
+      });
+      try { mo.observe(section, { attributes: true, attributeFilter: ["hidden"] }); } catch (e4) { /* old browser */ }
+    }
+    setupInlineFullscreen("movies-frame", "movies-fullscreen");
+    setupInlineFullscreen("chat-frame", "chat-fullscreen");
 
     /* Keep the Games scroll position across tab switches (per session). */
     var mainEl = document.querySelector(".main");

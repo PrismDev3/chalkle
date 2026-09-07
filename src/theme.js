@@ -51,7 +51,7 @@
   };
 
   var WALLPAPERS = {
-    chalk: "url('bg-chalk.webp')",
+    chalk: "url('/bg-chalk.webp')",
     aurora: "#20343b",
     sunset: "#4a1d2d",
     citrus: "#5a4514",
@@ -72,7 +72,8 @@
     sky:       { label: "Sky",       bg: "#173055", accent: "#38bdf8" },
     sakura:    { label: "Sakura",    bg: "#2a1b26", accent: "#ff9e9e" },
     forest:    { label: "Forest",    bg: "#0e1712", accent: "#7dbf59" },
-    sunset:    { label: "Sunset",    bg: "#22111d", accent: "#ff6b6b" }
+    sunset:    { label: "Sunset",    bg: "#22111d", accent: "#ff6b6b" },
+    amber:     { label: "Cyber Gold", bg: "#0d0c0a", accent: "#ff8c00" }
   };
 
   /* Chalkle CSS vars that the palette can drive. Category colors (--blue,
@@ -198,6 +199,29 @@
     }
     document.documentElement.style.setProperty("--wallpaper-image", css);
     document.documentElement.style.setProperty("--wallpaper-scrim", value === "chalk" ? "0" : "0.45");
+    syncWallpaperPreload(value);
+  }
+
+  /* Preload the chalk art only while it is the active wallpaper. A static
+     <link rel=preload> fires a console warning on every device that has a
+     custom wallpaper (the preloaded file is never used), so the tag is
+     created/removed here to always match the live choice. */
+  function syncWallpaperPreload(value) {
+    var ID = "chalkle-wallpaper-preload";
+    var link = document.getElementById(ID);
+    if (value === "chalk") {
+      if (!link) {
+        link = document.createElement("link");
+        link.id = ID;
+        link.rel = "preload";
+        link.as = "image";
+        link.href = "/bg-chalk.webp";
+        try { link.fetchPriority = "high"; } catch (e) {}
+        document.head.appendChild(link);
+      }
+    } else if (link) {
+      link.remove();
+    }
   }
 
   function applyCursor(value) {

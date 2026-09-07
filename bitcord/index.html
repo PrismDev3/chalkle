@@ -3,7 +3,7 @@
   <head>
     <base href="/bitcord/">
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+    <link rel="icon" type="image/svg+xml" href="/bitcord/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#111111" />
     <title>Bitcord</title>
@@ -16,7 +16,12 @@
     <style>
       html,
       body {
-        background: #111111;
+        background: var(--bc-bg, #111111);
+        color: var(--bc-fg, #ffffff);
+      }
+      a,
+      .bc-link {
+        color: var(--bc-accent, #00FF7E);
       }
     </style>
     <script type="module" src="/bitcord/assets/index-CZj6pyPj.js"></script>
