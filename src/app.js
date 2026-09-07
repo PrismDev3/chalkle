@@ -671,12 +671,21 @@
   }
   function loadMoviesFrame() {
     var frame = document.getElementById("movies-frame");
-    if (!frame || frame.src && frame.src.indexOf("movies.html") !== -1) return;
+    if (!frame || frame.dataset.embedLoaded === "1") return;
+    if (frame.src && frame.src.indexOf("movies.html") !== -1) return;
     var url = moviesPageUrl();
     if (!url || url.indexOf("data:") !== 0 && url.indexOf("http") !== 0) {
       // If the resolver produced a broken path (for example a /null/... route from
       // a wrapper configured with a bad base), ignore it so the iframe keeps its
       // normal same-origin /movies.html behavior instead of surfacing an invalid URL.
+      return;
+    }
+    /* Inside the svgbulk/mirror wrappers (__CHALKLE_EMBED__) the CDN serves
+       .html files as text/plain, so a plain <iframe src> shows the raw source.
+       Fetch the page and hand it over as srcdoc - same trick as the top-level
+       launcher that embedded index.html - so Movies actually renders. */
+    if (window.__CHALKLE_EMBED__) {
+      loadEmbedFrame(frame, url);
       return;
     }
     frame.src = url;
@@ -749,10 +758,48 @@
   }
   function loadChatFrame() {
     var frame = document.getElementById("chat-frame");
-    if (!frame || frame.src && frame.src.indexOf("chat.html") !== -1) return;
-    frame.src = chatPageUrl();
+    if (!frame || frame.dataset.embedLoaded === "1") return;
+    if (frame.src && frame.src.indexOf("chat.html") !== -1) return;
+    var url = chatPageUrl();
     frame.allow = "fullscreen";
     frame.setAttribute("allowfullscreen", "");
+    /* Same text/plain trap as Movies: inside the embed wrapper the CDN serves
+       .html as text/plain, so fetch + srcdoc instead of a raw <iframe src>. */
+    if (window.__CHALKLE_EMBED__ && url && url.indexOf("data:") !== 0) {
+      loadEmbedFrame(frame, url);
+      return;
+    }
+    frame.src = url;
+  }
+
+  /* Embed-mode frame loader: fetch the page HTML, inject a <base> pointing at
+     the CDN folder (so relative asset refs resolve), strip root-absolute asset
+     paths (they would resolve against the CDN origin root), and hand the result
+     to the frame as srcdoc. Mirrors the top-level launcher in the svgbulk svg
+     files, and the embed fixer in index.html. */
+  function fixEmbedPaths(text) {
+    text = text.replace(/(["'(])\/(assets\/[^"'()]+?\.(?:jpg|jpeg|png|webp|gif|svg|ico|woff2?|ttf|mp3|ogg))/gi, "$1$2");
+    text = text.replace(/(["'(])\/(gn\/[^"'()]+?\.(?:jpg|jpeg|png|webp|gif|svg|ico|mp3|ogg))/gi, "$1$2");
+    text = text.replace(/(["'(])\/(game-builds\/[^"'()]+?\.(?:jpg|jpeg|png|webp|gif|svg|ico|mp3|ogg))/gi, "$1$2");
+    text = text.replace(/(["'])\/([A-Za-z0-9._-]+\.txt)\1/gi, "$1$2$1");
+    return text;
+  }
+  function loadEmbedFrame(frame, url) {
+    var base = url.slice(0, url.lastIndexOf("/") + 1);
+    fetch(url + (url.indexOf("?") === -1 ? "?" : "&") + "t=" + Date.now())
+      .then(function (r) { if (!r.ok) throw new Error("http " + r.status); return r.text(); })
+      .then(function (html) {
+        html = html.replace(/<head([^>]*)>/i, '<head$1><base href="' + base + '">');
+        html = fixEmbedPaths(html);
+        frame.removeAttribute("src");
+        frame.srcdoc = html;
+        frame.dataset.embedLoaded = "1";
+      })
+      .catch(function () {
+        /* Fetch failed - fall back to a plain navigation; same result as
+           before on real deployments, and the CDN case at least tries. */
+        frame.src = url;
+      });
   }
 
   function setView(view) {
