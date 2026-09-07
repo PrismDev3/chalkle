@@ -733,7 +733,12 @@
     var view = document.querySelector('.view[data-view="music"]');
     state.viewHidden = view ? !view.classList.contains("is-visible") : true;
     if (view) new MutationObserver(function () { state.viewHidden = !view.classList.contains("is-visible"); }).observe(view, { attributes: true, attributeFilter: ["class"] });
-    bind(); applyVol(); applyTempo(); els.pitch.value = state.pitch; els.speed.value = Math.round(state.speed * 100); renderHome();
+    bind(); applyVol(); applyTempo(); els.pitch.value = state.pitch; els.speed.value = Math.round(state.speed * 100);
+    /* Don't fire the 8 chart searches on page load when the Music tab is
+       hidden - they all hit the relay at once and compete with the boot
+       scripts. render() below (called by setView when the tab is opened)
+       runs renderHome() then, so the charts load on first open instead. */
+    if (!state.viewHidden) renderHome();
   }
 
   window.ChalkMusic = [];
