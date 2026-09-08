@@ -5370,7 +5370,13 @@ img.coin {
   </div>
   <div id="toasts"></div>
 
-  <script>window.LB_API_BASE = window.location.origin;</script>
+  <script>
+// Disable AdSense when running in iframe or from CDN to prevent CORS issues
+if (window.self !== window.top || location.hostname.indexOf('cdn.jsdelivr.net') !== -1 || location.hostname.indexOf('trycloudflare.com') !== -1) {
+    window.adsbygoogle = window.adsbygoogle || { push: function() {} };
+}
+window.LB_API_BASE = window.location.origin;
+</script>
 <script>
 /*
  * fb-shim.js — Lunchbreak's Firestore-compat client.
