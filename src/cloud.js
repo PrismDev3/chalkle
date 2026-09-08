@@ -121,7 +121,9 @@
       '<span class="card-thumb">' + thumbHtml(g) + '<span class="quick-launch">' + action + "</span></span>" +
       '<span class="card-body">' +
       '<span class="card-main"><span class="card-title" title="' + esc(g.title + (g.desc ? " " + g.desc : "")) + '">' + esc(g.title) + "</span>" + cat + "</span>" +
-      '<span class="card-side"><span class="card-source">' + (isLink ? "web" : "cloud") + '</span><span class="card-count">' + action.toLowerCase() + "</span></span>" +
+      /* One quiet source badge in the card footer. The Stream/Play pill on
+         the art is the action; repeating the word under the title was noise. */
+      '<span class="card-side"><span class="card-source">' + (isLink ? "web" : "cloud") + "</span></span>" +
       "</span>" +
       "</button>" +
       "</article>"

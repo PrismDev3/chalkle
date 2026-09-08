@@ -65,8 +65,7 @@ ws.addEventListener("message", (ev) => {
   } else if (m.method === "Runtime.exceptionThrown") {
     const d = m.params.exceptionDetails;
     const stack = (d.exception?.stack || d.exception?.description || d.text || "");
-    consoleMsgs.push("EXC: " + stack.split("
-").slice(0, 3).join(" | "));
+    consoleMsgs.push("EXC: " + stack.split("\n").slice(0, 3).join(" | "));
   }
   if (m.method === "Network.requestWillBeSent") {
     const u = m.params.request.url;

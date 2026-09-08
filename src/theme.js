@@ -203,26 +203,17 @@
     syncWallpaperPreload(value);
   }
 
-  /* Preload the chalk art only while it is the active wallpaper. A static
-     <link rel=preload> fires a console warning on every device that has a
-     custom wallpaper (the preloaded file is never used), so the tag is
-     created/removed here to always match the live choice. */
-  function syncWallpaperPreload(value) {
-    var ID = "chalkle-wallpaper-preload";
-    var link = document.getElementById(ID);
-    if (value === "chalk") {
-      if (!link) {
-        link = document.createElement("link");
-        link.id = ID;
-        link.rel = "preload";
-        link.as = "image";
-        link.href = "bg-chalk.webp";
-        try { link.fetchPriority = "high"; } catch (e) {}
-        document.head.appendChild(link);
-      }
-    } else if (link) {
-      link.remove();
-    }
+  /* No <link rel=preload> for the wallpaper, dynamic or static: the body's
+     background-image fetch is the only fetch. A preload here kept firing
+     "preloaded but not used within a few seconds" warnings even with the
+     chalk art active (the app body doesn't render it until the boot intro
+     clears), and the second fetch was pure waste - the file is decorative,
+     sits behind the boot overlay anyway, and is in the HTTP cache on every
+     visit after the first. Any old preload tag left by earlier builds is
+     removed here. */
+  function syncWallpaperPreload() {
+    var link = document.getElementById("chalkle-wallpaper-preload");
+    if (link) link.remove();
   }
 
   function applyCursor(value) {

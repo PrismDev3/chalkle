@@ -7777,7 +7777,7 @@ async function tmdbJson(path) {
         // Construct proxy URL with full path including query string
         const proxyPath = String(path).replace(/^\//, '');
         const proxyUrl = '/api/tmdb/' + proxyPath;
-        res = await fetch(proxyUrl, { headers: { 'accept': 'application/json' }, cache: 'no-store' });
+        res = await fetch(proxyUrl, { headers: { 'accept': 'application/json', 'Authorization': effectiveTmdbAuth() }, cache: 'no-store' });
         if (!res.ok) res = null;
     } catch (e) { res = null; }
     if (!res) res = await fetch(url, {

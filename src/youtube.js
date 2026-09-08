@@ -154,8 +154,19 @@
     return api("/yt/search?q=" + encodeURIComponent(q) + "&filter=" + encodeURIComponent(filter || "videos"));
   }
 
+  /* One shared in-flight request: the YouTube tab, the trending chip and the
+     home tab's video row all want /yt/trending (a ~3.5s relay call when the
+     Piped pool is degraded). Deduping them means at most one upstream hit no
+     matter how many callers ask at once. */
+  var trendingPromise = null;
   function trending() {
-    return api("/yt/trending?region=US");
+    if (!trendingPromise) {
+      trendingPromise = api("/yt/trending?region=US").catch(function (e) {
+        trendingPromise = null; /* a failed fetch must not poison the next tab visit */
+        throw e;
+      });
+    }
+    return trendingPromise;
   }
 
   /* ---------- rendering ---------- */
@@ -740,8 +751,52 @@
       });
     }
 
+    /* First render: deferred until the tab is visible. Boot used to hit
+       /yt/trending on every page load even when the user never opened
+       YouTube - a 3.5s relay call competing with everything else at boot.
+       setView hooks ChalkleYoutube.render when the tab is opened. */
+    var view = document.querySelector('.view[data-view="youtube"]');
+    if (!view || view.classList.contains("is-visible")) {
+      firstRender();
+    } else if ("MutationObserver" in window) {
+      var obs = new MutationObserver(function () {
+        if (!view.classList.contains("is-visible")) return;
+        obs.disconnect();
+        firstRender();
+      });
+      obs.observe(view, { attributes: true, attributeFilter: ["class"] });
+    }
+  }
+
+  /* Don't fetch anything while the tab is hidden: the first render waits
+     for the YouTube tab to be opened, either by the observer above or by
+     the ChalkleYoutube.render hook in app.js setView. Revisiting the tab
+     keeps the already-rendered content instead of re-fetching. */
+  var firstRenderDone = false;
+  function firstRender() {
+    if (firstRenderDone) return;
+    firstRenderDone = true;
     render();
   }
+
+  window.ChalkleYoutube = { render: firstRender };
+  /* The home tab's "trending videos" row calls this. Maps raw trending
+     items to the light {id,title,artist,cover} shape the row expects. */
+  window.ChalkleFeaturedVideos = function () {
+    return trending().then(function (j) {
+      return (j.items || []).slice(0, 12).map(function (it) {
+        var id = vidId(it);
+        return {
+          id: id,
+          title: it.title || "Untitled",
+          artist: it.uploaderName || "",
+          cover: id ? thumbUrl(id, "mqdefault") : "",
+          views: it.views || 0,
+          duration: it.duration || 0
+        };
+      }).filter(function (t) { return t.id; });
+    });
+  };
 
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", init);

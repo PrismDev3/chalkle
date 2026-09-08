@@ -2312,6 +2312,12 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, _Bitc
             self.send_header("Cache-Control", "public, max-age=86400")
         elif route.endswith((".js", ".css", ".mjs")) and q.startswith("v="):
             self.send_header("Cache-Control", "public, max-age=86400")
+        elif route.startswith("/uv/") or route == "/uv":
+            # The /uv proxy writes its own Cache-Control per asset type after
+            # this (rewritten text gets a short cache, binaries/image/font get
+            # long caches, HTML/API stay no-store) - don't preempt it with a
+            # blanket no-store, which would duplicate and win the header merge.
+            pass
         elif route.startswith("/bitcord/") or route == "/bitcord":
             # Bitcord assets change on every rebuild (hashed filenames), and the
             # embed page itself should never be stale-cached for offline users.
@@ -2447,6 +2453,8 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, _Bitc
                 return
             # Static files (index.html, assets/) - serve from the bitcord/ folder.
             return self._bitcord_static(route) or super().do_GET()
+        if route.endswith(".mp3"):
+            return self._serve_mp3_fallback(route)
         return super().do_GET()
 
     def do_POST(self):
@@ -2760,7 +2768,7 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, _Bitc
             headers={
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) ChalkleMovies/1.0",
                 "Accept": "application/json",
-                "Authorization": "Bearer " + _TMDB_BEARER,
+                "Authorization": (self.headers.get("Authorization") or "").strip() or ("Bearer " + _TMDB_BEARER),
             },
         )
         try:
@@ -3292,10 +3300,10 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, _Bitc
     # only exist at runtime. No service worker, no separate host to block, and
     # the route can never go stale the way a temporary tunnel does.
 
-    def _uv_send(self, code, ctype, raw, extra=None):
+    def _uv_send(self, code, ctype, raw, extra=None, cache="no-store, max-age=0"):
         self.send_response(code)
         self.send_header("Content-Type", ctype or "application/octet-stream")
-        self.send_header("Cache-Control", "no-store, max-age=0")
+        self.send_header("Cache-Control", cache)
         self.send_header("Access-Control-Allow-Origin", "*")
         for k, v in (extra or {}).items():
             self.send_header(k, v)
@@ -3369,10 +3377,11 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, _Bitc
             return self._uv_local(target, post_body)
         if not re.match(r"^https?://", target, re.I):
             return self._uv_error(400, "bad target")
-        # Binary assets (Unity .data/.wasm, images, fonts) must be streamed -
-        # they can be hundreds of MB and buffering them would kill the server.
-        # Probe the upstream Content-Type cheaply: HTML/CSS get rewritten, all
-        # other MIME types stream straight through with the real type.
+        # Binary assets (Unity .data/.wasm, images, fonts) are streamed without
+        # buffering (they can be hundreds of MB). One upstream fetch per asset:
+        # a tiny peek decides whether to rewrite (HTML/CSS/JS/SVG) or stream,
+        # and everything after the peek continues on the SAME response, so no
+        # second round-trip / duplicate TLS handshake per file.
         import urllib.error
         try:
             probe = _uv_open(target, post_body)
@@ -3389,49 +3398,43 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, _Bitc
         # from a raw CDN URL. Rewrite them like HTML so the atob rewriter can
         # reroute that inner document through the proxy too.
         is_svg = ctype == "image/svg+xml" or target.lower().endswith(".svg")
+        prefix = b""
         if not (is_html or is_css or is_svg):
-            # Not HTML/CSS - stream. If the target is really HTML served with a
-            # wrong MIME, sniff the first bytes before committing to a stream.
-            head = probe.read(512)
-            probe.close()
-            if head.lstrip().lower().startswith((b"<!doctype", b"<html", b"<head")):
+            # Peek before committing: some servers serve HTML with a wrong
+            # MIME type. Keep reading from this same response afterwards.
+            prefix = probe.read(512)
+            looks_html = prefix.lstrip().lower().startswith((b"<!doctype", b"<html", b"<head"))
+            is_js = ("javascript" in ctype or ctype == "module"
+                     or ctype.endswith("ecmascript")
+                     or target.lower().endswith((".js", ".mjs")))
+            if looks_html:
                 is_html = True
-                # Rewind isn't possible - re-open so the full body can be read.
-                try:
-                    probe = _uv_open(target, post_body)
-                except Exception as e:
-                    return self._uv_error(502, type(e).__name__)
+            elif is_js:
+                # JS module: rewrite relative import specifiers to absolute
+                # /uv/ routes, then send. Verbatim streaming would break every
+                # `import "./chunk.js"` (they'd resolve against /uv/<name>.js
+                # and lose the encoded target).
+                raw = prefix + probe.read(40 * 1024 * 1024 + 1)
+                probe.close()
+                if len(raw) > 40 * 1024 * 1024:
+                    return self._uv_error(502, "file too large")
+                text = _uv_rewrite_js(_uv_decode(raw), target)
+                extra = {
+                    "Content-Security-Policy": "",
+                    "X-Frame-Options": "",
+                    "Content-Security-Policy-Report-Only": "",
+                }
+                self._uv_send(200, "text/javascript", text.encode("utf-8", "replace"), extra,
+                              cache="public, max-age=300")
+                return
             else:
-                # Rewind isn't possible - re-open and stream the whole thing.
-                try:
-                    probe = _uv_open(target, post_body)
-                except Exception as e:
-                    return self._uv_error(502, type(e).__name__)
-                ctype = (probe.headers.get("Content-Type", "").split(";")[0].strip().lower())
-                if "text/html" in ctype:
-                    is_html = True
-                elif "javascript" in ctype or ctype == "module" or target.lower().endswith(".js") or target.lower().endswith(".mjs"):
-                    # JS module: rewrite relative import specifiers to absolute
-                    # /uv/ routes, then send. Verbatim streaming would break
-                    # every `import"./chunk.js"` (they'd resolve against
-                    # /uv/<name>.js and lose the encoded target).
-                    raw = probe.read(40 * 1024 * 1024 + 1)
-                    probe.close()
-                    if len(raw) > 40 * 1024 * 1024:
-                        return self._uv_error(502, "file too large")
-                    text = _uv_rewrite_js(_uv_decode(raw), target)
-                    extra = {
-                        "Content-Security-Policy": "",
-                        "X-Frame-Options": "",
-                        "Content-Security-Policy-Report-Only": "",
-                    }
-                    self._uv_send(200, "text/javascript", text.encode("utf-8", "replace"), extra)
-                    return
-                else:
-                    return self._uv_stream_resp(probe)
+                return self._uv_stream_resp(probe, prefix=prefix,
+                                            cacheable=_uv_cacheable(ctype, target))
         if is_html or is_css or is_svg:
             raw = probe.read(40 * 1024 * 1024 + 1)
             probe.close()
+            if prefix:
+                raw = prefix + raw
             if len(raw) > 40 * 1024 * 1024:
                 return self._uv_error(502, "page too large")
             code = 200
@@ -3458,22 +3461,30 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, _Bitc
                 "X-Frame-Options": "",
                 "Content-Security-Policy-Report-Only": "",
             }
-            self._uv_send(code, ctype, raw, extra)
+            self._uv_send(code, ctype, raw, extra,
+                          cache="public, max-age=300" if (is_css or is_svg) else "no-store, max-age=0")
             return
-        return self._uv_stream_resp(probe)
 
-    def _uv_stream_resp(self, resp):
-        """Stream an already-open upstream response through to the client."""
+    def _uv_stream_resp(self, resp, prefix=b"", cacheable=0):
+        """Stream an already-open upstream response through to the client.
+        prefix carries bytes already read off the response (the MIME probe)
+        so a binary asset is never fetched twice. cacheable>0 gives the
+        browser a public cache lifetime for deterministic static assets."""
         try:
             ctype = resp.headers.get("Content-Type", "").split(";")[0].strip().lower()
             self.send_response(resp.getcode() or 200)
             self.send_header("Content-Type", ctype or "application/octet-stream")
-            self.send_header("Cache-Control", "no-store, max-age=0")
+            self.send_header("Cache-Control", ("public, max-age=%d" % cacheable) if cacheable else "no-store, max-age=0")
             self.send_header("Access-Control-Allow-Origin", "*")
             self.send_header("Content-Security-Policy", "")
             self.send_header("X-Frame-Options", "")
             self.send_header("Content-Security-Policy-Report-Only", "")
             self.end_headers()
+            if prefix:
+                try:
+                    self.wfile.write(prefix)
+                except Exception:
+                    pass
             while True:
                 chunk = resp.read(65536)
                 if not chunk:
@@ -3561,7 +3572,8 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, _Bitc
                 "X-Frame-Options": "",
                 "Content-Security-Policy-Report-Only": "",
             }
-            self._uv_send(200, ctype, raw, extra)
+            self._uv_send(200, ctype, raw, extra,
+                          cache="public, max-age=300" if is_css else "no-store, max-age=0")
             return
         if safe.lower().endswith((".js", ".mjs")):
             # Local JS module: same import-specifier rewrite as remote JS.
@@ -3572,7 +3584,8 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, _Bitc
                 return self._uv_error(500, type(e).__name__)
             text = _uv_rewrite_js(_uv_decode(raw), path)
             extra = {"Content-Security-Policy": "", "X-Frame-Options": "", "Content-Security-Policy-Report-Only": ""}
-            self._uv_send(200, "text/javascript", text.encode("utf-8", "replace"), extra)
+            self._uv_send(200, "text/javascript", text.encode("utf-8", "replace"), extra,
+                          cache="public, max-age=300")
             return
         # Binary / streaming path: stream the file with its real MIME so large
         # Unity .data / .wasm / game assets never get buffered or capped.
@@ -3856,6 +3869,395 @@ def _cinemeta_rows(catalog_path, mtype):
     return [_cinemeta_item(m, mtype) for m in metas]
 
 
+# --- Keyless per-provider catalogs (Cinemeta search seeds) ---
+# Served for /discover/movie|tv?with_watch_providers=... whenever the TMDB
+# token is rejected (Cinemeta ignores with_watch_providers and genre/skip
+# filters, but its title-search endpoint is accurate, so each provider gets a
+# curated seed list that reads like that service's real catalog).
+_WP_SEEDS = {
+    "8": {  # Netflix
+        "movie": (
+            "red notice", "the gray man", "don't look up", "extraction", "glass onion",
+            "bird box", "the irishman", "6 underground", "project power", "bright",
+            "army of the dead", "the old guard", "spenser confidential", "the adam project",
+            "enola holmes", "the kissing booth", "murder mystery", "the princess switch",
+        ),
+        "series": (
+            "stranger things", "squid game", "the witcher", "wednesday", "money heist",
+            "bridgerton", "cobra kai", "the umbrella academy", "the crown", "the queen's gambit",
+            "dark", "ozark", "sex education", "the sandman", "locke & key", "black mirror",
+            "sweet tooth", "arcane", "the diplomat", "avatar the last airbender",
+        ),
+    },
+    "283": {  # Crunchyroll -> anime
+        "movie": (
+            "demon slayer", "jujutsu kaisen 0", "one piece film red", "dragon ball super",
+            "my hero academia", "suzume", "your name", "weathering with you",
+            "spirited away", "howl's moving castle", "princess mononoke", "sword art online",
+        ),
+        "series": (
+            "naruto", "jujutsu kaisen", "one piece", "demon slayer", "attack on titan",
+            "my hero academia", "dragon ball", "bleach", "sword art online",
+            "fullmetal alchemist", "one punch man", "spy x family", "chainsaw man",
+            "hunter x hunter", "dr. stone", "tokyo ghoul", "death note", "haikyuu",
+            "frieren", "vinland saga", "jojo's bizarre adventure", "solo leveling",
+        ),
+    },
+    "9": {  # Amazon Prime Video
+        "movie": (
+            "without remorse", "the tomorrow war", "cinderella", "sound of metal",
+            "borat", "one night in miami", "the big sick", "the accountant",
+            "patriot's day", "13 hours", "the report", "the map of tiny perfect things",
+        ),
+        "series": (
+            "the boys", "reacher", "the lord of the rings", "invincible", "the expanse",
+            "fleabag", "good omens", "upload", "tom clancy's jack ryan",
+            "the marvelous mrs. maisel", "bosch", "the wheel of time", "outer range",
+            "the man in the high castle", "the legend of vox machina", "citadel",
+            "the summer i turned pretty", "jack reacher",
+        ),
+    },
+    "337": {  # Disney+
+        "movie": (
+            "moana", "frozen", "encanto", "toy story", "the lion king", "avengers",
+            "black panther", "doctor strange", "thor", "guardians of the galaxy",
+            "turning red", "luca", "soul", "coco", "inside out", "elemental",
+            "lightyear", "wish", "the little mermaid", "mulan",
+        ),
+        "series": (
+            "the mandalorian", "andor", "loki", "wanda", "the falcon and the winter soldier",
+            "moon knight", "ms. marvel", "she-hulk", "star wars visions", "obi-wan kenobi",
+            "x-men '97", "percy jackson", "bluey", "ahsoka", "the book of boba fett",
+            "what if...?", "the acolyte", "agatha", "the bear",
+        ),
+    },
+    "350": {  # Apple TV+
+        "movie": (
+            "killers of the flower moon", "napoleon", "greyhound", "palm springs",
+            "finch", "the banker", "wolfwalkers", "coda", "the greatest beer run ever",
+            "argylle", "tetris", "spirited",
+        ),
+        "series": (
+            "ted lasso", "severance", "foundation", "silo", "for all mankind",
+            "shrinking", "slow horses", "the morning show", "mythic quest", "black bird",
+            "hijack", "monarch", "bad sisters", "invasion", "servant", "physical",
+            "the afterparty", "platonic",
+        ),
+    },
+    "15": {  # Hulu
+        "movie": (
+            "prey", "boss level", "vacation friends", "the united states vs. billie holiday",
+            "happiest season", "run", "the bad seed", "books of blood", "the drop",
+            "big time adolescence", "false positive",
+        ),
+        "series": (
+            "the handmaid's tale", "only murders in the building", "the bear", "futurama",
+            "family guy", "solar opposites", "resident alien", "what we do in the shadows",
+            "the great", "normal people", "dollface", "high fidelity", "ramy",
+            "shrill", "pen15", "letterkenny",
+        ),
+    },
+    "1899": {  # HBO Max
+        "movie": (
+            "dune", "the batman", "barbie", "wonka", "the meg", "aquaman",
+            "the matrix", "mad max", "furiosa", "gravity", "interstellar",
+            "inception", "the dark knight", "joker",
+        ),
+        "series": (
+            "game of thrones", "house of the dragon", "the last of us", "succession",
+            "euphoria", "the white lotus", "barry", "chernobyl", "true detective",
+            "the wire", "the sopranos", "westworld", "the penguin", "watchmen",
+            "six feet under", "sex and the city", "the gilded age", "the undoing",
+        ),
+    },
+    "2303": {  # Paramount+
+        "movie": (
+            "top gun", "mission impossible", "sonic the hedgehog", "transformers",
+            "a quiet place", "smile", "mean girls", "paw patrol", "scream",
+            "snake eyes", "infinite", "the tomorrow war",
+        ),
+        "series": (
+            "yellowstone", "tulsa king", "1883", "1923", "star trek",
+            "mayor of kingstown", "lioness", "seal team", "halo", "the good fight",
+            "evil", "twin peaks", "criminal minds", "survivor", "big brother", "frasier",
+        ),
+    },
+    "386": {  # Peacock
+        "movie": (
+            "john wick", "fast & furious", "jurassic world", "minions",
+            "despicable me", "five nights at freddy's", "halloween", "nope", "us",
+            "m3gan", "nobody", "the boss baby", "megamind",
+        ),
+        "series": (
+            "the office", "brooklyn nine-nine", "parks and recreation", "modern family",
+            "chicago fire", "law & order", "supernatural", "the blacklist", "house",
+            "yellowstone", "killing eve", "bel-air", "twisted metal", "based on a true story",
+        ),
+    },
+    "43": {  # Starz
+        "movie": (
+            "the spy who dumped me", "bad moms", "the commuter", "the equalizer",
+            "sicario", "american made", "the circle", "blockers", "instant family",
+            "the mule", "den of thieves",
+        ),
+        "series": (
+            "power", "outlander", "spartacus", "black sails", "american gods",
+            "hightown", "gaslit", "flesh and bone", "magic city", "the spanish princess",
+            "the white princess", "survivor's remorse", "dangerous lady", "the girlfriend experience",
+        ),
+    },
+    "526": {  # AMC+
+        "movie": (
+            "the sadness", "sputnik", "deliver us from evil", "the night house",
+            "the innocents", "pray for the devil", "watcher", "shiva baby", "a glitch in the matrix",
+        ),
+        "series": (
+            "the walking dead", "interview with the vampire", "mayfair witches",
+            "dark winds", "gangs of london", "better call saul", "breaking bad",
+            "mad men", "fear the walking dead", "the terror", "too old to die young",
+            "dietland", "lodge 49", "the killing",
+        ),
+    },
+    "34": {  # MGM+
+        "movie": (
+            "no time to die", "halloween kills", "addams family values",
+            "the silence of the lambs", "legally blonde", "rocky", "thelma & louise",
+            "dances with wolves", "rain man", "some like it hot", "12 angry men", "goodfellas",
+        ),
+        "series": (
+            "godfather of harlem", "hotel cocaine", "chapelwaite", "from", "dominion",
+            "condor", "rogue heroes", "the winter king", "emperor", "beacon 23",
+            "the lost flowers of alice hart", "bridge and tunnel", "lauren lake",
+        ),
+    },
+    "2": {  # Apple TV (store/rentals) -> blockbuster mix
+        "movie": (
+            "top gun maverick", "dune", "avatar", "oppenheimer", "barbie", "the batman",
+            "spider-man", "john wick", "the dark knight", "interstellar", "inception",
+            "gladiator", "titanic", "avengers", "the matrix", "jurassic park",
+        ),
+        "series": (
+            "ted lasso", "severance", "foundation", "silo", "for all mankind", "slow horses",
+            "the morning show", "mythic quest", "shrinking", "black bird", "servant",
+        ),
+    },
+    "300": {  # Pluto TV -> free classics
+        "movie": (
+            "terminator", "top gun", "the godfather", "pulp fiction", "fight club",
+            "the matrix", "titanic", "jurassic park", "the dark knight", "scarface",
+            "rocky", "die hard", "the wolf of wall street", "gladiator",
+        ),
+        "series": (
+            "survivor", "the amazing race", "csi", "dexter", "star trek",
+            "rugrats", "hey arnold", "beavis and butt-head", "the twilight zone",
+            "dr. phil", "the andy griffith show", "twilight zone",
+        ),
+    },
+    "73": {  # Tubi -> free movies
+        "movie": (
+            "tremors", "mortal kombat", "scary movie", "the twilight saga", "the notebook",
+            "step brothers", "zombieland", "the mummy", "the professional",
+            "reservoir dogs", "donnie darko", "requiem for a dream", "american psycho",
+            "trainspotting", "se7en", "the godfather", "fight club",
+        ),
+        "series": (
+            "the simpsons", "family guy", "south park", "bob's burgers",
+            "the mentalist", "monk", "psych", "burn notice", "white collar",
+        ),
+    },
+}
+
+_wp_lock = threading.Lock()
+_wp_pool_cache = {}                 # (pid, mtype) -> [built_at, last_used, rows]
+_wp_building = set()                # (pid, mtype) pools currently being fetched
+_WP_POOL_TTL = 3600                 # seconds before a pool refreshes (stale-served meanwhile)
+_WP_KEEP_PER_SEED = 3               # strongest matches to keep per search seed
+_WP_POOL_MIN = 30                   # pad small pools to at least this many rows
+_WP_POOL_MAX = 90
+_WP_POOLS_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cinemeta-pools.json")
+
+
+def _wp_pools_save():
+    """Persist built pools to disk so a server restart (or a second server
+    instance) starts warm instead of re-fetching every provider seed list."""
+    try:
+        tmp = _WP_POOLS_PATH + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as fh:
+            json.dump(
+                {
+                    "%s|%s" % k: {"built_at": v[0], "rows": v[2]}
+                    for k, v in _wp_pool_cache.items()
+                },
+                fh,
+            )
+        os.replace(tmp, _WP_POOLS_PATH)
+    except Exception:
+        pass
+
+
+def _wp_pools_load():
+    now = time.time()
+    try:
+        with open(_WP_POOLS_PATH, "r", encoding="utf-8") as fh:
+            raw = json.load(fh)
+        for k, v in raw.items():
+            try:
+                pid, mtype = k.split("|", 1)
+                rows = v.get("rows") or []
+                if rows and pid in _WP_SEEDS and mtype in ("movie", "tv"):
+                    _wp_pool_cache[(pid, mtype)] = [float(v.get("built_at") or 0), now, rows]
+            except Exception:
+                continue
+    except Exception:
+        pass
+
+
+_wp_pools_load()
+
+
+def _cinemeta_search_rows(mtype, query):
+    ctype = "series" if mtype == "tv" else "movie"
+    enc = urllib.parse.quote(query)
+    try:
+        metas = (_cinemeta_get("/catalog/%s/top/search=%s.json" % (ctype, enc)).get("metas") or [])
+    except Exception:
+        return []
+    _cinemap_harvest(metas, mtype)
+    return [_cinemeta_item(m, mtype) for m in metas if m.get("name")]
+
+
+def _wp_fetch_pool(key):
+    """Fetch + dedupe one provider pool from Cinemeta (no lock, no cache)."""
+    pid, mtype = key
+    seeds = (_WP_SEEDS.get(pid) or {}).get("series" if mtype == "tv" else "movie")
+    if not seeds:
+        return None
+    rows, seen = [], set()
+
+    def _grab(seed):
+        return _cinemeta_search_rows(mtype, seed)
+    from concurrent.futures import ThreadPoolExecutor
+    with ThreadPoolExecutor(max_workers=12) as ex:
+        per_seed = list(ex.map(_grab, seeds))
+    for got in per_seed:
+        kept = 0
+        for r in got:
+            nm = (r.get("title") or r.get("name") or "").strip().lower()
+            if not nm or nm in seen:
+                continue
+            seen.add(nm)
+            rows.append(r)
+            kept += 1
+            if kept >= _WP_KEEP_PER_SEED:
+                break
+    # pad from the generic top list so thin catalogs still fill a grid
+    if len(rows) < _WP_POOL_MIN:
+        for r in _cinemeta_rows("/catalog/%s/top.json" % ("series" if mtype == "tv" else "movie"), mtype):
+            nm = (r.get("title") or r.get("name") or "").strip().lower()
+            if nm and nm not in seen:
+                seen.add(nm)
+                rows.append(r)
+            if len(rows) >= _WP_POOL_MIN:
+                break
+    return rows[:_WP_POOL_MAX]
+
+
+def _wp_store_pool(key, rows):
+    with _wp_lock:
+        _wp_pool_cache[key] = [time.time(), time.time(), rows]
+    _wp_pools_save()
+
+
+def _wp_refresh(key):
+    """Background rebuild of an expired pool (stale-while-revalidate)."""
+    try:
+        rows = _wp_fetch_pool(key)
+        if rows:
+            _wp_store_pool(key, rows)
+    except Exception:
+        pass
+    finally:
+        with _wp_lock:
+            _wp_building.discard(key)
+
+
+def _wp_warm_all():
+    """Pre-build every curated provider pool shortly after boot so the first
+    click on any provider is served from cache instead of blocking on
+    Cinemeta. Runs in the background; pools persisted on disk make restarts
+    near-instant."""
+    keys = []
+    for pid, seeds in _WP_SEEDS.items():
+        for mtype in ("movie", "tv"):
+            if (seeds or {}).get("series" if mtype == "tv" else "movie"):
+                keys.append((pid, mtype))
+    import random
+    random.shuffle(keys)
+
+    def _worker(chunk):
+        for key in chunk:
+            try:
+                _cinemeta_provider_pool(*key)
+            except Exception:
+                pass
+    mid = (len(keys) + 1) // 2
+    threading.Thread(target=_worker, args=(keys[:mid],), daemon=True).start()
+    threading.Thread(target=_worker, args=(keys[mid:],), daemon=True).start()
+
+
+def _cinemeta_provider_pool(pid, mtype):
+    """Return a deduped, cached pool of rows for (provider, type), or None when
+    that provider has no curated seed list (caller falls back to generic top).
+    Fresh pools return instantly; expired pools are served stale while a
+    background thread refreshes them; only a truly cold pool is fetched inline,
+    so browsing never waits once warm."""
+    seeds = (_WP_SEEDS.get(pid) or {}).get("series" if mtype == "tv" else "movie")
+    if not seeds:
+        return None
+    key = (pid, mtype)
+    with _wp_lock:
+        hit = _wp_pool_cache.get(key)
+        if hit:
+            hit[1] = time.time()
+            if time.time() - hit[0] < _WP_POOL_TTL:
+                return hit[2]
+    if hit is not None:
+        # expired: serve the stale pool, refresh it in the background
+        with _wp_lock:
+            hit2 = _wp_pool_cache.get(key)
+            if hit2 and time.time() - hit2[0] < _WP_POOL_TTL:
+                return hit2[2]
+            if key not in _wp_building:
+                _wp_building.add(key)
+                threading.Thread(target=_wp_refresh, args=(key,), daemon=True).start()
+        return hit[2]
+    # truly cold: fetch inline (another builder may already be on it)
+    with _wp_lock:
+        if key in _wp_building:
+            mine = False
+        else:
+            _wp_building.add(key)
+            mine = True
+    if not mine:
+        # another thread (e.g. the boot warm-up) is fetching it: wait briefly
+        for _ in range(300):
+            time.sleep(0.1)
+            with _wp_lock:
+                hit = _wp_pool_cache.get(key)
+                if hit:
+                    hit[1] = time.time()
+                    return hit[2]
+        return None
+    try:
+        rows = _wp_fetch_pool(key)
+        if rows:
+            _wp_store_pool(key, rows)
+        return rows or None
+    finally:
+        with _wp_lock:
+            _wp_building.discard(key)
+
+
 def _cinemeta_respond(self, payload):
     raw = json.dumps(payload).encode()
     self.send_response(200)
@@ -3909,8 +4311,22 @@ def _cinemeta_serve(path_tail, qs):
                     results = {"page": 1, "results": rows, "total_pages": 1, "total_results": len(rows)}
             elif kind == "discover":
                 mtype = "tv" if sub == "tv" else "movie"
-                rows = _cinemeta_rows("/catalog/%s/top.json" % ("series" if mtype == "tv" else "movie"), mtype)
-                results = {"page": 1, "results": rows, "total_pages": 1, "total_results": len(rows)}
+                wp = (params.get("with_watch_providers") or "").strip()
+                page = int(params.get("page") or 1)
+                if wp:
+                    pool = _cinemeta_provider_pool(wp, mtype)
+                    if pool is not None:
+                        start = max(0, (page - 1) * 15)
+                        rows = pool[start:start + 15]
+                        results = {"page": page, "results": rows,
+                                   "total_pages": max(1, -(-len(pool) // 15)),
+                                   "total_results": len(pool)}
+                    else:
+                        rows = _cinemeta_rows("/catalog/%s/top.json" % ("series" if mtype == "tv" else "movie"), mtype)
+                        results = {"page": page, "results": rows, "total_pages": 1, "total_results": len(rows)}
+                else:
+                    rows = _cinemeta_rows("/catalog/%s/top.json" % ("series" if mtype == "tv" else "movie"), mtype)
+                    results = {"page": page, "results": rows, "total_pages": 1, "total_results": len(rows)}
         elif path_tail.startswith("find/"):
             imdb = path_tail.split("find/", 1)[1].split("?")[0].split("/")[0]
             payload = {"movie_results": [], "tv_results": [], "person_results": [], "tv_episode_results": [], "tv_season_results": []}
@@ -3999,6 +4415,41 @@ def _cinemeta_serve(path_tail, qs):
     return results
 
 
+
+
+
+def _serve_mp3_fallback(route):
+    """Undertale GameMaker audio fallback.
+
+    The hosted HTML5 build expects both mus_*.mp3 and abc_*_a.mp3 style
+    assets. When the matching mp3 is missing on this host, the runner gets a
+    404 HTML body and decodeAudioData throws "unknown content type", which is
+    exactly the spammy audio errors seen on the hosted build. Where a matching
+    .ogg exists, return a clean 302 to that file so the runner can decode it.
+    Otherwise return a proper audio 404 (not an HTML body) so non-game clients
+    get a real error too. The fallback only applies to mp3s under a known game
+    audio tree so regular music/other .mp3 assets are not rewritten.
+    """
+    import posixpath
+    from urllib.parse import unquote
+    decoded = unquote(route)
+    lower = decoded.lower()
+    if "/html5game/" not in lower and "/game-builds/" not in lower:
+        return None
+    base = decoded[:-4] if decoded.lower().endswith(".mp3") else decoded
+    alt = base + ".ogg"
+    full = self.translate_path(alt)
+    if os.path.isfile(full):
+        self.send_response(302)
+        self.send_header("Location", alt)
+        self.end_headers()
+        return True
+    self.send_response(404)
+    self.send_header("Content-Type", "audio/mpeg")
+    self.send_header("Cache-Control", "no-store, max-age=0")
+    self.end_headers()
+    self.wfile.write(b"404 Not Found\n")
+    return True
 
 
 def _is_private_ip(ip):
@@ -4165,26 +4616,208 @@ def _uv_decode(raw):
     except Exception:
         return raw.decode("latin-1", "replace")
 
+# --- pooled upstream HTTP/1.1 client for the /uv proxy ---
+# urllib opened a brand-new connection (with a full TLS handshake) for every
+# proxied asset. These helpers keep a small pool of keep-alive connections per
+# upstream host so asset-heavy pages reuse one connection instead of paying a
+# handshake per file. The response wrapper exposes the urllib surface the rest
+# of the proxy already uses (read/close/headers/getcode).
+_uv_pool_lock = threading.Lock()
+_uv_pool = {}                 # "scheme|host|port" -> [idle _UVPoolConn]
+_UV_POOL_IDLE_MAX = 8         # idle keep-alive conns kept per host
+_UV_POOL_IDLE_TTL = 20.0      # seconds before an idle conn is discarded
+
+
+class _UVPoolConn:
+    __slots__ = ("conn", "key", "idle_at")
+
+    def __init__(self, conn, key):
+        self.conn = conn
+        self.key = key
+        self.idle_at = time.time()
+
+
+def _uv_pool_key(scheme, host, port):
+    return scheme + "|" + host + "|" + str(port)
+
+
+def _uv_pool_take(key):
+    with _uv_pool_lock:
+        arr = _uv_pool.get(key)
+        now = time.time()
+        while arr:
+            c = arr.pop()
+            if now - c.idle_at > _UV_POOL_IDLE_TTL:
+                try:
+                    c.conn.close()
+                except Exception:
+                    pass
+                continue
+            if not arr:
+                _uv_pool.pop(key, None)
+            return c
+        if arr is not None and not arr:
+            _uv_pool.pop(key, None)
+    return None
+
+
+def _uv_pool_give(c):
+    if c is None:
+        return
+    with _uv_pool_lock:
+        arr = _uv_pool.setdefault(c.key, [])
+        if len(arr) >= _UV_POOL_IDLE_MAX:
+            oldest = arr.pop(0)
+            try:
+                oldest.conn.close()
+            except Exception:
+                pass
+        c.idle_at = time.time()
+        arr.append(c)
+
+
+def _uv_pool_discard(c):
+    if c is None:
+        return
+    try:
+        c.conn.close()
+    except Exception:
+        pass
+
+
+class _UVResp:
+    """urllib-compatible readable response backed by a pooled connection.
+    Reading to EOF marks the response complete so close() can return the
+    connection to the pool instead of throwing it away."""
+
+    __slots__ = ("pooled", "resp", "done", "no_reuse", "headers")
+
+    def __init__(self, pooled, resp):
+        self.pooled = pooled
+        self.resp = resp
+        self.done = False
+        try:
+            self.no_reuse = resp.will_close
+        except Exception:
+            self.no_reuse = False
+        self.headers = resp.headers
+
+    def read(self, n=-1):
+        try:
+            data = self.resp.read(n)
+        except Exception:
+            self.done = True
+            raise
+        if data == b"" or (n > 0 and len(data) < n):
+            self.done = True
+        return data
+
+    def close(self):
+        if self.done and not self.no_reuse:
+            _uv_pool_give(self.pooled)
+        else:
+            _uv_pool_discard(self.pooled)
+        self.done = True
+
+    def getcode(self):
+        return self.resp.status
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        self.close()
+        return False
+
+
+def _uv_cacheable(ctype, target):
+    """Seconds a proxied response can be cached by the browser. Static assets
+    are deterministic per /uv URL; HTML, JSON and anything dynamic stay
+    no-store. Rewritten text (css/js/svg) gets a short cache."""
+    low = (ctype or "").lower()
+    if low.startswith(("image/", "font/", "audio/", "video/")) or low == "application/wasm":
+        return 86400
+    path = (target or "").split("?", 1)[0].lower()
+    if low == "application/octet-stream" and "." in path:
+        ext = path.rsplit(".", 1)[-1]
+        if ext in ("data", "wasm", "unx", "bin", "pak", "unityweb", "mp3", "ogg", "wav", "mp4", "webm", "png", "jpg", "jpeg", "webp", "gif", "svg", "woff", "woff2", "ttf", "eot"):
+            return 86400
+    return 0
+
 
 def _uv_open(url, post_body=None):
-    """Open a proxied target for reading. Returns the urllib response object
-    (or raises). Kept separate so binary assets can be streamed instead of
-    buffered - Unity .data/.wasm parts are frequently >100MB and must not be
-    loaded into memory or capped."""
+    """Fetch a proxied target with pooled keep-alive connections. Returns the
+    urllib-style response object (read/close/headers/getcode) after following
+    redirects, or raises urllib.error.HTTPError / URLError."""
+    import http.client
+    import urllib.error
     import urllib.request
-    headers = {
-        "User-Agent": ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-                        "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"),
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.9",
-    }
     data = None
     if post_body is not None:
         data = post_body.encode() if isinstance(post_body, str) else post_body
-        headers["Content-Type"] = "application/x-www-form-urlencoded"
-    req = urllib.request.Request(url, data=data, headers=headers)
-    return urllib.request.urlopen(req, timeout=FETCH_TIMEOUT)
-
+    headers = {
+        "User-Agent": ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                       "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"),
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Accept-Encoding": "identity",
+    }
+    cur = url
+    for _redirect in range(6):
+        parts = urllib.parse.urlsplit(cur)
+        scheme = (parts.scheme or "https").lower()
+        host = parts.hostname or ""
+        if not host:
+            raise urllib.error.URLError("no host in " + (cur or ""))
+        port = parts.port or (443 if scheme == "https" else 80)
+        path = parts.path or "/"
+        if parts.query:
+            path += "?" + parts.query
+        key = _uv_pool_key(scheme, host, port)
+        pooled = None
+        resp = None
+        err = None
+        for _attempt in (1, 2):
+            pooled = _uv_pool_take(key)
+            try:
+                if pooled is None:
+                    if scheme == "https":
+                        conn = http.client.HTTPSConnection(host, port, timeout=FETCH_TIMEOUT)
+                    else:
+                        conn = http.client.HTTPConnection(host, port, timeout=FETCH_TIMEOUT)
+                    pooled = _UVPoolConn(conn, key)
+                req_headers = dict(headers)
+                if data is not None:
+                    req_headers["Content-Type"] = "application/x-www-form-urlencoded"
+                pooled.conn.request(("POST" if data is not None else "GET"), path,
+                                    body=data, headers=req_headers)
+                resp = pooled.conn.getresponse()
+                break
+            except Exception as e:  # stale pooled conn or connect failure -> retry once
+                _uv_pool_discard(pooled)
+                pooled = None
+                resp = None
+                err = e
+        if resp is None:
+            raise urllib.error.URLError(str(err or "connect failed"))
+        status = resp.status
+        if status in (301, 302, 303, 307, 308):
+            loc = resp.getheader("Location")
+            try:
+                resp.read()
+            except Exception:
+                pass
+            _uv_pool_discard(pooled)
+            if not loc:
+                raise urllib.error.HTTPError(cur, status, "redirect without location", resp.headers, None)
+            data = None  # browsers GET after a redirect
+            cur = urllib.parse.urljoin(cur, loc)
+            continue
+        if status >= 400:
+            _uv_pool_discard(pooled)
+            raise urllib.error.HTTPError(cur, status, "HTTP %s" % status, resp.headers, None)
+        return _UVResp(pooled, resp)
+    raise urllib.error.URLError("too many redirects")
 
 def _uv_fetch(url, post_body=None):
     """Fetch a proxied target (HTML/CSS only - binaries use _uv_stream_remote).
@@ -4525,6 +5158,7 @@ def _uv_inject_patch(html, target):
 
 def main():
     threading.Thread(target=_pruner, daemon=True).start()
+    threading.Thread(target=_wp_warm_all, daemon=True).start()
     httpd = ThreadingHTTPServer((HOST, PORT), Handler)
     httpd.RequestHandlerClass.directory = WEB_ROOT
     print(f"Chalkle server on http://{HOST}:{PORT}  (/_active viewers, /_fetch proxy)")

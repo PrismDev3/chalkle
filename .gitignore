@@ -71,3 +71,6 @@ tmp_patch_*.py
 # full single-file build exceeds GitHub 100MB limit; regenerate locally:
 #   node scripts/build-single-chalkle.mjs
 /build/chalkle-single.html
+
+# runtime cache of provider pools (regenerated)
+server/cinemeta-pools.json

@@ -58,6 +58,11 @@
   /* ---------- data ---------- */
 
   function load() {
+    /* The channels grid (#livetv-grid) is not in the current markup - the
+       tab renders the live-sports block only. Skip the /api/live-tv fetch
+       when there is nothing to render it into (it used to fire on every
+       boot and the response went straight to the void). */
+    if (!document.getElementById("livetv-grid")) return Promise.resolve();
     setStatus("loading channels", "busy");
     return fetch(apiUrl("/api/live-tv"), { cache: "no-store" })
       .then(function (r) { return r.json(); })
@@ -712,6 +717,31 @@
     });
 
     applyAdminUI();
+
+    /* Boot used to fetch /api/live-tv, /api/livetv/sports and start the
+       matches poll on every page load, even when the Live TV tab was never
+       opened - several slow relay calls competing with everything else at
+       boot. Defer them until the tab is first shown (app.js setView hooks
+       ChalkleLiveTV.render); when Live TV boots already visible, go now. */
+    var view = document.querySelector('.view[data-view="livetv"]');
+    if (!view || view.classList.contains("is-visible")) {
+      firstBoot();
+    } else if ("MutationObserver" in window) {
+      var obs = new MutationObserver(function () {
+        if (!view.classList.contains("is-visible")) return;
+        obs.disconnect();
+        firstBoot();
+      });
+      obs.observe(view, { attributes: true, attributeFilter: ["class"] });
+    }
+  }
+
+  /* One-shot boot for the network side of Live TV (channels, sports,
+     refresh timer). Safe to call from anywhere; only the first call acts. */
+  var bootDone = false;
+  function firstBoot() {
+    if (bootDone) return;
+    bootDone = true;
     load();
     loadSports();
     armRefresh();
@@ -724,7 +754,7 @@
   }
 
   window.ChalkleLiveTV = {
-    render: render,
+    render: function () { firstBoot(); render(); },
     refresh: render,
     load: load,
     addChannel: function () { openModal(null); },

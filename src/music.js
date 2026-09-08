@@ -290,32 +290,52 @@
     return (list || []).map(function (m) { return cloneMeta(m, list, prefix); });
   }
 
+  /* One chart refresh: 8 parallel relay searches merged into the catalog.
+     Resolves after repainting; rejects when everything came back empty
+     (upstream outage) so callers can fall back or retry. */
+  function fetchCharts() {
+    return Promise.all(CHART_QUERIES.map(function (q) { return getJSON(api({ path: "search", q: q, limit: 10 })).catch(function () { return { items: [] }; }); }))
+      .then(function (replies) {
+        var all = [];
+        replies.forEach(function (reply) { all = all.concat(reply && reply.items || []); });
+        var merged = sortPopular(all);
+        if (!merged.length) throw new Error("empty");
+        state.catalog = merged;
+        try { localStorage.setItem(CATALOG_KEY, JSON.stringify(state.catalog.slice(0, 120))); } catch (e) { /* private mode */ }
+        renderHomeFromCatalog();
+      });
+  }
+
   function renderHome() {
     setPage("home");
     if (!state.catalog.length) {
+      /* Stale-while-revalidate: painting the last good catalog from
+         localStorage takes 0ms, so the tab opens instantly, then this
+         background refresh swaps in fresh data when it lands (silently -
+         a slightly stale grid beats a 4-second spinner on every visit). */
+      var saved = null;
+      try { saved = JSON.parse(localStorage.getItem(CATALOG_KEY) || "null"); } catch (e) { saved = null; }
+      if (Array.isArray(saved) && saved.length) {
+        state.catalog = sortPopular(saved);
+        renderHomeFromCatalog();
+        fetchCharts().catch(function () { /* keep the stale catalog */ });
+        return;
+      }
       els.home.innerHTML = '<div class="music-loading"><span class="music-loading-dot"></span> Loading music for you…</div>';
       /* Two silent retries before the off-line banner: every Piped instance
          can blip at once for a few seconds; a 1.5s/4s backoff usually rides
          it out so users never see an error that would have fixed itself. */
       var tries = 0;
       var loadCharts = function () {
-        Promise.all(CHART_QUERIES.map(function (q) { return getJSON(api({ path: "search", q: q, limit: 10 })).catch(function () { return { items: [] }; }); }))
-          .then(function (replies) {
-            var all = [];
-            replies.forEach(function (reply) { all = all.concat(reply && reply.items || []); });
-            state.catalog = sortPopular(all);
-            if (!state.catalog.length) throw new Error("empty");
-            try { localStorage.setItem(CATALOG_KEY, JSON.stringify(state.catalog.slice(0, 120))); } catch (e) { /* private mode */ }
-            renderHome();
-          })
+        fetchCharts()
           .catch(function () {
             /* The relay itself serves stale caches during upstream outages;
                if we still got nothing, fall back to the last good catalog on
                this device before showing the off-line banner. */
             if (!state.catalog.length) {
               try {
-                var saved = JSON.parse(localStorage.getItem(CATALOG_KEY) || "[]");
-                if (saved.length) { state.catalog = saved; renderHome(); return; }
+                var cached = JSON.parse(localStorage.getItem(CATALOG_KEY) || "[]");
+                if (Array.isArray(cached) && cached.length) { state.catalog = cached; renderHomeFromCatalog(); return; }
               } catch (e) { /* fall through */ }
             }
             if (++tries < 3) { setTimeout(loadCharts, tries === 1 ? 1500 : 4000); return; }
@@ -343,7 +363,7 @@
     var heroSave = saveButton(heroItem).replace("music-save", "music-hero-save");
     var html = '<div class="music-home-shell">' +
       '<div class="music-home-intro"><div><span class="music-eyebrow">Chalkle Music</span><h1>' + greeting() + '</h1><p>Find something to play, then keep browsing without losing your place.</p></div><span class="music-source-note">Live catalog · relay powered</span></div>' +
-      '<div class="music-hero"><div class="music-hero-art">' + artHtml(heroItem, "music-art") + '<span class="music-play-overlay" aria-hidden="true">' + playIcon() + '</span></div><div class="music-hero-copy"><span class="music-eyebrow">Featured track</span><h2>' + esc(cleanName(hero.name) || "Untitled") + '</h2><p class="music-hero-artist">' + esc(artistName(hero)) + '</p><p class="music-hero-album">' + esc(albumLabel(hero)) + '</p><div class="music-hero-actions">' + heroPlay + heroSave + '</div></div></div>' +]
+      '<div class="music-hero"><div class="music-hero-art">' + artHtml(heroItem, "music-art") + '<span class="music-play-overlay" aria-hidden="true">' + playIcon() + '</span></div><div class="music-hero-copy"><span class="music-eyebrow">Featured track</span><h2>' + esc(cleanName(hero.name) || "Untitled") + '</h2><p class="music-hero-artist">' + esc(artistName(hero)) + '</p><p class="music-hero-album">' + esc(albumLabel(hero)) + '</p><div class="music-hero-actions">' + heroPlay + heroSave + '</div></div></div>' +
       section(recentTitle, recent.length ? "Pick up where you left off" : "Popular picks to get you started", '<div class="music-card-row">' + recentDisplay.map(function (m, i) { return trackCard(m, recentDisplay, "recent" + i); }).join("") + '</div>', "music-section-cards") +
       section("Made for you", "Based on what is popular right now", '<div class="music-card-row">' + made.map(function (m, i) { return trackCard(m, made, "made" + i); }).join("") + '</div>', "music-section-cards") +
       section("Popular albums", "Albums and collections", '<div class="music-cover-row">' + albums.map(function (a) { return albumCard(a.album, a.artist, a.meta, a.tracks); }).join("") + '</div>', "music-section-covers") +
@@ -396,7 +416,7 @@
     var title = type === "artist" ? col.name : col.name;
     var subtitle = type === "artist" ? "Artist" : (col.artist || "Album");
     var playListMeta = cloneMeta(tracks[0], tracks, "detail-play");
-    els.profile.innerHTML =      '<div class="music-detail-head"><div class="music-detail-art">' + artHtml(first, "music-art") + '<span class="music-play-overlay" aria-hidden="true">' + playIcon() + '</span></div><div class="music-detail-copy"><span class="music-eyebrow">' + esc(subtitle) + '</span><h1>' + esc(title) + '</h1><p>' + esc(type === "artist" ? "Popular tracks from this artist" : (col.artist || "Album")) + ' · ' + tracks.length + ' songs</p><div class="music-hero-actions"><button class="music-primary-btn" data-mplay="' + esc(playListMeta._key) + '">' + playIcon() + ' Play all</button><button class="music-secondary-btn" data-msave-collection="' + esc(type + ":" + key) + '">+ Add to library</button></div></div></div>' +]
+    els.profile.innerHTML =      '<div class="music-detail-head"><div class="music-detail-art">' + artHtml(first, "music-art") + '<span class="music-play-overlay" aria-hidden="true">' + playIcon() + '</span></div><div class="music-detail-copy"><span class="music-eyebrow">' + esc(subtitle) + '</span><h1>' + esc(title) + '</h1><p>' + esc(type === "artist" ? "Popular tracks from this artist" : (col.artist || "Album")) + ' · ' + tracks.length + ' songs</p><div class="music-hero-actions"><button class="music-primary-btn" data-mplay="' + esc(playListMeta._key) + '">' + playIcon() + ' Play all</button><button class="music-secondary-btn" data-msave-collection="' + esc(type + ":" + key) + '">+ Add to library</button></div></div></div>' +
       '<div class="music-detail-list">' + tracks.map(function (m, i) { return rowHtml(m, i, tracks, "detail"); }).join("") + '</div>';
     setPage("profile");
     els.profileBack.hidden = false;
@@ -594,7 +614,7 @@
   }
   function miniBind() {
     var bPlay = miniQ("mini-music-play"), bNext = miniQ("mini-music-next"), bPrev = miniQ("mini-music-prev"), bMute = miniQ("mini-music-mute"), bOpen = miniQ("mini-music-open");
-    if (bPlay) bPlay.addEventListener("click", function (e) { e.stopPropagation(); togglePlay(); });
+    if (bPlay) bPlay.addEventListener("click", function (e) { e.stopPropagation(); togglePlay(); reconcilePlayFromClick(); });
     if (bNext) bNext.addEventListener("click", function (e) { e.stopPropagation(); next(); });
     if (bPrev) bPrev.addEventListener("click", function (e) { e.stopPropagation(); prev(); });
     if (bMute) bMute.addEventListener("click", function (e) { e.stopPropagation(); miniToggleMute(); });
@@ -622,10 +642,50 @@
     var card = document.getElementById("music-player");
     if (card) card.classList.toggle("is-playing", !!on);
   }
+  function syncPlayingUI() {
+    /* Re-derive the play/pause icon from reality, not just from the local
+       flag. This prevents the button from staying stuck on 'pause' when the
+       browser silently paused playback (autoplay restriction, resume needed,
+       or a transient decoder drop).
+       We only flip the icon when the browser's actual playing state disagrees
+       with the UI, so a legit pause() from the user or from another app stays
+       stable.
+    */
+    var real = !!(audio && audio.src && !audio.paused && !audio.ended && audio.readyState >= 2);
+    if (state.playing !== real) {
+      state.playing = real;
+      setPlayingUI(real);
+    }
+  }
+  function reconcilePlayFromClick() {
+    /* Called right after a user click on the play button. If the audio element
+       already has a source and the browser is refusing to start (autoplay
+       policy) we still want the icon to reflect reality, not just the local
+       optimistic flag we set on click.
+       This is intentionally separate from syncPlayingUI because it is meant
+       to run synchronously after user gestures where the spec allows play().
+    */
+    if (!audio || !audio.src) return;
+    var real = !!(!audio.paused && !audio.ended && audio.readyState >= 2);
+    if (state.playing !== real) {
+      state.playing = real;
+      setPlayingUI(real);
+    }
+  }
   function togglePlay() {
     if (state.idx < 0 || !state.queue.length) return;
-    if (state.playing) { audio.pause(); }
-    else { state.playing = true; setPlayingUI(true); audio.play().catch(function () { state.playing = false; setPlayingUI(false); }); }
+    if (state.playing) {
+      audio.pause();
+      return;
+    }
+    state.playing = true;
+    setPlayingUI(true);
+    if (audio && audio.src) {
+      audio.play().then(function () { syncPlayingUI(); }).catch(function () {
+        state.playing = false;
+        setPlayingUI(false);
+      });
+    }
   }
   function next(skipBroken) {
     if (!state.queue.length) return;
@@ -691,7 +751,8 @@
   }
 
   function bind() {
-    els.play.addEventListener("click", togglePlay); els.next.addEventListener("click", function () { next(); }); els.prev.addEventListener("click", prev);
+    els.play.addEventListener("click", function () { togglePlay(); reconcilePlayFromClick(); });
+    els.next.addEventListener("click", function () { next(); }); els.prev.addEventListener("click", prev);
     miniBind();
     els.shuffle.addEventListener("click", function () { state.shuffle = !state.shuffle; els.shuffle.classList.toggle("is-on", state.shuffle); });
     els.repeat.addEventListener("click", function () { state.repeat = state.repeat === "off" ? "all" : state.repeat === "all" ? "one" : "off"; var label = "Repeat: " + state.repeat; els.repeat.title = label; els.repeat.setAttribute("aria-label", label); els.repeat.classList.toggle("is-on", state.repeat !== "off"); });
@@ -717,7 +778,17 @@
       if (save && !save._musicBound) { e.preventDefault(); toggleSavedById(save.getAttribute("data-msave")); }
     });
     document.addEventListener("keydown", function (e) { if ((e.key === " " || e.key === "Spacebar") && !/INPUT|TEXTAREA/.test(document.activeElement && document.activeElement.tagName || "")) { if (!state.viewHidden) { e.preventDefault(); togglePlay(); } } });
-    audio.addEventListener("play", function () { setPlayingUI(true); }); audio.addEventListener("pause", function () { if (audio.src) setPlayingUI(false); }); audio.addEventListener("ended", function () { next(); });
+    audio.addEventListener("play", function () { state.playing = true; setPlayingUI(true); syncPlayingUI(); });
+    audio.addEventListener("pause", function () {
+      if (audio.src) {
+        state.playing = false;
+        setPlayingUI(false);
+      }
+    });
+    audio.addEventListener("ended", function () { next(); });
+    audio.addEventListener("resume", syncPlayingUI);
+    audio.addEventListener("play", syncPlayingUI);
+    audio.addEventListener("pause", syncPlayingUI);
     audio.addEventListener("timeupdate", function () { if (state.dragging) return; var d = isFinite(audio.duration) ? audio.duration : 0; els.seek.value = d ? Math.round(audio.currentTime / d * 1000) : 0; els.cur.textContent = fmt(audio.currentTime); els.dur.textContent = fmt(d); tickLyrics(); });
     audio.addEventListener("loadedmetadata", function () { if (isFinite(audio.duration)) els.dur.textContent = fmt(audio.duration); });
     audio.addEventListener("error", function () { var m = state.queue[state.idx]; if (m) toast("Couldn't load: " + m.name); setTimeout(function () { if (state.queue.length) next(true); }, 900); });
@@ -750,6 +821,22 @@
     pause: function () { if (audio) { try { audio.pause(); } catch (e) {} } },
     isPlaying: function () { return !!state.playing; },
     retry: function () { state.catalog = []; renderHome(); }
+  };
+  /* Home tab "trending videos" click-through: app.js hands us the light
+     track shape produced by ChalkleFeaturedVideos ({id,title,artist,...})
+     and we convert it to a music track and start playing it. */
+  window.ChalkleOpenVideo = function (t) {
+    if (!t || !t.id) return;
+    var meta = {
+      id: t.id, url_id: t.id, pic_id: t.id, lyric_id: t.id,
+      name: t.title || t.name || "Video",
+      artist: [t.artist || "Unknown artist"],
+      album: "",
+      views: t.views || 0,
+      duration: t.duration || 0,
+      source: "youtube"
+    };
+    playList([meta], meta);
   };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init); else init();
 })();
