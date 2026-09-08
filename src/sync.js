@@ -32,18 +32,48 @@
          load, permanently hiding the new entries. Union by title: server copy
          first (keeps edits made on other devices), then local-only entries
          (fresh seeds + locally added items) appended. */
-      var LIB_KEYS = { "chalkle-gamelib-v4": 1, "chalkle-sitelib-v2": 1, "chalkle-toollib-v6": 1, "chalkle-boardlib-v1": 1 };
+      /* Library-like keys get a union merge instead of a blind overwrite:
+         the server snapshot may be older than this device (a fast reload can
+         beat the 500ms sync-up POST), so a blind restore would wipe proxies,
+         board entries and deletions added a second ago. Title/name-keyed item
+         lists union server-first (keeps edits made on other devices) then
+         local-only entries; the *-del deletion lists just union. */
+      var LIB_KEYS = {
+        "chalkle-gamelib-v4": 1, "chalkle-sitelib-v2": 1, "chalkle-toollib-v6": 1, "chalkle-boardlib-v1": 1,
+        "chalkle-proxies": 1,
+        "chalkle-gamelib-v4-del": 1, "chalkle-sitelib-v2-del": 1, "chalkle-toollib-v6-del": 1, "chalkle-boardlib-v1-del": 1
+      };
       function mergeLib(serverVal, localVal) {
         try {
           var s = JSON.parse(serverVal), l = JSON.parse(localVal);
           if (!Array.isArray(s) || !Array.isArray(l)) return null;
-          var byTitle = {}, out = [];
-          s.forEach(function (it) { if (it && it.title && !(it.title in byTitle)) { byTitle[it.title] = it; out.push(it); } });
+          if (!s.length || typeof s[0] !== "object") {
+            /* Deletion title lists (arrays of strings): union. */
+            var seen = {}, un = [];
+            s.concat(l).forEach(function (t) { if (t && !(t in seen)) { seen[t] = true; un.push(t); } });
+            return JSON.stringify(un);
+          }
+          var keyOf = function (it) { return it && (it.title || it.name); };
+          /* A locally deleted title must win over the server snapshot: the
+             user explicitly removed it, and the server copy could be stale.
+             Build the del-set from the sibling *-del key, then drop server
+             rows that are on it before the union. */
+          var delSet = {};
+          try {
+            var delRaw = storage.getItem(k + "-del");
+            if (delRaw) {
+              var dd = JSON.parse(delRaw);
+              if (Array.isArray(dd)) dd.forEach(function (t) { delSet[t] = true; });
+            }
+          } catch (e) {}
+          var byKey = {}, out = [];
+          s.forEach(function (it) { var k2 = keyOf(it); if (k2 && !(k2 in delSet) && !(k2 in byKey)) { byKey[k2] = it; out.push(it); } });
           l.forEach(function (it) {
-            if (!it || !it.title) return;
-            if (!(it.title in byTitle)) { byTitle[it.title] = it; out.push(it); }
+            var k2 = keyOf(it);
+            if (!k2 || (k2 in delSet)) return;
+            if (!(k2 in byKey)) { byKey[k2] = it; out.push(it); }
             else {
-              var hit = byTitle[it.title];
+              var hit = byKey[k2];
               /* A server row that lost its url is stale damage; the local
                  copy still knows where to launch. */
               if (!String(hit.url || "").trim() && String(it.url || "").trim()) {

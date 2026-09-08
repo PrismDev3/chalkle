@@ -129,6 +129,19 @@
         overflow: hidden;
       }
 
+      /* Letterboxed fullscreen: the canvas is centered and scaled to fill the
+         whole viewport while keeping the game's aspect ratio (bars use the
+         page background). Applied by JS, and always on in real fullscreen. */
+      body.fs {
+        overflow: hidden;
+        background: #000;
+        justify-content: center;
+      }
+
+      body.fs::before {
+        z-index: 9990;
+      }
+
       .emscripten {
         padding-right: 0;
         display: block;
@@ -143,7 +156,6 @@
       canvas.emscripten {
         display: none;
         background-color: var(--bg);
-        position: flex;
         transition: opacity 5s ease-in;
         -webkit-transition: opacity 5s ease-in;
         opacity: 0;
@@ -160,6 +172,7 @@
         animation-name: fadeIn;
         animation-duration: 2s;
         opacity: 1;
+        margin: auto;
       }
 
       canvas.paused {
@@ -1104,38 +1117,66 @@
     </script>
 
     <script>
-      function toggleFullscreen() {
-        const btn = document.getElementById("fullscreenBtn");
-        const target =
-          document.getElementById("canvas") || document.documentElement;
+      // Keep the game canvas sized to fill the screen (contain, letterboxed)
+      // and make the Fullscreen button cover the whole page instead of just
+      // the raw canvas element.
+      function fitCanvas() {
+        const c = document.getElementById("canvas");
+        if (!c) return;
+        const cw = c.width || 0;
+        const ch = c.height || 0;
+        if (!cw || !ch) return;
+        const ratio = cw / ch;
+        const vw = document.documentElement.clientWidth;
+        const vh = document.documentElement.clientHeight;
+        let w, h;
+        if (vw / vh > ratio) {
+          h = vh;
+          w = h * ratio;
+        } else {
+          w = vw;
+          h = w / ratio;
+        }
+        c.style.width = Math.max(1, Math.floor(w)) + "px";
+        c.style.height = Math.max(1, Math.floor(h)) + "px";
+      }
 
-        if (!document.fullscreenElement) {
+      function toggleFullscreen() {
+        const full =
+          !!document.fullscreenElement || !!document.webkitFullscreenElement;
+        if (!full) {
+          const target = document.documentElement;
           (
             target.requestFullscreen ||
             target.webkitRequestFullscreen ||
-            target.mozRequestFullScreen
+            target.mozRequestFullScreen ||
+            function () {}
           ).call(target);
         } else {
           (
             document.exitFullscreen ||
             document.webkitExitFullscreen ||
-            document.mozCancelFullScreen
+            document.mozCancelFullScreen ||
+            function () {}
           ).call(document);
         }
       }
 
-      document.addEventListener("fullscreenchange", () => {
+      function onFsChange() {
+        const fs =
+          !!document.fullscreenElement || !!document.webkitFullscreenElement;
+        document.body.classList.toggle("fs", fs);
         const btn = document.getElementById("fullscreenBtn");
-        btn.classList.toggle("is-fullscreen", !!document.fullscreenElement);
-      });
+        if (btn) btn.classList.toggle("is-fullscreen", fs);
+        fitCanvas();
+      }
 
-      document.addEventListener("webkitfullscreenchange", () => {
-        const btn = document.getElementById("fullscreenBtn");
-        btn.classList.toggle(
-          "is-fullscreen",
-          !!document.webkitFullscreenElement,
-        );
-      });
+      document.addEventListener("fullscreenchange", onFsChange);
+      document.addEventListener("webkitfullscreenchange", onFsChange);
+      window.addEventListener("resize", fitCanvas);
+      fitCanvas();
+      // Re-apply in case the game engine resets the canvas style later.
+      setInterval(fitCanvas, 800);
     </script>
 
     <script>

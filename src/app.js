@@ -99,6 +99,18 @@
         it[f] = "";
       }
     });
+    /* Static mirrors don't serve the gitignored local-only folders
+       (game-builds/, mc/, flare/, PS1), so root-absolute launch URLs and
+       thumbs into them 404 there (cdn.jsdelivr.net/game-builds/...). Re-point
+       those at the production relay (same helper the launcher uses). No-op
+       on the real site. */
+    try {
+      if (window.ChalkleApi && window.ChalkleApi.localUrl) {
+        (["url", "thumb"]).forEach(function (f) {
+          if (typeof it[f] === "string") it[f] = window.ChalkleApi.localUrl(it[f]);
+        });
+      }
+    } catch (e) { /* keep the original paths */ }
     /* Repair known-dead FNF sources so older/renamed library copies that still
        point at truffled.lol/404 resolve to the working HTML5 build. */
     if (/funkin|fnf|friday\snight/i.test(String(it.title || ""))) {
@@ -117,6 +129,26 @@
   function loadLib(name) {
     var conf = LIB_CONF[name];
     if (!conf) return [];
+    /* Titles the admin deleted (see saveLib). loadLib re-seeds by title, so
+       without this the removed entries would come straight back on reload.
+       The del-set is computed once up front: the seed merge below must skip
+       deleted titles too, or a deleted seed item would be re-added to the
+       merged list, then dropped from the del-key by the saveLib diff. */
+    function getDelSet() {
+      var dels = [];
+      try {
+        var delRaw = localStorage.getItem(conf.key + "-del");
+        if (delRaw) { var d = JSON.parse(delRaw); if (Array.isArray(d)) dels = d; }
+      } catch (e) { /* corrupt */ }
+      var set = {};
+      dels.forEach(function (t) { set[t] = true; });
+      return set;
+    }
+    var delSet = getDelSet();
+    function applyDeletions(list) {
+      if (!Object.keys(delSet).length) return list;
+      return list.filter(function (it) { return !(it && it.title && delSet[it.title]); });
+    }
     try {
       var raw = localStorage.getItem(conf.key);
       if (raw) {
@@ -153,7 +185,7 @@
           var dirty = merged.length !== parsed.length; /* holes / nulls removed */
           var SYNC_FIELDS = ["url", "thumb", "category", "porter", "isNew", "html", "kind", "via", "thumbCover", "sourceRepo", "license", "sourceLabel", "desc"];
           seeds.forEach(function (seed) {
-            if (!seed || !seed.title) return;
+            if (!seed || !seed.title || delSet[seed.title]) return;
             var hit = null;
             for (var i = 0; i < merged.length; i++) {
               if (merged[i] && merged[i].title === seed.title) { hit = merged[i]; break; }
@@ -168,17 +200,55 @@
             }
           });
           if (dirty) saveLib(name, merged);
-          return merged;
+          return applyDeletions(merged);
         }
       }
     } catch (e) { /* corrupt, reseed below */ }
     var seeded = withId(conf.seed()).map(sanitizeItem).filter(Boolean);
-    saveLib(name, seeded);
-    return seeded;
+    var kept = seeded.filter(function (it) { return !(it && it.title && delSet[it.title]); });
+    saveLib(name, kept);
+    return applyDeletions(kept);
   }
 
   function saveLib(name, arr) {
-    try { localStorage.setItem(LIB_CONF[name].key, JSON.stringify(arr)); } catch (e) { /* no storage */ }
+    var conf = LIB_CONF[name];
+    if (!conf) return;
+    var list = Array.isArray(arr) ? arr : [];
+    /* localStorage quota fix: the seeded game library carries ~22MB of
+       data-URI thumbnails, far beyond the 5-10MB every browser allows, so
+       persisting it used to throw QuotaExceededError and every admin edit
+       was silently dropped on reload ("admin stopped working"). Strip
+       data-URI thumbs before writing - loadLib re-attaches them from the
+       seed by title, so cards keep their art and additions/edits stick. */
+    var slim = list.map(function (it) {
+      if (!it || typeof it !== "object") return it;
+      var c = Object.assign({}, it);
+      if (typeof c.thumb === "string" && /^data:image/i.test(c.thumb)) delete c.thumb;
+      return c;
+    });
+    /* Deletions: loadLib re-seeds by title, so a removed seed item would
+       resurrect on the next load. Track a per-library list of deleted titles;
+       the sync blob carries it along, so it survives across devices too.
+       IMPORTANT: read the previous stored list BEFORE writing the new one -
+       the diff is what reveals which seed items were removed. */
+    var prev = [];
+    try {
+      var prevRaw = localStorage.getItem(conf.key);
+      if (prevRaw) { var p = JSON.parse(prevRaw); if (Array.isArray(p)) prev = p; }
+    } catch (e) { /* corrupt */ }
+    var dels = [];
+    try {
+      var delRaw = localStorage.getItem(conf.key + "-del");
+      if (delRaw) { var d = JSON.parse(delRaw); if (Array.isArray(d)) dels = d; }
+    } catch (e) { /* corrupt */ }
+    var inNew = {};
+    list.forEach(function (it) { if (it && it.title) inNew[it.title] = true; });
+    var mergedDels = dels.filter(function (t) { return !inNew[t]; });
+    prev.forEach(function (it) {
+      if (it && it.title && !inNew[it.title] && mergedDels.indexOf(it.title) === -1) mergedDels.push(it.title);
+    });
+    try { localStorage.setItem(conf.key, JSON.stringify(slim)); } catch (e) { /* no storage */ }
+    try { localStorage.setItem(conf.key + "-del", JSON.stringify(mergedDels)); } catch (e) { /* no storage */ }
   }
 
   var libs = {
@@ -876,6 +946,14 @@
     } else if (view === "music") {
       /* owned by music.js */
       if (window.ChalkleMusic && window.ChalkleMusic.render) window.ChalkleMusic.render();
+    } else if (view === "youtube") {
+      /* owned by youtube.js - first open renders and fetches, later opens
+         reuse the already-rendered tab */
+      if (window.ChalkleYoutube && window.ChalkleYoutube.render) window.ChalkleYoutube.render();
+    } else if (view === "livetv") {
+      /* owned by livetv.js - first open also kicks off the channel/sports
+         fetches that boot no longer does eagerly */
+      if (window.ChalkleLiveTV && window.ChalkleLiveTV.render) window.ChalkleLiveTV.render();
     } else if (view === "movies") {
       loadMoviesFrame();
     } else if (view === "chat") {
@@ -991,7 +1069,17 @@
     searchFocusList = list;
     if (!list.length) {
       box.hidden = false;
-      box.innerHTML = '<div class="search-empty">' + escapeHtml("No matches for \u201C" + (q || "") + "\u201D") + "</div>";
+      box.innerHTML =
+        '<div class="search-empty">' +
+        '<div class="search-empty-title">' + escapeHtml("No matches for \u201C" + (q || "") + "\u201D") + "</div>" +
+        '<div class="search-empty-tip">Check the spelling, or try a shorter name. Still stuck? Jump straight into a section.</div>' +
+        '<div class="search-empty-jumps">' +
+        ["games", "sites", "apps-tools", "music", "cloud"].map(function (v) {
+          var label = { "apps-tools": "Apps", music: "Music", cloud: "Cloud" }[v] ||
+            ((SEARCH_TABS.find(function (t) { return t.view === v; }) || {}).label || v);
+          return '<button class="search-empty-jump" data-search-go="' + v + '">' + escapeHtml(label) + "</button>";
+        }).join("") +
+        "</div></div>";
       return;
     }
     var html = "";
@@ -1025,6 +1113,15 @@
       btn.addEventListener("mousemove", function () {
         var i = parseInt(btn.dataset.searchI, 10);
         if (i !== searchFocusIdx) setSearchFocus(i);
+      });
+    });
+    /* Empty-state quick jumps: hop straight into a section without typing. */
+    box.querySelectorAll("[data-search-go]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        closeSearchResults();
+        if (els.search) els.search.value = "";
+        state.query = "";
+        setView(btn.dataset.searchGo);
       });
     });
   }
@@ -1102,6 +1199,10 @@
   }
   function openIphone16(url) {
     var src = url || "/game-builds/iphone16/index.html";
+    /* Mirrors don't serve game-builds/ (gitignored) - resolve to the relay. */
+    try {
+      if (window.ChalkleApi && window.ChalkleApi.localUrl) src = window.ChalkleApi.localUrl(src);
+    } catch (e) { /* keep the raw path */ }
     var win = null;
     try { win = window.open(src, "_blank"); } catch (e) { /* ignore */ }
     if (win) {
@@ -1213,7 +1314,8 @@
       thumb = fallbackHtml;
     }
 
-    var porter = item.porter ? '<span class="card-sub">web port by ' + escapeHtml(item.porter) + "</span>" : "";
+    var creditTxt = item.porter ? "web port by " + escapeHtml(item.porter) : (item.credit ? "by " + escapeHtml(item.credit) : "");
+    var porter = creditTxt ? '<span class="card-sub">' + creditTxt + "</span>" : "";
     var badge = item.porter ? '<span class="card-badge">PC</span>' : "";
     var source = item.sourceLabel || (item.porter ? "PC port" : host || "web game");
     var ribbon = item.isNew ? '<span class="ribbon">New this week</span>' : "";
@@ -1562,6 +1664,14 @@
       var cfg = window.SCHOOL_CENTER_CONFIG;
       if (cfg && cfg.minecraftUrl) return cfg.minecraftUrl;
     } catch (e) { /* no config */ }
+    /* Mirror fallback: the tunnel relay serves the same /mc/ tree, which is
+       far better than a dead localhost:80 that can never answer. */
+    try {
+      if (window.ChalkleApi && window.ChalkleApi.url) {
+        var relayed = window.ChalkleApi.url("/mc/eaglercraft-26.2.html");
+        if (/^https?:/i.test(relayed)) return relayed;
+      }
+    } catch (e) { /* fall through */ }
     return "http://localhost:80";
   }
 
@@ -2267,9 +2377,12 @@
   function adminListHTML(tab) {
     var list = adminItems(tab);
     if (!list.length) return '<p class="empty-hint">Nothing here yet.</p>';
-    var rows = list.map(function (it) {
+    var palette = ["#34a853", "#4285f4", "#e60073", "#26c6da", "#fb8c00", "#a970ff"];
+    var rows = list.map(function (it, idx) {
       if (!it) return "";
       var name = escapeHtml(it.title || it.name || "Untitled");
+      var letter = escapeHtml(String(it.title || it.name || "?").trim().charAt(0).toUpperCase() || "?");
+      var color = palette[Math.abs(idx) % palette.length];
       var kind = it.html && String(it.html).trim() ? "html" : (it.url ? "link" : "empty");
       var sub = tab === "board" ? "" : String((it.category || it.url || "") || "");
       var tag;
@@ -2280,11 +2393,14 @@
         sub = String(it.category || "");
       } else {
         tag = kind === "html" ? '<span class="admin-tag is-html">HTML</span>' : (kind === "link" ? '<span class="admin-tag">link</span>' : '<span class="admin-tag is-empty">no source</span>');
+        if (it.category && it.url) sub = escapeHtml(it.category) + " &middot; " + escapeHtml(it.url);
       }
+      var credit = it.credit ? '<span class="admin-tag is-credit">by ' + escapeHtml(it.credit) + "</span>" : "";
       return (
         '<div class="admin-row">' +
+        '<div class="admin-row-ico" style="color:' + color + ';border-color:' + color + '66">' + letter + "</div>" +
         '<div class="admin-row-main">' +
-        '<div class="admin-row-title"><span class="admin-row-name">' + name + "</span>" + tag + "</div>" +
+        '<div class="admin-row-title"><span class="admin-row-name">' + name + "</span>" + tag + credit + "</div>" +
         '<div class="admin-row-sub">' + escapeHtml(sub) + "</div>" +
         "</div>" +
         '<div class="admin-row-actions">' +
@@ -2335,6 +2451,7 @@
         '<option value="tab"' + (pv.mode !== "frame" ? " selected" : "") + '>New tab</option>' +
         '<option value="frame"' + (pv.mode === "frame" ? " selected" : "") + '>In-app</option>' +
         "</select>" +
+        '<input class="field field-credit" name="credit" placeholder="Credit (who shared it)" value="' + escapeAttr(pv.credit || "") + '">' +
         '<button class="btn" type="submit">' + (eItem ? "Save" : "Add") + "</button>" +
         "</div></form>";
       return pform + adminListHTML(tab);
@@ -2352,6 +2469,9 @@
       '<input class="field" name="thumb" placeholder="Thumbnail image link (optional)" value="' + escapeAttr(eItem ? eItem.thumb : "") + '" spellcheck="false">' +
       '<input class="field field-cat" name="category" list="' + dl + '" placeholder="Category (PC Port, Web&hellip;)" value="' + escapeAttr(eItem ? eItem.category : "") + '">' +
       '<datalist id="' + dl + '">' + cats.map(function (c) { return '<option value="' + escapeHtml(c) + '">'; }).join("") + "</datalist>" +
+      "</div>" +
+      '<div class="form-row">' +
+      '<input class="field field-credit" name="credit" placeholder="Credit (who ported / shared it - shows as \"by …\")" value="' + escapeAttr(eItem ? eItem.credit : "") + '">' +
       "</div>" +
       '<div class="form-row admin-submit-row">' +
       '<label class="admin-check"><input type="checkbox" name="isNew"' + (eItem && eItem.isNew ? " checked" : "") + '> Mark as new</label>' +
@@ -2381,7 +2501,8 @@
       html: val("html", ""),
       thumb: String(val("thumb", "") || "").trim(),
       category: String(val("category", "") || "").trim(),
-      mode: val("mode", "tab"), isNew: chk("isNew")
+      mode: val("mode", "tab"), isNew: chk("isNew"),
+      credit: String(val("credit", "") || "").trim()
     };
   }
 
@@ -2406,8 +2527,8 @@
 
     if (tab === "proxies") {
       if (!v.name.trim() || !v.url) return;
-      if (existing) { existing.name = v.name.trim(); existing.url = v.url; existing.mode = v.mode; }
-      else arr.push({ _id: "proxy-" + (++__idCounter), name: v.name.trim(), url: v.url, mode: v.mode });
+      if (existing) { existing.name = v.name.trim(); existing.url = v.url; existing.mode = v.mode; existing.credit = v.credit; }
+      else arr.push({ _id: "proxy-" + (++__idCounter), name: v.name.trim(), url: v.url, mode: v.mode, credit: v.credit });
       adminEditing[tab] = null;
       adminSave(tab, arr);
       adminRenderAll();
@@ -2424,6 +2545,7 @@
       existing.thumb = v.thumb;
       existing.category = v.category;
       existing.isNew = v.isNew;
+      existing.credit = v.credit;
       if (isPort) existing.porter = existing.porter || "you";
     } else {
       arr.push({
@@ -2434,6 +2556,7 @@
         thumb: v.thumb,
         category: v.category,
         isNew: v.isNew,
+        credit: v.credit,
         porter: isPort ? "you" : undefined
       });
     }
@@ -2595,6 +2718,39 @@
     els.backdrop = $("#backdrop");
     /* Clock must never block the rest of init (nav binds happen below). */
     try { startClock(); } catch (e) { /* non-critical */ }
+
+    /* Search placeholder scales down to the room the top bar actually gives
+       it, so the invite never clips at any window width: full list on wide
+       screens, a short invite mid-size, bare "Search" on phones. */
+    function fitSearchPlaceholder() {
+      var input = $("#search-input");
+      if (!input) return;
+      var opts = ["Search games, music & tools", "Search games & more", "Search"];
+      var cs = getComputedStyle(input);
+      var cw = input.clientWidth - parseFloat(cs.paddingLeft || 0) - parseFloat(cs.paddingRight || 0) - 2;
+      var probe = document.createElement("canvas");
+      var ctx = probe.getContext("2d");
+      ctx.font = cs.font || "14.5px system-ui";
+      var chosen = opts[opts.length - 1];
+      for (var i = 0; i < opts.length; i++) {
+        if (ctx.measureText(opts[i]).width <= cw) { chosen = opts[i]; break; }
+      }
+      if (input.getAttribute("placeholder") !== chosen) input.setAttribute("placeholder", chosen);
+    }
+    fitSearchPlaceholder();
+    /* The app starts hidden behind the boot intro, so the first measure runs
+       against a zero-width input. Watch the box itself instead of guessing
+       events: it re-fits whenever the top bar actually gives it more or less
+       room (boot reveal, viewer pill appearing, sidebar collapse, resize). */
+    window.addEventListener("resize", fitSearchPlaceholder);
+    window.addEventListener("chalkle-boot-done", fitSearchPlaceholder);
+    window.addEventListener("load", fitSearchPlaceholder);
+    if (typeof ResizeObserver !== "undefined") {
+      try {
+        var phObs = new ResizeObserver(fitSearchPlaceholder);
+        if (els.search) phObs.observe(els.search);
+      } catch (e) { /* no observer */ }
+    }
 
     /* sync.js restores the server snapshot AFTER this file has seeded and
        built its catalogs. When the restore lands, re-read the libraries so
@@ -3262,7 +3418,13 @@
           var btn = document.createElement("button");
           btn.type = "button";
           btn.className = "wallpaper-swatch" + (current === id ? " is-active" : "");
-          btn.style.backgroundImage = T.wallpapers[id];
+          /* Wallpaper values are either url('...') images or bare colors.
+             Assigning a color to backgroundImage throws 8 console errors
+             ("Error in parsing value for 'background-image'") - send each
+             value to the property that can actually parse it. */
+          var wpVal = T.wallpapers[id];
+          if (wpVal && wpVal.indexOf("url(") === 0) btn.style.backgroundImage = wpVal;
+          else btn.style.background = wpVal;
           btn.title = id;
           btn.setAttribute("aria-label", "Wallpaper " + id);
           btn.addEventListener("click", function () {
