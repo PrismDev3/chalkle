@@ -82,6 +82,22 @@
      for a game shows raw source instead of running it. They only play
      correctly from the relay, so treat them as relay-only for launching. */
   var LOCAL_ONLY_PREFIXES = ["/game-builds/", "/mc/", "/flare/", "/assets/games/psx/", "/ugs/", "/gn/"];
+
+  /* jsDelivr mirrors the repo under /gh/<user>/<repo>@<branch>/, so an
+     absolute CDN URL like "https://cdn.jsdelivr.net/gh/user/repo@main/ugs/x.html"
+     carries the mirror subpath in its pathname. Strip everything up to and
+     including the versioned segment (the one containing "@") so the
+     local-only prefix check sees /ugs/... and the URL can be re-pointed at
+     the relay. */
+  function stripCdnSubpath(pathname) {
+    var p = String(pathname || "");
+    var at = p.indexOf("@");
+    if (at !== -1) {
+      var slash = p.indexOf("/", at);
+      if (slash !== -1) return p.slice(slash);
+    }
+    return p;
+  }
   window.ChalkleApi.localUrl = function (path) {
     var p = String(path || "").trim();
     if (!p) return p;
@@ -95,8 +111,8 @@
       if (p.indexOf("://") !== -1) {
         try {
           var pu = new URL(p);
-          if (/\.jsdelivr\.net$/i.test(pu.hostname) && isLocalPrefix(pu.pathname)) {
-            return main + pu.pathname + pu.search + pu.hash;
+          if (/\.jsdelivr\.net$/i.test(pu.hostname) && isLocalPrefix(stripCdnSubpath(pu.pathname))) {
+            return main + stripCdnSubpath(pu.pathname) + pu.search + pu.hash;
           }
         } catch (e) { /* not a url - keep raw */ }
       }
@@ -106,8 +122,8 @@
     if (p.indexOf("://") !== -1) {
       try {
         var pu = new URL(p);
-        if (isLocalPrefix(pu.pathname)) {
-          return main + pu.pathname + pu.search + pu.hash;
+        if (isLocalPrefix(stripCdnSubpath(pu.pathname))) {
+          return main + stripCdnSubpath(pu.pathname) + pu.search + pu.hash;
         }
       } catch (e) { /* not a url - fall through to string path */ }
       return p;

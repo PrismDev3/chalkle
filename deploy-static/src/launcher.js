@@ -182,6 +182,17 @@
   function shellUrl(target) {
     var t = String(target || "").trim();
     if (!t) return "";
+    /* Resolve the payload target NOW, not inside go.html: the shell just
+       does location.replace(atob(hash)) against its own base, so a
+       root-absolute game-builds path would resolve against the mirror host
+       and 404. Relocate local-only paths to the relay, then resolve against
+       the document base. */
+    try {
+      if (t.charAt(0) === "/" && t.charAt(1) !== "/") {
+        if (window.ChalkleApi && window.ChalkleApi.localUrl) t = window.ChalkleApi.localUrl(t) || t;
+        if (t.charAt(0) === "/") t = new URL(t, document.baseURI || location.href).href;
+      }
+    } catch (e) { /* keep the raw path */ }
     var enc = "";
     try { enc = btoa(t); } catch (e) { return t; }
     var shell = "/go.html#" + enc;
@@ -216,6 +227,41 @@
     } catch (e) { /* no music module / no storage - ignore */ }
   }
 
+  /* Absolute CDN URLs for local-only folders (game-builds/, mc/, flare/,
+     assets/games/psx/) are a guaranteed 404 on static mirrors like jsDelivr,
+     and they can reach the launcher in two ways: either directly from card data
+     on a mirror bootstrap, or after a root-absolute path resolves against a
+     CDN host. Re-point any such URL at the relay before opening. No-op on the
+     real site and for anything not local-only. */
+  function rerouteDeadMirrorGameUrl(url) {
+    var u = String(url || "").trim();
+    if (!u || u.indexOf("://") === -1) return url;
+    try {
+      var pu = new URL(u);
+      var hostname = pu.hostname;
+      if (hostname && /^(?:cdn\.jsdelivr\.net|githack\.com|unpkg\.com|github\.io|pages\.dev|gitlab\.io|githubusercontent\.com|vercel\.app|netlify\.app)$/i.test(hostname)) {
+        /* Strip the CDN mirror subpath (e.g. /gh/user/repo@main/) so the
+           local-only prefixes match the real repo-relative path. The
+           versioned segment is the one containing "@". */
+        var rawPath = String(pu.pathname || "");
+        var atIdx = rawPath.indexOf("@");
+        var path = (atIdx !== -1) ? rawPath.slice(rawPath.indexOf("/", atIdx)) : rawPath;
+        if (!path || path.charAt(0) !== "/") path = rawPath;
+        /* /ugs/ and /gn/ are mirrored by jsDelivr but served as text/plain
+           (nosniff), so a game opened from a mirror URL shows raw source -
+           they only play from the relay. Same treatment as game-builds. */
+        if (path.indexOf("/game-builds/") === 0 || path.indexOf("/mc/") === 0 || path.indexOf("/flare/") === 0 || path.indexOf("/assets/games/psx/") === 0 || path.indexOf("/ugs/") === 0 || path.indexOf("/gn/") === 0) {
+          var relay = "";
+          try { relay = window.ChalkleApi && window.ChalkleApi.root ? String(window.ChalkleApi.root() || "").replace(/\/+$/, "") : ""; } catch (e) { /* keep raw */ }
+          if (relay && /^https?:/i.test(relay)) {
+            return relay + path + pu.search + pu.hash;
+          }
+        }
+      }
+    } catch (e) { /* not a url - keep raw */ }
+    return url;
+  }
+
   function openTab(url) {
     pauseMusicForTarget(url);
     /* Embedded single-file games (build/chalkle-single*.html): the game's
@@ -233,6 +279,14 @@
       var u = String(url || "");
       if (u.charAt(0) === "/" && u.charAt(1) !== "/") url = new URL(u, document.baseURI || location.href).href;
     } catch (e) { /* keep the raw path */ }
+    /* Local-only folders (game-builds/, mc/, flare/, assets/games/psx/) only
+       exist on the production relay. Re-point them through the API helper, and
+       also catch any dead CDN absolute URLs that somehow reached the launcher
+       (e.g. "https://cdn.jsdelivr.net/game-builds/undertale/index.html"). */
+    try {
+      if (window.ChalkleApi && window.ChalkleApi.localUrl) url = window.ChalkleApi.localUrl(url);
+    } catch (e) { /* keep the resolved path */ }
+    url = rerouteDeadMirrorGameUrl(url);
     var win = window.open(url, "_blank");
     if (win) {
       try { win.opener = null; } catch (e) { /* already cross-origin */ }

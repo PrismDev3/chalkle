@@ -240,7 +240,13 @@
       var pu = new URL(u);
       var hostname = pu.hostname;
       if (hostname && /^(?:cdn\.jsdelivr\.net|githack\.com|unpkg\.com|github\.io|pages\.dev|gitlab\.io|githubusercontent\.com|vercel\.app|netlify\.app)$/i.test(hostname)) {
-        var path = pu.pathname;
+        /* Strip the CDN mirror subpath (e.g. /gh/user/repo@main/) so the
+           local-only prefixes match the real repo-relative path. The
+           versioned segment is the one containing "@". */
+        var rawPath = String(pu.pathname || "");
+        var atIdx = rawPath.indexOf("@");
+        var path = (atIdx !== -1) ? rawPath.slice(rawPath.indexOf("/", atIdx)) : rawPath;
+        if (!path || path.charAt(0) !== "/") path = rawPath;
         /* /ugs/ and /gn/ are mirrored by jsDelivr but served as text/plain
            (nosniff), so a game opened from a mirror URL shows raw source -
            they only play from the relay. Same treatment as game-builds. */

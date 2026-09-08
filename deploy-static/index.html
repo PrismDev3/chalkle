@@ -30,8 +30,12 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Boogaloo&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
-  <link rel="preload" as="image" href="bg-chalk.webp" fetchpriority="high" id="chalkle-wallpaper-preload">
-  <link rel="stylesheet" href="src/styles.css?v=20260910e">
+  <!-- No bg-chalk.webp preload: the wallpaper is just the body's
+       background-image (26KB, HTTP-cached after the first visit), and a
+       preload tag kept firing "preloaded but not used" warnings whenever
+       the body didn't paint it during the boot intro. theme.js also strips
+       any stale preload tag left by earlier builds. -->
+  <link rel="stylesheet" href="src/styles.css?v=20260911b">
   <!-- AdSense. This loader powers BOTH layers:
        1. Manual units - the .ad-slot placements below, each filled when its
           slot ID is pasted into CHALKLE_ADS.slots (AdSense → Ads → By ad unit).
@@ -47,8 +51,46 @@
          • In-page formats: leave ON, ad load "Medium"
          • Existing ads: leave ON (Google optimizes the manual units too)
        With manual slots empty, Auto ads are the only revenue layer - paste
-       slot IDs whenever ready, both layers coexist safely. -->
-  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3031332925462724" crossorigin="anonymous" data-overlays="bottom"></script>
+       slot IDs whenever ready, both layers coexist safely.
+       Load timing: the ad runtime boots AFTER the boot intro clears and the
+       tab goes idle (never during first paint). Ads load on every visit and
+       behave identically - they just start later, so the ad network's script
+       download and auto-ad iframes stop competing with the app's own boot. -->
+  <script>
+  /* AdSense bootstrap: injects the adsbygoogle runtime only once the boot
+     intro is done and the main thread is idle. Same client, same
+     data-overlays="bottom" policy as the old eager <script async> tag -
+     the global (window.adsbygoogle = []) queue pattern keeps the slot
+     requests at the bottom of the page working regardless of load time. */
+  (function () {
+    var AD_URL = "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3031332925462724";
+    var loaded = false;
+    function inject() {
+      if (loaded) return;
+      loaded = true;
+      var s = document.createElement("script");
+      s.async = true;
+      s.src = AD_URL;
+      s.setAttribute("crossorigin", "anonymous");
+      s.setAttribute("data-overlays", "bottom");
+      document.head.appendChild(s);
+    }
+    function fire() {
+      var ric = window.requestIdleCallback || function (cb) { return setTimeout(cb, 400); };
+      ric(function () { inject(); }, { timeout: 5000 });
+    }
+    function go() {
+      /* Intro already skipped this session (intro.js sets this flag before
+         dispatching), or the event already fired - boot ads now. */
+      if (window.__chalkleBootDone) { fire(); return; }
+      window.addEventListener("chalkle-boot-done", fire, { once: true });
+      /* Safety net: never let a stuck intro starve the ad layer. */
+      setTimeout(fire, 9000);
+    }
+    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", go, { once: true });
+    else go();
+  })();
+  </script>
   <meta name="google-adsense-account" content="ca-pub-3031332925462724">
   <script>
   window.CHALKLE_ADS = {
@@ -324,7 +366,7 @@
           <circle cx="11" cy="11" r="6.5"/>
           <line x1="16" y1="16" x2="20.5" y2="20.5"/>
         </svg>
-        <input id="search-input" type="search" placeholder="Search games, sites, tools & music" autocomplete="off" spellcheck="false" aria-label="Search">
+        <input id="search-input" type="search" placeholder="Search games, music & tools" autocomplete="off" spellcheck="false" aria-label="Search">
         <kbd class="kbd" aria-hidden="true">Ctrl K</kbd>
         <div class="search-results" id="search-results" hidden role="listbox" aria-live="polite"></div>
       </div>
@@ -570,7 +612,7 @@
                 <div class="home-quick-more">
                   <button class="home-quick-card home-quick-more-btn" id="home-quick-more-btn" type="button" aria-haspopup="true" aria-expanded="false">
                     <span class="home-quick-ico"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9.5l8 7 8-7"/></svg></span>
-                    <span class="home-quick-t">All tabs</span>
+                    <span class="home-quick-t">More tabs</span>
                   </button>
                   <div class="home-quick-menu" id="home-quick-menu" hidden>
                     <button class="home-quick-menu-item" data-home-go="proxies"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 9.3l3.6-3.6a2.9 2.9 0 0 1 4.1 4.1l-3.6 3.6a2.9 2.9 0 0 1-4.1 0"/><path d="M9 14.7l-3.6 3.6a2.9 2.9 0 0 1-4.1-4.1l3.6-3.6a2.9 2.9 0 0 1 4.1 0"/><path d="M8.3 15.7l7.4-7.4"/></svg><span>Proxies</span></button>
@@ -1446,14 +1488,14 @@
         </div>
         <div class="admin-body" id="admin-body" hidden>
           <div class="admin-tabs" role="tablist" aria-label="Admin sections">
-            <button class="admin-tab is-active" data-admin-tab="games">Games</button>
-            <button class="admin-tab" data-admin-tab="sites">Sites</button>
-            <button class="admin-tab" data-admin-tab="tools">Tools</button>
-            <button class="admin-tab" data-admin-tab="proxies">Proxies</button>
-            <button class="admin-tab" data-admin-tab="board">Board</button>
-            <button class="admin-tab" data-admin-tab="docs">Docs</button>
-            <button class="admin-tab" data-admin-tab="partners">Partners</button>
-            <button class="admin-tab" data-admin-tab="livetv">Live TV</button>
+            <button class="admin-tab is-active" data-admin-tab="games"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9h4M8 7v4"/><path d="M14.8 8.5h.01M17.4 10.6h.01"/><path d="M6.5 14.5h3M8 13v3"/><rect x="2.5" y="6.5" width="19" height="11" rx="3"/></svg>Games</button>
+            <button class="admin-tab" data-admin-tab="sites"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.6 2.3 4 5 4 8.5s-1.4 6.2-4 8.5c-2.6-2.3-4-5-4-8.5s1.4-6.2 4-8.5z"/></svg>Sites</button>
+            <button class="admin-tab" data-admin-tab="tools"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 6.6a4.5 4.5 0 0 0-6.2 6.2L3 18.1l2.8 2.8 5.3-5.3a4.5 4.5 0 0 0 6.2-6.2L14 12.8l-2.8-2.8 3.3-3.4z"/></svg>Tools</button>
+            <button class="admin-tab" data-admin-tab="proxies"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l7 2.6v5.1c0 4.4-2.9 7.6-7 9.3-4.1-1.7-7-4.9-7-9.3V6.1z"/></svg>Proxies</button>
+            <button class="admin-tab" data-admin-tab="board"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8.5" r="3.5"/><path d="M2.5 19c.8-3 3.4-4.5 6.5-4.5s5.7 1.5 6.5 4.5"/><path d="M15.5 5.4a3.5 3.5 0 0 1 0 6.2M17.6 14.8c2 .8 3.2 2.3 3.9 4.2"/></svg>Board</button>
+            <button class="admin-tab" data-admin-tab="docs"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3.5h8l4 4V20.5H6z"/><path d="M14 3.5v4h4"/><path d="M9 11h6M9 14.5h6"/></svg>Docs</button>
+            <button class="admin-tab" data-admin-tab="partners"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7-4.6-9.3-9C1.4 9.6 3 6.5 6 6.5c1.9 0 3.4 1 4.5 2.6l1.5 2 1.5-2c1.1-1.6 2.6-2.6 4.5-2.6 3 0 4.6 3.1 3.3 5.5C19 16.4 12 21 12 21z"/></svg>Partners</button>
+            <button class="admin-tab" data-admin-tab="livetv"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6.5" width="18" height="12" rx="2.5"/><path d="M8 3.5l4 3 4-3"/></svg>Live TV</button>
           </div>
           <div class="admin-scroll">
             <div class="admin-form-panel" data-admin-panel="games"><div id="admin-sheet-games"></div></div>
@@ -1761,10 +1803,15 @@
       </div>
     </div>
 
-  <script src="src/runtime-config.js?v=20260905m"></script>
-  <script src="src/sync.js?v=20260909a"></script>
-  <script src="src/games.js?v=20260910a"></script>
-  <script src="src/games2.js?v=20260910a"></script>
+  <script src="src/runtime-config.js?v=20260912a"></script>
+  <script src="src/sync.js?v=20260912a"></script>
+  <!-- The game library files are ~11.5MB each. They used to be synchronous,
+       so the browser couldn't finish parsing (or paint the boot screen) until
+       all 23MB downloaded serially. defer keeps their execution order
+       (games.js then games2.js before app.js below) but lets the page parse
+       and paint immediately and downloads all scripts in parallel. -->
+  <script defer src="src/games.js?v=20260910a"></script>
+  <script defer src="src/games2.js?v=20260910a"></script>
   <script src="src/noah-games.js?v=20260909a"></script>
   <script src="src/community-games.js?v=20260905j"></script>
   <script src="src/real-shots.js?v=20260905u"></script>
@@ -1773,20 +1820,20 @@
   <script src="src/sites.js?v=20260905j"></script>
   <script src="src/proxies.js?v=20260905j"></script>
   <script src="src/apps.js?v=20260905j"></script>
-  <script src="src/music.js?v=20260909a"></script>
-  <script src="src/launcher.js?v=20260908b"></script>
-  <script src="src/cloud.js?v=20260908c"></script>
+  <script src="src/music.js?v=20260910b"></script>
+  <script src="src/launcher.js?v=20260912a"></script>
+  <script src="src/cloud.js?v=20260911a"></script>
   <script src="src/editor.js?v=20260905j"></script>
   <script src="src/urlauditor.js?v=20260905j"></script>
   <script src="src/pixel.js?v=20260905j"></script>
-  <script src="src/domainhub.js?v=20260905j"></script>
+  <script src="src/domainhub.js?v=20260912a"></script>
   <script src="src/ai.js?v=20260905j"></script>
   <script src="src/partners.js?v=20260907b"></script>
   <script src="src/docs.js?v=20260908d"></script>
   <script src="src/bookmarklets.js?v=20260905j"></script>
   <script src="assets/hls.min.js?v=20260905c"></script>
-  <script src="src/livetv.js?v=20260905j"></script>
-  <script src="src/youtube.js?v=20260905j"></script>
+  <script src="src/livetv.js?v=20260910a"></script>
+  <script src="src/youtube.js?v=20260910a"></script>
   <script src="src/intro.js?v=20260905k"></script>
   <script>
   /* AdSense boot: fill each slot's data-ad-slot from the CHALKLE_ADS config
@@ -1838,6 +1885,8 @@
     }
   })();
   </script>
-  <script src="src/app.js?v=20260910i"></script>
+  <!-- app.js consumes window.ChalkGames at eval time, so it must run after the
+       deferred game scripts above - defer preserves document order, so it does. -->
+  <script defer src="src/app.js?v=20260912a"></script>
 </body>
 </html>
