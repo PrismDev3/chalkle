@@ -47,6 +47,7 @@
     ghostproxy: { label: "ghost proxy", css: "url('assets/cursors/cursor-ghostproxy.png') 18 18, auto", preview: "assets/cursors/cursor-ghostproxy.png", hover: "assets/cursors/cursor-ghostproxy-hover.png" },
     array: { label: "array", css: "url('assets/cursors/cursor-array.png') 18 18, auto", preview: "assets/cursors/cursor-array.png", hover: "assets/cursors/cursor-array-hover.png" },
     sizzle: { label: "sizzle studios", css: "url('assets/cursors/cursor-sizzle.png') 18 18, auto", preview: "assets/cursors/cursor-sizzle.png", hover: "assets/cursors/cursor-sizzle-hover.png" },
+    "korona.lat": { label: "korona.lat", css: "url('assets/cursors/cursor-korona.lat.png') 18 18, auto", preview: "assets/cursors/cursor-korona.lat.png", hover: "assets/cursors/cursor-korona.lat-hover.png" },
     none: { label: "default", css: "auto", preview: null }
   };
 

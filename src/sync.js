@@ -84,7 +84,14 @@
           return JSON.stringify(out);
         } catch (e) { return null; }
       }
-      fetch('/_sync')
+      /* /_sync only exists on the relay; on static mirrors (jsDelivr, GitHub
+         Pages) a root-absolute fetch 400s. ChalkleApi.mirrorPing re-points
+         it to the relay origin on mirrors and is a no-op on the real site. */
+      var syncUrl = '/_sync';
+      try {
+        if (window.ChalkleApi && window.ChalkleApi.mirrorPing) syncUrl = window.ChalkleApi.mirrorPing(syncUrl);
+      } catch (e) { /* keep same-origin */ }
+      fetch(syncUrl)
         .then(function (r) { return r.ok ? r.json() : null; })
         .then(function (data) {
           if (!data) return;
@@ -127,7 +134,11 @@
         var k = localStorage.key(i);
         d[k] = localStorage.getItem(k);
       }
-      fetch('/_sync', { method: 'POST', body: JSON.stringify(d) }).catch(function(){});
+      var postUrl = '/_sync';
+      try {
+        if (window.ChalkleApi && window.ChalkleApi.mirrorPing) postUrl = window.ChalkleApi.mirrorPing(postUrl);
+      } catch (e) { /* keep same-origin */ }
+      fetch(postUrl, { method: 'POST', body: JSON.stringify(d) }).catch(function(){});
     }, 500);
   }
 

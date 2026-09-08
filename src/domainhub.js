@@ -64,9 +64,18 @@
     return Math.floor(s / 86400) + "d ago";
   }
 
+  /* Relay-only endpoints (/_dh*) don't exist on static mirrors - route them
+     through ChalkleApi.mirrorPing so the Domain Hub still works from jsDelivr. */
+  function dhUrl(path) {
+    try {
+      if (window.ChalkleApi && window.ChalkleApi.mirrorPing) return window.ChalkleApi.mirrorPing(path);
+    } catch (e) { /* keep same-origin */ }
+    return path;
+  }
+
   /* ---------- server probe ---------- */
   function probeServer() {
-    return fetch("/_dhinfo?_=" + Date.now(), { method: "GET" })
+    return fetch(dhUrl("/_dhinfo?_=" + Date.now()), { method: "GET" })
       .then(function (r) { if (!r.ok) throw new Error("bad"); return r.json(); })
       .then(function (d) {
         S.server = !!(d && d.server);
@@ -89,7 +98,7 @@
 
     if (S.server && S.caps.indexOf("dns") !== -1) {
       // Real server-side check.
-      return fetch("/_dhcheck?url=" + encodeURIComponent(label) + "&mode=probe&_=" + Date.now())
+      return fetch(dhUrl("/_dhcheck?url=" + encodeURIComponent(label) + "&mode=probe&_=" + Date.now()))
         .then(function (r) { return r.json(); })
         .then(function (d) {
           if (!d || !d.ok) {
@@ -515,7 +524,7 @@
   }
   function doVerify(name, token) {
     if (S.server) {
-      return fetch("/_dhdns?name=" + encodeURIComponent("_chalkle." + name) + "&type=TXT&_=" + Date.now())
+      return fetch(dhUrl("/_dhdns?name=" + encodeURIComponent("_chalkle." + name) + "&type=TXT&_=" + Date.now()))
         .then(function (r) { return r.json(); })
         .then(function (d) {
           var recs = (d && d.records) || [];

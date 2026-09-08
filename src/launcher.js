@@ -241,7 +241,10 @@
       var hostname = pu.hostname;
       if (hostname && /^(?:cdn\.jsdelivr\.net|githack\.com|unpkg\.com|github\.io|pages\.dev|gitlab\.io|githubusercontent\.com|vercel\.app|netlify\.app)$/i.test(hostname)) {
         var path = pu.pathname;
-        if (path.indexOf("/game-builds/") === 0 || path.indexOf("/mc/") === 0 || path.indexOf("/flare/") === 0 || path.indexOf("/assets/games/psx/") === 0) {
+        /* /ugs/ and /gn/ are mirrored by jsDelivr but served as text/plain
+           (nosniff), so a game opened from a mirror URL shows raw source -
+           they only play from the relay. Same treatment as game-builds. */
+        if (path.indexOf("/game-builds/") === 0 || path.indexOf("/mc/") === 0 || path.indexOf("/flare/") === 0 || path.indexOf("/assets/games/psx/") === 0 || path.indexOf("/ugs/") === 0 || path.indexOf("/gn/") === 0) {
           var relay = "";
           try { relay = window.ChalkleApi && window.ChalkleApi.root ? String(window.ChalkleApi.root() || "").replace(/\/+$/, "") : ""; } catch (e) { /* keep raw */ }
           if (relay && /^https?:/i.test(relay)) {

@@ -51,6 +51,17 @@
         try { return location.host; } catch (e) { return ""; }
       }
       try { return new URL(r).host; } catch (e) { return ""; }
+    },
+    /* Server-side app endpoints (/_sync state sync, /_active viewer pill)
+       only exist on the relay. On a static mirror a root-absolute fetch of
+       them resolves against the CDN host and dies with a 400. Route them to
+       the relay origin on mirrors; on the real site this is a no-op. */
+    mirrorPing: function (path) {
+      var p = String(path || "");
+      var mirrored = false;
+      try { mirrored = !!isMirror(); } catch (e) { mirrored = false; }
+      if (!mirrored) return p;
+      return root() + (p.charAt(0) === "/" ? p : "/" + p);
     }
   };
 
@@ -66,7 +77,11 @@
      dead CDN host (e.g. "https://cdn.jsdelivr.net/game-builds/..."). On the
      real site it is a no-op; on a mirror it re-points any local-only prefix
      to the relay so local games still launch. */
-  var LOCAL_ONLY_PREFIXES = ["/game-builds/", "/mc/", "/flare/", "/assets/games/psx/"];
+  /* /ugs/ and /gn/ are tracked in the repo (so jsDelivr mirrors them), but
+     jsDelivr serves .html as text/plain with nosniff - opening a mirror URL
+     for a game shows raw source instead of running it. They only play
+     correctly from the relay, so treat them as relay-only for launching. */
+  var LOCAL_ONLY_PREFIXES = ["/game-builds/", "/mc/", "/flare/", "/assets/games/psx/", "/ugs/", "/gn/"];
   window.ChalkleApi.localUrl = function (path) {
     var p = String(path || "").trim();
     if (!p) return p;

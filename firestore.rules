@@ -1,0 +1,162 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function self(string uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    function roomHost(string roomId) {
+      return signedIn()
+        && get(/databases/$(database)/documents/rooms/$(roomId)).data.hostUid == request.auth.uid;
+    }
+
+    function roomMember(string roomId) {
+      return signedIn()
+        && exists(/databases/$(database)/documents/rooms/$(roomId)/members/$(request.auth.uid));
+    }
+
+    function dmParticipant(string dmId) {
+      return signedIn()
+        && request.auth.uid in get(/databases/$(database)/documents/dms/$(dmId)).data.participants;
+    }
+
+    function profileFields() {
+      return request.resource.data.keys().hasOnly([
+        'uid', 'name', 'username', 'photoB64', 'statusMsg',
+        'lastSeen', 'currentRoom', 'currentRoomName', 'currentRoomPublic',
+        'createdAt'
+      ]);
+    }
+
+    /* Private profile state. There is deliberately no collection list access:
+       a signed-in user must not be able to dump every profile. Other users
+       are represented by publicProfiles/{uid}. */
+    match /users/{uid} {
+      allow get: if self(uid);
+      allow list: if false;
+      allow create: if self(uid)
+        && request.resource.data.username is string
+        && request.resource.data.username.size() >= 3
+        && request.resource.data.username.size() <= 20;
+      allow update: if self(uid)
+        && request.resource.data.username == resource.data.username
+        && request.resource.data.createdAt == resource.data.createdAt;
+      allow delete: if self(uid);
+    }
+
+    /* Public-by-known-ID profile card. Listing/searching this collection is
+       disabled; the client resolves exact usernames through usernames/{name}.
+       Keep this document limited to fields the profile UI actually displays. */
+    match /publicProfiles/{uid} {
+      allow get: if signedIn();
+      allow list: if false;
+      allow create: if self(uid) && profileFields()
+        && request.resource.data.uid == uid;
+      allow update: if self(uid) && profileFields()
+        && request.resource.data.uid == uid;
+      allow delete: if self(uid);
+    }
+
+    /* Exact username directory lookup, never enumerable as a collection. */
+    match /usernames/{username} {
+      allow get: if signedIn();
+      allow list: if false;
+      allow create: if signedIn()
+        && request.resource.data.uid == request.auth.uid
+        && username == request.resource.data.username;
+      allow update: if false;
+      allow delete: if signedIn() && resource.data.uid == request.auth.uid;
+    }
+
+    match /meta/{docId} {
+      allow get: if signedIn();
+      allow list: if false;
+      allow write: if false;
+    }
+
+    /* Room metadata remains queryable for public-room browsing and invite-code
+       joins. Private content is protected by the members subcollection below. */
+    match /rooms/{roomId} {
+      allow read: if signedIn();
+      allow create: if signedIn()
+        && request.resource.data.hostUid == request.auth.uid;
+      allow update: if signedIn()
+        && (resource.data.hostUid == request.auth.uid
+          || (roomMember(roomId)
+            && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['lastActivity', 'memberCount'])));
+      allow delete: if roomHost(roomId);
+
+      match /members/{memberUid} {
+        allow read: if signedIn()
+          && (roomHost(roomId) || roomMember(roomId));
+        allow create: if self(memberUid)
+          && (get(/databases/$(database)/documents/rooms/$(roomId)).data.isPublic == true
+            || roomHost(roomId)
+            || request.resource.data.uid == request.auth.uid);
+        allow update: if self(memberUid) || roomHost(roomId);
+        allow delete: if self(memberUid) || roomHost(roomId);
+      }
+
+      match /messages/{messageId} {
+        allow read: if roomMember(roomId) || roomHost(roomId);
+        allow create: if (roomMember(roomId) || roomHost(roomId))
+          && request.resource.data.uid == request.auth.uid
+          && request.resource.data.text is string
+          && request.resource.data.text.size() <= 10000;
+        allow update: if (roomMember(roomId) || roomHost(roomId))
+          && resource.data.uid == request.auth.uid;
+        allow delete: if roomHost(roomId) || resource.data.uid == request.auth.uid;
+      }
+
+      match /typing/{uid} {
+        allow read: if roomMember(roomId) || roomHost(roomId);
+        allow create, update, delete: if self(uid)
+          && (roomMember(roomId) || roomHost(roomId));
+      }
+    }
+
+    /* Friendship queries are retained for the existing listener model, but
+       every write must identify the authenticated participant. */
+    match /friendships/{friendshipId} {
+      allow read: if signedIn();
+      allow create: if signedIn()
+        && request.auth.uid in request.resource.data.users
+        && request.resource.data.initiator == request.auth.uid;
+      allow update: if signedIn()
+        && request.auth.uid in resource.data.users;
+      allow delete: if signedIn()
+        && request.auth.uid in resource.data.users;
+    }
+
+    match /dms/{dmId} {
+      allow read: if signedIn();
+      allow create: if signedIn()
+        && request.auth.uid in request.resource.data.participants;
+      allow update: if dmParticipant(dmId);
+      allow delete: if dmParticipant(dmId);
+
+      match /messages/{messageId} {
+        allow read: if dmParticipant(dmId);
+        allow create: if dmParticipant(dmId)
+          && request.resource.data.uid == request.auth.uid
+          && request.resource.data.text is string
+          && request.resource.data.text.size() <= 10000;
+        allow update: if dmParticipant(dmId)
+          && resource.data.uid == request.auth.uid;
+        allow delete: if dmParticipant(dmId)
+          && resource.data.uid == request.auth.uid;
+      }
+
+      match /typing/{uid} {
+        allow read: if dmParticipant(dmId);
+        allow create, update, delete: if self(uid) && dmParticipant(dmId);
+      }
+    }
+  }
+}
