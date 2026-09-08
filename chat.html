@@ -5527,19 +5527,47 @@ if (window.self !== window.top || location.hostname.indexOf('cdn.jsdelivr.net') 
     var hasBody = opts.body !== undefined;
     var keepalive = opts.keepalive !== undefined ? opts.keepalive : hasBody && JSON.stringify(opts.body).length < 16384;
     var res;
-    try {
-      res = await fetch(API + path, {
-        method: opts.method || 'GET',
-        credentials: 'same-origin',
-        headers: reqHeaders(hasBody),
-        body: hasBody ? JSON.stringify(opts.body) : undefined,
-        keepalive: keepalive || undefined,
-      });
-    } catch (e) {
-      var net = new Error('Cannot reach the Lunchbreak server' + (API ? ' at ' + API : '') + '.');
-      net.code = 'network-error';
-      throw net;
+    var lastError = null;
+    
+    // Retry logic for 502 errors (up to 3 attempts with backoff)
+    for (var attempt = 0; attempt < 3; attempt++) {
+      try {
+        res = await fetch(API + path, {
+          method: opts.method || 'GET',
+          credentials: 'same-origin',
+          headers: reqHeaders(hasBody),
+          body: hasBody ? JSON.stringify(opts.body) : undefined,
+          keepalive: keepalive || undefined,
+        });
+        
+        // If we get a 502, retry with backoff
+        if (res.status === 502 && attempt < 2) {
+          lastError = new Error('Server error (502), retrying...');
+          await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
+          continue;
+        }
+        
+        break; // Success or non-502 error, exit retry loop
+      } catch (e) {
+        lastError = e;
+        if (attempt < 2) {
+          await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
+          continue;
+        }
+        var net = new Error('Cannot reach the Lunchbreak server' + (API ? ' at ' + API : '') + '.');
+        net.code = 'network-error';
+        throw net;
+      }
     }
+    
+    // If we exhausted retries with 502s
+    if (res && res.status === 502) {
+      var err502 = new Error('Server is temporarily unavailable (502). Please try again in a moment.');
+      err502.status = 502;
+      err502.code = 'server-unavailable';
+      throw err502;
+    }
+    
     var data = null;
     try { data = await res.json(); } catch (e) { /* non-JSON */ }
     if (!res.ok) {
