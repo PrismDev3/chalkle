@@ -1,0 +1,41 @@
+name: Deploy to Cloudflare Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: cloudflare-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Deploy to Cloudflare Pages
+        id: deployment
+        uses: cloudflare/pages-action@v1
+        with:
+          # Deploy the static build folder
+          project-name: 'ixl-math-learning'
+          working-directory: ./deploy-static
+          branch: main
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+
+      - name: Purge jsDelivr mirrors
+        run: |
+          for repo in PrismDev3/chalkle PrismDev3/chalkle-auto; do
+            curl -sS --max-time 60 "https://purge.jsdelivr.net/gh/$repo" >/dev/null || true
+          done
