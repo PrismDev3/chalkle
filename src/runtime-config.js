@@ -51,6 +51,17 @@
         try { return location.host; } catch (e) { return ""; }
       }
       try { return new URL(r).host; } catch (e) { return ""; }
+    },
+    /* Server-side app endpoints (/_sync state sync, /_active viewer pill)
+       only exist on the relay. On a static mirror a root-absolute fetch of
+       them resolves against the CDN host and dies with a 400. Route them to
+       the relay origin on mirrors; on the real site this is a no-op. */
+    mirrorPing: function (path) {
+      var p = String(path || "");
+      var mirrored = false;
+      try { mirrored = !!isMirror(); } catch (e) { mirrored = false; }
+      if (!mirrored) return p;
+      return root() + (p.charAt(0) === "/" ? p : "/" + p);
     }
   };
 
@@ -66,7 +77,27 @@
      dead CDN host (e.g. "https://cdn.jsdelivr.net/game-builds/..."). On the
      real site it is a no-op; on a mirror it re-points any local-only prefix
      to the relay so local games still launch. */
-  var LOCAL_ONLY_PREFIXES = ["/game-builds/", "/mc/", "/flare/", "/assets/games/psx/"];
+  /* /ugs/ and /gn/ are tracked in the repo (so jsDelivr mirrors them), but
+     jsDelivr serves .html as text/plain with nosniff - opening a mirror URL
+     for a game shows raw source instead of running it. They only play
+     correctly from the relay, so treat them as relay-only for launching. */
+  var LOCAL_ONLY_PREFIXES = ["/game-builds/", "/mc/", "/flare/", "/assets/games/psx/", "/ugs/", "/gn/"];
+
+  /* jsDelivr mirrors the repo under /gh/<user>/<repo>@<branch>/, so an
+     absolute CDN URL like "https://cdn.jsdelivr.net/gh/user/repo@main/ugs/x.html"
+     carries the mirror subpath in its pathname. Strip everything up to and
+     including the versioned segment (the one containing "@") so the
+     local-only prefix check sees /ugs/... and the URL can be re-pointed at
+     the relay. */
+  function stripCdnSubpath(pathname) {
+    var p = String(pathname || "");
+    var at = p.indexOf("@");
+    if (at !== -1) {
+      var slash = p.indexOf("/", at);
+      if (slash !== -1) return p.slice(slash);
+    }
+    return p;
+  }
   window.ChalkleApi.localUrl = function (path) {
     var p = String(path || "").trim();
     if (!p) return p;
@@ -80,8 +111,8 @@
       if (p.indexOf("://") !== -1) {
         try {
           var pu = new URL(p);
-          if (/\.jsdelivr\.net$/i.test(pu.hostname) && isLocalPrefix(pu.pathname)) {
-            return main + pu.pathname + pu.search + pu.hash;
+          if (/\.jsdelivr\.net$/i.test(pu.hostname) && isLocalPrefix(stripCdnSubpath(pu.pathname))) {
+            return main + stripCdnSubpath(pu.pathname) + pu.search + pu.hash;
           }
         } catch (e) { /* not a url - keep raw */ }
       }
@@ -91,8 +122,8 @@
     if (p.indexOf("://") !== -1) {
       try {
         var pu = new URL(p);
-        if (isLocalPrefix(pu.pathname)) {
-          return main + pu.pathname + pu.search + pu.hash;
+        if (isLocalPrefix(stripCdnSubpath(pu.pathname))) {
+          return main + stripCdnSubpath(pu.pathname) + pu.search + pu.hash;
         }
       } catch (e) { /* not a url - fall through to string path */ }
       return p;

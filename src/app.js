@@ -754,11 +754,27 @@
        .html files as text/plain, so a plain <iframe src> shows the raw source.
        Fetch the page and hand it over as srcdoc - same trick as the top-level
        launcher that embedded index.html - so Movies actually renders. */
-    if (window.__CHALKLE_EMBED__) {
+    if (window.__CHALKLE_EMBED__ || isMirrorHost()) {
       loadEmbedFrame(frame, url);
       return;
     }
     frame.src = url;
+  }
+
+  /* True when this page itself is served from a static mirror (jsDelivr,
+     GitHub Pages, ...). Mirrors serve .html as text/plain with nosniff, so
+     any same-origin page we iframe must go through the fetch+srcdoc path
+     even without the __CHALKLE_EMBED__ wrapper flag. */
+  function isMirrorHost() {
+    try {
+      if (window.ChalkleApi && typeof window.ChalkleApi.isMirror === "function") return window.ChalkleApi.isMirror();
+    } catch (e) { /* fall through */ }
+    try {
+      var host = String(location.hostname || "");
+      return /(?:^|\.)(?:jsdelivr\.net|githack\.com|unpkg\.com|github\.io|pages\.dev|gitlab\.io|githubusercontent\.com|vercel\.app|netlify\.app)$/i.test(host);
+    } catch (e) {
+      return false;
+    }
   }
 
   /* Open a resolved page URL in a new tab. Data URIs (the single-file
@@ -850,7 +866,7 @@
     frame.setAttribute("allowfullscreen", "");
     /* Same text/plain trap as Movies: inside the embed wrapper the CDN serves
        .html as text/plain, so fetch + srcdoc instead of a raw <iframe src>. */
-    if (window.__CHALKLE_EMBED__ && url && url.indexOf("data:") !== 0) {
+    if ((window.__CHALKLE_EMBED__ || isMirrorHost()) && url && url.indexOf("data:") !== 0) {
       loadEmbedFrame(frame, url);
       return;
     }
@@ -2327,8 +2343,7 @@
       avatar = '<div class="board-pfp">' + letter + "</div>";
     }
     var role = m.role ? '<div class="board-role">' + escapeHtml(m.role) + "</div>" : "";
-    var bio = m.bio ? '<div class="board-bio">' + escapeHtml(m.bio) + "</div>" : "";
-    return '<article class="board-person">' + avatar + '<div class="board-name">' + name + "</div>" + role + bio + "</article>";
+    return '<article class="board-person">' + avatar + '<div class="board-name">' + name + "</div>" + role + "</article>";
   }
 
   function renderBoard() {
@@ -3985,7 +4000,13 @@
          and the server prunes after 20s anyway, so the count self-corrects
          via the visibilitychange ping when the tab wakes up. */
       if (document.visibilityState === "hidden") return;
-      fetch("/_active?s=" + encodeURIComponent(vid || "anon"), { cache: "no-store" })
+      /* On mirrors (jsDelivr/GitHub Pages) /_active only exists on the relay
+         - route the ping through ChalkleApi.mirrorPing to avoid a 400. */
+      var pingUrl = "/_active?s=" + encodeURIComponent(vid || "anon");
+      try {
+        if (window.ChalkleApi && window.ChalkleApi.mirrorPing) pingUrl = window.ChalkleApi.mirrorPing(pingUrl);
+      } catch (e) { /* keep same-origin */ }
+      fetch(pingUrl, { cache: "no-store" })
         .then(function (r) { return r.json(); })
         .then(function (d) {
           var n = (d && typeof d.active === "number") ? d.active : 0;

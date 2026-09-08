@@ -10988,11 +10988,15 @@ const firebaseConfig = {
         // are never touched.
         const dk = (e.key || '').toLowerCase();
         const dmod = e.ctrlKey || e.metaKey;
-        if (e.key === 'F12' ||
-            (dmod && e.shiftKey && (dk === 'i' || dk === 'j' || dk === 'c')) ||
-            (dmod && dk === 'u')) {
-          e.preventDefault();
-          return;
+        // Owner/Admin are trusted staff — the inspection deterrence does not
+        // apply to them (they can use DevTools like anyone on their own PC).
+        if (!dtExempt()) {
+          if (e.key === 'F12' ||
+              (dmod && e.shiftKey && (dk === 'i' || dk === 'j' || dk === 'c')) ||
+              (dmod && dk === 'u')) {
+            e.preventDefault();
+            return;
+          }
         }
         if (!MENU.classList.contains('on')) return;
         if (e.key === 'Escape') { closeMenu(); return; }
@@ -11020,6 +11024,20 @@ const firebaseConfig = {
            client-side page can ultimately be inspected.
          - If uncertain, nothing happens (no false positives).
          ============================================================ */
+      /* Owner/Admin accounts are exempt from the deterrence: they are staff
+         and may inspect the page freely. Role is read live from the app's
+         own profile state (CU/CP are top-level in this script), so it stays
+         correct across sign-in/out without any extra wiring. */
+      function dtExempt() {
+        try {
+          if (typeof isOwnerU === 'function' && CU && isOwnerU(CP && CP.username)) return true;
+          if (typeof isAdminU === 'function' && CU && isAdminU(CP && CP.username)) return true;
+          if (typeof roleOf === 'function' && CU && roleOf(CP && CP.username, CU && CU.uid) === 'owner') return true;
+          if (typeof roleOf === 'function' && CU && roleOf(CP && CP.username, CU && CU.uid) === 'admin') return true;
+        } catch (e) { /* profile not loaded yet - not exempt */ }
+        return false;
+      }
+
       let devtoolsDetected = false;   // sticky "seen open recently" flag
       let devtoolsShown = false;      // warning currently on screen
       let devtoolsLastWarn = 0;       // ms timestamp of last warning
@@ -11056,12 +11074,14 @@ const firebaseConfig = {
         WARN.style.display = 'none';
       }
       function handleDevToolsState() {
+        if (dtExempt()) { hideDevToolsWarning(); return; }   // staff never see it
         if (devtoolsShown || !devtoolsDetected) return;
         // Don't flash the warning repeatedly — re-check at most every 5s.
         if (Date.now() - devtoolsLastWarn < 5000) return;
         showDevToolsWarning();
       }
       function checkDevTools() {
+        if (dtExempt()) return;             // staff: never warn, never flag
         if (devtoolsShown) return;          // warning already up; re-check on close
         // (a) window-chrome growth vs the load-time baseline.
         const dw = ((window.outerWidth || 0) - (window.innerWidth || 0)) - dtBaseW;
@@ -11092,7 +11112,7 @@ const firebaseConfig = {
       setInterval(checkDevTools, 4000);
 
       // Small test/owner hook so the system can be disabled or inspected.
-      window.__LBDT = { check: checkDevTools, show: showDevToolsWarning, hide: hideDevToolsWarning, get detected() { return devtoolsDetected; }, get shown() { return devtoolsShown; } };
+      window.__LBDT = { check: checkDevTools, show: showDevToolsWarning, hide: hideDevToolsWarning, get detected() { return devtoolsDetected; }, get shown() { return devtoolsShown; }, get exempt() { return dtExempt(); } };
     })();
 
 </script>
