@@ -5375,7 +5375,18 @@ img.coin {
 if (window.self !== window.top || location.hostname.indexOf('cdn.jsdelivr.net') !== -1 || location.hostname.indexOf('trycloudflare.com') !== -1) {
     window.adsbygoogle = window.adsbygoogle || { push: function() {} };
 }
-window.LB_API_BASE = window.location.origin;
+// Configure API base: same-origin when hosted, external Worker for CDN/file contexts
+(function() {
+    var cdnHosts = ['cdn.jsdelivr.net', 'trycloudflare.com', 'raw.githubusercontent.com', 'github.io'];
+    var isCDN = cdnHosts.some(function(h) { return location.hostname.indexOf(h) !== -1; });
+    if (isCDN || location.protocol === 'file:') {
+        // When loaded from CDN or file://, use the Cloudflare Workers backend
+        window.LB_API_BASE = 'https://lunchbreak.dyercountylawncare.workers.dev';
+    } else {
+        // Same-origin when properly hosted
+        window.LB_API_BASE = window.location.origin;
+    }
+})();
 </script>
 <script>
 /*
