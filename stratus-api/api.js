@@ -311,6 +311,14 @@ async function doInitGame(session) {
     return { queued: false, server_data };
   }
 
+  /* The provider gates some titles behind a paid membership (status 4623).
+     Surface a clean, actionable error instead of raw upstream JSON. */
+  if (playData.status === 4623 || /membership/i.test(playData.msg || "")) {
+    const err = new Error("MEMBERSHIP_REQUIRED");
+    err.code = "MEMBERSHIP_REQUIRED";
+    throw err;
+  }
+
   throw new Error(`Unexpected playGame response: ${JSON.stringify(playData)}`);
 }
 
@@ -896,7 +904,9 @@ app.post("/cloud/v1/createSession", auth, async (req, res) => {
     }
   } catch (e) {
     releaseAccountSlot(apiKey);
-    push({ status: "error", error: e.message });
+    const out = { status: "error", error: e.message };
+    if (e.code) out.code = e.code;
+    push(out);
     killSession(uuid, "creation_error");
   }
 

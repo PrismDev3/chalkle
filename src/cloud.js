@@ -321,6 +321,12 @@
     if (kind === "error") {
       body = "Couldn't start " + title;
       sub = (msg || "The session could not be created. Close this tab and try again.").slice(0, 300);
+      /* The provider gates some titles behind a paid membership upstream.
+         Offer the working alternative instead of a raw JSON blob. */
+      if (msg === "MEMBERSHIP_REQUIRED") {
+        body = title + " needs a membership";
+        sub = "The game host now requires a paid account for this title, so it can't be streamed right now. The regular version may still work - check the Cloud tab for alternatives.";
+      }
     } else {
       body = "Starting " + title;
       sub = "Preparing your session\u2026 this tab switches to the game when it's ready.";
@@ -415,6 +421,9 @@
       })
       .catch(function (err) {
         var msg = err && err.message ? err.message : String(err);
+        if (msg === "MEMBERSHIP_REQUIRED") {
+          msg = g.title + " now needs a paid membership on the game host, so it can't be streamed. Try the regular version from the Cloud tab.";
+        }
         if (ui) ui.fail(msg);
         else writePlayerPage(playerWindow, "error", g, msg);
         setStatus("Could not start: " + msg, "offline");
