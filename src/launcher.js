@@ -216,6 +216,15 @@
   function openShell(target, title) {
     var shell = shellUrl(target);
     if (!shell) return false;
+    /* Stay inside Chalkle when the in-app browser is available: the shell
+       page (and whatever it redirects to) loads in the overlay, not a new
+       OS tab. The overlay's own pop-out button covers the rare full-tab
+       case. */
+    if (window.ChalkleBrowser && window.ChalkleBrowser.open) {
+      window.ChalkleBrowser.open(shell, title || target || "", { raw: true });
+      window.ChalkleLaunch.lastOpenUrl = shell;
+      return true;
+    }
     var win = openTab(shell);
     if (!win) inAppFrame(shell, title || target || "");
     return !!win || true;
@@ -374,6 +383,13 @@
       return (target || "");
     }
     var url = routeProxy(target, p.url, p.mode === "frame" || !!p.hashRoute);
+    /* Same rule as openProxyApp: proxied sites load in the in-app browser,
+       never as raw new tabs. */
+    if (window.ChalkleBrowser && window.ChalkleBrowser.open) {
+      window.ChalkleBrowser.open(url, title || target || "", { raw: true });
+      window.ChalkleLaunch.lastOpenUrl = url;
+      return url;
+    }
     openTab(url);
     return url;
   }
@@ -392,9 +408,18 @@
     var live = liveProxy();
     if (!live) { ChalkleLaunch.open(target || "", title || target || ""); return target || ""; }
     var url = routeProxy(target, live.url, live.mode === "frame" || !!live.hashRoute);
+    /* Load inside Chalkle's own browser overlay: the whole point of the
+       built-in /uv/ proxy is that the site never leaves the app as a raw
+       tab. The overlay keeps tabs, back/forward and a pop-out button, and
+       its frames route through /uv/ (raw: the URL is already routed). */
+    if (window.ChalkleBrowser && window.ChalkleBrowser.open) {
+      window.ChalkleBrowser.open(url, title || target || "", { raw: true });
+      window.ChalkleLaunch.lastOpenUrl = url;
+      return url;
+    }
+    /* No in-app browser (single-file builds): real tab, with the in-app
+       frame as the popup-blocked fallback. */
     var win = openTab(url);
-    /* Popup blocked (managed Chromebooks): play the proxied game in the
-       in-app frame overlay instead of failing silently. */
     if (!win) inAppFrame(url, title || target || "");
     return url;
   }

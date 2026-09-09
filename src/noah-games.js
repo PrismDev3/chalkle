@@ -14,7 +14,7 @@
   { title: "Totally Accurate Battle Simulator", category: "Simulation", desc: "A humorous physics-based battle game where you command a squad of soldiers in various scenarios.", url: "/ugs/noah/462.html", thumb: "/assets/games/noah/462.jpg" },
   { title: "Animal Crossing", category: "Simulation", desc: "A life simulation game where you can live on a deserted island.", url: "/ugs/noah/459.html", thumb: "/assets/games/noah/459.jpg" },
   { title: "Who's Your Daddy?", category: "Arcade", desc: "A comedic co-op game where you play as a confused father is trying to save his son from certain death.", url: "/ugs/noah/440.html", thumb: "/assets/games/noah/440.jpg" },
-  { title: "Minecraft 1.12.1", category: "Minecraft", desc: "Minecraft 1.12 was the world of color update focused on expanding building options with vibrant colors", url: "/ugs/noah/164.html", thumb: "/assets/games/noah/291.jpg" },
+  { title: "Minecraft 1.12.1", category: "Minecraft", desc: "The World of Color update: new blocks and more color for builders.", url: "/ugs/noah/164.html", thumb: "/assets/games/noah/291.jpg" },
   { title: "CheeseRoll", category: "Racing", desc: "A physics-based racing game where you chase a giant wheel of cheese down a steep, treacherous hill.", url: "/ugs/noah/414.html", thumb: "/assets/games/noah/414.jpg" },
   { title: "Cleggy Car", category: "Racing", desc: "Navigate a wobbly, physics-driven car through challenging terrain in this quirky driving simulator.", url: "/ugs/noah/415.html", thumb: "/assets/games/noah/415.jpg" },
   { title: "Hobo 2: Prison Brawl", category: "Action", desc: "Locked up but not backing down. Fight your way through prison in the second installment of the series.", url: "/ugs/noah/437.html", thumb: "/assets/games/noah/425.jpg" },

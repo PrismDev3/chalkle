@@ -4,8 +4,8 @@
    A first-class AI tab: pick a model, chat, stream the reply. On the hosted
    site requests ride the same-origin relay (/api/ai/*) and the server
    injects its universal OpenRouter key - chat works for everyone with
-   zero setup. On static mirrors (no relay) a visitor can optionally paste
-   their own key and the tab talks to OpenRouter directly.
+   zero setup, and nobody ever pastes an API key. The picker only lists
+   models verified to run on that key, best to worst.
 
    Both paths speak the OpenAI chat-completions format, so streaming uses
    the standard SSE shape (choices[].delta.content). Conversations are
@@ -20,23 +20,9 @@
     return window.ChalkleApi ? window.ChalkleApi.url(path) : path;
   }
 
-  var OR_ENDPOINT = "https://openrouter.ai/api/v1/chat/completions";
-  var OR_MODELS_URL = "https://openrouter.ai/api/v1/models";
   var RELAY_CHAT = "/api/ai/chat";
   var RELAY_MODELS = "/api/ai/models";
-  var KEY_KEY = "chalkle-openrouter-key";
 
-  function getKey() {
-    try { return String(localStorage.getItem(KEY_KEY) || "").trim(); } catch (e) { return ""; }
-  }
-  function setKey(k) {
-    try {
-      var v = String(k || "").trim();
-      if (v) localStorage.setItem(KEY_KEY, v); else localStorage.removeItem(KEY_KEY);
-    } catch (e) { /* private mode */ }
-  }
-  /* A personal key only matters on mirrors where the relay doesn't exist;
-     the hosted site always has the server's universal key. */
   function hasServerKey() { return S.server; }
 
   var LS_KEY = "chalkle.ai.v2";
@@ -44,27 +30,115 @@
   /* Offline fallback list (real OpenRouter ids), shown only when the live
      model list hasn't loaded. Best first. */
   var DEFAULTS = [
+    "nvidia/nemotron-3-ultra-550b-a55b:free",
+    "dots-studio/dots-3-note-preview:free",
+    "nvidia/nemotron-3.5-lightning:free",
+    "nvidia/nemotron-3-super-120b-a12b:free",
+    "nex-agi/nex-n2.5-pro:free",
+    "inclusionai/ling-3.0-flash-sante:free",
+    "google/gemma-4-31b-it:free",
+    "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"
+  ];
+  /* The picker is closed: only ids in VERIFIED make it. VERIFIED is the
+     hand-ranked list of models probed against the site's universal
+     OpenRouter key with the same request shape the relay sends - every
+     entry shown can actually be used, ranked best to worst. Free-tier
+     models lead the list because they work with a zero balance; the paid
+     tier follows and is only reported by the relay once credits exist. */
+  var VERIFIED = [
+    "nvidia/nemotron-3-ultra-550b-a55b:free",
+    "dots-studio/dots-3-note-preview:free",
+    "nvidia/nemotron-3.5-lightning:free",
+    "nvidia/nemotron-3-super-120b-a12b:free",
+    "nex-agi/nex-n2.5-pro:free",
+    "inclusionai/ling-3.0-flash-sante:free",
+    "google/gemma-4-31b-it:free",
+    "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+    "nex-agi/nex-n2.5-mini:free",
+    "inclusionai/ling-3.0-flash-fin:free",
+    "poolside/laguna-s-2.1:free",
+    "cohere/north-mini-code:free",
+    "poolside/laguna-xs-2.1:free",
+    "liquid/lfm-2.5-2.6b:free",
+    "openai/gpt-5.6-luna-pro",
     "openai/gpt-5.6-luna",
-    "anthropic/claude-sonnet-5",
-    "google/gemini-3.5-flash",
-    "x-ai/grok-4.6",
-    "deepseek/deepseek-chat-v3.1",
-    "moonshotai/kimi-k3",
+    "qwen/qwen3.7-max",
+    "nvidia/nemotron-3-ultra-550b-a55b",
+    "qwen/qwen3.7-plus",
+    "deepseek/deepseek-v4-flash",
+    "deepseek/deepseek-v4-flash-0731",
+    "qwen/qwen3.6-plus",
+    "x-ai/grok-4.3",
+    "x-ai/grok-build-0.1",
+    "moonshotai/kimi-k2.7-code",
+    "google/gemini-3.8-flash",
+    "google/gemini-3.7-flash",
+    "google/gemini-3.6-flash",
+    "qwen/qwen3.5-plus-20260420",
+    "z-ai/glm-5.1",
+    "z-ai/glm-5.3-flash",
+    "qwen/qwen3-235b-a22b-2507",
+    "meta-llama/llama-4-maverick",
     "qwen/qwen3.7-flash",
-    "z-ai/glm-5.3"
+    "qwen/qwen3.8-flash",
+    "z-ai/glm-4.7-flash",
+    "z-ai/glm-4.5",
+    "deepseek/deepseek-v3.2",
+    "openai/gpt-oss-120b",
+    "qwen/qwen3.5-122b-a10b",
+    "qwen/qwen-plus",
+    "minimax/minimax-m3",
+    "meta-llama/llama-4-scout",
+    "qwen/qwen3.6-flash",
+    "qwen/qwen3.5-flash-02-23",
+    "google/gemini-3.5-flash-lite",
+    "google/gemini-3.1-flash-lite",
+    "google/gemini-2.5-flash-lite",
+    "deepseek/deepseek-r1",
+    "deepseek/deepseek-r1-distill-llama-70b",
+    "deepseek/deepseek-chat-v3-0324",
+    "openai/gpt-4.1-mini",
+    "openai/gpt-5-nano",
+    "openai/gpt-5.4-nano",
+    "openai/gpt-4.1-nano",
+    "qwen/qwen3.5-35b-a3b",
+    "qwen/qwen3.8-27b",
+    "qwen/qwen3.5-27b",
+    "qwen/qwen3-32b",
+    "qwen/qwen3-30b-a3b-instruct-2507",
+    "qwen/qwen3.6-35b-a3b",
+    "qwen/qwen3-14b",
+    "qwen/qwen3.5-9b",
+    "qwen/qwen3-8b",
+    "qwen/qwen3-coder-30b-a3b-instruct",
+    "qwen/qwen3-vl-32b-instruct",
+    "qwen/qwen2.5-vl-72b-instruct",
+    "qwen/qwen3-vl-8b-instruct",
+    "deepseek/deepseek-v4-flash-vision-exp",
+    "mistralai/mistral-small-2603",
+    "mistralai/mistral-small-3.1-24b-instruct",
+    "mistralai/mistral-small-24b-instruct-2501",
+    "mistralai/mistral-saba",
+    "mistralai/ministral-14b-2512",
+    "mistralai/ministral-8b-2512",
+    "mistralai/ministral-3b-2512",
+    "google/gemma-4-31b-it",
+    "google/gemma-4-26b-a4b-it",
+    "google/gemma-3-27b-it",
+    "google/gemma-3-12b-it",
+    "nvidia/nemotron-3-super-120b-a12b",
+    "nvidia/nemotron-3.5-lightning",
+    "nvidia/nemotron-3-nano-30b-a3b",
+    "openai/gpt-oss-20b",
+    "meta-llama/llama-3.1-8b-instruct",
+    "meta-llama/llama-3.2-1b-instruct"
   ];
-  /* Only real OpenRouter vendor prefixes make the picker. Anything else
-     (roleplay fine-tunes, obscure one-offs) is filtered out. */
-  var OR_VENDORS = [
-    "anthropic/", "openai/", "google/", "x-ai/", "deepseek/", "moonshotai/",
-    "qwen/", "meta-llama/", "meta/", "mistralai/", "z-ai/", "minimax/",
-    "microsoft/", "cohere/", "amazon/", "perplexity/", "nvidia/"
-  ];
+  var VERIFIED_INDEX = {};
+  VERIFIED.forEach(function (id, i) { VERIFIED_INDEX[id] = i; });
   function curateModels(list) {
     var seen = {}, out = [];
     list.forEach(function (id) {
-      if (!id || /:(?:free|floor|batch)$/i.test(id)) return;
-      if (!OR_VENDORS.some(function (v) { return id.indexOf(v) === 0; })) return;
+      if (!id || VERIFIED_INDEX[id] === undefined) return;
       if (seen[id]) return;
       seen[id] = 1;
       out.push(id);
@@ -74,7 +148,7 @@
       if (r !== 0) return r;
       return displayName(a).localeCompare(displayName(b));
     });
-    return out.slice(0, 60);
+    return out;
   }
 
   var S = {
@@ -86,121 +160,98 @@
 
   /* Friendly names for the raw model ids the upstream reports. Unknown ids
      fall back to prettify(), so the picker never shows "accounts/foo/models/
-     claude-fable-5-20250514"-style noise. */
+     claude-ver-5"-style noise. */
   var LABELS = {
-    "anthropic/claude-opus-5": "Claude Opus 5",
-    "anthropic/claude-sonnet-5": "Claude Sonnet 5",
-    "anthropic/claude-fable-5.1": "Claude Fable 5.1",
-    "anthropic/claude-fable-5": "Claude Fable 5",
-    "anthropic/claude-opus-4.8": "Claude Opus 4.8",
-    "anthropic/claude-opus-4.7": "Claude Opus 4.7",
-    "anthropic/claude-opus-4.6": "Claude Opus 4.6",
-    "anthropic/claude-opus-4.5": "Claude Opus 4.5",
-    "anthropic/claude-sonnet-4.6": "Claude Sonnet 4.6",
-    "anthropic/claude-sonnet-4.5": "Claude Sonnet 4.5",
-    "anthropic/claude-haiku-4.5": "Claude Haiku 4.5",
-    "openai/gpt-6-astra-pro": "GPT-6 Astra Pro",
-    "openai/gpt-6-astra": "GPT-6 Astra",
     "openai/gpt-5.6-luna-pro": "GPT-5.6 Luna Pro",
     "openai/gpt-5.6-luna": "GPT-5.6 Luna",
-    "openai/gpt-5.6-terra-pro": "GPT-5.6 Terra Pro",
-    "openai/gpt-5.6-terra": "GPT-5.6 Terra",
-    "openai/gpt-5.6-sol-pro": "GPT-5.6 Sol Pro",
-    "openai/gpt-5.6-sol": "GPT-5.6 Sol",
-    "openai/gpt-5.5-pro": "GPT-5.5 Pro",
-    "openai/gpt-5.5": "GPT-5.5",
-    "openai/gpt-5.4-pro": "GPT-5.4 Pro",
-    "openai/gpt-5.4": "GPT-5.4",
-    "openai/gpt-5.4-mini": "GPT-5.4 Mini",
-    "openai/gpt-5.4-nano": "GPT-5.4 Nano",
-    "openai/gpt-5.2-pro": "GPT-5.2 Pro",
-    "openai/gpt-5.2": "GPT-5.2",
-    "openai/gpt-5.1": "GPT-5.1",
-    "openai/gpt-5-pro": "GPT-5 Pro",
-    "openai/gpt-5": "GPT-5",
-    "openai/gpt-5-mini": "GPT-5 Mini",
-    "openai/gpt-5-nano": "GPT-5 Nano",
-    "openai/o3-pro": "OpenAI o3-pro",
-    "openai/o3": "OpenAI o3",
-    "openai/o4-mini": "OpenAI o4-mini",
-    "openai/o4-mini-high": "OpenAI o4-mini-high",
-    "openai/gpt-4o": "GPT-4o",
-    "openai/gpt-4o-mini": "GPT-4o mini",
-    "openai/gpt-4.1": "GPT-4.1",
-    "openai/gpt-4.1-mini": "GPT-4.1 mini",
-    "openai/gpt-4-turbo": "GPT-4 Turbo",
-    "openai/gpt-chat-latest": "GPT Chat",
-    "openai/gpt-oss-120b": "GPT-OSS 120B",
-    "openai/gpt-oss-20b": "GPT-OSS 20B",
-    "google/gemini-3.1-pro-preview": "Gemini 3.1 Pro",
-    "google/gemini-3.5-flash": "Gemini 3.5 Flash",
-    "google/gemini-3.6-flash": "Gemini 3.6 Flash",
-    "google/gemini-3.7-flash": "Gemini 3.7 Flash",
-    "google/gemini-3.8-flash": "Gemini 3.8 Flash",
-    "google/gemini-3.5-flash-lite": "Gemini 3.5 Flash Lite",
-    "google/gemini-2.5-pro": "Gemini 2.5 Pro",
-    "google/gemini-2.5-flash": "Gemini 2.5 Flash",
-    "google/gemini-2.5-flash-lite": "Gemini 2.5 Flash Lite",
-    "google/gemma-4-31b-it": "Gemma 4 31B",
-    "google/gemma-3-27b-it": "Gemma 3 27B",
-    "x-ai/grok-4.6": "Grok 4.6",
-    "x-ai/grok-4.5": "Grok 4.5",
-    "x-ai/grok-4.3": "Grok 4.3",
-    "x-ai/grok-4.20": "Grok 4.20",
-    "deepseek/deepseek-v4-pro": "DeepSeek V4 Pro",
-    "deepseek/deepseek-v4-pro-0813": "DeepSeek V4 Pro (0813)",
+    "qwen/qwen3.7-max": "Qwen 3.7 Max",
+    "nvidia/nemotron-3-ultra-550b-a55b": "Nemotron 3 Ultra",
+    "qwen/qwen3.7-plus": "Qwen 3.7 Plus",
     "deepseek/deepseek-v4-flash": "DeepSeek V4 Flash",
     "deepseek/deepseek-v4-flash-0731": "DeepSeek V4 Flash (0731)",
-    "deepseek/deepseek-v3.2": "DeepSeek V3.2",
-    "deepseek/deepseek-chat-v3.1": "DeepSeek V3.1",
-    "deepseek/deepseek-chat-v3-0324": "DeepSeek V3 (0324)",
-    "deepseek/deepseek-chat": "DeepSeek Chat",
-    "deepseek/deepseek-r1-0528": "DeepSeek R1",
-    "deepseek/deepseek-r1": "DeepSeek R1 (orig)",
-    "moonshotai/kimi-k3": "Kimi K3",
+    "qwen/qwen3.6-plus": "Qwen 3.6 Plus",
+    "x-ai/grok-4.3": "Grok 4.3",
+    "x-ai/grok-build-0.1": "Grok Build 0.1",
     "moonshotai/kimi-k2.7-code": "Kimi K2.7 Code",
-    "moonshotai/kimi-k2.6": "Kimi K2.6",
-    "moonshotai/kimi-k2-thinking": "Kimi K2 Thinking",
-    "moonshotai/kimi-k2": "Kimi K2",
-    "qwen/qwen3.8-max-0902": "Qwen3.8 Max",
-    "qwen/qwen3.7-max": "Qwen3.7 Max",
-    "qwen/qwen3.7-plus": "Qwen3.7 Plus",
-    "qwen/qwen3.7-flash": "Qwen3.7 Flash",
-    "qwen/qwen3.6-max-preview": "Qwen3.6 Max",
-    "qwen/qwen3.6-plus": "Qwen3.6 Plus",
-    "qwen/qwen3.6-flash": "Qwen3.6 Flash",
-    "qwen/qwen3.5-27b": "Qwen3.5 27B",
-    "qwen/qwen3.5-9b": "Qwen3.5 9B",
-    "qwen/qwen3-32b": "Qwen3 32B",
-    "meta-llama/llama-4-maverick": "Llama 4 Maverick",
-    "meta-llama/llama-4-scout": "Llama 4 Scout",
-    "meta-llama/llama-3.3-70b-instruct": "Llama 3.3 70B",
-    "mistralai/mistral-large-2512": "Mistral Large",
-    "mistralai/mistral-medium-3.1": "Mistral Medium 3.1",
-    "mistralai/mistral-medium-3-5": "Mistral Medium 3.5",
-    "mistralai/mistral-small-3.2-24b-instruct": "Mistral Small 3.2",
-    "mistralai/codestral-2508": "Codestral",
-    "mistralai/mistral-nemo": "Mistral Nemo",
-    "z-ai/glm-5.3": "GLM 5.3",
+    "google/gemini-3.8-flash": "Gemini 3.8 Flash",
+    "google/gemini-3.7-flash": "Gemini 3.7 Flash",
+    "google/gemini-3.6-flash": "Gemini 3.6 Flash",
+    "qwen/qwen3.5-plus-20260420": "Qwen 3.5 Plus",
+    "z-ai/glm-5.1": "GLM 5.1",
     "z-ai/glm-5.3-flash": "GLM 5.3 Flash",
-    "z-ai/glm-5.2": "GLM 5.2",
-    "z-ai/glm-5v-turbo": "GLM 5V Turbo",
-    "z-ai/glm-4.7": "GLM 4.7",
-    "z-ai/glm-4.6v": "GLM 4.6V",
+    "qwen/qwen3-235b-a22b-2507": "Qwen3 235B",
+    "meta-llama/llama-4-maverick": "Llama 4 Maverick",
+    "qwen/qwen3.7-flash": "Qwen 3.7 Flash",
+    "qwen/qwen3.8-flash": "Qwen 3.8 Flash",
+    "z-ai/glm-4.7-flash": "GLM 4.7 Flash",
+    "z-ai/glm-4.5": "GLM 4.5",
+    "deepseek/deepseek-v3.2": "DeepSeek V3.2",
+    "openai/gpt-oss-120b": "GPT-OSS 120B",
+    "qwen/qwen3.5-122b-a10b": "Qwen 3.5 122B",
+    "qwen/qwen-plus": "Qwen Plus",
     "minimax/minimax-m3": "MiniMax M3",
-    "minimax/minimax-m2.7": "MiniMax M2.7",
-    "microsoft/phi-4": "Phi 4",
-    "cohere/command-a": "Command A",
-    "cohere/command-r-plus-08-2024": "Command R+",
-    "amazon/nova-premier-v1": "Nova Premier",
-    "amazon/nova-pro-v1": "Nova Pro",
-    "perplexity/sonar-pro": "Sonar Pro",
-    "perplexity/sonar-reasoning-pro": "Sonar Reasoning Pro",
-    "nvidia/nemotron-3-ultra-550b-a55b": "Nemotron 3 Ultra"
+    "meta-llama/llama-4-scout": "Llama 4 Scout",
+    "qwen/qwen3.6-flash": "Qwen 3.6 Flash",
+    "qwen/qwen3.5-flash-02-23": "Qwen 3.5 Flash",
+    "google/gemini-3.5-flash-lite": "Gemini 3.5 Flash Lite",
+    "google/gemini-3.1-flash-lite": "Gemini 3.1 Flash Lite",
+    "google/gemini-2.5-flash-lite": "Gemini 2.5 Flash Lite",
+    "deepseek/deepseek-r1": "DeepSeek R1",
+    "deepseek/deepseek-r1-distill-llama-70b": "DeepSeek R1 Distill 70B",
+    "deepseek/deepseek-chat-v3-0324": "DeepSeek V3 (0324)",
+    "openai/gpt-4.1-mini": "GPT-4.1 mini",
+    "openai/gpt-5-nano": "GPT-5 Nano",
+    "openai/gpt-5.4-nano": "GPT-5.4 Nano",
+    "openai/gpt-4.1-nano": "GPT-4.1 nano",
+    "qwen/qwen3.5-35b-a3b": "Qwen 3.5 35B",
+    "qwen/qwen3.8-27b": "Qwen 3.8 27B",
+    "qwen/qwen3.5-27b": "Qwen 3.5 27B",
+    "qwen/qwen3-32b": "Qwen3 32B",
+    "qwen/qwen3-30b-a3b-instruct-2507": "Qwen3 30B A3B",
+    "qwen/qwen3.6-35b-a3b": "Qwen 3.6 35B",
+    "qwen/qwen3-14b": "Qwen3 14B",
+    "qwen/qwen3.5-9b": "Qwen 3.5 9B",
+    "qwen/qwen3-8b": "Qwen3 8B",
+    "qwen/qwen3-coder-30b-a3b-instruct": "Qwen3 Coder 30B",
+    "qwen/qwen3-vl-32b-instruct": "Qwen3 VL 32B",
+    "qwen/qwen2.5-vl-72b-instruct": "Qwen2.5 VL 72B",
+    "qwen/qwen3-vl-8b-instruct": "Qwen3 VL 8B",
+    "deepseek/deepseek-v4-flash-vision-exp": "DeepSeek V4 Flash Vision",
+    "mistralai/mistral-small-2603": "Mistral Small 2603",
+    "mistralai/mistral-small-3.1-24b-instruct": "Mistral Small 3.1",
+    "mistralai/mistral-small-24b-instruct-2501": "Mistral Small 24B",
+    "mistralai/mistral-saba": "Mistral Saba",
+    "mistralai/ministral-14b-2512": "Ministral 14B",
+    "mistralai/ministral-8b-2512": "Ministral 8B",
+    "mistralai/ministral-3b-2512": "Ministral 3B",
+    "google/gemma-4-31b-it": "Gemma 4 31B",
+    "google/gemma-4-26b-a4b-it": "Gemma 4 26B",
+    "google/gemma-3-27b-it": "Gemma 3 27B",
+    "google/gemma-3-12b-it": "Gemma 3 12B",
+    "nvidia/nemotron-3-super-120b-a12b": "Nemotron 3 Super",
+    "nvidia/nemotron-3.5-lightning": "Nemotron 3.5 Lightning",
+    "nvidia/nemotron-3-nano-30b-a3b": "Nemotron 3 Nano",
+    "openai/gpt-oss-20b": "GPT-OSS 20B",
+    "meta-llama/llama-3.1-8b-instruct": "Llama 3.1 8B",
+    "meta-llama/llama-3.2-1b-instruct": "Llama 3.2 1B",
+    "nvidia/nemotron-3-ultra-550b-a55b:free": "Nemotron 3 Ultra",
+    "dots-studio/dots-3-note-preview:free": "Dots 3 Note",
+    "nvidia/nemotron-3.5-lightning:free": "Nemotron 3.5 Lightning",
+    "nvidia/nemotron-3-super-120b-a12b:free": "Nemotron 3 Super",
+    "nex-agi/nex-n2.5-pro:free": "Nex N2.5 Pro",
+    "inclusionai/ling-3.0-flash-sante:free": "Ling 3.0 Flash",
+    "google/gemma-4-31b-it:free": "Gemma 4 31B",
+    "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free": "Nemotron 3 Nano Omni",
+    "nex-agi/nex-n2.5-mini:free": "Nex N2.5 Mini",
+    "inclusionai/ling-3.0-flash-fin:free": "Ling 3.0 Flash Fin",
+    "poolside/laguna-s-2.1:free": "Laguna S 2.1",
+    "cohere/north-mini-code:free": "North Mini Code",
+    "poolside/laguna-xs-2.1:free": "Laguna XS 2.1",
+    "liquid/lfm-2.5-2.6b:free": "LFM 2.5"
   };
 
   /* Turn any unknown model id into a readable label:
-     accounts/x/models/claude-fable-5  -> Claude Fable 5
+     accounts/x/models/gpt-5.6-luna-pro -> GPT-5.6 Luna Pro
      meta-llama/llama-3.3-70b-instruct -> Llama 3.3 70B Instruct
      llama-4-scout0                    -> Llama 4 Scout */
   function prettify(id) {
@@ -224,57 +275,95 @@
     return LABELS[id] || prettify(id);
   }
 
-  /* Quality order for the model picker: best first. Anything not listed here
-     drops below the known models, sorted by display name. */
+  /* Quality order for the model picker: best first. This is the verified
+     list itself, so every entry is usable on the universal key. */
   var QUALITY = [
-    // Anthropic
-    "anthropic/claude-opus-5", "anthropic/claude-sonnet-5",
-    "anthropic/claude-fable-5.1", "anthropic/claude-fable-5",
-    "anthropic/claude-opus-4.8", "anthropic/claude-opus-4.7", "anthropic/claude-opus-4.6",
-    "anthropic/claude-sonnet-4.6", "anthropic/claude-sonnet-4.5", "anthropic/claude-haiku-4.5",
-    // OpenAI
-    "openai/gpt-6-astra-pro", "openai/gpt-6-astra",
-    "openai/gpt-5.6-luna-pro", "openai/gpt-5.6-terra-pro", "openai/gpt-5.6-sol-pro",
-    "openai/gpt-5.6-luna", "openai/gpt-5.6-terra", "openai/gpt-5.6-sol",
-    "openai/gpt-5.5-pro", "openai/gpt-5.4-pro", "openai/gpt-5.2-pro", "openai/gpt-5-pro",
-    "openai/gpt-5.5", "openai/gpt-5.4", "openai/gpt-5.2", "openai/gpt-5.1", "openai/gpt-5",
-    "openai/o3-pro", "openai/o3", "openai/o4-mini-high", "openai/o4-mini",
-    "openai/gpt-5.4-mini", "openai/gpt-5-mini", "openai/gpt-5.4-nano", "openai/gpt-5-nano",
-    "openai/gpt-chat-latest", "openai/gpt-4o", "openai/gpt-4.1", "openai/gpt-4o-mini",
-    "openai/gpt-4.1-mini", "openai/gpt-4-turbo", "openai/gpt-oss-120b", "openai/gpt-oss-20b",
-    // Google
-    "google/gemini-3.1-pro-preview", "google/gemini-2.5-pro", "google/gemini-2.5-pro-preview",
-    "google/gemini-3.8-flash", "google/gemini-3.7-flash", "google/gemini-3.6-flash",
-    "google/gemini-3.5-flash", "google/gemini-2.5-flash", "google/gemini-3.5-flash-lite",
-    "google/gemini-2.5-flash-lite", "google/gemma-4-31b-it", "google/gemma-3-27b-it",
-    // xAI
-    "x-ai/grok-4.6", "x-ai/grok-4.5", "x-ai/grok-4.3", "x-ai/grok-4.20",
-    // DeepSeek
-    "deepseek/deepseek-v4-pro", "deepseek/deepseek-v4-pro-0813",
-    "deepseek/deepseek-v4-flash", "deepseek/deepseek-v4-flash-0731",
-    "deepseek/deepseek-v3.2", "deepseek/deepseek-chat-v3.1", "deepseek/deepseek-r1-0528",
-    "deepseek/deepseek-chat-v3-0324", "deepseek/deepseek-chat", "deepseek/deepseek-r1",
-    // Moonshot
-    "moonshotai/kimi-k3", "moonshotai/kimi-k2-thinking", "moonshotai/kimi-k2.6",
-    "moonshotai/kimi-k2.7-code", "moonshotai/kimi-k2",
-    // Qwen
-    "qwen/qwen3.8-max-0902", "qwen/qwen3.7-max", "qwen/qwen3.7-plus", "qwen/qwen3.7-flash",
-    "qwen/qwen3.6-max-preview", "qwen/qwen3.6-plus", "qwen/qwen3.6-flash",
-    "qwen/qwen3.5-27b", "qwen/qwen3-32b",
-    // Meta
-    "meta-llama/llama-4-maverick", "meta-llama/llama-4-scout", "meta-llama/llama-3.3-70b-instruct",
-    // Mistral
-    "mistralai/mistral-large-2512", "mistralai/mistral-medium-3.1", "mistralai/mistral-medium-3-5",
-    "mistralai/mistral-small-3.2-24b-instruct", "mistralai/codestral-2508", "mistralai/mistral-nemo",
-    // z-ai
-    "z-ai/glm-5.3", "z-ai/glm-5.3-flash", "z-ai/glm-5.2", "z-ai/glm-5v-turbo",
-    "z-ai/glm-4.7", "z-ai/glm-4.6v", "z-ai/glm-4.5v", "z-ai/glm-4.5-air",
-    // everyone else from the good vendors
-    "minimax/minimax-m3", "minimax/minimax-m2.7", "microsoft/phi-4",
-    "cohere/command-a", "cohere/command-r-plus-08-2024",
-    "amazon/nova-premier-v1", "amazon/nova-pro-v1",
-    "perplexity/sonar-reasoning-pro", "perplexity/sonar-pro",
-    "nvidia/nemotron-3-ultra-550b-a55b"
+    "nvidia/nemotron-3-ultra-550b-a55b:free",
+    "dots-studio/dots-3-note-preview:free",
+    "nvidia/nemotron-3.5-lightning:free",
+    "nvidia/nemotron-3-super-120b-a12b:free",
+    "nex-agi/nex-n2.5-pro:free",
+    "inclusionai/ling-3.0-flash-sante:free",
+    "google/gemma-4-31b-it:free",
+    "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+    "nex-agi/nex-n2.5-mini:free",
+    "inclusionai/ling-3.0-flash-fin:free",
+    "poolside/laguna-s-2.1:free",
+    "cohere/north-mini-code:free",
+    "poolside/laguna-xs-2.1:free",
+    "liquid/lfm-2.5-2.6b:free",
+    "openai/gpt-5.6-luna-pro",
+    "openai/gpt-5.6-luna",
+    "qwen/qwen3.7-max",
+    "nvidia/nemotron-3-ultra-550b-a55b",
+    "qwen/qwen3.7-plus",
+    "deepseek/deepseek-v4-flash",
+    "deepseek/deepseek-v4-flash-0731",
+    "qwen/qwen3.6-plus",
+    "x-ai/grok-4.3",
+    "x-ai/grok-build-0.1",
+    "moonshotai/kimi-k2.7-code",
+    "google/gemini-3.8-flash",
+    "google/gemini-3.7-flash",
+    "google/gemini-3.6-flash",
+    "qwen/qwen3.5-plus-20260420",
+    "z-ai/glm-5.1",
+    "z-ai/glm-5.3-flash",
+    "qwen/qwen3-235b-a22b-2507",
+    "meta-llama/llama-4-maverick",
+    "qwen/qwen3.7-flash",
+    "qwen/qwen3.8-flash",
+    "z-ai/glm-4.7-flash",
+    "z-ai/glm-4.5",
+    "deepseek/deepseek-v3.2",
+    "openai/gpt-oss-120b",
+    "qwen/qwen3.5-122b-a10b",
+    "qwen/qwen-plus",
+    "minimax/minimax-m3",
+    "meta-llama/llama-4-scout",
+    "qwen/qwen3.6-flash",
+    "qwen/qwen3.5-flash-02-23",
+    "google/gemini-3.5-flash-lite",
+    "google/gemini-3.1-flash-lite",
+    "google/gemini-2.5-flash-lite",
+    "deepseek/deepseek-r1",
+    "deepseek/deepseek-r1-distill-llama-70b",
+    "deepseek/deepseek-chat-v3-0324",
+    "openai/gpt-4.1-mini",
+    "openai/gpt-5-nano",
+    "openai/gpt-5.4-nano",
+    "openai/gpt-4.1-nano",
+    "qwen/qwen3.5-35b-a3b",
+    "qwen/qwen3.8-27b",
+    "qwen/qwen3.5-27b",
+    "qwen/qwen3-32b",
+    "qwen/qwen3-30b-a3b-instruct-2507",
+    "qwen/qwen3.6-35b-a3b",
+    "qwen/qwen3-14b",
+    "qwen/qwen3.5-9b",
+    "qwen/qwen3-8b",
+    "qwen/qwen3-coder-30b-a3b-instruct",
+    "qwen/qwen3-vl-32b-instruct",
+    "qwen/qwen2.5-vl-72b-instruct",
+    "qwen/qwen3-vl-8b-instruct",
+    "deepseek/deepseek-v4-flash-vision-exp",
+    "mistralai/mistral-small-2603",
+    "mistralai/mistral-small-3.1-24b-instruct",
+    "mistralai/mistral-small-24b-instruct-2501",
+    "mistralai/mistral-saba",
+    "mistralai/ministral-14b-2512",
+    "mistralai/ministral-8b-2512",
+    "mistralai/ministral-3b-2512",
+    "google/gemma-4-31b-it",
+    "google/gemma-4-26b-a4b-it",
+    "google/gemma-3-27b-it",
+    "google/gemma-3-12b-it",
+    "nvidia/nemotron-3-super-120b-a12b",
+    "nvidia/nemotron-3.5-lightning",
+    "nvidia/nemotron-3-nano-30b-a3b",
+    "openai/gpt-oss-20b",
+    "meta-llama/llama-3.1-8b-instruct",
+    "meta-llama/llama-3.2-1b-instruct"
   ];
   var QUALITY_INDEX = {};
   QUALITY.forEach(function (id, i) { QUALITY_INDEX[id] = i; });
@@ -362,26 +451,11 @@
     setTimeout(function () { d.classList.remove("show"); setTimeout(function () { d.remove(); }, 300); }, 2200);
   }
 
-  /* ---------- probe the relay (or OpenRouter with a personal key) ---------- */
+  /* ---------- probe the relay ---------- */
   function probe() {
-    var key = getKey();
-    if (key) {
-      /* Personal key present: use it, so mirrors and power users get their
-         own OpenRouter account and model list. */
-      return fetch(OR_MODELS_URL, { headers: { Authorization: "Bearer " + key } })
-        .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
-        .then(function (d) {
-          var list = (d && Array.isArray(d.data)) ? d.data.map(function (m) { return m && m.id; }).filter(Boolean) : [];
-          S.models = curateModels(list);
-          S.server = S.models.length > 0;
-          S.lastCheck = Date.now();
-          syncServer = S.server;
-          if (S.server && Object.keys(S.convos).length) fetchConvos();
-          return S.server;
-        })
-        .catch(function () { S.server = false; S.models = []; return false; });
-    }
-    /* No personal key: rely on the server's universal key via the relay. */
+    /* The site's server holds the universal OpenRouter key; the browser
+       never sees one. The model list comes from the relay, filtered to
+       the verified set that key can actually run. */
     return fetch(apiUrl(RELAY_MODELS), { cache: "no-store" })
       .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
       .then(function (d) {
@@ -438,19 +512,11 @@
 
     var h = '<div class="ai-head">';
     h += '<div class="ai-heading"><h1 class="view-title">AI</h1>';
-    h += '<span class="view-meta' + (S.server ? " has-content" : "") + '" title="' + (S.server ? "Chat runs on the site's AI server" : "AI server unreachable - add a key to chat") + '">' + (S.server ? S.models.length + " models · checked " + (S.lastCheck ? clock(S.lastCheck) : "just now") : (getKey() ? "checking OpenRouter…" : "waiting for the AI server…")) + "</span></div>";
-    var keySet = !!getKey();
+    h += '<span class="view-meta' + (S.server ? " has-content" : "") + '" title="' + (S.server ? "Chat runs on the site's AI server" : "The AI server isn't reachable right now") + '">' + (S.server ? S.models.length + " models · checked " + (S.lastCheck ? clock(S.lastCheck) : "just now") : "waiting for the AI server…") + "</span></div>";
     h += '<div class="ai-head-actions">';
-    h += '<button class="btn ghost ai-key-btn' + (keySet ? " is-set" : "") + '" id="ai-key-btn" type="button" title="Optional personal OpenRouter key for mirrors">' + (keySet ? "key set" : "API key") + '</button>';
     h += '<select class="field field-mode ai-model" id="ai-model" aria-label="Pick a model"><option value="">Pick a model…</option>' + modelOptions() + "</select>";
     h += '<button class="btn ai-new" id="ai-new" type="button">＋ New chat</button>';
     h += "</div></div>";
-    h += '<div class="ai-keyrow" id="ai-keyrow" hidden>' +
-      '<input class="field ai-key-input" id="ai-key-input" type="password" placeholder="sk-or-v1-…" autocomplete="off" spellcheck="false" aria-label="OpenRouter API key">' +
-      '<button class="btn" id="ai-key-save" type="button">Save</button>' +
-      '<button class="btn ghost" id="ai-key-clear" type="button">Remove</button>' +
-      '<span class="ai-key-hint">Optional. Only needed on mirrors; the main site provides AI for everyone.</span>' +
-      "</div>";
 
     h += '<div class="ai-layout">';
     // sidebar: saved conversations
@@ -472,7 +538,7 @@
     // chat pane
     h += '<div class="ai-pane">';
     if (!S.server) {
-      h += '<div class="ai-offline"><b>' + (getKey() ? "OpenRouter didn\u2019t respond." : "The AI server isn\u2019t reachable here.") + '</b> On mirrors you can add your own OpenRouter key to chat. ' + (getKey() ? "Check the key and try again." : "Paste a key above, pick a model, and you\u2019re set.") + '</div>';
+      h += '<div class="ai-offline"><b>The AI server isn\u2019t reachable right now.</b> Try again in a moment.</div>';
     }
     h += '<div class="ai-modelrow">';
     h += '<span class="ai-pill">' + esc(displayName(convo.model) || "No model selected") + "</span>";
@@ -517,31 +583,6 @@
         save();
         buildShell();
       });
-    });
-    var keyBtn = el("ai-key-btn");
-    var keyRow = el("ai-keyrow");
-    var keyInput = el("ai-key-input");
-    if (keyBtn && keyRow) keyBtn.addEventListener("click", function () {
-      keyRow.hidden = !keyRow.hidden;
-      if (!keyRow.hidden && keyInput) { keyInput.value = getKey(); keyInput.focus(); }
-    });
-    var keySave = el("ai-key-save");
-    if (keySave) keySave.addEventListener("click", function () {
-      var k = keyInput ? keyInput.value.trim() : "";
-      if (!k) { toast("Paste your OpenRouter key first"); return; }
-      setKey(k);
-      if (keyRow) keyRow.hidden = true;
-      toast("Key saved");
-      probed = false;
-      render();
-    });
-    var keyClear = el("ai-key-clear");
-    if (keyClear) keyClear.addEventListener("click", function () {
-      setKey("");
-      if (keyRow) keyRow.hidden = true;
-      toast("Key removed");
-      probed = false;
-      render();
     });
     var send = el("ai-send");
     if (send) send.addEventListener("click", sendMsg);
@@ -770,12 +811,8 @@
   var busy = false;
   function sendMsg() {
     if (busy) return;
-    var keyBtn = el("ai-key-btn");
-    /* The server's universal key carries the chat on the hosted site; a
-       personal key is only required when the relay is unreachable. */
-    if (!S.server && !getKey()) {
-      toast("Add your OpenRouter key first");
-      if (keyBtn) keyBtn.click();
+    if (!S.server) {
+      toast("The AI server isn't reachable right now");
       return;
     }
     var input = el("ai-input");
@@ -817,18 +854,15 @@
     var lastEl = box ? box.lastElementChild : null;
 
     var payload = { model: convo.model, messages: convo.messages.slice(0, -1), stream: true };
-    /* Personal key set: talk to OpenRouter directly (works on mirrors).
-       Otherwise: the relay, which carries the server's universal key. */
-    var key = getKey();
-    var useRelay = !key;
-    fetch(useRelay ? apiUrl(RELAY_CHAT) : OR_ENDPOINT, {
+    /* All chat rides the same-origin relay, which injects the server's
+       universal OpenRouter key. The browser never holds a key. */
+    fetch(apiUrl(RELAY_CHAT), {
       method: "POST",
-      headers: Object.assign(
-        { "Content-Type": "application/json", "HTTP-Referer": location.origin, "X-Title": "Chalkle" },
-        useRelay ? {} : { "Authorization": "Bearer " + key }
-      ),
+      headers: { "Content-Type": "application/json", "HTTP-Referer": location.origin, "X-Title": "Chalkle" },
       body: JSON.stringify(payload)
     }).then(function (r) {
+      var fb = r.headers.get("x-chalkle-fallback");
+      if (fb) toast("Out of credits for that model - answered by " + fb);
       if (!r.ok) {
         return r.json().catch(function () { return {}; }).then(function (j) {
           var msg = (j && j.error && (j.error.message || (typeof j.error === "string" ? j.error : ""))) || (j && j.detail) || ("HTTP " + r.status);

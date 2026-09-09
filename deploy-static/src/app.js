@@ -417,6 +417,21 @@
     }
     if (!list) list = withId(window.ChalkProxies || []).slice();
 
+    /* Drop junk entries a fresh parse would choke on: empty names, URLs that
+       don't resolve to a real http(s) host ("https://]d", "https://roblox").
+       Runs before migration so the seed defaults never get filtered out. */
+    list = list.filter(function (p) {
+      if (!p || !String(p.name || "").trim()) return false;
+      var u = String(p.url || "").trim();
+      if (!u) return false;
+      try {
+        var parsed = new URL(/^[a-z]+:\/\//i.test(u) ? u : "https://" + u);
+        if (!/^https?:$/.test(parsed.protocol)) return false;
+        if (!parsed.hostname || !parsed.hostname.includes(".") || /[^a-z0-9.\-:\[\]]/i.test(parsed.hostname)) return false;
+        return true;
+      } catch (e) { return false; }
+    });
+
     /* Proxy migration (v2): the old Scramjet pointed at a trycloudflare
        quick-tunnel that expires (that one is dead now). Both Scramjet and
        Ultraviolet route through the same-origin /uv/ rewriting proxy served
@@ -1248,6 +1263,14 @@
     return "/browser.html";
   }
   function openBrowser() {
+    /* Open the in-app browser overlay directly on its new-tab page. The
+       overlay already has tabs, an address bar, bookmarks, quick links and
+       /uv/ routing, so there is nothing left for browser.html to add - and
+       hosting it inside the overlay would nest two browser UIs. */
+    if (window.ChalkleBrowser && window.ChalkleBrowser.open) {
+      window.ChalkleBrowser.open("", "Browser");
+      return;
+    }
     var win = null;
     try { win = window.open(browserPageUrl(), "_blank"); } catch (e) { /* ignore */ }
     if (win) {
@@ -2552,7 +2575,7 @@
   /* ---------- Admin panel ----------
      Locked behind a code. Lets you add / edit / delete games, sites, tools
      and proxies - each game or site can be a link (URL) and/or raw HTML code,
-     and anything launches as a plain new tab (proxy-routed when needed). All changes persist to this device. */
+     and anything launches inside Chalkle\u2019s own browser (proxy-routed when needed). All changes persist to this device. */
 
   var ADMIN_CODE = "jamesypoo";
   var ADMIN_TABS = ["games", "tools", "proxies", "docs", "partners"];
@@ -3971,9 +3994,10 @@
           return;
         }
 
-        /* "How to open" button - opens the item as a plain new tab (the
-           launcher decides direct vs proxy routing and the popup-blocked
-           fallback). Kept as a separate affordance from the card click. */
+        /* "How to open" button - opens the item through the launcher (the
+           launcher decides in-app browser vs direct routing and the
+           popup-blocked fallback). Kept as a separate affordance from the
+           card click. */
         var openWith = e.target.closest("[data-open-with]");
         if (openWith && window.ChalkleLaunch) {
           e.preventDefault();

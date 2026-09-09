@@ -73,3 +73,4 @@ tmp_patch_*.py
 
 # runtime cache of provider pools (regenerated)
 server/cinemeta-pools.json
+server/ai_key.txt

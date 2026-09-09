@@ -393,6 +393,17 @@
   /* ---------- Public API ---------- */
   var api = {
     open: function (url, title, opts) {
+      /* Empty url: just open the overlay on its own new-tab page (quick
+         links + address bar). Used by the Browser tool so it never nests a
+         second browser UI inside this one. */
+      if (!url) {
+        if (overlay.hidden) {
+          overlay.hidden = false;
+          document.body.style.overflow = "hidden";
+        }
+        newTab();
+        return true;
+      }
       if (!overlay.hidden) {
         navigate(url, opts);
         return true;

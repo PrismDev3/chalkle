@@ -3013,11 +3013,23 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, _Bitc
 
     # Upstreams are tried in order; when one rate-limits (429) or errors, the
     # next takes over so the tab keeps answering. The FIRST upstream is the
-    # site's universal keyed provider (OpenRouter): the key below is shared by
-    # every visitor, which is what lets the AI tab work with zero setup.
-    # Env vars AI_UPSTREAM / AI_API_KEY override it if ever needed.
+    # site's universal keyed provider (OpenRouter): the key is shared by every
+    # visitor, which is what lets the AI tab work with zero setup.
+    # The key is loaded from the AI_API_KEY env var, or from a local
+    # server/ai_key.txt file that is NOT tracked in git (public repos get
+    # scraped by key-draining bots within minutes, and GitHub push protection
+    # refuses commits that contain a raw API key). If neither exists the AI
+    # relay still boots; every model request then fails closed with a clear
+    # upstream error until a key is provided.
     AI_UPSTREAM = os.environ.get("AI_UPSTREAM", "https://openrouter.ai/api/v1").strip()
     AI_API_KEY = os.environ.get("AI_API_KEY", "").strip()
+    if not AI_API_KEY:
+        try:
+            _AI_KEY_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ai_key.txt")
+            if os.path.exists(_AI_KEY_FILE):
+                AI_API_KEY = io.open(_AI_KEY_FILE, encoding="utf-8").read().strip()
+        except Exception:
+            AI_API_KEY = ""
     _AI_CONVOS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ai_convos.json")
 
     # Upstream state must persist across requests (the handler instance is
@@ -3029,6 +3041,33 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, _Bitc
     _AI_UPS_CACHE = None
     _AI_MODELS_TS = 0.0
     _AI_MODELS_TTL = 600.0  # seconds before /models is refetched upstream
+    _AI_CREDITS_TS = 0.0
+    _AI_CREDITS = None  # (has_credits, balance)
+
+    @classmethod
+    def _ai_credits(cls):
+        """Cheap check of the universal key's balance. OpenRouter's credit
+        check prices each request at its worst case, so with a zero balance
+        every paid model 402s while :free models still run. Cache for 5 min."""
+        import time as _t
+        if cls._AI_CREDITS is not None and (_t.time() - cls._AI_CREDITS_TS) < 300.0:
+            return cls._AI_CREDITS
+        has, balance = False, 0.0
+        try:
+            req = urllib.request.Request(
+                cls.AI_UPSTREAM.rstrip("/") + "/credits",
+                headers=cls._ai_auth(cls.AI_API_KEY))
+            with urllib.request.urlopen(req, timeout=6) as resp:
+                d = json.loads(resp.read()).get("data") or {}
+            balance = float(d.get("total_credits") or 0) - float(d.get("total_usage") or 0)
+            has = balance > 0
+        except Exception:
+            # Upstream unreachable: keep last known state instead of flapping
+            if cls._AI_CREDITS is not None:
+                return cls._AI_CREDITS
+        cls._AI_CREDITS = (has, balance)
+        cls._AI_CREDITS_TS = _t.time()
+        return cls._AI_CREDITS
 
     @classmethod
     def _ai_upstreams(cls):
@@ -3043,6 +3082,10 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, _Bitc
                 u["models"] = None
             cls._AI_UPS_CACHE = ups
         return cls._AI_UPS_CACHE
+
+    @staticmethod
+    def _ai_auth(key):
+        return {"Authorization": "Bearer " + key} if key else {}
 
     @staticmethod
     def _is_vision(mid):
@@ -3095,7 +3138,17 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, _Bitc
                     continue
                 seen[mid] = up["base"]
         if seen:
-            out = {"ok": True, "models": list(seen.keys()), "sources": seen, "default": next(iter(seen))}
+            has_credits, balance = self._ai_credits()
+            if not has_credits:
+                # Zero balance: every paid model would 402 (OpenRouter prices
+                # the request at its worst case). Only report what runs.
+                free = [m for m in seen if m.lower().endswith(":free")]
+                out = {"ok": len(free) > 0, "models": free, "sources": {m: seen[m] for m in free},
+                       "default": (free[0] if free else ""), "credits": 0.0,
+                       "credits_low": True}
+            else:
+                out = {"ok": True, "models": list(seen.keys()), "sources": seen,
+                       "default": next(iter(seen)), "credits": round(balance, 4)}
         else:
             out = {"ok": False, "error": "no-upstreams"}
         data = json.dumps(out).encode()
@@ -3300,6 +3353,7 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, _Bitc
                 seen.add(key)
                 cands.append((u, pick))
         errors = []
+        fallback_model = None
         for up, use_model in cands:
             if up["down_until"] and up["down_until"] > time.time():
                 continue
@@ -3316,11 +3370,22 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, _Bitc
                 code = e.code
                 raw = e.read()
                 errors.append("HTTP " + str(code) + " " + raw.decode("utf-8", "replace")[:120].strip())
-                if code in (429, 500, 502, 503, 504):
-                    up["down_until"] = time.time() + 60
-                elif code != 400:
-                    up["down_until"] = time.time() + 300
-                continue  # 400 (model unavailable) or 429 - try next candidate
+                # OpenRouter is the ONLY upstream now, so never take it down
+                # wholesale: 402/429/404 are model- or credit-specific (one
+                # expensive model must not break every other chat), and 5xx
+                # only earns a short cooldown instead of minutes.
+                if code in (500, 502, 503, 504):
+                    up["down_until"] = time.time() + 20
+                # Out of credits for this model: transparently retry the same
+                # chat on the free variant of the closest model, so the user
+                # still gets an answer instead of an error bubble.
+                if code == 402 and not fallback_model:
+                    um = up.get("models") or []
+                    free = [m for m in um if m.lower().endswith(":free")]
+                    if free:
+                        fallback_model = free[0]
+                        cands.append((up, fallback_model))
+                continue  # try the next candidate on the same upstream
             except Exception as e:
                 errors.append(type(e).__name__ + " from " + up["base"])
                 up["down_until"] = time.time() + 30
@@ -3331,6 +3396,8 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, _Bitc
             self.send_header("Content-Type", ctype)
             self.send_header("Cache-Control", "no-store")
             self.send_header("Access-Control-Allow-Origin", "*")
+            if fallback_model and use_model == fallback_model and model != fallback_model:
+                self.send_header("X-Chalkle-Fallback", fallback_model.split("/")[-1])
             if stream:
                 self.send_header("X-Accel-Buffering", "no")
                 self.end_headers()
