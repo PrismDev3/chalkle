@@ -932,7 +932,7 @@
               </a>
             </div>
           </div>            <iframe class="movies-frame" id="movies-frame" title="JS Movies" data-src="/movies.html"
-            allow="fullscreen" allowfullscreen
+            allow="fullscreen; autoplay; encrypted-media; picture-in-picture" allowfullscreen
             referrerpolicy="no-referrer" loading="lazy"></iframe>
         </section>
 
@@ -1642,9 +1642,9 @@
         </button>
       </div>
       <div class="livetv-player-stage">
-        <video id="livetv-video" controls playsinline autoplay muted style="display:none;"></video>
+        <video id="livetv-video" controls playsinline autoplay muted allowfullscreen style="display:none;"></video>
         <iframe id="livetv-embed-frame" class="livetv-embed-frame" title="Live stream player"
-          allow="fullscreen" allowfullscreen
+          allow="fullscreen; autoplay; encrypted-media; picture-in-picture" allowfullscreen
           referrerpolicy="no-referrer-when-downgrade" style="display:none;"></iframe>
         <div class="livetv-player-msg" id="livetv-player-msg" hidden></div>
       </div>
@@ -1659,7 +1659,7 @@
       </div>
       <div class="yt-player-stage">
         <iframe id="yt-frame" class="yt-embed-frame" title="YouTube player"
-          allow="fullscreen" allowfullscreen
+          allow="fullscreen; autoplay; encrypted-media; picture-in-picture" allowfullscreen
           referrerpolicy="no-referrer-when-downgrade" scrolling="no"></iframe>
         <div class="yt-player-msg" id="yt-player-msg" hidden></div>
       </div>
@@ -1894,7 +1894,7 @@
       </div>
     </div>
 
-  <script src="src/runtime-config.js?v=20260917a"></script>
+  <script src="src/runtime-config.js?v=20260918a"></script>
   <script src="src/sync.js?v=20260912a"></script>
   <!-- The game library files are ~11.5MB each. They used to be synchronous,
        so the browser couldn't finish parsing (or paint the boot screen) until
@@ -1912,7 +1912,7 @@
   <script src="src/proxies.js?v=20260917a"></script>
   <script src="src/apps.js?v=20260905j"></script>
   <script src="src/music.js?v=20260910d"></script>
-  <script src="src/launcher.js?v=20260918a"></script>
+  <script src="src/launcher.js?v=20260918e"></script>
   <script src="src/browser.js?v=20260918b"></script>
   <script src="src/cloud.js?v=20260917a"></script>
   <script src="src/editor.js?v=20260917a"></script>

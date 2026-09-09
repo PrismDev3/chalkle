@@ -122,6 +122,18 @@
   var bootOrigin = usableOrigin();
   if (bootOrigin && !/^file:/i.test(String(location.protocol || ""))) uvStatus = true;
   probeBuiltinProxy();
+  /* Mirrors: when runtime-config failover re-points the relay (primary
+     blocked, backup took over), re-probe /uv/ against the new origin so the
+     proxy stays usable without a reload. */
+  try {
+    if (window.ChalkleApi && window.ChalkleApi.onFailover) {
+      window.ChalkleApi.onFailover(function () {
+        uvStatus = null;
+        uvAttempts = 0;
+        probeBuiltinProxy();
+      });
+    }
+  } catch (e) { /* runtime-config absent */ }
 
   function builtinProxy() {
     var origin = usableOrigin();

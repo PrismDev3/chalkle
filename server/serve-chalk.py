@@ -3438,6 +3438,12 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, _Bitc
         self.send_header("Cache-Control", cache)
         self.send_header("Access-Control-Allow-Origin", "*")
         for k, v in (extra or {}).items():
+            # An EMPTY header value is worse than none: Firefox/Zen reads an
+            # empty X-Frame-Options as DENY and refuses to embed the page
+            # ("Zen Can't Open This Page"). Empty means "not present" here -
+            # skip it instead of sending a blank header.
+            if v == "" or v is None:
+                continue
             self.send_header(k, v)
         self.send_header("Content-Length", str(len(raw)))
         self.end_headers()
@@ -3608,9 +3614,6 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, _Bitc
             self.send_header("Content-Type", ctype or "application/octet-stream")
             self.send_header("Cache-Control", ("public, max-age=%d" % cacheable) if cacheable else "no-store, max-age=0")
             self.send_header("Access-Control-Allow-Origin", "*")
-            self.send_header("Content-Security-Policy", "")
-            self.send_header("X-Frame-Options", "")
-            self.send_header("Content-Security-Policy-Report-Only", "")
             self.end_headers()
             if prefix:
                 try:
@@ -3647,9 +3650,6 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, _Bitc
             self.send_header("Content-Type", ctype or "application/octet-stream")
             self.send_header("Cache-Control", "no-store, max-age=0")
             self.send_header("Access-Control-Allow-Origin", "*")
-            self.send_header("Content-Security-Policy", "")
-            self.send_header("X-Frame-Options", "")
-            self.send_header("Content-Security-Policy-Report-Only", "")
             self.end_headers()
             while True:
                 chunk = resp.read(65536)
@@ -3732,9 +3732,6 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, _Bitc
             self.send_header("Content-Length", str(size))
             self.send_header("Cache-Control", "no-store, max-age=0")
             self.send_header("Access-Control-Allow-Origin", "*")
-            self.send_header("Content-Security-Policy", "")
-            self.send_header("X-Frame-Options", "")
-            self.send_header("Content-Security-Policy-Report-Only", "")
             self.end_headers()
             while True:
                 chunk = f.read(65536)

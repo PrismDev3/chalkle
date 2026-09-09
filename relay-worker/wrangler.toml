@@ -1,0 +1,7 @@
+name = "chalkle-relay-backup"
+main = "worker.js"
+compatibility_date = "2026-08-01"
+
+# Backup relay for Chalkle mirrors. Workers.dev subdomain is enabled so the
+# frontend fallback lists (src/runtime-config.js, movies.html mirror shim)
+# can reach it at https://chalkle-relay-backup.<account-subdomain>.workers.dev

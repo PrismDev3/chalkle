@@ -11,6 +11,7 @@
        Re-point them at the production relay. No-op on the real site. */
     (function () {
         var RELAY = 'https://chalkle.lootline.xyz';
+        var BACKUPS = (window.CHALKLE_BACKUP_RELAYS || ['https://chalkle.lootline.workers.dev']).slice();
         var ROUTES = ['/api/', '/uv/', '/_active', '/_sync', '/_fetch'];
         function mirrorCtx() {
             try {
@@ -31,6 +32,35 @@
         }
         if (!mirrorCtx()) { window.__MB_RELAY__ = null; return; }
         window.__MB_RELAY__ = RELAY;
+        /* If the primary relay is unreachable, fail over to the first backup
+           that answers. Runs async; toRelay() reads RELAY through the getter
+           below, so no reload is needed. */
+        (function probeRelay() {
+            var tryFetch = function (base) {
+                return new Promise(function (res) {
+                    var done = false;
+                    var t = setTimeout(function () { if (!done) { done = true; res(false); } }, 6000);
+                    fetch(base + '/api/live-tv', { cache: 'no-store', mode: 'cors' })
+                        .then(function (r) { clearTimeout(t); done = true; res(r.ok || r.status === 401 || r.status === 403); })
+                        .catch(function () { clearTimeout(t); done = true; res(false); });
+                });
+            };
+            tryFetch(RELAY).then(function (ok) {
+                if (ok) return;
+                var i = 0;
+                var next = function () {
+                    if (i >= BACKUPS.length) return;
+                    var cand = BACKUPS[i++];
+                    tryFetch(cand).then(function (up) {
+                        if (up) {
+                            RELAY = cand;
+                            window.__MB_RELAY__ = cand;
+                        } else { next(); }
+                    });
+                };
+                next();
+            });
+        })();
         function toRelay(url) {
             if (!url || typeof url !== 'string') return url;
             if (url.indexOf('data:') === 0 || url.indexOf('blob:') === 0) return url;

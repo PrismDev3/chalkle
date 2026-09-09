@@ -12,8 +12,14 @@
   }
   /* Static mirrors cannot execute the Chalkle relay themselves. Keep the
      public first-party relay as the default API origin so jsDelivr/GitHub
-     mirrors still have working cloud, music, live data and proxy routes. */
+     mirrors still have working cloud, music, live data and proxy routes.
+     BACKUP_RELAYS are second-party relays running the same serve-chalk.py;
+     when the primary is unreachable (blocked network, dead host) the mirror
+     automatically re-points everything at the first healthy backup. */
   var main = configuredRoot() || "https://chalkle.lootline.xyz";
+  var BACKUP_RELAYS = (window.CHALKLE_BACKUP_RELAYS || [
+    "https://chalkle.lootline.workers.dev"
+  ]).slice();
   window.SCHOOL_CENTER_CONFIG = {
     mainUrl: main,
     generatedAt: "2026-09-01"
@@ -32,10 +38,67 @@
 
   function root() {
     if (!isMirror()) return "";
-    return main;
+    return active;
+  }
+
+  /* Relay health failover (mirrors only). The primary relay is probed once at
+     boot; if it does not answer, the active relay moves to the first backup
+     that answers. Consumers that cached a root value keep working because
+     root() is always read fresh; long-lived callers are patched through
+     onFailover below. */
+  var active = main;
+  var failoverDone = false;
+  var failoverListeners = [];
+  function tryProbe(base, timeoutMs) {
+    return new Promise(function (resolve) {
+      var settled = false;
+      var fin = function (ok) { if (!settled) { settled = true; resolve(ok); } };
+      var t = setTimeout(function () { fin(false); }, timeoutMs || 5000);
+      try {
+        fetch(base + "/api/live-tv", { cache: "no-store", mode: "cors" })
+          .then(function (r) { clearTimeout(t); fin(r.ok || r.status === 401 || r.status === 403); })
+          .catch(function () { clearTimeout(t); fin(false); });
+      } catch (e) { clearTimeout(t); fin(false); }
+    });
+  }
+  function pickRelay() {
+    if (failoverDone || !isMirror()) return Promise.resolve();
+    failoverDone = true;
+    return tryProbe(active).then(function (ok) {
+      if (ok) return null;
+      var idx = 0;
+      function next() {
+        if (idx >= BACKUP_RELAYS.length) return null;
+        var cand = BACKUP_RELAYS[idx++];
+        return tryProbe(cand, 6000).then(function (up) {
+          if (up) return cand;
+          return next();
+        });
+      }
+      return next().then(function (winner) {
+        if (winner && winner !== active) {
+          var old = active;
+          active = winner;
+          for (var i = 0; i < failoverListeners.length; i++) {
+            try { failoverListeners[i](winner, old); } catch (e) { /* listener error */ }
+          }
+        }
+        return winner;
+      });
+    });
+  }
+  if (isMirror()) {
+    try { pickRelay(); } catch (e) { /* never block boot */ }
   }
 
   window.ChalkleApi = {
+    /* Fired when the mirror's active relay changes (primary dead, backup took
+       over). window.ChalkleOnRelayFailover(fn) registers a listener that gets
+       (newRoot, oldRoot); listeners should re-point anything they cached. */
+    onFailover: function (fn) {
+      if (typeof fn === "function") failoverListeners.push(fn);
+    },
+    relayReady: function () { return pickRelay(); },
     /* Chromium is the only engine that enforces iframe @allow; Firefox logs
        a "Feature Policy: Skipping unsupported feature name" warning for
        every name it doesn't implement (autoplay, clipboard-*). Firefox
