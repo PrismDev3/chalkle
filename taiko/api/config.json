@@ -1,0 +1,12 @@
+{
+  "basedir": "/taiko/",
+  "songs_baseurl": "/taiko/songs/",
+  "assets_baseurl": "/taiko/assets/",
+  "email": null,
+  "accounts": false,
+  "custom_js": "",
+  "preview_type": "mp3",
+  "multiplayer_url": "",
+  "google_credentials": { "gdrive_enabled": false },
+  "_version": { "commit": "", "commit_short": "", "url": "" }
+}

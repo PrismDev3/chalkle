@@ -132,12 +132,20 @@ the page.
 
 ## Design tokens
 
-- Base: near-black charcoal `#14161a`
-- Panels: dark slate `#1d2026`
-- Accent: Google green `#34a853`, active states, hovers, live counts only (with blue/yellow/red for sections and stats)
-- Wordmark: Boogaloo bubble letters in Google colors (the only brand moment)
-- Headings: Space Grotesk. UI: system fonts.
-- Flat fills only. No gradients, no glow, no shadows.
+One system for every view (`:root` in `src/styles.css`, canonical names with
+legacy aliases):
+
+- Surfaces: warm near-black chalk (`--bg #0d0c0a`, `--bg-elevated`, `--surface`,
+  `--surface-hover`, `--surface-active`)
+- Borders: `--border`, `--border-soft`, `--border-strong` (1px, no glow)
+- Text: `--text`, `--text-secondary`, `--text-muted`
+- Accent: chalk green `--accent #4cc56f` + `--accent-soft` (one primary accent)
+- Semantic: `--danger`, `--success`, `--warning`
+- Section hues (`--blue`, `--magenta`, `--cloud`, ...) are identity-only:
+  active nav bar, active chips, tiny icon tints. Never page backgrounds.
+- Typography: Boogaloo wordmark only; Space Grotesk headings; system UI;
+  mono for tiny retro accents (kbd, labels, notes)
+- Flat fills only. No gradients, no glow, no per-page backgrounds.
 - Settings persist to localStorage: reduce motion, card size, sidebar state,
   cloak, tab cloak choice.
 
@@ -149,6 +157,8 @@ the page.
 - `src/styles.css` all styling, responsive sidebar and drawer
 - `src/app.js` rendering, search, nav, cloak, admin panel, proxy list, recents
 - `src/launcher.js` new-tab launcher with proxy routing and in-app frame fallback
+- `src/browser.js` in-app tabbed browser (ChalkleBrowser): tabs, back/forward, address bar, new-tab page, loading/error states, fullscreen
+- `browser.html` standalone tabbed browser (Apps/Tools → Browser), routes every page through the built-in /uv/ proxy
 - `src/music.js` / `src/youtube.js` / `src/livetv.js` / `src/ai.js` view modules (relay-backed)
 - `src/games.js` / `sites.js` / `src/apps.js` / `webports.js` / `src/cloudgames.js` data
 - `src/runtime-config.js` mirror/static-mode API root resolution

@@ -4960,6 +4960,7 @@ async function autoLoadHostedLibrary() {
     /* The home page always gets an instant live popular feed so it is never
        empty, even on a cold start or a mirror where storage is unavailable. */
     try { ensureHomePopular(); } catch (e) { /* non-fatal */ }
+    try { hydrateMissingArtwork(); } catch (e) { /* non-fatal */ }
     /* Skip the heavy full-library load only when the library already has a
        healthy set of complete titles. Partial / logo-less / stale libraries
        (e.g. from an interrupted earlier load) still get topped up - and with
@@ -5447,14 +5448,15 @@ function createCard(item, type) {
     const inList = myList.some(m => m.id === item.id);
     const genre = genArr(item.genre)[0] || 'action';
     const safeTitle = escapeHtml(item.title);
-    const safePoster = escapeHtml(item.poster || '');
+    const poster = posterFor(item);
+    const safePoster = escapeHtml(poster);
     let imgHTML = '';
-    if (item.poster) {
+    if (safePoster) {
         // Use a fallback image on error to avoid black boxes
         const fallbackUrl = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="210" height="315" viewBox="0 0 210 315"><rect fill="#1a1a1a" width="210" height="315"/><text x="105" y="157" font-size="48" text-anchor="middle" fill="#666" font-family="system-ui">🎬</text></svg>')}`;
         imgHTML = `<img class="card-img" src="${safePoster}" alt="${safeTitle}" loading="lazy" decoding="async" fetchpriority="low" onerror="this.src='${fallbackUrl}';this.style.opacity='0.5'">`;
     }
-    imgHTML += `<div class="card-placeholder" style="${item.poster ? 'display:none' : ''}">${defaultPosters[genre] || '🎬'}</div>`;
+    imgHTML += `<div class="card-placeholder" style="${safePoster ? 'display:none' : ''}">${defaultPosters[genre] || '🎬'}</div>`;
     // TV shows (and anime shows) are always HD. Movies use their saved quality
     // (assigned by scanMovieQualities), falling back to a hash-based tier.
     const mcBadge = effType === 'tv' || item.type === 'tv'
@@ -5576,6 +5578,20 @@ function hasMovieInfo(m) {
     return (poster && genre) || (desc && genre) || (poster && desc);
 }
 
+// Normalize artwork from every feed shape (TMDB paths, full URLs, and legacy
+// local records) before filtering or rendering a title.
+function mediaImage(value, size) {
+    const s = String(value || '').trim();
+    if (!s || /^\d+$/.test(s)) return '';
+    return /^\//.test(s) ? tmdbImg(s, size) : s;
+}
+function posterFor(m) {
+    return mediaImage(m && (m.poster || m.poster_path || m.image || m.backdrop || m.backdrop_path), 'w500');
+}
+function backdropFor(m) {
+    return mediaImage(m && (m.backdrop || m.backdrop_path || m.poster || m.poster_path || m.image), 'w1920');
+}
+
 // Media-base completeness (year within 1895-2026 plus rating, backdrop and
 // poster). Used for live feeds, which get their brand logos enriched later.
 function baseComplete(m) {
@@ -5583,8 +5599,8 @@ function baseComplete(m) {
     const y = parseInt(m.year, 10);
     if (isNaN(y) || y < 1895 || y > 2026) return false;
     if (!m.rating) return false;
-    if (!(m.backdrop || '').trim()) return false;
-    if (!(m.poster || '').trim()) return false;
+    if (!backdropFor(m)) return false;
+    if (!posterFor(m)) return false;
     return true;
 }
 
@@ -8120,6 +8136,38 @@ async function fetchBatched(paths, batchSize = 15) {
    local library is empty or incomplete. Fetched once, cached in memory,
    and merged into the home grid by renderCatalogGrid. */
 const homePopular = { fed: false, busy: false, items: [] };
+
+// Earlier demo builds saved cards named "Movie 1", "Movie 2", etc. in local
+// storage.  Those are not real titles, so replace their display data with live
+// TMDB records the first time the home feed arrives.  Keep each local id and
+// user-added drive link intact so My List and any custom playback still work.
+function repairPlaceholderTitles() {
+    if (!homePopular.fed || !homePopular.items.length) return false;
+    let changed = false;
+    const placeholder = (m, type) => {
+        const title = String(m && m.title || '').trim();
+        return new RegExp(`^(?:${type === 'tv' ? 'tv\\s*(?:show)?|show' : 'movie'})\\s*\\d+$`, 'i').test(title);
+    };
+    const copyFresh = (target, fresh) => {
+        const keep = { id: target.id, driveLink: target.driveLink || '', episodes: target.episodes, custom: target.custom };
+        Object.assign(target, fresh, keep);
+        const saved = myList.find(x => x && x.id === keep.id);
+        if (saved) Object.assign(saved, fresh, keep);
+        changed = true;
+    };
+    [[movies, 'movie'], [tvShows, 'tv']].forEach(([library, type]) => {
+        const fresh = homePopular.items.filter(x => x && x.type === type && baseComplete(x));
+        let next = 0;
+        library.forEach(item => {
+            if (!placeholder(item, type) || !fresh.length) return;
+            copyFresh(item, fresh[next % fresh.length]);
+            next++;
+        });
+    });
+    if (changed) saveData();
+    return changed;
+}
+
 async function ensureHomePopular() {
     if (homePopular.fed || homePopular.busy) return;
     homePopular.busy = true;
@@ -8132,6 +8180,7 @@ async function ensureHomePopular() {
         ], 4);
         homePopular.items = liveItemsFromPages(pages, 'all').filter(baseComplete);
         homePopular.fed = true;
+        repairPlaceholderTitles();
         /* If the home page rendered before the feed landed, fill it in now. */
         if (typeof currentSection !== 'undefined' && currentSection === 'home') {
             try { applyHomeFilter(); } catch (e) { /* non-fatal */ }
@@ -8192,6 +8241,30 @@ async function enrichMissingLogos() {
     const needLogo = [...movies, ...tvShows].filter(m => m && m.tmdbId && !m.logo);
     if (!needLogo.length) return;
     await enrichTmdbDetails(needLogo, null, true);
+}
+
+/* Repair older libraries that only stored a TMDB id (or a numeric title).
+   Hydrate the same poster/backdrop fields used by the live catalog. */
+async function hydrateMissingArtwork() {
+    const pool = [...movies, ...tvShows];
+    const targets = pool.filter(m => m && m.tmdbId && (!m.poster || !m.backdrop || /^\d{2,}$/.test(String(m.title || '').trim()))).slice(0, 80);
+    if (!targets.length) return;
+    let changed = false;
+    for (let i = 0; i < targets.length; i += 8) {
+        await Promise.all(targets.slice(i, i + 8).map(async (m) => {
+            try {
+                const kind = m.type === 'tv' ? 'tv' : 'movie';
+                const d = await tmdbJson(`/${kind}/${encodeURIComponent(m.tmdbId)}`);
+                if (!d) return;
+                if (d.poster_path && !m.poster) { m.poster = tmdbImg(d.poster_path, 'w500'); changed = true; }
+                if (d.backdrop_path && !m.backdrop) { m.backdrop = tmdbImg(d.backdrop_path, 'w1920'); changed = true; }
+                if (/^\d{2,}$/.test(String(m.title || '').trim()) && (d.title || d.name)) { m.title = d.title || d.name; changed = true; }
+                if (!m.year) { m.year = String(d.release_date || d.first_air_date || '').slice(0, 4); changed = true; }
+                if (!m.rating && d.vote_average) { m.rating = Number(d.vote_average).toFixed(1); changed = true; }
+            } catch (e) { /* keep other titles rendering */ }
+        }));
+    }
+    if (changed) { saveData(); refreshCurrent(); }
 }
 
 // Auto-fetch the brand logo for a single just-added item (by its TMDB id).
@@ -10398,3 +10471,4 @@ document.addEventListener('click', (e) => {
 </script>
 </body>
 </html>
+

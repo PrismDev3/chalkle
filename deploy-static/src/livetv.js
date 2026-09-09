@@ -301,7 +301,14 @@
       showPlayerMsg(msg, "This channel does not have a stream URL.");
       return;
     }
-    if (/^\//.test(streamUrl)) streamUrl = apiUrl(streamUrl);
+    if (/^\//.test(streamUrl)) {
+      streamUrl = apiUrl(streamUrl);
+    } else if (/^https?:\/\//i.test(streamUrl) && ch.id) {
+      /* Older channel records stored the upstream HLS URL directly. Feeding
+         that URL to hls.js makes the browser hit CORS and fail with
+         manifestLoadError. Re-route it through the same-origin relay. */
+      streamUrl = apiUrl("/api/live-tv/" + encodeURIComponent(ch.id) + "?u=" + encodeURIComponent(streamUrl));
+    }
     if (window.Hls && Hls.isSupported()) {
       cleanup();
       var hls = new Hls({

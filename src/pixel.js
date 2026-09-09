@@ -538,8 +538,11 @@
   }
 
   function cellFromEvent(e) {
-    var wrap = document.getElementById("pixel-view");
-    var r = wrap.getBoundingClientRect();
+    /* Map against the rendered canvas, not the viewport. The canvas can be
+       centered, scrolled, or zoomed, and using the viewport origin makes the
+       brush land several pixels away from the cursor in those states. */
+    var canvas = document.getElementById("pixel-canvas");
+    var r = canvas ? canvas.getBoundingClientRect() : document.getElementById("pixel-view").getBoundingClientRect();
     var x = Math.floor((e.clientX - r.left) / S.zoom);
     var y = Math.floor((e.clientY - r.top) / S.zoom);
     return { x: x, y: y };
@@ -1372,23 +1375,23 @@
     }
     var toolbar = el("div", "pixel-toolbar");
     var tools = [
-      ["marquee", "Rectangular selection", "marquee", "Rectangular selection (M)"],
-      ["lasso", "Lasso selection", "lasso", "Freehand selection (Q)"],
-      ["wand", "Magic wand", "wand", "Magic wand (W)"],
-      ["move", "Move", "move", "Move content (V)"],
-      ["hand", "Hand", "hand", "Hand / pan (H)"],
       ["pencil", "Pencil", "pencil", "Pencil (B)"],
-      ["bucket", "Paint bucket", "bucket", "Fill (G)"],
       ["eraser", "Eraser", "eraser", "Eraser (E)"],
+      ["pick", "Eyedropper", "pick", "Pick color (I)"],
+      ["bucket", "Paint bucket", "bucket", "Fill (G)"],
       ["line", "Line", "line", "Line (L)"],
       ["rect", "Rectangle", "rect", "Rectangle (U)"],
       ["frect", "Rectangle fill", "frect", "Filled rectangle (Shift+U)"],
       ["ellipse", "Ellipse", "ellipse", "Ellipse (O)"],
       ["fellipse", "Ellipse fill", "fellipse", "Filled ellipse (Shift+O)"],
+      ["move", "Move", "move", "Move content (V)"],
+      ["hand", "Hand", "hand", "Hand / pan (H)"],
+      ["marquee", "Rectangular selection", "marquee", "Rectangular selection (M)"],
+      ["lasso", "Lasso selection", "lasso", "Freehand selection (Q)"],
+      ["wand", "Magic wand", "wand", "Magic wand (W)"],
       ["contour", "Contour", "contour", "Contour outline (D)"],
       ["shading", "Shade darker", "shading", "Shade darker (S)"],
-      ["blur", "Blur", "blur", "Blur (R)"],
-      ["pick", "Eyedropper", "pick", "Pick color (I)"]
+      ["blur", "Blur", "blur", "Blur (R)"]
     ];
     var toolBtns = {};
     tools.forEach(function (t) {

@@ -361,7 +361,7 @@
         win = window.open(blobUrl, "_blank");
       } else if (method === "blob") {
         var full = '<!doctype html><html><head><meta charset="utf-8"><title>Chalkle</title></head><body style="margin:0">' +
-          '<iframe src="' + blobUrl.replace(/"/g, "%22") + '" style="width:100vw;height:100vh;border:0;display:block" allow="fullscreen; clipboard-write"></iframe></body></html>';
+          '<iframe src="' + blobUrl.replace(/"/g, "%22") + '" style="width:100vw;height:100vh;border:0;display:block" allow="' + ((window.ChalkleApi && ChalkleApi.iframeAllow) ? ChalkleApi.iframeAllow() : "fullscreen; picture-in-picture") + '"></iframe></body></html>';
         var wrapUrl = URL.createObjectURL(new Blob([full], { type: "text/html" }));
         win = window.open(wrapUrl, "_blank");
         setTimeout(function () { URL.revokeObjectURL(wrapUrl); }, 60000);

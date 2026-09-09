@@ -527,6 +527,12 @@
     if (!audio || i < 0 || i >= state.queue.length) return;
     state.idx = i;
     var meta = state.queue[i];
+    // Stop the previous stream immediately when a different row is selected.
+    // Otherwise the old song keeps playing while the relay resolves the new URL,
+    // making a click look like it did nothing.
+    audio.pause();
+    audio.removeAttribute("src");
+    audio.load();
     els.player.hidden = false;
     els.title.textContent = cleanName(meta.name) || "Untitled";
     els.artist.textContent = artistName(meta);
@@ -594,7 +600,10 @@
     if (p) p.hidden = !!on;
     if (pa) pa.hidden = !on;
     var playBtn = miniQ("mini-music-play");
-    if (playBtn) playBtn.setAttribute("aria-label", on ? "Pause" : "Play");
+    if (playBtn) {
+      playBtn.classList.toggle("is-playing", !!on);
+      playBtn.setAttribute("aria-label", on ? "Pause" : "Play");
+    }
   }
   function miniMuted(on) {
     var box = miniQ("mini-music");
@@ -632,6 +641,7 @@
   function setPlayingUI(on) {
     state.playing = on;
     if (els.play) {
+      els.play.classList.toggle("is-playing", !!on);
       els.play.title = on ? "Pause" : "Play";
       els.play.setAttribute("aria-label", on ? "Pause" : "Play");
       var p = els.play.querySelector(".ico-play"), pa = els.play.querySelector(".ico-pause");
@@ -651,7 +661,7 @@
        with the UI, so a legit pause() from the user or from another app stays
        stable.
     */
-    var real = !!(audio && audio.src && !audio.paused && !audio.ended && audio.readyState >= 2);
+    var real = !!(audio && audio.src && !audio.paused && !audio.ended);
     if (state.playing !== real) {
       state.playing = real;
       setPlayingUI(real);
@@ -666,7 +676,7 @@
        to run synchronously after user gestures where the spec allows play().
     */
     if (!audio || !audio.src) return;
-    var real = !!(!audio.paused && !audio.ended && audio.readyState >= 2);
+    var real = !!(!audio.paused && !audio.ended);
     if (state.playing !== real) {
       state.playing = real;
       setPlayingUI(real);
@@ -674,7 +684,7 @@
   }
   function togglePlay() {
     if (state.idx < 0 || !state.queue.length) return;
-    if (state.playing) {
+    if (audio && !audio.paused && !audio.ended) {
       audio.pause();
       return;
     }

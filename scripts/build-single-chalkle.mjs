@@ -266,6 +266,7 @@ for (const [p, key] of [
   [path.join(root, 'movies.html'), '/movies.html'],
   [path.join(root, 'chat.html'), '/chat.html'],
   [path.join(root, 'go.html'), '/go.html'],
+  [path.join(root, 'browser.html'), '/browser.html'],
 ]) {
   if (fs.existsSync(p) && !embedMap[key]) {
     const uri = dataURI(p);

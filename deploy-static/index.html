@@ -35,7 +35,7 @@
        preload tag kept firing "preloaded but not used" warnings whenever
        the body didn't paint it during the boot intro. theme.js also strips
        any stale preload tag left by earlier builds. -->
-  <link rel="stylesheet" href="src/styles.css?v=20260911b">
+  <link rel="stylesheet" href="src/styles.css?v=20260917g">
   <!-- AdSense. This loader powers BOTH layers:
        1. Manual units - the .ad-slot placements below, each filled when its
           slot ID is pasted into CHALKLE_ADS.slots (AdSense → Ads → By ad unit).
@@ -112,7 +112,7 @@
     }
   };
   </script>
-  <script src="src/theme.js?v=20260907f"></script>
+  <script src="src/theme.js?v=20260908o"></script>
   <script>
   /* Panic key: press ` (backtick) three times quickly (or Ctrl+Shift+` once)
      to instantly send the tab to Google Classroom. Works from anywhere on the
@@ -366,7 +366,7 @@
           <circle cx="11" cy="11" r="6.5"/>
           <line x1="16" y1="16" x2="20.5" y2="20.5"/>
         </svg>
-        <input id="search-input" type="search" placeholder="Search games, music & tools" autocomplete="off" spellcheck="false" aria-label="Search">
+        <input id="search-input" type="search" placeholder="Search Chalkle" autocomplete="off" spellcheck="false" aria-label="Search Chalkle">
         <kbd class="kbd" aria-hidden="true">Ctrl K</kbd>
         <div class="search-results" id="search-results" hidden role="listbox" aria-live="polite"></div>
       </div>
@@ -423,6 +423,7 @@
     <div class="shell">
       <aside class="sidebar" id="sidebar" aria-label="Sections">
         <nav class="nav">
+          <div class="nav-group-label">Launch</div>
           <button class="nav-item is-active" data-view="home" title="Home">
             <svg class="icon tab-ico" viewBox="0 0 24 24" aria-hidden="true">
               <path d="M3.5 10.8 12 3.7l8.5 7.1"/><path d="M5.5 9.6v10h13v-10"/><path d="M9.5 16v-3.5h5V16"/>
@@ -453,6 +454,7 @@
             <span class="nav-label">Music</span>
           </button>
 
+          <div class="nav-group-label">Explore</div>
           <button class="nav-item" data-view="movies" title="JS Movies">
             <svg class="icon tab-ico" viewBox="0 0 24 24" aria-hidden="true">
               <rect x="2.6" y="5" width="18.8" height="14" rx="2.2"/>
@@ -492,13 +494,6 @@
 
         <div class="nav-more" id="nav-more">
           <span class="nav-more-label">More</span>
-          <button class="nav-item" data-view="sites" title="Sites">
-            <svg class="icon tab-ico" viewBox="0 0 24 24" aria-hidden="true">
-              <circle cx="12" cy="12" r="10"/>
-              <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/>
-            </svg>
-            <span class="nav-label">Sites</span>
-          </button>
           <button class="nav-item" data-view="ai" title="AI">
             <svg class="icon tab-ico" viewBox="0 0 24 24" aria-hidden="true">
               <path d="M12 3.5c.9 3.4 2.6 5.1 6 6-3.4.9-5.1 2.6-6 6-.9-3.4-2.6-5.1-6-6 3.4-.9 5.1-2.6 6-6z"/>
@@ -522,12 +517,6 @@
               <path d="M3 4h8"/>
             </svg>
             <span class="nav-label">Partners</span>
-          </button>
-          <button class="nav-item" data-view="board" title="The Board">
-            <svg class="icon tab-ico" viewBox="0 0 24 24" aria-hidden="true">
-              <rect x="3.4" y="4" width="17.2" height="12" rx="1.6"/><path d="M7 7.8h10M7 10.4h7M7 13h4"/><path d="M8.8 16l-1.8 4M15.2 16l1.8 4M6.4 20h11.2"/>
-            </svg>
-            <span class="nav-label">Board</span>
           </button>
           <button class="nav-item" data-view="livetv" title="Live TV">
             <svg class="icon tab-ico" viewBox="0 0 24 24" aria-hidden="true">
@@ -586,102 +575,103 @@
       <div class="backdrop" id="backdrop" hidden></div>
 
       <main class="main" id="main">
-        <section class="view is-visible home-view" data-view="home">
-          <div class="home-hero">
-            <div class="home-hero-main">
-              <span class="chalkle-logo home-logo" role="img" aria-label="Chalkle"></span>
-              <h1 class="home-title">Games, music, and tools. Pick one and go.</h1>
-              <p class="home-text">No accounts, no downloads, nothing tracked. Your shelf stays in this browser.</p>
-              <div class="home-actions">
-                <button class="home-primary" data-home-go="games">Browse games</button>
-                <button class="home-secondary" data-home-go="music">Music</button>
-                <button class="home-secondary" data-home-go="apps-tools">Tools</button>
-              </div>
+<section class="view is-visible home-view" data-view="home">
+          <div class="home-stage">
+            <span class="chalkle-logo home-logo" role="img" aria-label="Chalkle"></span>
+            <p class="home-tag">One launcher for games, music, sites &amp; tools.</p>
+            <div class="home-search">
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="11" cy="11" r="6.5"/>
+                <line x1="16" y1="16" x2="20.5" y2="20.5"/>
+              </svg>
+              <input id="home-search-input" type="search" placeholder="Search the web, or paste a URL" autocomplete="off" spellcheck="false" aria-label="Search the web">
+              <button class="home-search-go" id="home-search-go" type="button" aria-label="Search the web">Search</button>
             </div>
-
-            <div class="home-hero-side">
-              <div class="home-quick-head">
-              <span class="home-quick-label">Quick launch</span>
-              </div>
-              <div class="home-quick">
-                <button class="home-quick-card q-games" data-home-go="games"><span class="home-quick-ico"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7.55 6.15h8.9a4.55 4.55 0 0 1 4.5 5.05l-.42 3.95a3.05 3.05 0 0 1-5.37 1.75l-1.3-1.6h-3.72l-1.3 1.6a3.05 3.05 0 0 1-5.37-1.75l-.42-3.95A4.55 4.55 0 0 1 7.55 6.15z"/><path d="M8.45 9.7v2.3M7.3 10.85h2.3"/></svg></span><span class="home-quick-t">Games</span></button>
-                <button class="home-quick-card q-sites" data-home-go="sites"><span class="home-quick-ico"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.4"/><polygon points="15.6 8.4 13.85 13.85 8.4 15.6 10.15 10.15 15.6 8.4"/></svg></span><span class="home-quick-t">Sites</span></button>
-                <button class="home-quick-card q-yt" data-home-go="music"><span class="home-quick-ico"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z"/></svg></span><span class="home-quick-t">Music</span></button>
-                <button class="home-quick-card q-tools" data-home-go="apps-tools"><span class="home-quick-ico"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.75" y="3.75" width="6.9" height="6.9" rx="1.6"/><rect x="13.35" y="3.75" width="6.9" height="6.9" rx="1.6"/><rect x="3.75" y="13.35" width="6.9" height="6.9" rx="1.6"/><rect x="13.35" y="13.35" width="6.9" height="6.9" rx="1.6"/></svg></span><span class="home-quick-t">Tools</span></button>
-                <button class="home-quick-card q-tv" data-home-go="livetv"><span class="home-quick-ico"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="6.5" width="19" height="13" rx="2.5"/><path d="m10 10.5 5 2.75-5 2.75z" fill="currentColor" stroke="none"/><path d="M8.5 3.5 12 6l3.5-2.5"/></svg></span><span class="home-quick-t">Live TV</span></button>
-                <div class="home-quick-more">
-                  <button class="home-quick-card home-quick-more-btn" id="home-quick-more-btn" type="button" aria-haspopup="true" aria-expanded="false">
-                    <span class="home-quick-ico"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9.5l8 7 8-7"/></svg></span>
-                    <span class="home-quick-t">More tabs</span>
-                  </button>
-                  <div class="home-quick-menu" id="home-quick-menu" hidden>
-                    <button class="home-quick-menu-item" data-home-go="proxies"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 9.3l3.6-3.6a2.9 2.9 0 0 1 4.1 4.1l-3.6 3.6a2.9 2.9 0 0 1-4.1 0"/><path d="M9 14.7l-3.6 3.6a2.9 2.9 0 0 1-4.1-4.1l3.6-3.6a2.9 2.9 0 0 1 4.1 0"/><path d="M8.3 15.7l7.4-7.4"/></svg><span>Proxies</span></button>
-                    <button class="home-quick-menu-item" data-home-go="ai"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5c.9 3.4 2.6 5.1 6 6-3.4.9-5.1 2.6-6 6-.9-3.4-2.6-5.1-6-6 3.4-.9 5.1-2.6 6-6z"/><path d="M18.5 13c.5 1.9 1.4 2.8 3.3 3.3-1.9.5-2.8 1.4-3.3 3.3-.5-1.9-1.4-2.8-3.3-3.3 1.9-.5 2.8-1.4 3.3-3.3z"/></svg><span>AI</span></button>
-                    <button class="home-quick-menu-item" data-home-go="cloud"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/><path d="M9.9 9.4l5.4 3.1-5.4 3.1z" fill="currentColor" stroke="none"/></svg><span>Cloud</span></button>
-                    <button class="home-quick-menu-item" data-home-go="board"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.2" y="4" width="17.6" height="12" rx="1.5"/><path d="M7 7.7h10M7 10.2h7M7 12.7h4"/></svg><span>Board</span></button>
-                    <button class="home-quick-menu-item" data-home-go="docs"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3.5h8l4 4.5v12.5a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-16a1 1 0 0 1 1-1z"/><path d="M14 3.5v4.5h4.5"/><path d="M8.5 11.5h7M8.5 14.7h7M8.5 17.9h4"/></svg><span>Docs</span></button>
-                    <button class="home-quick-menu-item" data-home-go="partners"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m11 17 2 2a1 1 0 1 0 3-3"/><path d="m14 14 2.5 2.5a1 1 0 1 0 3-3l-3.88-3.88a3 3 0 0 0-4.24 0l-.88.88a1 1 0 1 1-3-3l2.81-2.81a5.79 5.79 0 0 1 7.06-.87l.47.28a2 2 0 0 0 1.42.25L21 4"/><path d="m21 3 1 11h-2"/><path d="M3 3 2 14l6.5 6.5a1 1 0 1 0 3-3"/><path d="M3 4h8"/></svg><span>Partners</span></button>
-                    <button class="home-quick-menu-item" data-home-go="youtube"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="4.5" width="20" height="15" rx="3.6"/><path d="M10 9.2v5.6l5-2.8z" fill="currentColor" stroke="none"/></svg><span>YouTube</span></button>
-                    <button class="home-quick-menu-item" data-home-go="settings"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h8M18 7h2"/><circle cx="16" cy="7" r="2"/><path d="M4 12h2M10 12h10"/><circle cx="8" cy="12" r="2"/><path d="M4 17h9M17 17h3"/><circle cx="14" cy="17" r="2"/></svg><span>Settings</span></button>
-                  </div>
-                </div>
-              </div>
-
-              <div class="home-surface">
-                <div class="home-surface-head"><span class="home-surface-title">Your shelf</span><span class="home-panel-chip">On this device</span></div>
-                <div class="home-metrics">
-                  <button type="button" class="home-metric" data-metric-go="games" title="Open Games"><span class="home-metric-value" id="home-stat-games">0</span><span class="home-metric-label">games</span></button>
-                  <button type="button" class="home-metric" data-metric-go="sites" title="Open Sites"><span class="home-metric-value" id="home-stat-sites">0</span><span class="home-metric-label">sites</span></button>
-                  <button type="button" class="home-metric" data-metric-go="apps-tools" title="Open Apps/Tools"><span class="home-metric-value" id="home-stat-tools">0</span><span class="home-metric-label">tools</span></button>
-                  <button type="button" class="home-metric" data-metric-go="games" title="Your saved favourites" hidden><span class="home-metric-value" id="home-stat-favs">0</span><span class="home-metric-label">saved</span></button>
-                </div>
-                <span class="home-surface-text">Use the search bar up top to pull up any game, site, tool, or song.</span>
-              </div>
+            <div class="home-hint" aria-hidden="true">games &middot; sites &middot; apps &middot; music &middot; movies &middot; ai &middot; any url</div>
+            <div class="home-launch" role="group" aria-label="Quick launch">
+              <button class="home-launch-btn c-games" data-home-go="games" type="button">
+                <span class="home-launch-ico"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M17.32 5H6.68a4 4 0 0 0-3.978 3.59c-.006.052-.01.101-.017.152C2.604 9.416 2 14.456 2 16a3 3 0 0 0 3 3c1 0 1.5-.5 2-1l1.414-1.414A2 2 0 0 1 9.828 16h4.344a2 2 0 0 1 1.414.586L17 18c.5.5 1 1 2 1a3 3 0 0 0 3-3c0-1.545-.604-6.584-.685-7.258-.007-.05-.011-.1-.017-.151A4 4 0 0 0 17.32 5z"/><path d="M8 11v2M7 12h2"/><path d="M15 12h.01M18 10h.01"/></svg></span>
+                <span class="home-launch-label">Games</span>
+              </button>
+              <button class="home-launch-btn c-cloud" data-home-go="cloud" type="button">
+                <span class="home-launch-ico"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/><path d="M9.9 9.4l5.4 3.1-5.4 3.1z" fill="currentColor" stroke="none"/></svg></span>
+                <span class="home-launch-label">Cloud</span>
+              </button>
+              <button class="home-launch-btn c-music" data-home-go="music" type="button">
+                <span class="home-launch-ico"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z"/></svg></span>
+                <span class="home-launch-label">Music</span>
+              </button>
+              <button class="home-launch-btn c-movies" data-home-go="movies" type="button">
+                <span class="home-launch-ico"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="2.6" y="5" width="18.8" height="14" rx="2.2"/><path d="m10.2 9.3 5 2.7-5 2.7z" fill="currentColor" stroke="none"/></svg></span>
+                <span class="home-launch-label">Movies</span>
+              </button>
+              <button class="home-launch-btn c-chat" data-home-go="chat" type="button">
+                <span class="home-launch-ico"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>
+                <span class="home-launch-label">Chat</span>
+              </button>
+              <button class="home-launch-btn c-ai" data-home-go="ai" type="button">
+                <span class="home-launch-ico"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5c.9 3.4 2.6 5.1 6 6-3.4.9-5.1 2.6-6 6-.9-3.4-2.6-5.1-6-6 3.4-.9 5.1-2.6 6-6z"/><path d="M18.5 13c.5 1.9 1.4 2.8 3.3 3.3-1.9.5-2.8 1.4-3.3 3.3-.5-1.9-1.4-2.8-3.3-3.3 1.9-.5 2.8-1.4 3.3-3.3z"/></svg></span>
+                <span class="home-launch-label">AI</span>
+              </button>
+              <button class="home-launch-btn c-apps" data-home-go="apps-tools" type="button">
+                <span class="home-launch-ico"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.6" y="3.6" width="7" height="7" rx="1.7"/><rect x="13.4" y="3.6" width="7" height="7" rx="1.7"/><rect x="3.6" y="13.4" width="7" height="7" rx="1.7"/><rect x="13.4" y="13.4" width="7" height="7" rx="1.7"/></svg></span>
+                <span class="home-launch-label">Apps</span>
+              </button>
+              <button class="home-launch-btn c-tools" data-home-go="apps-tools" type="button">
+                <span class="home-launch-ico"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg></span>
+                <span class="home-launch-label">Tools</span>
+              </button>
             </div>
-        </div>
-
-        <div class="home-featured-wrap" id="home-featured"></div>
-
-        <div class="home-join" id="home-join">
-          <span class="home-join-ico"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" stroke="none" d="M20.317 4.37a19.79 19.79 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.211.375-.445.865-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.319 13.58.099 18.058a.082.082 0 0 0 .031.056c2.053 1.507 4.041 2.423 5.993 3.03a.078.078 0 0 0 .084-.028c.462-.63.873-1.295 1.226-1.994a.076.076 0 0 0-.042-.106 13.11 13.11 0 0 1-1.872-.892.077.077 0 0 1-.008-.128c.126-.094.252-.192.372-.291a.074.074 0 0 1 .078-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.009c.12.099.246.198.373.292a.077.077 0 0 1-.007.128 12.3 12.3 0 0 1-1.873.891.076.076 0 0 0-.04.107c.36.698.772 1.363 1.225 1.993a.076.076 0 0 0 .084.029c1.961-.607 3.95-1.522 6.002-3.03a.077.077 0 0 0 .031-.055c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.029zM8.02 15.33c-1.183 0-2.157-1.086-2.157-2.42 0-1.333.956-2.418 2.157-2.418 1.211 0 2.176 1.095 2.157 2.418 0 1.334-.956 2.42-2.157 2.42zm7.975 0c-1.183 0-2.157-1.086-2.157-2.42 0-1.333.956-2.418 2.157-2.418 1.211 0 2.176 1.095 2.157 2.418 0 1.334-.946 2.42-2.157 2.42z"/></svg></span>
-          <div class="home-join-txt">
-            <span class="home-join-title">Join the Chalkle Discord</span>
-            <span class="home-join-sub">New games first, requests welcome, still no sign-in.</span>
-          </div>
-          <a class="home-join-btn" href="https://discord.gg/Y8Zh2mE7Ke" target="_blank" rel="noopener noreferrer">Join free</a>
-          <button class="home-join-x" id="home-join-x" type="button" aria-label="Hide this banner" title="Hide">
-            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
-          </button>
-        </div>
-
-        <div class="ad-slot" id="ad-slot-home" data-slot-key="home" hidden>
-            <span class="ad-slot-label">Sponsored</span>
-            <ins class="adsbygoogle" data-ad-client="ca-pub-3031332925462724" data-ad-slot="" data-ad-format="auto" data-full-width-responsive="true"></ins>
           </div>
 
-          <div class="home-recents" id="home-recents" hidden></div>
+          <div class="home-featured-wrap" id="home-featured"></div>
 
           <section class="home-block" id="home-picks" hidden>
             <div class="home-block-head">
               <h2 class="home-block-title">Editor&rsquo;s picks</h2>
-              <span class="home-block-note">Hand-picked by the crew. Try these first.</span>
+              <span class="home-block-note">A few good starting points</span>
             </div>
             <div class="home-shelf" id="home-picks-grid"></div>
           </section>
 
+          <div class="home-recents" id="home-recents" hidden></div>
+
           <section class="home-block">
             <div class="home-block-head">
-              <h2 class="home-block-title">Popular games</h2>
+              <h2 class="home-block-title">Popular right now</h2>
               <span class="home-block-note">What everyone&rsquo;s been launching</span>
             </div>
             <div class="home-shelf" id="home-popular-games"></div>
           </section>
 
+          <div class="ad-slot" id="ad-slot-home" data-slot-key="home" hidden>
+            <span class="ad-slot-label">Sponsored</span>
+            <ins class="adsbygoogle" data-ad-client="ca-pub-3031332925462724" data-ad-slot="" data-ad-format="auto" data-full-width-responsive="true"></ins>
+          </div>
+
+          <div class="home-join" id="home-join">
+            <span class="home-join-ico"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" stroke="none" d="M20.317 4.37a19.79 19.79 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.211.375-.445.865-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.319 13.58.099 18.058a.082.082 0 0 0 .031.056c2.053 1.507 4.041 2.423 5.993 3.03a.078.078 0 0 0 .084-.028c.462-.63.873-1.295 1.226-1.994a.076.076 0 0 0-.042-.106 13.11 13.11 0 0 1-1.872-.892.077.077 0 0 1-.008-.128c.126-.094.252-.192.372-.291a.074.074 0 0 1 .078-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.009c.12.099.246.198.373.292a.077.077 0 0 1-.007.128 12.3 12.3 0 0 1-1.873.891.076.076 0 0 0-.04.107c.36.698.772 1.363 1.225 1.993a.076.076 0 0 0 .084.029c1.961-.607 3.95-1.522 6.002-3.03a.077.077 0 0 0 .031-.055c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.029zM8.02 15.33c-1.183 0-2.157-1.086-2.157-2.42 0-1.333.956-2.418 2.157-2.418 1.211 0 2.176 1.095 2.157 2.418 0 1.334-.956 2.42-2.157 2.42zm7.975 0c-1.183 0-2.157-1.086-2.157-2.42 0-1.333.956-2.418 2.157-2.418 1.211 0 2.176 1.095 2.157 2.418 0 1.334-.946 2.42-2.157 2.42z"/></svg></span>
+            <div class="home-join-txt">
+              <span class="home-join-title">Join the Chalkle Discord</span>
+              <span class="home-join-sub">New games first, requests welcome, still no sign-in.</span>
+            </div>
+            <a class="home-join-btn" href="https://discord.gg/Y8Zh2mE7Ke" target="_blank" rel="noopener noreferrer">Join free</a>
+            <button class="home-join-x" id="home-join-x" type="button" aria-label="Hide this banner" title="Hide">
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+            </button>
+          </div>
+
+          <div class="home-status">
+            <span id="home-status-shelf"><b id="home-stat-games">0</b> games &middot; <b id="home-stat-sites">0</b> sites &middot; <b id="home-stat-tools">0</b> tools on this device</span>
+            <span class="home-status-dot" aria-hidden="true"></span>
+            <span>No sign-in. Nothing tracked.</span>
+          </div>
+
           <div class="ad-slot ad-slot--grid" id="ad-slot-home-footer" data-slot-key="home_footer" hidden>
             <span class="ad-slot-label">Sponsored</span>
             <ins class="adsbygoogle" data-ad-client="ca-pub-3031332925462724" data-ad-slot="" data-ad-format="auto" data-full-width-responsive="true"></ins>
           </div>
-        </section>
+        </section></section>
 
         <section class="view" data-view="games">
           <div class="view-head">
@@ -689,44 +679,32 @@
               <h1 class="view-title">Games</h1>
               <span class="view-meta" id="games-meta"></span>
             </div>
-            <div class="view-actions">
-              <input class="field field-search games-filter-input" id="games-filter" type="search" placeholder="Filter games…" autocomplete="off" spellcheck="false" aria-label="Filter games by title">
-              <select class="field field-mode" id="game-sort" aria-label="Sort games">
-                <option value="favorite">Favorites first</option>
-                <option value="popular">Most popular</option>
-                <option value="az">A-Z</option>
-                <option value="za">Z-A</option>
-              </select>
-            </div>
           </div>
-          <div class="game-command">
-            <div class="game-stats" aria-label="Library stats">
-              <div class="game-stat">
-                <span class="game-stat-value" id="stat-games">0</span>
-                <span class="game-stat-label">games</span>
-              </div>
-              <div class="game-stat">
-                <span class="game-stat-value" id="stat-ports">0</span>
-                <span class="game-stat-label">pc ports</span>
-              </div>
-              <div class="game-stat">
-                <span class="game-stat-value" id="stat-favs">0</span>
-                <span class="game-stat-label">saved</span>
-              </div>
-              <div class="game-stat">
-                <span class="game-stat-value" id="stat-clicks">0</span>
-                <span class="game-stat-label">launches</span>
-              </div>
+
+          <div class="game-feature" id="games-feature" hidden></div>
+
+          <div class="game-toolbar">
+            <div class="game-search">
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>
+              <input id="games-filter" class="game-search-input" type="search" placeholder="Search games..." autocomplete="off" spellcheck="false" aria-label="Search games">
             </div>
-            <div class="game-filters" role="group" aria-label="Game filters">
-              <button class="chip is-active" data-game-filter="all">All</button>
-              <button class="chip" data-game-filter="ports">PC ports</button>
-              <button class="chip" data-game-filter="favorites">Favorites</button>
-              <button class="chip" data-game-filter="recents">Recents</button>
-              <button class="chip" data-game-filter="new">New</button>
-            </div>
+            <select class="field field-mode game-sort-select" id="game-sort" aria-label="Sort games">
+              <option value="favorite">Favorites first</option>
+              <option value="popular">Most popular</option>
+              <option value="az">A-Z</option>
+              <option value="za">Z-A</option>
+            </select>
+          </div>
+
+          <div class="game-filters" role="group" aria-label="Game filters">
+            <button class="chip is-active" data-game-filter="all">All games</button>
+            <button class="chip" data-game-filter="ports">PC ports</button>
+            <button class="chip" data-game-filter="favorites">Favorites</button>
+            <button class="chip" data-game-filter="recents">Recents</button>
+            <button class="chip" data-game-filter="new">New</button>
           </div>
           <div class="genre-filters" id="genre-filters" role="group" aria-label="Filter by genre" hidden></div>
+
           <section class="home-block picks-on-games" id="games-picks" hidden>
             <div class="home-block-head">
               <h2 class="home-block-title">Editor&rsquo;s picks</h2>
@@ -742,7 +720,7 @@
             <span class="ad-slot-label">Sponsored</span>
             <ins class="adsbygoogle" data-ad-client="ca-pub-3031332925462724" data-ad-slot="" data-ad-format="auto" data-full-width-responsive="true"></ins>
           </div>
-          <div class="grid" id="games-grid"></div>
+          <div class="grid games-grid" id="games-grid"></div>
           <div class="empty" id="games-empty" hidden>
             <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
               <rect x="2.25" y="5.25" width="19.5" height="12" rx="5.75"/>
@@ -843,36 +821,6 @@
             <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="4.5" width="20" height="15" rx="3.6"/><path d="M10 9.2v5.6l5-2.8z"/></svg>
             <p class="empty-title" id="yt-empty-title">No videos found.</p>
             <p class="empty-hint" id="yt-empty-hint">Try a different search or come back later.</p>
-          </div>
-        </section>
-
-        <section class="view" data-view="sites">
-          <div class="view-head">
-            <div class="view-heading">
-              <h1 class="view-title">Sites</h1>
-              <span class="view-meta" id="sites-meta"></span>
-            </div>
-            <div class="view-actions">
-              <select class="field field-mode" id="sites-sort" aria-label="Sort sites">
-                <option value="az">A-Z</option>
-                <option value="za">Z-A</option>
-                <option value="new">Newest</option>
-              </select>
-            </div>
-          </div>
-          <div class="ad-slot" id="ad-slot-sites" data-slot-key="sites" hidden>
-            <span class="ad-slot-label">Sponsored</span>
-            <ins class="adsbygoogle" data-ad-client="ca-pub-3031332925462724" data-ad-slot="" data-ad-format="auto" data-full-width-responsive="true"></ins>
-          </div>
-          <div class="grid" id="sites-grid"></div>
-          <div class="empty" id="sites-empty" hidden>
-            <svg class="icon tab-ico" viewBox="0 0 24 24" aria-hidden="true">
-              <circle cx="12" cy="12" r="8.6"/>
-              <polygon points="15.7 8.3 13.9 13.9 8.3 15.7 10.1 10.1 15.7 8.3"/>
-            </svg>
-            <p class="empty-title">No sites yet.</p>
-            <p class="empty-hint">Add one from the Admin panel.</p>
-            <button class="empty-cta" id="sites-empty-cta" type="button">Open the admin panel</button>
           </div>
         </section>
 
@@ -1141,13 +1089,6 @@
           </div>
         </section>
 
-        <section class="view board-view" data-view="board">
-          <div class="chalkboard">
-            <h1 class="board-title">The Board</h1>
-            <div class="board-columns" id="board-columns"></div>
-          </div>
-        </section>
-
         <section class="view bookmarklets-view" data-view="bookmarklets">
           <div class="view-head">
             <div class="view-heading">
@@ -1284,9 +1225,9 @@
               <button class="settings-toggle" type="button" aria-expanded="false" aria-controls="settings-body-behavior">
                 <span class="settings-toggle-txt">
                   <span class="settings-toggle-title">Behavior</span>
-                  <span class="settings-toggle-sub">cloak title</span>
+                  <span class="settings-toggle-sub">cloak title, about:blank</span>
                 </span>
-                <span class="settings-count">1 option</span>
+                <span class="settings-count">3 options</span>
                 <svg class="icon settings-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9.5l6 6 6-6"/></svg>
               </button>
               <div class="settings-body" id="settings-body-behavior" hidden>
@@ -1302,30 +1243,46 @@
                   <p class="settings-block-hint">Swap this tab&rsquo;s title and icon with one click</p>
                   <div class="cloak-grid" id="cloak-grid"></div>
                 </div>
+                <div class="settings-block">
+                  <div class="settings-block-label">About:blank</div>
+                  <p class="settings-block-hint">Open this site inside a blank tab - the address bar shows about:blank, and the site keeps working like normal</p>
+                  <div class="theme-actions">
+                    <button class="btn-theme" id="opt-about-blank">Open About:blank</button>
+                  </div>
+                </div>
+                <div class="settings-row">
+                  <div class="settings-row-txt">
+                    <span class="setting-name">Open automatically</span>
+                    <span class="setting-hint">Try About:blank on every load (stays off if the browser blocks it)</span>
+                  </div>
+                  <label class="switch">
+                    <input type="checkbox" id="opt-about-blank-auto">
+                    <span class="track" aria-hidden="true"></span>
+                  </label>
+                </div>
               </div>
             </div>
 
             <!-- Cloud gaming (collapsed by default) -->
             <div class="panel settings-card settings-card-wide settings-panel" data-settings-panel="cloud">
-              <button class="settings-toggle" type="button" aria-expanded="false" aria-controls="settings-body-cloud">
-                <span class="settings-toggle-txt">
+              <button class="settings-toggle" type="button" aria-expanded="false" aria-controls="settings-body-cloud">                  <span class="settings-toggle-txt">
                   <span class="settings-toggle-title">Cloud gaming</span>
-                  <span class="settings-toggle-sub">Stratus server + API key</span>
+                  <span class="settings-toggle-sub">Cloud streaming connection</span>
                 </span>
                 <span class="settings-count" id="cloud-cfg-status">offline</span>
                 <svg class="icon settings-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9.5l6 6 6-6"/></svg>
               </button>
               <div class="settings-body" id="settings-body-cloud" hidden>
-                <p class="settings-note">Cloud games stream from a Stratus server. Blank server URL uses the built-in relay on this site, which forwards to a local Stratus.</p>
+                <p class="settings-note">Cloud games stream through the site's own servers - they work out of the box, no key needed. You only need this panel if you run your own cloud server.</p>
                 <div class="settings-block">
-                  <div class="settings-block-label">Stratus server</div>
-                  <p class="settings-block-hint">Full URL like http://localhost:3001, or empty for the built-in relay</p>
-                  <input class="field" id="cloud-cfg-base" type="url" placeholder="http://localhost:3001" autocomplete="off" spellcheck="false" aria-label="Stratus server URL">
+                  <div class="settings-block-label">Cloud server URL</div>
+                  <p class="settings-block-hint">Advanced. Leave empty to use the built-in relay (recommended)</p>
+                  <input class="field" id="cloud-cfg-base" type="url" placeholder="http://localhost:3001" autocomplete="off" spellcheck="false" aria-label="Cloud server URL">
                 </div>
                 <div class="settings-block">
                   <div class="settings-block-label">API key</div>
                   <p class="settings-block-hint">Optional. The built-in relay sends its own key when this is empty</p>
-                  <input class="field" id="cloud-cfg-key" type="password" placeholder="sk_..." autocomplete="off" spellcheck="false" aria-label="Stratus API key">
+                  <input class="field" id="cloud-cfg-key" type="password" placeholder="sk_..." autocomplete="off" spellcheck="false" aria-label="Cloud API key">
                 </div>
                 <div class="settings-block">
                   <button class="btn-theme" id="cloud-cfg-save">Save cloud settings</button>
@@ -1400,33 +1357,161 @@
             </div>
           </div>
         </section>
+<!-- Game Player: the focused in-app game experience. Lives inside main
+           so the delegated card handlers (launch / fav / proxy / open-with)
+           cover the related-game shelf for free. -->
+      <div class="game-player" id="game-player" hidden>
+        <div class="gp-bar">
+          <button class="gp-btn" id="gp-back" type="button" aria-label="Back to Games" title="Back to Games">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
+          </button>
+          <div class="gp-titles">
+            <span class="gp-title" id="gp-title">Playing</span>
+            <span class="gp-sub" id="gp-sub"></span>
+          </div>
+          <div class="gp-actions">
+            <button class="gp-btn" id="gp-fav" type="button" aria-label="Add favorite" title="Favorite">
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.8l2.5 5 5.5.8-4 3.9.9 5.5-4.9-2.6L7.1 19l.9-5.5-4-3.9 5.5-.8z"/></svg>
+            </button>
+            <button class="gp-btn" id="gp-reload" type="button" aria-label="Reload game" title="Reload">
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v4h-4"/></svg>
+            </button>
+            <button class="gp-btn" id="gp-fs" type="button" aria-label="Fullscreen" title="Fullscreen">
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4H4v4M16 4h4v4M8 20H4v-4M16 20h4v-4"/></svg>
+            </button>
+            <button class="gp-btn gp-btn-x" id="gp-close" type="button" aria-label="Close player" title="Close (Esc)">
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="gp-stage">
+          <div class="gp-progress" id="gp-progress" aria-hidden="true"></div>
+          <div class="gp-frame-wrap" id="gp-frame-wrap">
+            <div class="gp-loading" id="gp-loading">
+              <span class="gp-loading-art" id="gp-loading-art"></span>
+              <span class="gp-loading-title" id="gp-loading-title"></span>
+              <span class="gp-loading-spin" aria-hidden="true"></span>
+            </div>
+            <div class="gp-error" id="gp-error" hidden>
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="2.25" y="5.25" width="19.5" height="12" rx="5.75"/><path d="M7.25 8.25v6M5.25 11.25h4"/><circle cx="15.75" cy="10.5" r=".9" fill="currentColor"/><circle cx="18.25" cy="12.75" r=".9" fill="currentColor"/></svg>
+              <p class="gp-error-title">Game couldn&rsquo;t be loaded</p>
+              <p class="gp-error-hint" id="gp-error-hint">The site may block embedded play, or the network is filtering it.</p>
+              <div class="gp-error-actions">
+                <button class="btn" id="gp-retry" type="button">Try again</button>
+                <button class="btn" id="gp-error-tab" type="button">Open in a new tab</button>
+                <button class="btn" id="gp-error-back" type="button">Back to Games</button>
+              </div>
+            </div>
+            <iframe id="gp-frame" class="gp-frame" title="Game" allow="fullscreen; picture-in-picture" allowfullscreen referrerpolicy="no-referrer"></iframe>
+          </div>
+          <div class="gp-info">
+            <div class="gp-info-titles">
+              <h2 class="gp-info-title" id="gp-info-title"></h2>
+              <span class="gp-info-meta" id="gp-info-meta"></span>
+            </div>
+            <button class="btn gp-info-fav" id="gp-info-fav" type="button">
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.8l2.5 5 5.5.8-4 3.9.9 5.5-4.9-2.6L7.1 19l.9-5.5-4-3.9 5.5-.8z"/></svg>
+              <span id="gp-info-fav-label">Favorite</span>
+            </button>
+          </div>
+          <section class="gp-related" id="gp-related" hidden>
+            <div class="gp-related-head">
+              <h3 class="gp-related-title">You might also like</h3>
+              <span class="gp-related-note">Same shelf, different game.</span>
+            </div>
+            <div class="gp-related-grid" id="gp-related-grid"></div>
+          </section>
+        </div>
+        <button class="gp-exitfs" id="gp-exitfs" type="button" hidden>Exit fullscreen</button>
+      </div>
+
+      
       </main>
+
     </div>
 
     <div class="toast-box" id="toast-box" aria-live="polite"></div>
 
-    <div class="overlay" id="proxy-overlay" hidden>
-      <div class="overlay-bar">
-        <button class="overlay-back" id="overlay-back" aria-label="Back to Chalkle">
-          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M16 5.5l-8 6.5 8 6.5"/>
-          </svg>
+    <div class="overlay browser" id="proxy-overlay" hidden>
+      <div class="browser-chrome">
+        <div class="browser-tabbar">
+          <div class="browser-tabs" id="bz-tabs" role="tablist" aria-label="Browser tabs"></div>
+          <button class="browser-newtab" id="bz-newtab" type="button" title="New tab (Ctrl+T)" aria-label="New tab">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+          </button>
+        </div>
+        <div class="browser-toolbar">
+          <div class="browser-nav">
+            <button class="browser-btn" id="bz-back" type="button" title="Back (Alt+Left)" aria-label="Back" disabled>
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
+            </button>
+            <button class="browser-btn bz-hide-sm" id="bz-fwd" type="button" title="Forward (Alt+Right)" aria-label="Forward" disabled>
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>
+            </button>
+            <button class="browser-btn" id="bz-reload" type="button" title="Reload (Ctrl+R)" aria-label="Reload">
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v4h-4"/></svg>
+            </button>
+          </div>
+          <div class="browser-address" id="bz-address">
+            <svg class="browser-addr-ico" id="bz-addr-ico" viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="5" y="10.5" width="14" height="9" rx="2"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/>
+            </svg>
+            <input class="browser-addr" id="bz-addr" type="text" placeholder="Search or enter an address" autocomplete="off" spellcheck="false" aria-label="Address or search">
+            <button class="browser-star" id="bz-star" type="button" title="Bookmark this page (Ctrl+D)" aria-label="Bookmark this page" aria-pressed="false" disabled>
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8L3.5 9.7l5.9-.9z"/></svg>
+            </button>
+            <button class="browser-go" id="bz-go" type="button">Go</button>
+          </div>
+          <div class="browser-actions">
+            <button class="browser-btn bz-hide-sm" id="bz-ext" type="button" title="Open in a new tab" aria-label="Open in a new tab">
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17L17 7"/><path d="M9 7h8v8"/></svg>
+            </button>
+            <button class="browser-btn browser-home" id="bz-home" type="button" title="Back to Chalkle" aria-label="Back to Chalkle">
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11l8-6 8 6"/><path d="M6 10v9h12v-9"/><path d="M10 19v-5h4v5"/></svg>
+            </button>
+            <button class="browser-btn bz-hide-sm" id="bz-fs" type="button" title="Fullscreen" aria-label="Fullscreen">
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V5a1 1 0 0 1 1-1h4"/><path d="M20 9V5a1 1 0 0 0-1-1h-4"/><path d="M4 15v4a1 1 0 0 0 1 1h4"/><path d="M20 15v4a1 1 0 0 1-1 1h-4"/></svg>
+            </button>
+            <button class="browser-btn browser-close" id="bz-close" type="button" title="Close (Esc)" aria-label="Close browser">
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+      <div class="browser-progress"><div class="browser-progress-bar" id="bz-progress-bar"></div></div>
+      <div class="browser-notice" id="bz-notice" hidden>
+        <span id="bz-notice-msg">This site may block embedded play.</span>
+        <button class="browser-notice-ext" id="bz-notice-ext" type="button">Open in new tab</button>
+        <button class="browser-notice-x" id="bz-notice-x" type="button" aria-label="Dismiss">
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
         </button>
-        <span class="overlay-title" id="overlay-title"></span>
-        <a class="overlay-ext" id="overlay-ext" target="_blank" rel="noopener">
-          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M7 17L17 7"/>
-            <path d="M9 7h8v8"/>
-          </svg>
-          <span>New tab</span>
-        </a>
       </div>
-      <div class="overlay-notice" id="overlay-notice" hidden>
-        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v6M12 16.5v.1"/></svg>
-        <span>This site blocks embedded play. Open it in a new tab instead.</span>
-        <a class="btn" id="overlay-open-fallback" target="_blank" rel="noopener">Open game</a>
+      <div class="browser-body">
+        <div class="browser-viewport" id="bz-viewport"></div>
+        <div class="browser-newtab-page" id="bz-newtab-page" hidden>
+          <span class="chalkle-logo browser-nt-logo" role="img" aria-label="Chalkle"></span>
+          <p class="browser-nt-tag">Search or type an address. Everything stays inside Chalkle.</p>
+          <div class="browser-nt-links" id="bz-nt-links"></div>
+          <div class="browser-nt-bookmarks" id="bz-nt-bookmarks" hidden>
+            <span class="browser-nt-sublabel">Bookmarks</span>
+            <div class="browser-nt-bk-row" id="bz-nt-bk-row"></div>
+          </div>
+          <div class="browser-nt-note">chalkle browser &middot; tabs &middot; bookmarks &middot; fullscreen</div>
+        </div>
+        <div class="browser-blocked" id="bz-blocked" hidden>
+          <div class="browser-blocked-card">
+            <div class="browser-blocked-ico" aria-hidden="true">!</div>
+            <h2 class="browser-blocked-title">Page unavailable</h2>
+            <p class="browser-blocked-msg" id="bz-blocked-msg">This page couldn&rsquo;t be reached from here. It may be blocking embedded play.</p>
+            <div class="browser-blocked-actions">
+              <button class="browser-bbtn" id="bz-blocked-back" type="button">Back</button>
+              <button class="browser-bbtn" id="bz-blocked-reload" type="button">Reload</button>
+              <button class="browser-bbtn primary" id="bz-blocked-ext" type="button">Open in new tab</button>
+            </div>
+          </div>
+        </div>
       </div>
-      <iframe class="overlay-frame" id="proxy-frame" title="Proxy" allow="fullscreen" referrerpolicy="no-referrer"></iframe>
+      <button class="browser-exitfs" id="bz-exitfs" type="button" hidden>Exit fullscreen</button>
     </div>
 
     <div class="docs-viewer" id="docs-viewer" hidden>
@@ -1489,10 +1574,8 @@
         <div class="admin-body" id="admin-body" hidden>
           <div class="admin-tabs" role="tablist" aria-label="Admin sections">
             <button class="admin-tab is-active" data-admin-tab="games"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9h4M8 7v4"/><path d="M14.8 8.5h.01M17.4 10.6h.01"/><path d="M6.5 14.5h3M8 13v3"/><rect x="2.5" y="6.5" width="19" height="11" rx="3"/></svg>Games</button>
-            <button class="admin-tab" data-admin-tab="sites"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.6 2.3 4 5 4 8.5s-1.4 6.2-4 8.5c-2.6-2.3-4-5-4-8.5s1.4-6.2 4-8.5z"/></svg>Sites</button>
             <button class="admin-tab" data-admin-tab="tools"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 6.6a4.5 4.5 0 0 0-6.2 6.2L3 18.1l2.8 2.8 5.3-5.3a4.5 4.5 0 0 0 6.2-6.2L14 12.8l-2.8-2.8 3.3-3.4z"/></svg>Tools</button>
             <button class="admin-tab" data-admin-tab="proxies"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l7 2.6v5.1c0 4.4-2.9 7.6-7 9.3-4.1-1.7-7-4.9-7-9.3V6.1z"/></svg>Proxies</button>
-            <button class="admin-tab" data-admin-tab="board"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8.5" r="3.5"/><path d="M2.5 19c.8-3 3.4-4.5 6.5-4.5s5.7 1.5 6.5 4.5"/><path d="M15.5 5.4a3.5 3.5 0 0 1 0 6.2M17.6 14.8c2 .8 3.2 2.3 3.9 4.2"/></svg>Board</button>
             <button class="admin-tab" data-admin-tab="docs"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3.5h8l4 4V20.5H6z"/><path d="M14 3.5v4h4"/><path d="M9 11h6M9 14.5h6"/></svg>Docs</button>
             <button class="admin-tab" data-admin-tab="partners"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7-4.6-9.3-9C1.4 9.6 3 6.5 6 6.5c1.9 0 3.4 1 4.5 2.6l1.5 2 1.5-2c1.1-1.6 2.6-2.6 4.5-2.6 3 0 4.6 3.1 3.3 5.5C19 16.4 12 21 12 21z"/></svg>Partners</button>
             <button class="admin-tab" data-admin-tab="livetv"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6.5" width="18" height="12" rx="2.5"/><path d="M8 3.5l4 3 4-3"/></svg>Live TV</button>
@@ -1803,7 +1886,7 @@
       </div>
     </div>
 
-  <script src="src/runtime-config.js?v=20260912a"></script>
+  <script src="src/runtime-config.js?v=20260917a"></script>
   <script src="src/sync.js?v=20260912a"></script>
   <!-- The game library files are ~11.5MB each. They used to be synchronous,
        so the browser couldn't finish parsing (or paint the boot screen) until
@@ -1811,23 +1894,24 @@
        (games.js then games2.js before app.js below) but lets the page parse
        and paint immediately and downloads all scripts in parallel. -->
   <script defer src="src/games.js?v=20260910a"></script>
-  <script defer src="src/games2.js?v=20260910a"></script>
+  <script defer src="src/games2.js?v=20260910c"></script>
   <script src="src/noah-games.js?v=20260909a"></script>
   <script src="src/community-games.js?v=20260905j"></script>
   <script src="src/real-shots.js?v=20260905u"></script>
   <script src="src/cloudgames.js?v=20260910a"></script>
   <script src="src/webports.js?v=20260908d"></script>
   <script src="src/sites.js?v=20260905j"></script>
-  <script src="src/proxies.js?v=20260905j"></script>
+  <script src="src/proxies.js?v=20260917a"></script>
   <script src="src/apps.js?v=20260905j"></script>
-  <script src="src/music.js?v=20260910b"></script>
-  <script src="src/launcher.js?v=20260912a"></script>
-  <script src="src/cloud.js?v=20260911a"></script>
-  <script src="src/editor.js?v=20260905j"></script>
+  <script src="src/music.js?v=20260910d"></script>
+  <script src="src/launcher.js?v=20260917c"></script>
+  <script src="src/browser.js?v=20260917a"></script>
+  <script src="src/cloud.js?v=20260917a"></script>
+  <script src="src/editor.js?v=20260917a"></script>
   <script src="src/urlauditor.js?v=20260905j"></script>
-  <script src="src/pixel.js?v=20260905j"></script>
+  <script src="src/pixel.js?v=20260908k"></script>
   <script src="src/domainhub.js?v=20260912a"></script>
-  <script src="src/ai.js?v=20260905j"></script>
+  <script src="src/ai.js?v=20260912c"></script>
   <script src="src/partners.js?v=20260907b"></script>
   <script src="src/docs.js?v=20260908d"></script>
   <script src="src/bookmarklets.js?v=20260905j"></script>
@@ -1887,6 +1971,7 @@
   </script>
   <!-- app.js consumes window.ChalkGames at eval time, so it must run after the
        deferred game scripts above - defer preserves document order, so it does. -->
-  <script defer src="src/app.js?v=20260912a"></script>
+  <script defer src="src/app.js?v=20260917j"></script>
+  <script defer src="src/gameplayer.js?v=20260917c"></script>
 </body>
 </html>

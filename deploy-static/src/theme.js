@@ -32,26 +32,51 @@
     } catch (e) { /* private mode: nothing to do */ }
   }
 
+  /* url() inside a CSS custom property resolves against the stylesheet that
+     USES the var (src/styles.css), not the document - so a relative path like
+     "assets/cursors/cursor-cat.png" silently becomes /src/assets/... and 404s.
+     Resolve every asset to an absolute document-relative URL up front; that
+     keeps cursors and wallpapers working on the real site, CDN subpaths and
+     file:// copies alike. */
+  function absAsset(path) {
+    try {
+      return new URL(path, document.baseURI).href;
+    } catch (e) {
+      return path;
+    }
+  }
+
   var CURSORS = {
-    cat: { label: "cat", css: "url('/assets/cursors/cursor-cat.png') 24 24, auto", preview: "/assets/cursors/cursor-cat.png", hover: "/assets/cursors/cursor-cat-hover.png" },
-    "cat-black": { label: "black cat", css: "url('/assets/cursors/cursor-cat-black.png') 24 24, auto", preview: "/assets/cursors/cursor-cat-black.png", hover: "/assets/cursors/cursor-cat-black-hover.png" },
-    puppy: { label: "puppy", css: "url('/assets/cursors/cursor-puppy.png') 24 24, auto", preview: "/assets/cursors/cursor-puppy.png", hover: "/assets/cursors/cursor-puppy-hover.png" },
-    kyro: { label: "kyro", css: "url('/assets/cursors/cursor-kyro.png') 18 18, auto", preview: "/assets/cursors/cursor-kyro.png", hover: "/assets/cursors/cursor-kyro-hover.png" },
-    neoos: { label: "neo os", css: "url('/assets/cursors/cursor-neoos.png') 18 18, auto", preview: "/assets/cursors/cursor-neoos.png", hover: "/assets/cursors/cursor-neoos-hover.png" },
-    godlylinks: { label: "godly links", css: "url('/assets/cursors/cursor-godlylinks.png') 18 17, auto", preview: "/assets/cursors/cursor-godlylinks.png", hover: "/assets/cursors/cursor-godlylinks-hover.png" },
-    projectbugs: { label: "project bugs", css: "url('/assets/cursors/cursor-projectbugs.png') 18 18, auto", preview: "/assets/cursors/cursor-projectbugs.png", hover: "/assets/cursors/cursor-projectbugs-hover.png" },
-    frosted: { label: "frosted", css: "url('/assets/cursors/cursor-frosted.png') 18 18, auto", preview: "/assets/cursors/cursor-frosted.png", hover: "/assets/cursors/cursor-frosted-hover.png" },
-    p2pgames: { label: "p2p games", css: "url('/assets/cursors/cursor-p2pgames.png') 18 17, auto", preview: "/assets/cursors/cursor-p2pgames.png", hover: "/assets/cursors/cursor-p2pgames-hover.png" },
-    sv: { label: "s.v", css: "url('/assets/cursors/cursor-sv.png') 18 18, auto", preview: "/assets/cursors/cursor-sv.png", hover: "/assets/cursors/cursor-sv-hover.png" },
-    anko: { label: "anko", css: "url('/assets/cursors/cursor-anko.png') 18 18, auto", preview: "/assets/cursors/cursor-anko.png", hover: "/assets/cursors/cursor-anko-hover.png" },
-    ghostproxy: { label: "ghost proxy", css: "url('/assets/cursors/cursor-ghostproxy.png') 18 18, auto", preview: "/assets/cursors/cursor-ghostproxy.png", hover: "/assets/cursors/cursor-ghostproxy-hover.png" },
-    array: { label: "array", css: "url('/assets/cursors/cursor-array.png') 18 18, auto", preview: "/assets/cursors/cursor-array.png", hover: "/assets/cursors/cursor-array-hover.png" },
-    sizzle: { label: "sizzle studios", css: "url('/assets/cursors/cursor-sizzle.png') 18 18, auto", preview: "/assets/cursors/cursor-sizzle.png", hover: "/assets/cursors/cursor-sizzle-hover.png" },
+    cat: { label: "cat", css: "url('assets/cursors/cursor-cat.png') 24 24, auto", preview: "assets/cursors/cursor-cat.png", hover: "assets/cursors/cursor-cat-hover.png" },
+    "cat-black": { label: "black cat", css: "url('assets/cursors/cursor-cat-black.png') 24 24, auto", preview: "assets/cursors/cursor-cat-black.png", hover: "assets/cursors/cursor-cat-black-hover.png" },
+    puppy: { label: "puppy", css: "url('assets/cursors/cursor-puppy.png') 24 24, auto", preview: "assets/cursors/cursor-puppy.png", hover: "assets/cursors/cursor-puppy-hover.png" },
+    kyro: { label: "kyro", css: "url('assets/cursors/cursor-kyro.png') 18 18, auto", preview: "assets/cursors/cursor-kyro.png", hover: "assets/cursors/cursor-kyro-hover.png" },
+    neoos: { label: "neo os", css: "url('assets/cursors/cursor-neoos.png') 18 18, auto", preview: "assets/cursors/cursor-neoos.png", hover: "assets/cursors/cursor-neoos-hover.png" },
+    godlylinks: { label: "godly links", css: "url('assets/cursors/cursor-godlylinks.png') 18 17, auto", preview: "assets/cursors/cursor-godlylinks.png", hover: "assets/cursors/cursor-godlylinks-hover.png" },
+    projectbugs: { label: "project bugs", css: "url('assets/cursors/cursor-projectbugs.png') 18 18, auto", preview: "assets/cursors/cursor-projectbugs.png", hover: "assets/cursors/cursor-projectbugs-hover.png" },
+    frosted: { label: "frosted", css: "url('assets/cursors/cursor-frosted.png') 18 18, auto", preview: "assets/cursors/cursor-frosted.png", hover: "assets/cursors/cursor-frosted-hover.png" },
+    p2pgames: { label: "p2p games", css: "url('assets/cursors/cursor-p2pgames.png') 18 17, auto", preview: "assets/cursors/cursor-p2pgames.png", hover: "assets/cursors/cursor-p2pgames-hover.png" },
+    sv: { label: "s.v", css: "url('assets/cursors/cursor-sv.png') 18 18, auto", preview: "assets/cursors/cursor-sv.png", hover: "assets/cursors/cursor-sv-hover.png" },
+    anko: { label: "anko", css: "url('assets/cursors/cursor-anko.png') 18 18, auto", preview: "assets/cursors/cursor-anko.png", hover: "assets/cursors/cursor-anko-hover.png" },
+    ghostproxy: { label: "ghost proxy", css: "url('assets/cursors/cursor-ghostproxy.png') 18 18, auto", preview: "assets/cursors/cursor-ghostproxy.png", hover: "assets/cursors/cursor-ghostproxy-hover.png" },
+    array: { label: "array", css: "url('assets/cursors/cursor-array.png') 18 18, auto", preview: "assets/cursors/cursor-array.png", hover: "assets/cursors/cursor-array-hover.png" },
+    sizzle: { label: "sizzle studios", css: "url('assets/cursors/cursor-sizzle.png') 18 18, auto", preview: "assets/cursors/cursor-sizzle.png", hover: "assets/cursors/cursor-sizzle-hover.png" },
+    "korona.lat": { label: "korona.lat", css: "url('assets/cursors/cursor-korona.lat.png') 18 18, auto", preview: "assets/cursors/cursor-korona.lat.png", hover: "assets/cursors/cursor-korona.lat-hover.png" },
     none: { label: "default", css: "auto", preview: null }
   };
+  Object.keys(CURSORS).forEach(function (id) {
+    var c = CURSORS[id];
+    if (!c || !c.css) return;
+    var m = /^url\('([^']+)'\)(.*)$/.exec(c.css);
+    if (m) c.css = "url('" + absAsset(m[1]) + "')" + m[2];
+    if (c.preview) c.preview = absAsset(c.preview);
+    if (c.hover) c.hover = absAsset(c.hover);
+  });
 
   var WALLPAPERS = {
-    chalk: "url('/bg-chalk.webp')",
+    /* Relative on purpose (subpath mirrors + file:// copies); absAsset makes
+       them absolute so the url() survives custom-property resolution. */
+    chalk: "url('bg-chalk.webp')",
     aurora: "#20343b",
     sunset: "#4a1d2d",
     citrus: "#5a4514",
@@ -61,6 +86,11 @@
     night: "#182437",
     forest: "#173525"
   };
+  Object.keys(WALLPAPERS).forEach(function (id) {
+    var v = WALLPAPERS[id];
+    var m = typeof v === "string" ? /^url\('([^']+)'\)$/.exec(v) : null;
+    if (m) WALLPAPERS[id] = "url('" + absAsset(m[1]) + "')";
+  });
 
   /* One-click theme presets (bg + accent). Palettes from the Interstellar /
      catppuccin collections - each renders a two-tone preview swatch. */
@@ -73,7 +103,9 @@
     sakura:    { label: "Sakura",    bg: "#2a1b26", accent: "#ff9e9e" },
     forest:    { label: "Forest",    bg: "#0e1712", accent: "#7dbf59" },
     sunset:    { label: "Sunset",    bg: "#22111d", accent: "#ff6b6b" },
-    amber:     { label: "Cyber Gold", bg: "#0d0c0a", accent: "#ff8c00" }
+    amber:     { label: "Cyber Gold", bg: "#0d0c0a", accent: "#ff8c00" },
+    midnight:  { label: "Midnight",  bg: "#0a1118", accent: "#5b93ff" },
+    graphite:  { label: "Graphite",  bg: "#131315", accent: "#c9cdd4" }
   };
 
   /* Chalkle CSS vars that the palette can drive. Category colors (--blue,
@@ -202,26 +234,17 @@
     syncWallpaperPreload(value);
   }
 
-  /* Preload the chalk art only while it is the active wallpaper. A static
-     <link rel=preload> fires a console warning on every device that has a
-     custom wallpaper (the preloaded file is never used), so the tag is
-     created/removed here to always match the live choice. */
-  function syncWallpaperPreload(value) {
-    var ID = "chalkle-wallpaper-preload";
-    var link = document.getElementById(ID);
-    if (value === "chalk") {
-      if (!link) {
-        link = document.createElement("link");
-        link.id = ID;
-        link.rel = "preload";
-        link.as = "image";
-        link.href = "/bg-chalk.webp";
-        try { link.fetchPriority = "high"; } catch (e) {}
-        document.head.appendChild(link);
-      }
-    } else if (link) {
-      link.remove();
-    }
+  /* No <link rel=preload> for the wallpaper, dynamic or static: the body's
+     background-image fetch is the only fetch. A preload here kept firing
+     "preloaded but not used within a few seconds" warnings even with the
+     chalk art active (the app body doesn't render it until the boot intro
+     clears), and the second fetch was pure waste - the file is decorative,
+     sits behind the boot overlay anyway, and is in the HTTP cache on every
+     visit after the first. Any old preload tag left by earlier builds is
+     removed here. */
+  function syncWallpaperPreload() {
+    var link = document.getElementById("chalkle-wallpaper-preload");
+    if (link) link.remove();
   }
 
   function applyCursor(value) {

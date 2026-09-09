@@ -2454,8 +2454,25 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, _Bitc
             # Static files (index.html, assets/) - serve from the bitcord/ folder.
             return self._bitcord_static(route) or super().do_GET()
         if route.endswith(".mp3"):
-            return self._serve_mp3_fallback(route)
+            got = _serve_mp3_fallback(self, route)
+            if got is not None:
+                return got
+            # Fallback declined (not a game-audio tree): fall through so the
+            # file is served as a normal static asset (taiko song audio etc.).
+        # Taiko (/taiko/) requests its JSON shims without a file extension
+        # (api/config, api/songs, api/categories). Map those onto the .json
+        # files on disk so the embedded rhythm game works without Flask.
+        if route.startswith("/taiko/api/"):
+            self.path = route + ".json" + self.path[len(route):]
         return super().do_GET()
+
+    def do_HEAD(self):
+        # Mirror the taiko api shim mapping so HEAD probes (curl -I, health
+        # checks) see the same 200 JSON the GET path serves.
+        route = self.path.split("?", 1)[0]
+        if route.startswith("/taiko/api/"):
+            self.path = route + ".json" + self.path[len(route):]
+        return super().do_HEAD()
 
     def do_POST(self):
         route = self.path.split("?", 1)[0]
@@ -2995,13 +3012,11 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, _Bitc
     # overridable via the AI_UPSTREAM env var.
 
     # Upstreams are tried in order; when one rate-limits (429) or errors, the
-    # next takes over so the tab keeps answering. Anonymous by default:
-    #   OVHcloud AI Endpoints (no key, free tier, has vision models)
-    #   LLM7.io               (no key, free tier)
-    #   legacy gateway        (45.32.114.54 - shared, often rate-limited)
-    # Set AI_UPSTREAM (+ optional AI_API_KEY) to slot a keyed provider
-    # (OpenRouter / Gemini / etc.) in FIRST.
-    AI_UPSTREAM = os.environ.get("AI_UPSTREAM", "").strip()
+    # next takes over so the tab keeps answering. The FIRST upstream is the
+    # site's universal keyed provider (OpenRouter): the key below is shared by
+    # every visitor, which is what lets the AI tab work with zero setup.
+    # Env vars AI_UPSTREAM / AI_API_KEY override it if ever needed.
+    AI_UPSTREAM = os.environ.get("AI_UPSTREAM", "https://openrouter.ai/api/v1").strip()
     AI_API_KEY = os.environ.get("AI_API_KEY", "").strip()
     _AI_CONVOS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ai_convos.json")
 
@@ -3018,15 +3033,11 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, _Bitc
     @classmethod
     def _ai_upstreams(cls):
         if cls._AI_UPS_CACHE is None:
+            # OpenRouter only: every model in the AI tab is a real OpenRouter
+            # id, and every chat rides the site's universal OpenRouter key.
             ups = []
             if cls.AI_UPSTREAM:
                 ups.append({"base": cls.AI_UPSTREAM.rstrip("/"), "key": cls.AI_API_KEY, "default": ""})
-            ups.append({"base": "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1", "key": "", "default": "Qwen3.5-397B-A17B"})
-            ups.append({"base": "https://api.llm7.io/v1", "key": "", "default": "mistral-Nemo-Instruct-2407"})
-            # Legacy gateway: answers, but its default model returns incoherent
-            # text, so it gets NO default (skipped in the last-resort fallback
-            # loop) - only used when the user explicitly picks one of its models.
-            ups.append({"base": "http://45.32.114.54:8080/v1", "key": "", "default": ""})
             for u in ups:
                 u["down_until"] = 0
                 u["models"] = None
@@ -3075,10 +3086,14 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, _Bitc
         self._ai_refresh_models()
         out = {"ok": False, "models": []}
         seen = {}
+        # One id per model: strip variant suffixes so the picker never shows
+        # "x:batch" twins or "~" alias entries next to the real model.
+        ALIAS_RE = re.compile(r"^(?:~|.*?(?::batch)$)", re.I)
         for up in self._ai_upstreams():
             for mid in (up.get("models") or []):
-                if mid not in seen:
-                    seen[mid] = up["base"]
+                if not mid or ALIAS_RE.match(mid) or mid in seen:
+                    continue
+                seen[mid] = up["base"]
         if seen:
             out = {"ok": True, "models": list(seen.keys()), "sources": seen, "default": next(iter(seen))}
         else:
@@ -3174,6 +3189,35 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, _Bitc
         model = str(payload.get("model") or "")
         stream = bool(payload.get("stream"))
         wants_vision = bool(payload.get("vision"))
+
+        # Do not spend an upstream request (or inherit an upstream model's
+        # previous-topic bias) for a bare greeting. Some of the public fallback
+        # models answer "hi" as though it were a project-planning follow-up,
+        # which makes a fresh chat feel broken. Keep this intentionally narrow:
+        # real questions and messages with any extra context still go to the
+        # selected model.
+        last_user = next((m for m in reversed(msgs) if m.get("role") == "user"), {})
+        greeting = last_user.get("content", "")
+        if isinstance(greeting, list):
+            greeting = " ".join(
+                str(part.get("text") or "") for part in greeting
+                if isinstance(part, dict) and part.get("type") == "text"
+            )
+        # Every message, greetings included, goes to the real model: the
+        # canned local replies made the tab feel broken with good models.
+        greeting = str(greeting).strip()
+
+        # PhotoMath's useful pattern is a small, explicit pipeline: recognize
+        # the problem first, then solve it, then verify the result. We cannot
+        # assume every upstream model handles that consistently, so tell it
+        # when the latest request is math or contains an uploaded image.
+        last_user_text = greeting
+        math_request = bool(re.search(
+            r"\b(?:solve|simplify|evaluate|calculate|factor|expand|derive|integrat|equation|inequalit|algebra|geometry|math|fraction|percent|area|volume|probability|\d+\s*[+\-*/^=]\s*\d+)\b",
+            last_user_text,
+            re.I,
+        ))
+
         if not wants_vision:
             for m in msgs:
                 c = m.get("content")
@@ -3183,7 +3227,24 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, _Bitc
                             wants_vision = True
                             break
         if not msgs or (msgs[0].get("role") != "system"):
-            msgs = [{"role": "system", "content": "You are a helpful assistant. Answer the user's question directly, correctly and concisely. No preambles, no vague clarifying questions - just give the answer. Write plain text: no markdown symbols like **, ###, or backtick fences."}] + msgs
+            if wants_vision or math_request:
+                role = (
+                    "You are Chalkle's careful math solver. Focus only on the latest user request. "
+                    "If an image is attached, transcribe the expression before solving it and say "
+                    "when a symbol is unclear; never invent missing handwriting. For math, show the "
+                    "key steps in order, give the final answer clearly, and verify it when practical. "
+                    "If the image is not a math problem, describe what you can actually see and ask "
+                    "what the user wants done with it."
+                )
+            else:
+                role = (
+                    "You are Chalkle AI. Answer the latest user request directly and naturally. "
+                    "Do not continue a different task from earlier context unless the user asks you to. "
+                    "Never invent project context, constraints, or requirements the user did not mention. "
+                    "Ask a clarifying question only when it is genuinely needed."
+                )
+            role += " Write plain text: no markdown symbols like **, ###, or backtick fences."
+            msgs = [{"role": "system", "content": role}] + msgs
         ups = self._ai_upstreams()
         # Make sure we know who hosts what (cached + parallel, near-free)
         try:
@@ -3242,7 +3303,11 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, _Bitc
         for up, use_model in cands:
             if up["down_until"] and up["down_until"] > time.time():
                 continue
-            body_b = json.dumps({"model": use_model, "messages": msgs, "stream": stream, "temperature": 0.6}).encode()
+            # Cap max_tokens: OpenRouter's credit check prices the request at
+            # its WORST case, so an uncapped max (model default, often 64k)
+            # fails with 402 even when a normal reply would cost almost
+            # nothing. 2048 covers chat replies comfortably.
+            body_b = json.dumps({"model": use_model, "messages": msgs, "stream": stream, "temperature": 0.6, "max_tokens": 2048}).encode()
             req = urllib.request.Request(up["base"] + "/chat/completions", data=body_b,
                                          headers=self._ai_headers(up["key"], {"Content-Type": "application/json", "Accept": "text/event-stream" if stream else "application/json"}))
             try:
@@ -4418,7 +4483,7 @@ def _cinemeta_serve(path_tail, qs):
 
 
 
-def _serve_mp3_fallback(route):
+def _serve_mp3_fallback(handler, route):
     """Undertale GameMaker audio fallback.
 
     The hosted HTML5 build expects both mus_*.mp3 and abc_*_a.mp3 style
@@ -4429,8 +4494,12 @@ def _serve_mp3_fallback(route):
     Otherwise return a proper audio 404 (not an HTML body) so non-game clients
     get a real error too. The fallback only applies to mp3s under a known game
     audio tree so regular music/other .mp3 assets are not rewritten.
+
+    Module-level by design (it sits below the Handler class) - it receives the
+    request handler explicitly. The old copy was defined here but called as
+    self._serve_mp3_fallback, so every plain .mp3 request crashed the handler
+    thread and the browser saw an empty reply.
     """
-    import posixpath
     from urllib.parse import unquote
     decoded = unquote(route)
     lower = decoded.lower()
@@ -4438,20 +4507,18 @@ def _serve_mp3_fallback(route):
         return None
     base = decoded[:-4] if decoded.lower().endswith(".mp3") else decoded
     alt = base + ".ogg"
-    full = self.translate_path(alt)
+    full = handler.translate_path(alt)
     if os.path.isfile(full):
-        self.send_response(302)
-        self.send_header("Location", alt)
-        self.end_headers()
+        handler.send_response(302)
+        handler.send_header("Location", alt)
+        handler.end_headers()
         return True
-    self.send_response(404)
-    self.send_header("Content-Type", "audio/mpeg")
-    self.send_header("Cache-Control", "no-store, max-age=0")
-    self.end_headers()
-    self.wfile.write(b"404 Not Found\n")
+    handler.send_response(404)
+    handler.send_header("Content-Type", "audio/mpeg")
+    handler.send_header("Cache-Control", "no-store, max-age=0")
+    handler.end_headers()
+    handler.wfile.write(b"404 Not Found\n")
     return True
-
-
 def _is_private_ip(ip):
     """True for loopback, RFC1918, link-local, CGNAT, and documentation ranges.
     Used by the Domain Hub checker to refuse SSRF-style probes of internal
@@ -4685,6 +4752,21 @@ def _uv_pool_discard(c):
         pass
 
 
+def _uv_pool_drop(key):
+    """Close and forget every idle pooled connection for one host. Called
+    after a request died on a pooled conn - its siblings are likely corpses
+    too (CDNs close keep-alive sockets aggressively)."""
+    with _uv_pool_lock:
+        arr = _uv_pool.pop(key, None)
+    if not arr:
+        return
+    for c in arr:
+        try:
+            c.conn.close()
+        except Exception:
+            pass
+
+
 class _UVResp:
     """urllib-compatible readable response backed by a pooled connection.
     Reading to EOF marks the response complete so close() can return the
@@ -4778,6 +4860,14 @@ def _uv_open(url, post_body=None):
         resp = None
         err = None
         for _attempt in (1, 2):
+            if _attempt == 2:
+                # First try died on a pooled connection: Google's CDN and
+                # friends close keep-alive sockets aggressively, so ANY other
+                # idle conn for this host is likely dead too. Emptying the
+                # host's pool here is what turns a burst of 502s (one per
+                # parallel asset request, every one reusing a corpse) into a
+                # single silent retry on a fresh connection.
+                _uv_pool_drop(key)
             pooled = _uv_pool_take(key)
             try:
                 if pooled is None:
@@ -4845,6 +4935,14 @@ def _uv_wrap_url(value, base_url):
     # references from remote pages with a security error either way.
     if not v or v.startswith(("#", "data:", "blob:", "javascript:", "file:", "about:", "mailto:", "tel:")):
         return value
+    # Attribute values arrive HTML-escaped: href="...?a=1&amp;b=2" carries the
+    # literal text &amp;. Encoding it verbatim makes the upstream query string
+    # contain "&amp;" (Wikipedia's load.php then serves JS instead of CSS and
+    # nosniff blocks it - "no CSS on any site"). Decode the common escapes
+    # before encoding the route. Only http(s)/relative values reach here, so
+    # data:/blob: URLs keep their bytes untouched.
+    if "&" in v:
+        v = v.replace("&amp;", "&").replace("&#38;", "&").replace("&AMP;", "&")
     if v.startswith("//"):
         v = "https:" + v
     if not re.match(r"^https?://", v, re.I):
@@ -5093,6 +5191,15 @@ def _uv_rewrite_html(html, target, _depth=0):
             out.append(html[lt:])
             break
         tag_text = html[lt:end + 1]
+        if name == "link":
+            # Resource hints (preload/prefetch/preconnect) are noise through
+            # the proxy: the browser issues them against our origin in a form
+            # the proxy answers differently than the real CDN would, Firefox
+            # logs "preloaded but not used" warnings, and they never actually
+            # warm anything. Stylesheet/icon links still pass through.
+            if re.search(r"rel\s*=\s*[\"']?(?:preload|prefetch|preconnect|dns-prefetch|modulepreload)\b", tag_text, re.I):
+                i = end + 1
+                continue
         if name in _UV_RAW_TAGS:
             # Rewrite the opening tag (a <script src=...> must be proxied) but
             # keep the raw text content untouched - it's JS/HTML, not markup.
@@ -5159,8 +5266,13 @@ def _uv_inject_patch(html, target):
 def main():
     threading.Thread(target=_pruner, daemon=True).start()
     threading.Thread(target=_wp_warm_all, daemon=True).start()
-    httpd = ThreadingHTTPServer((HOST, PORT), Handler)
-    httpd.RequestHandlerClass.directory = WEB_ROOT
+    # SimpleHTTPRequestHandler.__init__ ignores class-level `directory` and
+    # falls back to os.getcwd(), so launching from server/ would 404 every
+    # static file. Pin the webroot explicitly (functools.partial passes the
+    # keyword through the handler call the server module makes).
+    import functools
+    handler = functools.partial(Handler, directory=WEB_ROOT)
+    httpd = ThreadingHTTPServer((HOST, PORT), handler)
     print(f"Chalkle server on http://{HOST}:{PORT}  (/_active viewers, /_fetch proxy)")
     httpd.serve_forever()
 

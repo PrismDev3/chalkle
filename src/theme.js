@@ -32,6 +32,20 @@
     } catch (e) { /* private mode: nothing to do */ }
   }
 
+  /* url() inside a CSS custom property resolves against the stylesheet that
+     USES the var (src/styles.css), not the document - so a relative path like
+     "assets/cursors/cursor-cat.png" silently becomes /src/assets/... and 404s.
+     Resolve every asset to an absolute document-relative URL up front; that
+     keeps cursors and wallpapers working on the real site, CDN subpaths and
+     file:// copies alike. */
+  function absAsset(path) {
+    try {
+      return new URL(path, document.baseURI).href;
+    } catch (e) {
+      return path;
+    }
+  }
+
   var CURSORS = {
     cat: { label: "cat", css: "url('assets/cursors/cursor-cat.png') 24 24, auto", preview: "assets/cursors/cursor-cat.png", hover: "assets/cursors/cursor-cat-hover.png" },
     "cat-black": { label: "black cat", css: "url('assets/cursors/cursor-cat-black.png') 24 24, auto", preview: "assets/cursors/cursor-cat-black.png", hover: "assets/cursors/cursor-cat-black-hover.png" },
@@ -50,9 +64,18 @@
     "korona.lat": { label: "korona.lat", css: "url('assets/cursors/cursor-korona.lat.png') 18 18, auto", preview: "assets/cursors/cursor-korona.lat.png", hover: "assets/cursors/cursor-korona.lat-hover.png" },
     none: { label: "default", css: "auto", preview: null }
   };
+  Object.keys(CURSORS).forEach(function (id) {
+    var c = CURSORS[id];
+    if (!c || !c.css) return;
+    var m = /^url\('([^']+)'\)(.*)$/.exec(c.css);
+    if (m) c.css = "url('" + absAsset(m[1]) + "')" + m[2];
+    if (c.preview) c.preview = absAsset(c.preview);
+    if (c.hover) c.hover = absAsset(c.hover);
+  });
 
   var WALLPAPERS = {
-    /* Relative - see the CURSORS note above (svgbulk <base> docs). */
+    /* Relative on purpose (subpath mirrors + file:// copies); absAsset makes
+       them absolute so the url() survives custom-property resolution. */
     chalk: "url('bg-chalk.webp')",
     aurora: "#20343b",
     sunset: "#4a1d2d",
@@ -63,6 +86,11 @@
     night: "#182437",
     forest: "#173525"
   };
+  Object.keys(WALLPAPERS).forEach(function (id) {
+    var v = WALLPAPERS[id];
+    var m = typeof v === "string" ? /^url\('([^']+)'\)$/.exec(v) : null;
+    if (m) WALLPAPERS[id] = "url('" + absAsset(m[1]) + "')";
+  });
 
   /* One-click theme presets (bg + accent). Palettes from the Interstellar /
      catppuccin collections - each renders a two-tone preview swatch. */
@@ -75,7 +103,9 @@
     sakura:    { label: "Sakura",    bg: "#2a1b26", accent: "#ff9e9e" },
     forest:    { label: "Forest",    bg: "#0e1712", accent: "#7dbf59" },
     sunset:    { label: "Sunset",    bg: "#22111d", accent: "#ff6b6b" },
-    amber:     { label: "Cyber Gold", bg: "#0d0c0a", accent: "#ff8c00" }
+    amber:     { label: "Cyber Gold", bg: "#0d0c0a", accent: "#ff8c00" },
+    midnight:  { label: "Midnight",  bg: "#0a1118", accent: "#5b93ff" },
+    graphite:  { label: "Graphite",  bg: "#131315", accent: "#c9cdd4" }
   };
 
   /* Chalkle CSS vars that the palette can drive. Category colors (--blue,

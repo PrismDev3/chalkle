@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Chalkle Circles</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<style>
+  :root{
+    --bg:#121216; --panel:#1b1b21; --panel2:#22222a; --border:#33333d;
+    --text:#f2f2f6; --dim:#9a9aa6; --accent:#ff66aa; --accent2:#66ccff;
+    --good:#7ddf7d; --mid:#ffd166; --bad:#ff5c5c;
+  }
+  *{box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;}
+  body{
+    background:var(--bg); color:var(--text); overflow:hidden;
+    font-family:"Segoe UI",system-ui,-apple-system,Arial,sans-serif;
+    display:flex; flex-direction:column;
+  }
+  .mono{font-family:Consolas,"Courier New",monospace;}
+
+  /* ---------- top bar ---------- */
+  #topbar{
+    flex:0 0 auto; display:flex; align-items:center; gap:10px;
+    padding:8px 12px; border-bottom:1px solid var(--border); background:var(--panel);
+  }
+  #topbar .logo{
+    width:22px; height:22px; border-radius:50%;
+    background:radial-gradient(circle at 35% 35%, var(--accent2), var(--accent));
+    border:2px solid #fff; box-shadow:0 0 0 3px var(--panel), 0 0 0 4px var(--border);
+  }
+  #topbar h1{font-size:14px; font-weight:600; letter-spacing:.4px;}
+  #backBtn{
+    margin-left:auto; font:inherit; font-size:12px; color:var(--dim);
+    background:var(--panel2); border:1px solid var(--border); border-radius:8px;
+    padding:6px 12px; cursor:pointer; transition:all .12s;
+  }
+  #backBtn:hover{color:var(--text); border-color:#4a4a58;}
+  #backBtn:active{transform:translateY(1px);}
+
+  /* ---------- views ---------- */
+  #stage{flex:1; position:relative; overflow:hidden;}
+  .view{position:absolute; inset:0; display:none; flex-direction:column; align-items:center; overflow:auto;}
+  .view.on{display:flex;}
+
+  /* ---------- menu ---------- */
+  #menu{justify-content:center; gap:18px; padding:24px;}
+  #menu .title{
+    font-size:clamp(26px,5vw,42px); font-weight:800; letter-spacing:1px;
+    background:linear-gradient(90deg,var(--accent2),var(--accent));
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+  }
+  #menu .sub{color:var(--dim); font-size:13px; margin-top:-10px;}
+  .songcard{
+    width:min(560px,94%); display:flex; align-items:center; gap:14px;
+    background:var(--panel); border:1px solid var(--border); border-radius:12px;
+    padding:14px 16px; cursor:pointer; transition:all .14s; text-align:left;
+  }
+  .songcard:hover{border-color:var(--accent); transform:translateY(-1px); box-shadow:0 6px 18px rgba(0,0,0,.35);}
+  .songcard:active{transform:translateY(0);}
+  .songcard .art{
+    flex:0 0 56px; height:56px; border-radius:8px;
+    display:flex; align-items:center; justify-content:center; font-size:26px;
+  }
+  .songcard .meta{flex:1; min-width:0;}
+  .songcard .name{font-size:16px; font-weight:600;}
+  .songcard .info{font-size:12px; color:var(--dim); margin-top:2px;}
+  .diffs{display:flex; gap:6px;}
+  .diff{
+    min-width:30px; height:22px; border-radius:6px; font-size:11px; font-weight:700;
+    display:flex; align-items:center; justify-content:center; color:#fff;
+  }
+  .d-easy{background:#66c96b;} .d-norm{background:#66b3ff;} .d-hard{background:#ffb84d;} .d-ins{background:#ff5c8a;}
+  .best{font-size:11px; color:var(--dim); margin-top:4px;}
+  #menu .hint{font-size:11px; color:var(--dim); text-align:center; line-height:1.7;}
+
+  /* ---------- play ---------- */
+  #play{background:#0c0c10;}
+  #playWrap{
+    position:relative; width:100%; max-width:900px; aspect-ratio:4/3;
+    margin:auto; border:1px solid var(--border); border-radius:10px; overflow:hidden;
+    background:radial-gradient(120% 90% at 50% 20%, #17171f 0%, #0c0c10 70%);
+  }
+  #cv{position:absolute; inset:0; width:100%; height:100%; touch-action:none; cursor:crosshair;}
+  #hud{
+    position:absolute; top:0; left:0; right:0; display:flex; gap:14px; align-items:center;
+    padding:8px 12px; font-size:12px; color:var(--dim); pointer-events:none;
+  }
+  #hud b{color:var(--text); font-size:15px;}
+  #combo{color:var(--accent2);}
+  #acc{margin-left:auto;}
+  #pauseBtn{
+    position:absolute; top:8px; right:8px; z-index:3; font:inherit; font-size:11px;
+    color:var(--dim); background:rgba(27,27,33,.85); border:1px solid var(--border);
+    border-radius:8px; padding:5px 10px; cursor:pointer;
+  }
+  #pauseBtn:hover{color:var(--text);}
+  #progress{
+    position:absolute; bottom:0; left:0; height:3px; width:0%;
+    background:linear-gradient(90deg,var(--accent2),var(--accent));
+  }
+  #pauseOverlay{
+    position:absolute; inset:0; z-index:4; display:none; align-items:center; justify-content:center;
+    background:rgba(10,10,14,.72); backdrop-filter:blur(2px);
+  }
+  #pauseOverlay.on{display:flex;}
+  #pauseBox{background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:22px 26px; text-align:center; display:flex; flex-direction:column; gap:10px;}
+  #pauseBox h2{font-size:16px;}
+  .pbtn{
+    font:inherit; font-size:13px; padding:8px 18px; border-radius:8px; cursor:pointer;
+    background:var(--panel2); color:var(--text); border:1px solid var(--border); transition:all .12s;
+  }
+  .pbtn:hover{border-color:var(--accent);}
+  .pbtn.primary{background:var(--accent); border-color:var(--accent); color:#fff;}
+
+  /* ---------- results ---------- */
+  #results{justify-content:center; gap:14px; padding:24px;}
+  #results .grade{
+    width:110px; height:110px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    font-size:44px; font-weight:900; color:#fff; text-shadow:0 2px 10px rgba(0,0,0,.4);
+  }
+  #results h2{font-size:22px;}
+  .stats{
+    width:min(420px,92%); border:1px solid var(--border); border-radius:12px;
+    background:var(--panel); padding:14px 18px; display:grid; grid-template-columns:1fr 1fr; gap:8px 24px; font-size:13px;
+  }
+  .stats .k{color:var(--dim);} .stats .v{text-align:right; font-weight:600;}
+  #againBtn{margin-top:6px;}
+  @media (max-width:640px){
+    #playWrap{aspect-ratio:auto; width:100vw; height:62vh; border-radius:0; border:none;}
+    .stats{grid-template-columns:1fr;}
+  }
+</style>
+</head>
+<body>
+  <div id="topbar">
+    <div class="logo"></div>
+    <h1>Chalkle Circles</h1>
+    <button id="backBtn" type="button">Back to Games</button>
+  </div>
+
+  <div id="stage">
+    <!-- ================= MENU ================= -->
+    <div class="view on" id="menu">
+      <div class="title">Chalkle Circles</div>
+      <div class="sub">an osu-style rhythm game</div>
+      <div id="songList" style="display:flex;flex-direction:column;gap:12px;width:100%;align-items:center;"></div>
+      <div class="hint">
+        Click / tap circles when the ring reaches the edge.<br>
+        Z = left click &nbsp; X = right click &nbsp; Esc = pause
+      </div>
+    </div>
+
+    <!-- ================= PLAY ================= -->
+    <div class="view" id="play">
+      <div id="playWrap">
+        <canvas id="cv"></canvas>
+        <div id="hud">
+          <span>Score <b id="score">0</b></span>
+          <span id="combo"></span>
+          <span id="acc">100.0%</span>
+        </div>
+        <button id="pauseBtn" type="button">Pause</button>
+        <div id="progress"></div>
+        <div id="pauseOverlay">
+          <div id="pauseBox">
+            <h2>Paused</h2>
+            <button class="pbtn primary" id="resumeBtn" type="button">Resume</button>
+            <button class="pbtn" id="retryBtn" type="button">Retry</button>
+            <button class="pbtn" id="quitBtn" type="button">Quit to menu</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= RESULTS ================= -->
+    <div class="view" id="results">
+      <div class="grade" id="grade">S</div>
+      <h2 id="rTitle">Song</h2>
+      <div class="stats">
+        <span class="k">Score</span><span class="v" id="rScore">0</span>
+        <span class="k">Accuracy</span><span class="v" id="rAcc">0%</span>
+        <span class="k">Max combo</span><span class="v" id="rCombo">0</span>
+        <span class="k">Perfect (300)</span><span class="v" id="r300">0</span>
+        <span class="k">Good (100)</span><span class="v" id="r100">0</span>
+        <span class="k">Miss</span><span class="v" id="rMiss">0</span>
+      </div>
+      <button class="pbtn primary" id="againBtn" type="button">Play again</button>
+    </div>
+  </div>
+
+<script>
+"use strict";
+/* Chalkle Circles - an original osu-style rhythm game built for Chalkle.
+   Everything (code, art, music) is made in-house: two synthesized tracks and
+   beatmaps generated on the same musical grid. No external assets. */
+
+var $ = function (id) { return document.getElementById(id); };
+
+/* ============================ data ============================ */
+var SONGS = [
+  { id: "neon-sprint", title: "Neon Sprint", art: "linear-gradient(135deg,#ff66aa,#66ccff)",
+    diffs: [{ name: "Easy", cls: "d-easy", ar: 6.5, cs: 4.2 },
+            { name: "Hard", cls: "d-hard", ar: 8.2, cs: 3.6 }] },
+  { id: "slow-orbit", title: "Slow Orbit", art: "linear-gradient(135deg,#7d5fff,#41e0c0)",
+    diffs: [{ name: "Easy", cls: "d-easy", ar: 6.0, cs: 4.4 },
+            { name: "Hard", cls: "d-hard", ar: 7.8, cs: 3.8 }] }
+];
+var MAPS = null;          // loaded beatmaps.json
+var bests = {};
+try { bests = JSON.parse(localStorage.getItem("chalkle-circles-bests") || "{}"); } catch (e) { bests = {}; }
+function saveBests() { try { localStorage.setItem("chalkle-circles-bests", JSON.stringify(bests)); } catch (e) {} }
+
+/* ============================ helpers ============================ */
+function show(view) {
+  ["menu", "play", "results"].forEach(function (v) { $(v).classList.toggle("on", v === view); });
+}
+function fmt(n) { return String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ","); }
+function arToMs(ar) { return ar < 5 ? 1800 - ar * 120 : 1200 - (ar - 5) * 150; }
+
+/* ============================ menu ============================ */
+function buildMenu() {
+  var list = $("songList");
+  list.innerHTML = "";
+  SONGS.forEach(function (song, si) {
+    var map = MAPS[song.id];
+    var card = document.createElement("button");
+    card.className = "songcard"; card.type = "button";
+    var diffHtml = song.diffs.map(function (d, di) {
+      var n = map[d.name.toLowerCase()];
+      return '<span class="diff ' + d.cls + '" data-di="' + di + '">' + n + '</span>';
+    }).join("");
+    var b = bests[song.id];
+    card.innerHTML =
+      '<div class="art" style="background:' + song.art + '">&#9711;</div>' +
+      '<div class="meta"><div class="name">' + song.title + '</div>' +
+      '<div class="info mono">' + map.objects.length + ' circles &middot; ' + Math.round(map.duration) + 's &middot; ' + map.bpm + ' BPM</div>' +
+      '<div class="best">' + (b ? "Best: " + fmt(b.score) + " (" + Math.round(b.acc * 100) + "%)" : "Not played yet") + '</div></div>' +
+      '<div class="diffs">' + diffHtml + '</div>';
+    card.addEventListener("click", function (e) {
+      var di = 0, t = e.target;
+      if (t.dataset && t.dataset.di !== undefined) di = +t.dataset.di;
+      startGame(song, di);
+    });
+    list.appendChild(card);
+  });
+}
+
+/* ============================ audio ============================ */
+var audio = null;
+function loadAudio(id) {
+  return new Promise(function (res, rej) {
+    var a = new Audio("songs/" + id + ".mp3");
+    a.preload = "auto";
+    a.addEventListener("canplaythrough", function ok() { a.removeEventListener("canplaythrough", ok); res(a); });
+    a.addEventListener("error", rej);
+    a.load();
+  });
+}
+
+/* ============================ game ============================ */
+var G = null; // game state
+
+function startGame(song, diffIdx) {
+  Promise.all([loadAudio(song.id), MAPS_READY]).then(function (arr) {
+    var a = arr[0];
+    var map = MAPS[song.id];
+    var d = song.diffs[diffIdx];
+    audio = a;
+    audio.currentTime = 0;
+
+    var cv = $("cv"), wrap = $("playWrap");
+    var dpr = Math.min(2, window.devicePixelRatio || 1);
+    var W = 512, H = 384;                        // osu-style playfield units
+    cv.width = wrap.clientWidth * dpr; cv.height = wrap.clientHeight * dpr;
+
+    G = {
+      song: song, diff: d, map: map,
+      objects: map.objects.map(function (o) {
+        return { x: o.x, y: o.y, t: o.t, hit: false, judged: false, fade: 1 };
+      }),
+      startClock: 0, audioOffset: 0.08,
+      approach: arToMs(d.ar),
+      radius: (54 - d.cs * 4.5),                  // osu-ish: bigger cs = smaller circles
+      score: 0, combo: 0, maxCombo: 0, hits: { 300: 0, 100: 0, 50: 0, miss: 0 },
+      sumAcc: 0, total: 0,
+      cursor: { x: W / 2, y: H / 2, down: false, btn: 0 },
+      running: true, paused: false, finished: false,
+      dpr: dpr, W: W, H: H
+    };
+    $("rTitle").textContent = song.title + " (" + d.name + ")";
+    show("play");
+    updateHud();
+    // brief lead-in delay so the first circle is approachable
+    audio.volume = 0.9;
+    audio.play().catch(function () {});
+    G.startClock = performance.now() + 900;
+    requestAnimationFrame(loop);
+  }).catch(function () {
+    alert("Audio failed to load - check your connection.");
+  });
+}
+
+function now() { return audio ? audio.currentTime * 1000 + G.audioOffset : 0; }
+function nowAbs() { return performance.now() - G.startClock; }  // includes lead-in
+function songTime() {
+  var t = nowAbs();
+  return t < 0 ? t : Math.min(t, G.map.duration * 1000 + 2000);
+}
+
+/* ---------- judging ---------- */
+function hitError(o, tms) { return tms - o.t; }
+function judge(err) {
+  var a = Math.abs(err);
+  if (a <= 40) return { v: 300, w: 1.0 };
+  if (a <= 90) return { v: 100, w: 0.5 };
+  if (a <= G.approach * 0.5) return { v: 50, w: 0.2 };
+  return null;
+}
+
+function onTap(x, y, btn) {
+  if (!G || G.paused || !G.running) return;
+  var tms = songTime();
+  var best = null, bestD2 = Infinity;
+  for (var i = 0; i < G.objects.length; i++) {
+    var o = G.objects[i];
+    if (o.hit || o.judged) continue;
+    var dt = o.t - tms;
+    if (dt > G.approach * 0.4) break;                    // not on screen yet
+    if (dt < -G.approach * 0.5) continue;                // already gone
+    var dx = o.x - x, dy = o.y - y;
+    var d2 = dx * dx + dy * dy;
+    if (d2 <= G.radius * G.radius && d2 < bestD2) { bestD2 = d2; best = o; }
+  }
+  if (!best) { comboBreak(); return; }
+  var j = judge(hitError(best, tms));
+  best.hit = true;
+  if (j) {
+    G.combo++; G.maxCombo = Math.max(G.maxCombo, G.combo);
+    G.score += j.v * (1 + Math.min(G.combo, 200) / 25);
+    G.hits[j.v]++; G.sumAcc += j.w; G.total++;
+  } else {
+    comboBreak(); G.hits.miss++; G.total++;
+  }
+  updateHud();
+}
+function comboBreak() { G.combo = 0; updateHud(); }
+
+function updateHud() {
+  $("score").textContent = fmt(G.score);
+  $("combo").textContent = G.combo > 0 ? G.combo + "x" : "";
+  var acc = G.total ? G.sumAcc / G.total : 1;
+  $("acc").textContent = (acc * 100).toFixed(1) + "%";
+}
+
+/* ---------- results ---------- */
+function finish() {
+  if (G.finished) return;
+  G.finished = true; G.running = false;
+  if (audio) audio.pause();
+  var total = G.total || 1;
+  var acc = G.sumAcc / total;
+  var grade = acc >= 0.95 ? "S" : acc >= 0.9 ? "A" : acc >= 0.8 ? "B" : acc >= 0.7 ? "C" : "D";
+  var g = $("grade");
+  g.textContent = grade;
+  g.style.background = grade === "S" ? "radial-gradient(circle at 35% 30%,#ffe27a,#ffb400)"
+    : grade === "A" ? "radial-gradient(circle at 35% 30%,#8ef58e,#2db32d)"
+    : grade === "B" ? "radial-gradient(circle at 35% 30%,#8ecbff,#2f7fd6)"
+    : grade === "C" ? "radial-gradient(circle at 35% 30%,#ffd08e,#d67f2f)"
+    : "radial-gradient(circle at 35% 30%,#ff9e9e,#c34a4a)";
+  $("rScore").textContent = fmt(G.score);
+  $("rAcc").textContent = (acc * 100).toFixed(1) + "%";
+  $("rCombo").textContent = G.maxCombo + "x";
+  $("r300").textContent = G.hits[300];
+  $("r100").textContent = G.hits[100];
+  $("rMiss").textContent = G.hits.miss;
+  var b = bests[G.song.id];
+  if (!b || G.score > b.score) {
+    bests[G.song.id] = { score: G.score, acc: acc };
+    saveBests();
+  }
+  show("results");
+  buildMenu();
+}
+
+/* ---------- input ---------- */
+function toField(e) {
+  var cv = $("cv"), r = cv.getBoundingClientRect();
+  var cx = (e.touches ? e.touches[0].clientX : e.clientX) - r.left;
+  var cy = (e.touches ? e.touches[0].clientY : e.clientY) - r.top;
+  return { x: cx / r.width * G.W, y: cy / r.height * G.H };
+}
+$("cv").addEventListener("mousedown", function (e) { e.preventDefault(); var p = toField(e); onTap(p.x, p.y, e.button); });
+$("cv").addEventListener("touchstart", function (e) { e.preventDefault(); var p = toField(e); onTap(p.x, p.y, 0); }, { passive: false });
+window.addEventListener("keydown", function (e) {
+  if (!G || !$("play").classList.contains("on")) return;
+  if (e.key === "z" || e.key === "Z") { var p = G.cursor; onTap(p.x, p.y, 0); }
+  else if (e.key === "x" || e.key === "X") { var p2 = G.cursor; onTap(p2.x, p2.y, 2); }
+  else if (e.key === "Escape") { togglePause(); }
+});
+$("cv").addEventListener("mousemove", function (e) { if (G) { var p = toField(e); G.cursor.x = p.x; G.cursor.y = p.y; } });
+
+/* ---------- pause ---------- */
+function togglePause(force) {
+  if (!G || G.finished) return;
+  var to = force !== undefined ? force : !G.paused;
+  if (to === G.paused) return;
+  G.paused = to;
+  $("pauseOverlay").classList.toggle("on", to);
+  if (to) { audio.pause(); }
+  else { audio.play().catch(function () {}); G.startClock = performance.now() - audio.currentTime * 1000; }
+}
+$("pauseBtn").addEventListener("click", function () { togglePause(); });
+$("resumeBtn").addEventListener("click", function () { togglePause(false); });
+$("retryBtn").addEventListener("click", function () { var s = G.song, d = SONGS.indexOf(G.song); togglePause(false); startGame(s, 0); });
+$("quitBtn").addEventListener("click", function () { togglePause(false); G.finished = true; G.running = false; if (audio) audio.pause(); show("menu"); });
+
+/* ---------- main loop ---------- */
+var last = 0;
+function loop(ts) {
+  if (!G || !G.running) return;
+  if (!G.paused) {
+    draw();
+    // auto-judge missed circles
+    var tms = songTime();
+    for (var i = 0; i < G.objects.length; i++) {
+      var o = G.objects[i];
+      if (!o.hit && !o.judged && tms - o.t > G.approach * 0.5) {
+        o.judged = true; comboBreak(); G.hits.miss++; G.total++; updateHud();
+      }
+    }
+    var end = (G.objects.length ? G.objects[G.objects.length - 1].t : G.map.duration * 1000) + 800;
+    if (tms >= end) { finish(); return; }
+    $("progress").style.width = Math.min(100, Math.max(0, tms / end * 100)) + "%";
+  }
+  requestAnimationFrame(loop);
+}
+
+/* ---------- drawing ---------- */
+function draw() {
+  var cv = $("cv"), ctx = cv.getContext("2d");
+  var w = cv.width, h = cv.height, dpr = G.dpr;
+  var tms = songTime();
+  ctx.clearRect(0, 0, w, h);
+
+  var sx = w / G.W, sy = h / G.H;
+  var R = G.radius * sx;
+
+  // subtle grid
+  ctx.strokeStyle = "rgba(255,255,255,0.045)"; ctx.lineWidth = 1;
+  for (var gx = 0; gx < w; gx += 64 * dpr) { ctx.beginPath(); ctx.moveTo(gx, 0); ctx.lineTo(gx, h); ctx.stroke(); }
+  for (var gy = 0; gy < h; gy += 64 * dpr) { ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(w, gy); ctx.stroke(); }
+
+  for (var i = 0; i < G.objects.length; i++) {
+    var o = G.objects[i];
+    var dt = o.t - tms;
+    if (dt > G.approach) continue;                     // not yet
+    if (o.hit || o.judged) {
+      if (o.hit && o.fade > 0) {                       // pop animation
+        o.fade -= 0.12;
+        var px = o.x * sx, py = o.y * sy;
+        ctx.globalAlpha = Math.max(0, o.fade);
+        ctx.strokeStyle = "#7ddf7d"; ctx.lineWidth = 3 * dpr;
+        ctx.beginPath(); ctx.arc(px, py, R * (1.35 - o.fade * 0.35), 0, 7); ctx.stroke();
+        ctx.globalAlpha = 1;
+      }
+      continue;
+    }
+    var x = o.x * sx, y = o.y * sy;
+    var k = Math.max(0, Math.min(1, 1 - dt / G.approach));   // 0 spawn -> 1 hit time
+
+    // approach ring
+    if (k < 1) {
+      ctx.strokeStyle = "rgba(255,255,255,0.85)"; ctx.lineWidth = 2.2 * dpr;
+      ctx.beginPath(); ctx.arc(x, y, R * (1 + (1 - k) * 2.4), 0, 7); ctx.stroke();
+    }
+    // circle body
+    var grad = ctx.createRadialGradient(x - R * 0.3, y - R * 0.35, R * 0.1, x, y, R);
+    grad.addColorStop(0, "#7f8dff"); grad.addColorStop(1, "#3c47c9");
+    ctx.fillStyle = grad;
+    ctx.beginPath(); ctx.arc(x, y, R, 0, 7); ctx.fill();
+    ctx.strokeStyle = "#eef0ff"; ctx.lineWidth = 2.5 * dpr;
+    ctx.beginPath(); ctx.arc(x, y, R, 0, 7); ctx.stroke();
+    // combo number = index+1 mod 9, osu-flavour
+    ctx.fillStyle = "#fff"; ctx.font = "600 " + Math.round(R * 0.7) + "px 'Segoe UI',sans-serif";
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText(String((i % 9) + 1), x, y + R * 0.04);
+  }
+
+  // cursor
+  var cxp = G.cursor.x * sx, cyp = G.cursor.y * sy;
+  ctx.strokeStyle = "#ff66aa"; ctx.lineWidth = 2 * dpr;
+  ctx.beginPath(); ctx.arc(cxp, cyp, 9 * dpr, 0, 7); ctx.stroke();
+  ctx.fillStyle = "rgba(255,102,170,.5)";
+  ctx.beginPath(); ctx.arc(cxp, cyp, 3.4 * dpr, 0, 7); ctx.fill();
+}
+
+/* ============================ boot ============================ */
+var MAPS_READY = fetch("songs/beatmaps.json").then(function (r) { return r.json(); })
+  .then(function (j) { MAPS = {}; j.forEach(function (m) { MAPS[m.title.toLowerCase().replace(/\s+/g, "-")] = m; }); buildMenu(); })
+  .catch(function () {
+    $("songList").innerHTML = '<div style="color:var(--dim)">Could not load beatmaps.</div>';
+  });
+
+$("backBtn").addEventListener("click", function () {
+  if (G && !G.finished) { G.finished = true; G.running = false; }
+  if (audio) audio.pause();
+  if (parent !== window) { try { parent.postMessage({ type: "chalkle-game-back" }, "*"); } catch (e) {} }
+  history.length > 1 ? history.back() : (location.href = "/");
+});
+$("againBtn").addEventListener("click", function () { show("menu"); });
+
+window.addEventListener("resize", function () {
+  if (!$("play").classList.contains("on") || !G) return;
+  var wrap = $("playWrap"), cv = $("cv");
+  cv.width = wrap.clientWidth * G.dpr; cv.height = wrap.clientHeight * G.dpr;
+});
+</script>
+</body>
+</html>

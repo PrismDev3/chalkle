@@ -1,0 +1,18 @@
+[
+  {
+    "id": "chalkle-dash",
+    "title": "Chalkle Dash",
+    "title_lang": { "ja": null, "en": "Chalkle Dash", "cn": null, "tw": null, "ko": null },
+    "subtitle": "Chalkle Original",
+    "subtitle_lang": { "ja": null, "en": "Chalkle Original", "cn": null, "tw": null, "ko": null },
+    "category": 7,
+    "type": "tja",
+    "music_type": "mp3",
+    "courses": {
+      "easy": { "stars": 2 },
+      "normal": { "stars": 4 },
+      "hard": { "stars": 6 },
+      "oni": { "stars": 8 }
+    }
+  }
+]

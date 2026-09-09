@@ -100,18 +100,27 @@
     fetch(origin + "/uv/", { method: "GET", cache: "no-store" })
       .then(function (r) {
         if (r.ok) { uvStatus = true; uvSeenSet(true); return; }
-        /* Not the proxy we know (404 on static hosts). Two more tries in
-           case the server is mid-restart, then advertise nothing. */
-        if (uvAttempts < 3) { setTimeout(probeBuiltinProxy, 900 * uvAttempts); return; }
+        /* Not the proxy we know (404 on static hosts). Downgrade fast so a
+           mirror never keeps sending tabs into a dead /uv, then two more
+           tries in case the server is mid-restart. */
         uvStatus = false;
+        if (uvAttempts < 3) { setTimeout(probeBuiltinProxy, 900 * uvAttempts); return; }
         uvSeenSet(false);
       })
       .catch(function () {
-        if (uvAttempts < 3) { setTimeout(probeBuiltinProxy, 900 * uvAttempts); return; }
         uvStatus = false;
+        if (uvAttempts < 3) { setTimeout(probeBuiltinProxy, 900 * uvAttempts); return; }
         uvSeenSet(false);
       });
   }
+  /* Optimistic start on real http(s) origins: the built-in /uv route exists
+     on the hosted site, so browser tabs can route through it immediately
+     instead of waiting for the async probe - a search sent out direct in
+     that window gets X-Frame-Options-blocked. file:// and opaque origins
+     (single-file build) never get the flag; the probe downgrades it fast on
+     mirrors where /uv does not exist. */
+  var bootOrigin = usableOrigin();
+  if (bootOrigin && !/^file:/i.test(String(location.protocol || ""))) uvStatus = true;
   probeBuiltinProxy();
 
   function builtinProxy() {
@@ -145,18 +154,11 @@
     return hosted || null;
   }
 
-  /* Open a URL in the in-app frame overlay. Used as the fallback when a
-     popup is blocked, and by the overlay's own controls. */
-  function inAppFrame(url, title) {
-    var overlay = document.getElementById("proxy-overlay");
-    var frame = document.getElementById("proxy-frame");
-    if (!overlay || !frame) return false;
-    pauseMusicForTarget(url);
-    var label = document.getElementById("overlay-title");
-    if (label) label.textContent = title || "Playing";
-    var notice = document.getElementById("overlay-notice");
-    if (notice) notice.hidden = true;
-    var ext = document.getElementById("overlay-ext");
+  /* Resolve a game target to the URL the in-app player or browser should
+     load: single-file embeds first, then proxy routing for external hosts.
+     Shared by the in-app browser and the game player, so both surfaces load
+     exactly the same payload. */
+  function playTarget(url) {
     var target = String(url || "");
     /* Single-file builds: resolve embedded local games before framing. */
     var emb = singleFileEmbed(target);
@@ -165,12 +167,21 @@
     if (p && /^https?:/i.test(target) && !shouldOpenDirect(target)) {
       target = routeProxy(target, p.url, p.mode === "frame" || !!p.hashRoute);
     }
+    return target;
+  }
+
+  /* Open a URL in the in-app browser (ChalkleBrowser when loaded, otherwise
+     the legacy overlay). Used as the fallback when a popup is blocked, and
+     by the "In-app frame" launch choice. Routing (single-file embeds, proxy
+     rewriting) is resolved HERE, before the browser ever sees the target. */
+  function inAppFrame(url, title) {
+    pauseMusicForTarget(url);
+    var target = playTarget(url);
     window.ChalkleLaunch.lastOpenUrl = target;
-    if (ext) ext.href = target;
-    frame.src = target;
-    overlay.hidden = false;
-    document.body.style.overflow = "hidden";
-    return true;
+    if (window.ChalkleBrowser && window.ChalkleBrowser.open) {
+      return window.ChalkleBrowser.open(target, title || "Playing");
+    }
+    return false;
   }
 
   /* Redirector shell. External links (apps/tools/proxy sites) open as
@@ -454,7 +465,7 @@
       'iframe{position:fixed;inset:0;width:100vw;height:100vh;border:0;background:#fff}' +
       '</style>' +
       '</head><body>' +
-      '<iframe id="gameFrame" src="about:blank" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-orientation-lock allow-pointer-lock allow-presentation" allow="fullscreen; autoplay; clipboard-write; picture-in-picture" allowfullscreen></iframe>' +
+      '<iframe id="gameFrame" src="about:blank" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-orientation-lock allow-pointer-lock allow-presentation" allow="' + ((window.ChalkleApi && ChalkleApi.iframeAllow) ? ChalkleApi.iframeAllow() + "; gamepad" : "fullscreen; picture-in-picture; gamepad") + '" allowfullscreen></iframe>' +
       '<script>' +
       '(function(){' +
       '  var locked = false;' +
@@ -638,6 +649,8 @@
     openDirect: openDirect,
     openProxy: openProxy,
     openProxyApp: openProxyApp,
+    playTarget: playTarget,
+    pauseMusicForTarget: pauseMusicForTarget,
     openShell: openShell,
     shellUrl: shellUrl,
     openSiteProxied: openSiteProxied,

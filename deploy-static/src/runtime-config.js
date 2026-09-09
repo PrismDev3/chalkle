@@ -36,6 +36,20 @@
   }
 
   window.ChalkleApi = {
+    /* Chromium is the only engine that enforces iframe @allow; Firefox logs
+       a "Feature Policy: Skipping unsupported feature name" warning for
+       every name it doesn't implement (autoplay, clipboard-*). Firefox
+       ignores @allow entirely, so giving it the short list loses nothing
+       and silences the console spam. */
+    iframeAllow: function () {
+      try {
+        var ua = navigator.userAgent || "";
+        if (ua.indexOf("Chrome/") !== -1 || ua.indexOf("Chromium/") !== -1 || ua.indexOf("Edg/") !== -1) {
+          return "fullscreen; autoplay; clipboard-read; clipboard-write; picture-in-picture";
+        }
+      } catch (e) { /* fall through */ }
+      return "fullscreen; picture-in-picture";
+    },
     isMirror: isMirror,
     root: root,
     url: function (path) {

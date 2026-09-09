@@ -382,7 +382,7 @@
       ready: function (url) {
         var stage = document.getElementById("cloud-player-stage");
         if (!stage) return;
-        stage.innerHTML = '<iframe class="cloud-player-frame" src="' + esc(url) + '" title="Cloud game" allow="autoplay; fullscreen; gamepad; clipboard-write" allowfullscreen></iframe>';
+        stage.innerHTML = '<iframe class="cloud-player-frame" src="' + esc(url) + '" title="Cloud game" allow="' + ((window.ChalkleApi && ChalkleApi.iframeAllow) ? ChalkleApi.iframeAllow() : "fullscreen; picture-in-picture") + '" allowfullscreen></iframe>';
       },
       fail: function (msg) {
         var stage = document.getElementById("cloud-player-stage");

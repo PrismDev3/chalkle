@@ -272,7 +272,6 @@
   var GRID_IDS = {
     home: null,
     games: "games-grid",
-    sites: "sites-grid",
     music: "music-grid",
     "apps-tools": "apps-grid",
     proxies: "proxies-grid"
@@ -281,7 +280,6 @@
   var EMPTY_IDS = {
     home: null,
     games: "games-empty",
-    sites: "sites-empty",
     music: "music-empty",
     "apps-tools": "apps-empty",
     proxies: "proxies-empty"
@@ -296,7 +294,6 @@
   var SORT_KEY = "chalkle-game-sort";
   var RECENTS_KEY = "chalkle-game-recents";
 
-  var currentProxy = null;
 
   var state = {
     view: "home",
@@ -452,19 +449,36 @@
     }
     if (!has("gjsd")) { list.push({ name: "GJSD", url: "https://gjsd.yan.ch/", mode: "frame", icon: "/assets/proxies/gjsd.png" }); dirty = true; }
     if (!has("ovokee")) { list.push({ name: "Ovokee", url: "https://ovokee.sbs/", mode: "frame", credit: "kelvin9rant", icon: "/assets/proxies/ovokee.png" }); dirty = true; }
-    /* SerumOS instances (hash route + service worker), credit c0mrade. */
-    [
-      "swiftnet8420", "clearzone8524", "litezone9637", "meganet1958", "brightlink8769",
-      "megaweb8626", "swiftgrid8322", "nextnet5497", "cleanwave3711", "cleanzone3531",
-      "ultracdn5100", "superhost8321", "nextbeam4305", "megacore4871", "swiftcdn8722",
-      "superweb7539", "boldnet2503", "megagrid9752", "nextnode6517", "litesite4767"
-    ].forEach(function (host, idx) {
-      var nm = "serium " + (idx + 1);
-      if (!has(nm)) {
-        list.push({ name: "Serium " + (idx + 1), url: "https://" + host + ".b-cdn.net/", mode: "frame", credit: "c0mrade", icon: seriumIcon(idx + 1) });
+    /* SerumOS is one proxy (hash route + service worker), credit c0mrade.
+       Older builds seeded 20 numbered CDN mirrors of it; collapse any saved
+       copies into a single "Serium" card so the tab shows one of each proxy. */
+    var seriumSeen = false;
+    list = list.filter(function (p) {
+      if (!p || !/^serium/i.test(String(p.name || ""))) return true;
+      if (!seriumSeen) {
+        seriumSeen = true;
+        p.name = "Serium";
         dirty = true;
+        return true;
       }
+      dirty = true;
+      return false;
     });
+    if (!has("serium")) {
+      list.push({ name: "Serium", url: "https://swiftnet8420.b-cdn.net/", mode: "frame", credit: "c0mrade", icon: "/assets/proxies/serium-01.svg" });
+      dirty = true;
+    }
+    /* Drop any other entry pointing at the same SerumOS mirror (some saved
+       copies carry the mirror under their own names). */
+    var seriumUrl = "";
+    list.forEach(function (p) { if (p && p.name === "Serium") seriumUrl = String(p.url || ""); });
+    if (seriumUrl) {
+      list = list.filter(function (p) {
+        if (p && p.name === "Serium") return true;
+        if (p && String(p.url || "") === seriumUrl) { dirty = true; return false; }
+        return true;
+      });
+    }
     /* Backfill brand icons onto earlier saved copies (they were seeded before
        icons existed) so every card shows the real logo. */
     list.forEach(function (p) {
@@ -475,7 +489,7 @@
       else if (nm === "ovokee") want = "/assets/proxies/ovokee.png";
       else if (nm.indexOf("serium") === 0) {
         var mSer = String(p.name || "").match(/serium\s*(\d{1,2})/i);
-        want = mSer ? seriumIcon(parseInt(mSer[1], 10)) : "/assets/proxies/serium.png";
+        want = mSer ? seriumIcon(parseInt(mSer[1], 10)) : "/assets/proxies/serium-01.svg";
       }
       if (want && p.icon !== want) { p.icon = want; dirty = true; }
     });
@@ -634,39 +648,15 @@
       return;
     }
 
-    var frame = $("#proxy-frame");
-    var title = $("#overlay-title");
-    var overlay = $("#proxy-overlay");
-    var notice = $("#overlay-notice");
-    var fallback = $("#overlay-open-fallback");
-    if (!frame || !overlay) return;
-
-    title.textContent = p.name;
-    currentProxy = p;
-    if (fallback) fallback.href = isLocalFileUrl(p.url) ? "#" : p.url;
-    if (notice) notice.hidden = !looksFrameBlocked(p.url);
-    frame.src = p.url;
-    overlay.hidden = false;
-    document.body.style.overflow = "hidden";
-  }
-
-  function looksFrameBlocked(url) {
-    try {
-      var host = new URL(url).hostname.toLowerCase();
-      return host.indexOf("minecraft") !== -1 || host.indexOf("eagler") !== -1 || host.indexOf("google") !== -1;
-    } catch (e) {
-      return false;
-    }
+    /* Proxy cards pass their URL through untouched (it is already a proxy
+       route; re-routing would double-wrap it). */
+    window.ChalkleBrowser.open(p.url, p.name, { raw: true });
   }
 
   function closeOverlay() {
-    var overlay = $("#proxy-overlay");
-    var frame = $("#proxy-frame");
-    var notice = $("#overlay-notice");
-    if (overlay) overlay.hidden = true;
-    if (notice) notice.hidden = true;
-    if (frame) frame.src = "about:blank";
-    currentProxy = null;
+    if (window.ChalkleBrowser && window.ChalkleBrowser.close) {
+      window.ChalkleBrowser.close();
+    }
     document.body.style.overflow = "";
   }
 
@@ -904,6 +894,9 @@
   }
 
   function setView(view) {
+    /* Removed tabs (Sites, Board) never render; anything left pointing at
+       them falls back to Home instead of a blank section. */
+    if (view === "sites" || view === "board") view = "home";
     state.view = view;
     persist("chalkle-last-view", view);
     closeMoreNav();
@@ -1002,7 +995,6 @@
 
   var SEARCH_TABS = [
     { view: "games", label: "Games" },
-    { view: "sites", label: "Sites" },
     { view: "apps-tools", label: "Apps" }
   ];
 
@@ -1069,12 +1061,28 @@
     out.sort(function (a, b) {
       var byScore = (b.__score || 0) - (a.__score || 0);
       if (byScore) return byScore;
-      var rank = { "apps-tools": 0, games: 1, sites: 2 };
+      var rank = { "apps-tools": 0, games: 1 };
       var dv = (rank[a.__view] || 3) - (rank[b.__view] || 3);
       if (dv) return dv;
       return String(a.title || "").localeCompare(String(b.title || ""));
     });
     return out.slice(0, SEARCH_MAX);
+  }
+
+  /* The dropdown is fixed-positioned: anchor it under whichever search
+     field is focused (top bar or Home launcher). */
+  function positionSearchResults() {
+    var box = $("#search-results");
+    if (!box || box.hidden) return;
+    var src = document.activeElement;
+    var anchor = (src && (src.id === "search-input" || src.id === "home-search-input"))
+      ? src
+      : (els.search || null);
+    if (!anchor || !anchor.getBoundingClientRect) return;
+    var r = anchor.getBoundingClientRect();
+    box.style.top = Math.round(r.bottom + 8) + "px";
+    box.style.left = Math.round(r.left) + "px";
+    box.style.width = Math.round(r.width) + "px";
   }
 
   function renderSearchResults(q) {
@@ -1085,12 +1093,13 @@
     searchFocusList = list;
     if (!list.length) {
       box.hidden = false;
+      positionSearchResults();
       box.innerHTML =
         '<div class="search-empty">' +
         '<div class="search-empty-title">' + escapeHtml("No matches for \u201C" + (q || "") + "\u201D") + "</div>" +
         '<div class="search-empty-tip">Check the spelling, or try a shorter name. Still stuck? Jump straight into a section.</div>' +
         '<div class="search-empty-jumps">' +
-        ["games", "sites", "apps-tools", "music", "cloud"].map(function (v) {
+        ["games", "apps-tools", "music", "cloud"].map(function (v) {
           var label = { "apps-tools": "Apps", music: "Music", cloud: "Cloud" }[v] ||
             ((SEARCH_TABS.find(function (t) { return t.view === v; }) || {}).label || v);
           return '<button class="search-empty-jump" data-search-go="' + v + '">' + escapeHtml(label) + "</button>";
@@ -1119,6 +1128,7 @@
         "</button>";
     });
     box.hidden = false;
+    positionSearchResults();
     box.innerHTML = html;
 
     box.querySelectorAll("[data-search-i]").forEach(function (btn) {
@@ -1227,10 +1237,19 @@
   }
 
   /* Built-in proxied browser page (browser.html). Opens in its own tab -
-     it's a full address-bar browser, not a card you embed. */
+     it's a full address-bar browser, not a card you embed. Single-file
+     builds embed it (same trick as movies/chat) so the Browser tool works
+     offline and on mirrors. */
+  function browserPageUrl() {
+    try {
+      var map = window.__SINGLE_GAMES__;
+      if (map && map["/browser.html"]) return map["/browser.html"];
+    } catch (e) { /* no single-file map */ }
+    return "/browser.html";
+  }
   function openBrowser() {
     var win = null;
-    try { win = window.open("/browser.html", "_blank"); } catch (e) { /* ignore */ }
+    try { win = window.open(browserPageUrl(), "_blank"); } catch (e) { /* ignore */ }
     if (win) {
       try { win.document.title = (window.ChalkleCloakTitle || "Home") + ""; } catch (e) { /* cross-origin - can't set title */ }
     }
@@ -1244,6 +1263,18 @@
        already run (repeat visits skip the intro, so this fires at script
        eval) or will run once the intro finishes. */
     window.__chalkleRendered = true;
+    /* Auto-open About:blank when enabled: exactly one quiet attempt per page
+       load, 1.5s in so the click-through intro has finished. Browsers refuse
+       programmatic popups without a user gesture, so a blocked attempt stays
+       silent - no retry loop, no nagging. */
+    try {
+      if (!window.__chalkleAbAutoTried && readPref("chalkle-about-blank-auto") === "1") {
+        window.__chalkleAbAutoTried = true;
+        setTimeout(function () {
+          if (window.ChalkleAboutBlank) window.ChalkleAboutBlank.openSilent();
+        }, 1500);
+      }
+    } catch (e) { /* no storage */ }
     /* Come back to the last open tab instead of always landing on Home. */
     try {
       var lastView = localStorage.getItem("chalkle-last-view") || "";
@@ -1269,9 +1300,10 @@
 
   /* ---------- Generic rendering ---------- */
 
-  function card(item) {
-    var title = escapeHtml(item.title || "Untitled");
-    var rawTitle = item.title || "Untitled";
+  /* Shared thumbnail builder: artwork fill + controller-icon fallback + a
+     favicon rescue for remote URLs. Used by the classic card (sites) and the
+     artwork-first game card. */
+  function gameThumbInner(item) {
     var host = "";
     try {
       host = item.url ? new URL(item.url).hostname.replace(/^www\./, "") : "";
@@ -1320,15 +1352,25 @@
     if (rasterThumb) thumbLooksLikeIcon = false;
     var fallbackAttr = faviconUrl ? ' data-fallback="' + escapeAttr(faviconUrl) + '"' : "";
 
-    var thumb;
     if (safeThumb) {
       var renderedThumb = item.__rasterThumb || item.thumb;
-      thumb = fallbackHtml + '<img class="thumb-art' + (thumbLooksLikeIcon ? ' thumb-icon' : '') + '" src="' + escapeAttr(renderedThumb) + '"' + fallbackAttr + ' alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.onerror=null;this.classList.add(\'thumb-failed\');' + (faviconUrl ? 'this.src=this.dataset.fallback;this.classList.add(\'thumb-icon\');' : 'this.remove();') + '">';
-    } else if (faviconUrl) {
-      thumb = fallbackHtml + '<img class="thumb-art thumb-icon" src="' + escapeAttr(faviconUrl) + '" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.classList.add(\'thumb-failed\');this.remove()">';
-    } else {
-      thumb = fallbackHtml;
+      return fallbackHtml + '<img class="thumb-art' + (thumbLooksLikeIcon ? ' thumb-icon' : '') + '" src="' + escapeAttr(renderedThumb) + '"' + fallbackAttr + ' alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.onerror=null;this.classList.add(\'thumb-failed\');' + (faviconUrl ? 'this.src=this.dataset.fallback;this.classList.add(\'thumb-icon\');' : 'this.remove();') + '">';
     }
+    if (faviconUrl) {
+      return fallbackHtml + '<img class="thumb-art thumb-icon" src="' + escapeAttr(faviconUrl) + '" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.classList.add(\'thumb-failed\');this.remove()">';
+    }
+    return fallbackHtml;
+  }
+
+  function card(item) {
+    var title = escapeHtml(item.title || "Untitled");
+    var rawTitle = item.title || "Untitled";
+    var host = "";
+    try {
+      host = item.url ? new URL(item.url).hostname.replace(/^www\./, "") : "";
+    } catch (e) { /* bad URL, leave host empty */ }
+
+    var thumb = gameThumbInner(item);
 
     var creditTxt = item.porter ? "web port by " + escapeHtml(item.porter) : (item.credit ? "by " + escapeHtml(item.credit) : "");
     var porter = creditTxt ? '<span class="card-sub">' + creditTxt + "</span>" : "";
@@ -1379,6 +1421,62 @@
       '<span class="card-body">' +
       '<span class="card-main"><span class="card-title" title="' + dataTooltip + '">' + title + "</span>" + category + badge + porter + "</span>" +
       '<span class="card-side"><span class="card-source">' + escapeHtml(source) + sourceLink + '</span><span class="card-count">' + countLabel + "</span></span>" +
+      "</span>" +
+      "</a>" +
+      "</article>"
+    );
+  }
+
+  /* The Games-library card: artwork fills the tile, with one compact meta
+     line under the title. Same delegated data attributes as the classic
+     card, so favorites, the proxy escape hatch, the open-with menu and the
+     launch flow all keep working untouched. */
+  function gameCard(item) {
+    var rawTitle = item.title || "Untitled";
+    var title = escapeHtml(rawTitle);
+    var thumb = gameThumbInner(item);
+
+    var creditTxt = item.porter ? "web port by " + escapeHtml(item.porter) : (item.credit ? "by " + escapeHtml(item.credit) : "");
+    var source = item.sourceLabel || (item.porter ? "PC port" : "");
+    var key = gameKey(item);
+    var clicks = state.clicks[key] || 0;
+    var fav = !!state.favs[key];
+
+    var metaBits = [];
+    if (item.category) metaBits.push('<span class="card-cat">' + escapeHtml(item.category) + "</span>");
+    if (source) metaBits.push('<span class="card-src">' + escapeHtml(source) + "</span>");
+    if (creditTxt) metaBits.push('<span class="card-src">' + creditTxt + "</span>");
+    if (clicks > 0) metaBits.push('<span class="card-src card-plays">' + (clicks === 1 ? "1 play" : clicks + " plays") + "</span>");
+    var meta = metaBits.length ? '<span class="card-meta">' + metaBits.join('<span class="meta-sep" aria-hidden="true">&middot;</span>') + "</span>" : "";
+    var sourceLink = item.sourceRepo ? '<span class="card-source-link" data-credit-repo="' + escapeAttr(item.sourceRepo) + '" title="View source repository (open source game)">' + escapeHtml(item.license ? item.license + " source" : "Source") + '</span>' : "";
+    var htmlAttr = (item.html && String(item.html).trim()) ? ' data-html="' + escapeAttr(item.html) + '"' : "";
+    var hostedHere = !!(item.url && window.ChalkleLaunch && window.ChalkleLaunch.isLocalPlayUrl && window.ChalkleLaunch.isLocalPlayUrl(item.url));
+    var directAttr = (item.directOnly || hostedHere) ? ' data-direct-only="1"' : "";
+    var canProxy = !!(item.url && /^https?:/i.test(item.url) && !item.directOnly && !hostedHere);
+    var proxyBtn = canProxy
+      ? '<button class="proxy-btn" data-game-proxy="' + escapeAttr(item.url) + '" data-title="' + escapeAttr(rawTitle) + '" aria-label="Open through Chalkle proxy" title="Blocked on your network? Open through Chalkle\'s proxy">' +
+        '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l7 2.6v5.1c0 4.4-2.9 7.6-7 9.3-4.1-1.7-7-4.9-7-9.3V6.1z"/></svg></button>'
+      : "";
+
+    var href = safeHref(item.url);
+    var tooltip = rawTitle + (item.url ? "\n" + item.url : (item.html ? "\nHTML code" : ""));
+    var ribbon = item.isNew ? '<span class="ribbon">New this week</span>' : "";
+
+    return (
+      '<article class="card game-card">' +
+      '<button class="fav-btn ' + (fav ? "is-fav" : "") + '" data-fav="' + escapeAttr(key) + '" aria-label="' + (fav ? "Remove favorite" : "Add favorite") + '">' +
+      '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.8l2.5 5 5.5.8-4 3.9.9 5.5-4.9-2.6L7.1 19l.9-5.5-4-3.9 5.5-.8z"/></svg>' +
+      "</button>" +
+      proxyBtn +
+      '<button class="open-with" data-open-with data-url="' + escapeAttr(item.url || "") + '"' + (item.html ? ' data-html="' + escapeAttr(item.html) + '"' : "") + ' data-title="' + escapeAttr(rawTitle) + '" aria-label="Choose how to open" title="Choose how to open">' +
+      '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 6.5v.1M12 12v.1M12 17.5v.1"/></svg>' +
+      "</button>" +
+      '<a class="game-launch" href="' + href + '" data-launch="1" data-url="' + href + '" data-title="' + escapeAttr(rawTitle) + '"' + htmlAttr + directAttr + ' title="' + escapeAttr(tooltip) + '">' +
+      ribbon +
+      '<span class="card-thumb">' + thumb + '<span class="quick-launch">Launch</span></span>' +
+      '<span class="card-body">' +
+      '<span class="card-title" title="' + escapeAttr(tooltip) + '">' + title + "</span>" +
+      (meta || sourceLink ? '<span class="card-meta-row">' + meta + sourceLink + "</span>" : "") +
       "</span>" +
       "</a>" +
       "</article>"
@@ -1441,7 +1539,8 @@
      First match wins, so a duplicate title picks the earlier entry. */
   var PICK_TITLES = [
     "Undertale", "Deltarune", "Cookie Clicker", "1v1.LOL",
-    "Retro Bowl", "BitLife", "Slither.io", "Minecraft James Edition (26.2)"
+    "Retro Bowl", "BitLife", "Slither.io", "Minecraft James Edition (26.2)",
+    "Geometry Dash", "Subway Surfers", "Happy Wheels", "Stardew Valley"
   ];
   function pickItems() {
     var list = DATA.games || [];
@@ -1525,6 +1624,7 @@
     }
     if (state.view === "music") return; /* owned by music.js */
     renderPicks(); /* fill the curated shelf; Home refreshes it in renderHome */
+    renderGameFeature(); /* Games hero panel; hides itself on other views */
     var items = (DATA[state.view] || []).slice().filter(Boolean);
 
     if (state.query) {
@@ -1572,19 +1672,6 @@
       renderGameStats(items.length);
     }
 
-    if (state.view === "sites") {
-      items.sort(function (a, b) {
-        if (state.sitesSort === "new") {
-          var an = a.isNew ? 1 : 0;
-          var bn = b.isNew ? 1 : 0;
-          if (an !== bn) return bn - an;
-        }
-        var at = (a.title || "").toLowerCase();
-        var bt = (b.title || "").toLowerCase();
-        return state.sitesSort === "za" ? bt.localeCompare(at) : at.localeCompare(bt);
-      });
-    }
-
     if (state.view === "apps-tools") {
       if (state.appFilters && state.appFilters.length) {
         items = items.filter(function (item) {
@@ -1600,7 +1687,7 @@
     /* Text filter for the Games tab: with a 2,700+ game library and a 480-card
        initial render, titles below the cap are unfindable by scrolling. This
        narrows the grid live; Escape or the native clear button resets it. */
-    if (state.view === "games" || state.view === "sites" || state.view === "apps-tools") {
+    if (state.view === "games" || state.view === "apps-tools") {
       var fq = String(state.gridFilter || "").toLowerCase().trim();
       if (fq) {
         items = items.filter(function (item) {
@@ -1636,7 +1723,8 @@
     var GRID_CAP = 480;
     var capped = items.length > GRID_CAP && !gridExpandAll;
     var shown = capped ? items.slice(0, GRID_CAP) : items;
-    var html = shown.map(state.view === "apps-tools" ? toolCard : card).join("");
+    var cardFn = state.view === "apps-tools" ? toolCard : (state.view === "games" ? gameCard : card);
+    var html = shown.map(cardFn).join("");
     if (capped) {
       html += '<div class="grid-more"><button class="btn" id="grid-show-more">Show all ' + (items.length - GRID_CAP) + " more</button></div>";
     }
@@ -1733,6 +1821,152 @@
       '<span class="home-card-meta">' + meta + "</span></span></button>";
   }
 
+  /* Games tab hero: the single flagged feature from the library (or the
+     most-played game when nothing is flagged) as a large cinematic panel.
+     Play goes through the same delegated [data-launch] flow as the grid
+     cards; the favorite control reuses the shared [data-fav] handler. */
+  function renderGameFeature() {
+    var box = document.getElementById("games-feature");
+    if (!box) return;
+    if (state.view !== "games") {
+      box.hidden = true;
+      return;
+    }
+    var games = (DATA.games || []).slice().filter(Boolean);
+    var item = null;
+    for (var i = 0; i < games.length; i++) {
+      if (games[i].featured) { item = games[i]; break; }
+    }
+    if (!item) {
+      games.sort(function (a, b) {
+        return (state.clicks[gameKey(b)] || 0) - (state.clicks[gameKey(a)] || 0);
+      });
+      item = games[0];
+    }
+    if (!item) {
+      box.hidden = true;
+      return;
+    }
+    box.hidden = false;
+
+    var rawTitle = item.title || "Untitled";
+    /* Same key the grid cards use, so favoriting the feature lights the
+       matching card and the Favorites filter finds it. */
+    var key = gameKey(item);
+    var fav = !!state.favs[key];
+    var clicks = state.clicks[key] || 0;
+    var metaBits = [];
+    if (item.category) metaBits.push(escapeHtml(item.category));
+    if (item.porter) metaBits.push("web port by " + escapeHtml(item.porter));
+    else if (item.credit) metaBits.push("by " + escapeHtml(item.credit));
+    if (clicks > 0) metaBits.push(clicks === 1 ? "1 play" : clicks + " plays");
+
+    var href = safeHref(item.url);
+    var htmlAttr = (item.html && String(item.html).trim()) ? ' data-html="' + escapeAttr(item.html) + '"' : "";
+    var hostedHere = !!(item.url && window.ChalkleLaunch && window.ChalkleLaunch.isLocalPlayUrl && window.ChalkleLaunch.isLocalPlayUrl(item.url));
+    var directAttr = (item.directOnly || hostedHere) ? ' data-direct-only="1"' : "";
+
+    var art;
+    if (isJamesEdition(item)) {
+      art = '<img class="game-feature-img" src="' + escapeAttr(MC_KEY_ART) + '" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.onerror=null;this.src=' + JSON.stringify(MC_FEAT_MARK) + '">';
+    } else {
+      art = gameThumbInner(item);
+    }
+
+    box.innerHTML =
+      '<div class="game-feature-art">' + art + "</div>" +
+      '<div class="game-feature-body">' +
+      '<span class="game-feature-eyebrow">Featured game</span>' +
+      '<h2 class="game-feature-title">' + escapeHtml(rawTitle) + "</h2>" +
+      (metaBits.length ? '<span class="game-feature-meta">' + metaBits.join('<span class="meta-sep" aria-hidden="true">&middot;</span>') + "</span>" : "") +
+      '<div class="game-feature-actions">' +
+      '<a class="btn btn-accent" href="' + href + '" data-launch="1" data-url="' + href + '" data-title="' + escapeAttr(rawTitle) + '"' + htmlAttr + directAttr + '>Play</a>' +
+      '<button class="btn" data-fav="' + escapeAttr(key) + '" aria-label="' + (fav ? "Remove favorite" : "Add favorite") + '">' + (fav ? "Favorited" : "Favorite") + "</button>" +
+      "</div></div>";
+  }
+
+  /* ---------- Game player ---------- */
+
+  /* Small related shelf: same category first, then same porter, then the
+     most-played fill. Real data only - no invented recommendations. */
+  function relatedGames(item, n) {
+    var list = (DATA.games || []).filter(Boolean);
+    var selfKey = gameKey(item);
+    var cat = item.category || "";
+    var porter = item.porter || "";
+    var out = [];
+    var seen = {};
+    function push(x) {
+      var k = gameKey(x);
+      if (seen[k] || k === selfKey) return;
+      seen[k] = 1;
+      out.push(x);
+    }
+    list.forEach(function (x) { if (cat && x.category === cat) push(x); });
+    list.forEach(function (x) { if (porter && x.porter === porter) push(x); });
+    list.slice().sort(function (a, b) {
+      return (state.clicks[gameKey(b)] || 0) - (state.clicks[gameKey(a)] || 0);
+    }).forEach(function (x) { push(x); });
+    return out.slice(0, n);
+  }
+
+  /* Open a game in the dedicated in-app player. Returns false when the game
+     must not be embedded (James Edition, directOnly) so the caller falls
+     back to the old launch flow. */
+  function openGamePlayer(item) {
+    if (!item || !window.ChalkleGamePlayer) return false;
+    if (item.directOnly) return false;
+    if (isJamesEdition(item)) return false;
+    var url = String(item.url || "");
+    var target = "";
+    if (item.html && window.ChalkleLaunch && window.ChalkleLaunch.htmlUrl) {
+      target = window.ChalkleLaunch.htmlUrl(item.html);
+    }
+    if (!target && window.ChalkleLaunch && window.ChalkleLaunch.playTarget) {
+      target = window.ChalkleLaunch.playTarget(url);
+    }
+    if (!target) return false;
+    if (window.ChalkleLaunch && window.ChalkleLaunch.pauseMusicForTarget) {
+      window.ChalkleLaunch.pauseMusicForTarget(url);
+    }
+    var art = gameThumbInner(item);
+    var metaBits = [];
+    if (item.category) metaBits.push(escapeHtml(item.category));
+    if (item.porter) metaBits.push("web port by " + escapeHtml(item.porter));
+    else if (item.credit) metaBits.push("by " + escapeHtml(item.credit));
+    var key = gameKey(item);
+    return window.ChalkleGamePlayer.open(target, item.title || "Playing", {
+      art: art,
+      sub: item.category ? escapeHtml(item.category) : "",
+      meta: metaBits.join('<span class="meta-sep" aria-hidden="true">&middot;</span>'),
+      originalUrl: url,
+      favKey: key,
+      fav: !!state.favs[key],
+      related: relatedGames(item, 8).map(gameCard).join(""),
+      onFav: function (favKey, isFav) {
+        if (isFav) state.favs[favKey] = 1; else delete state.favs[favKey];
+        persist(FAVS_KEY, JSON.stringify(state.favs));
+        render();
+        showToast(isFav ? "Added to favorites" : "Removed from favorites");
+      }
+    });
+  }
+
+  /* Map a launched card back to its library item so the player can show real
+     artwork, meta and related games. */
+  function findGameByLaunch(launch) {
+    var url = launch.dataset.url || "";
+    var want = gameKey({ url: url, title: launch.dataset.title || "" });
+    var list = DATA.games || [];
+    for (var i = 0; i < list.length; i++) {
+      var it = list[i];
+      if (!it) continue;
+      if (it.url === url) return it;
+      if (gameKey(it) === want) return it;
+    }
+    return null;
+  }
+
   function renderHome() {
     /* One broken shelf must never blank the rest of Home. */
     try { renderHomeInner(); } catch (e) {
@@ -1744,15 +1978,9 @@
     var g = $("#home-stat-games");
     var s = $("#home-stat-sites");
     var t = $("#home-stat-tools");
-    var f = $("#home-stat-favs");
     if (g) g.textContent = (DATA.games || []).length;
     if (s) s.textContent = (DATA.sites || []).length;
     if (t) t.textContent = (DATA["apps-tools"] || []).length;
-    if (f) {
-      f.textContent = Object.keys(state.favs || {}).length;
-      var favMetric = f.closest(".home-metric");
-      if (favMetric) favMetric.hidden = Object.keys(state.favs || {}).length === 0;
-    }
 
     renderPicks();
 
@@ -1947,11 +2175,13 @@
   function toggleSidebar() {
     var open = document.body.classList.toggle("sidebar-open");
     $("#hamburger").setAttribute("aria-expanded", open ? "true" : "false");
+    if (els.backdrop) els.backdrop.hidden = !open;
   }
 
   function closeSidebar() {
     document.body.classList.remove("sidebar-open");
     $("#hamburger").setAttribute("aria-expanded", "false");
+    if (els.backdrop) els.backdrop.hidden = true;
   }
 
   /* ---------- Options ---------- */
@@ -2264,7 +2494,9 @@
     { id: "google", name: "Google", title: "Google", icon: "https://www.google.com/favicon.ico" },
     { id: "classroom", name: "Classroom", title: "Classes", icon: "https://ssl.gstatic.com/classroom/ic_product_classroom_32.png" },
     { id: "docs", name: "Google Docs", title: "Untitled document - Google Docs", icon: "https://ssl.gstatic.com/docs/documents/images/kix-favicon7.ico" },
+    { id: "slides", name: "Google Slides", title: "Untitled presentation - Google Slides", icon: "https://ssl.gstatic.com/images/branding/product/1x/slides_2020q4_32dp.png" },
     { id: "drive", name: "Drive", title: "My Drive - Google Drive", icon: "https://ssl.gstatic.com/images/branding/product/1x/drive_2020q4_32dp.png" },
+    { id: "canva", name: "Canva", title: "Home - Canva", icon: "https://static.canva.com/static/images/favicon.ico" },
     { id: "canvas", name: "Canvas", title: "Dashboard", icon: "https://du11hjcvx0uqb.cloudfront.net/dist/images/favicon.ico" },
     { id: "clever", name: "Clever", title: "Clever | Portal", icon: "https://www.clever.com/wp-content/uploads/2023/06/cropped-Favicon-512px-32x32.png" },
     { id: "khan", name: "Khan Academy", title: "Dashboard | Khan Academy", icon: "https://www.khanacademy.org/favicon.ico" },
@@ -2323,7 +2555,7 @@
      and anything launches as a plain new tab (proxy-routed when needed). All changes persist to this device. */
 
   var ADMIN_CODE = "jamesypoo";
-  var ADMIN_TABS = ["games", "sites", "tools", "proxies", "board", "docs", "partners"];
+  var ADMIN_TABS = ["games", "tools", "proxies", "docs", "partners"];
 
   /* ---------- The Board (data-driven) ---------- */
 
@@ -2728,6 +2960,7 @@
 
   function init() {
     els.search = $("#search-input");
+    els.homeSearch = $("#home-search-input");
     els.hamburger = $("#hamburger");
     els.collapse = $("#collapse-btn");
     els.backdrop = $("#backdrop");
@@ -2740,7 +2973,7 @@
     function fitSearchPlaceholder() {
       var input = $("#search-input");
       if (!input) return;
-      var opts = ["Search games, music & tools", "Search games & more", "Search"];
+    var opts = ["Search Chalkle", "Search Chalkle", "Search"];
       var cs = getComputedStyle(input);
       var cw = input.clientWidth - parseFloat(cs.paddingLeft || 0) - parseFloat(cs.paddingRight || 0) - 2;
       var probe = document.createElement("canvas");
@@ -2787,36 +3020,9 @@
       el.innerHTML = buildLogo();
     });
 
-    /* Bubble-letter section titles: each title wears ONE color - the same
-       color as its sidebar tab (Games=green, Sites=blue, YouTube=red, …). */
-    var TITLE_COLORS = {
-      games: ["#34a853", "#0d7734"],
-      cloud: ["#5fbeff", "#1c6ea6"],
-      sites: ["#4285f4", "#1557b0"],
-      music: ["#e60073", "#8c003d"],
-      "apps-tools": ["#fbbc05", "#e37400"],
-      proxies: ["#12b5a5", "#0a7f74"],
-      settings: ["#a970ff", "#7a3fd0"],
-      board: ["#fb8c00", "#c25e00"],
-      docs: ["#26c6da", "#0e7e8c"],
-      partners: ["#d8a368", "#8a5a24"],
-      home: ["#ff4d8d", "#c2185b"],
-      livetv: ["#4ab88c", "#1f7a5c"],
-      youtube: ["#ff0033", "#b30024"],
-      ai: ["#b06bff", "#6a2fbf"],
-      bookmarklets: ["#b7e63f", "#7f9f14"],
-      movies: ["#a970ff", "#5a25c4"],
-      chat: ["#00b3b3", "#00575c"]
-    };
-    document.querySelectorAll(".view-title").forEach(function (el) {
-      var label = (el.textContent || "").trim();
-      if (!label) return;
-      var view = "";
-      var v = el.closest(".view");
-      if (v) view = v.getAttribute("data-view") || "";
-      var pair = TITLE_COLORS[view] || TITLE_COLORS.games;
-      el.innerHTML = bubbleTitle(label, pair[0], pair[1]);
-    });
+    /* Section titles stay clean Space Grotesk headings. The multicolor
+       bubble-letter treatment is reserved for the Chalkle wordmark only, so
+       every page shares one typographic voice. */
 
     applyCollapsed();
     applyOptions();
@@ -2957,45 +3163,11 @@
       });
     }
 
-    /* Jump back in: the headline quick cards stay on the hero, the rest fold
-       into the All tabs dropdown so a growing tab list never stacks the hero
-       into a wall of tiles. */
-    var quickMoreBtn = document.getElementById("home-quick-more-btn");
-    var quickMenu = document.getElementById("home-quick-menu");
-    if (quickMoreBtn && quickMenu) {
-      quickMoreBtn.addEventListener("click", function (e) {
-        e.stopPropagation();
-        var open = quickMenu.hidden;
-        quickMenu.hidden = !open;
-        quickMoreBtn.setAttribute("aria-expanded", open ? "true" : "false");
-      });
-      document.addEventListener("click", function (e) {
-        if (quickMenu.hidden) return;
-        if (e.target && (quickMoreBtn.contains(e.target) || quickMenu.contains(e.target))) return;
-        quickMenu.hidden = true;
-        quickMoreBtn.setAttribute("aria-expanded", "false");
-      });
-      document.addEventListener("keydown", function (e) {
-        if (e.key !== "Escape") return;
-        quickMenu.hidden = true;
-        quickMoreBtn.setAttribute("aria-expanded", "false");
-      });
-    }
-
+    /* Category shortcuts on the Home stage jump straight to their section. */
     document.querySelectorAll("[data-home-go]").forEach(function (btn) {
       btn.addEventListener("click", function () {
         setView(btn.dataset.homeGo);
-        /* A tab picked from the All tabs menu: close it after navigating. */
-        if (quickMenu && !quickMenu.hidden) {
-          quickMenu.hidden = true;
-          if (quickMoreBtn) quickMoreBtn.setAttribute("aria-expanded", "false");
-        }
       });
-    });
-
-    /* Home stat cards: jump straight to the matching tab. */
-    document.querySelectorAll("[data-metric-go]").forEach(function (btn) {
-      btn.addEventListener("click", function () { setView(btn.dataset.metricGo); });
     });
 
     document.querySelectorAll("[data-game-filter]").forEach(function (btn) {
@@ -3011,17 +3183,19 @@
       btn.classList.toggle("is-active", btn.dataset.gameFilter === state.gameFilter);
     });
 
-    if (els.search) {
-      els.search.addEventListener("input", function () {
-        var q = els.search.value.trim();
-        /* Global search: show a dropdown of matches across Games / Sites /
-           Apps-Tools. Typing never switches the view on its own. */
+    /* Global search: one shared behavior for the top-bar field AND the
+       Home launcher field - dropdown of matches across Games / Sites /
+       Apps-Tools. Typing never switches the view on its own. */
+    function bindSearchBox(input) {
+      if (!input) return;
+      input.addEventListener("input", function () {
+        var q = input.value.trim();
         clearTimeout(musicSearchDebounce);
         musicSearchDebounce = setTimeout(function () {
           renderSearchResults(q);
         }, 110);
       });
-      els.search.addEventListener("keydown", function (e) {
+      input.addEventListener("keydown", function (e) {
         var box = $("#search-results");
         var open = box && !box.hidden;
         if (e.key === "Escape") {
@@ -3041,13 +3215,55 @@
           }
         }
       });
+      /* Focusing an already-filled field re-opens its results. */
+      input.addEventListener("focus", function () {
+        if (input.value.trim()) renderSearchResults(input.value.trim());
+      });
     }
+    /* The top bar is Chalkle's global catalog search. Home's field is the
+       browser address/search box: submit opens the in-app Browser and turns
+       plain text into a web search. Keeping these separate prevents Home
+       searches from hijacking the catalog dropdown. */
+    bindSearchBox(els.search);
+    function openHomeWebSearch() {
+      if (!els.homeSearch) return;
+      var value = els.homeSearch.value.trim();
+      if (!value) { els.homeSearch.focus(); return; }
+      var target = /^(https?:\/\/|ftp:\/\/)/i.test(value)
+        ? value
+        : (/^[a-z0-9-]+(\.[a-z0-9-]+)+([/?#].*)?$/i.test(value) && value.indexOf(" ") === -1
+          ? "https://" + value
+          : "https://lite.duckduckgo.com/lite/?q=" + encodeURIComponent(value));
+      // Home always goes to the web browser, never to Chalkle's catalog list.
+      if (window.ChalkleBrowser && window.ChalkleBrowser.open) {
+        window.ChalkleBrowser.open(target, value);
+      } else {
+        window.open(target, "_blank", "noopener");
+      }
+    }
+    if (els.homeSearch) {
+      els.homeSearch.addEventListener("keydown", function (e) {
+        if (e.key === "Enter") { e.preventDefault(); openHomeWebSearch(); }
+      });
+      var homeSearchGo = $("#home-search-go");
+      if (homeSearchGo) homeSearchGo.addEventListener("click", openHomeWebSearch);
+    }
+
+    window.addEventListener("resize", function () {
+      var box = $("#search-results");
+      if (box && !box.hidden) positionSearchResults();
+    });
+    document.addEventListener("scroll", function () {
+      var box = $("#search-results");
+      if (box && !box.hidden) closeSearchResults();
+    }, true);
 
     /* Clicking away from the search closes the dropdown. */
     document.addEventListener("click", function (e) {
       var box = $("#search-results");
       if (!box || box.hidden) return;
-      if (e.target && (els.search && els.search.contains(e.target))) return;
+      if (e.target && els.search && els.search.contains(e.target)) return;
+      if (e.target && els.homeSearch && els.homeSearch.contains(e.target)) return;
       if (box.contains(e.target)) return;
       closeSearchResults();
     });
@@ -3075,6 +3291,10 @@
         else if (!$("#urlauditor-modal").hidden && window.ChalkleUrlAuditor) window.ChalkleUrlAuditor.close();
         else if (!$("#pixel-modal").hidden && window.ChalklePixel) window.ChalklePixel.close();
         else if (!$("#domainhub-modal").hidden && window.ChalkleDomainHub) window.ChalkleDomainHub.close();
+        else if (!$("#game-player").hidden && window.ChalkleGamePlayer) {
+          if (window.ChalkleGamePlayer.inFs()) window.ChalkleGamePlayer.exitFs();
+          else window.ChalkleGamePlayer.close();
+        }
         else if (!$("#proxy-overlay").hidden) closeOverlay();
         else closeSidebar();
         return;
@@ -3100,7 +3320,7 @@
       }
 
       if (e.altKey && !e.ctrlKey && !e.metaKey) {
-        var view = { "1": "home", "2": "games", "3": "music", "4": "apps-tools", "5": "proxies", "6": "board", "7": "settings", "8": "cloud", "9": "sites", "0": "youtube" }[e.key];
+        var view = { "1": "home", "2": "games", "3": "music", "4": "apps-tools", "5": "proxies", "7": "settings", "8": "cloud", "0": "youtube" }[e.key];
         if (view) {
           e.preventDefault();
           setView(view);
@@ -3125,6 +3345,61 @@
         try { localStorage.setItem("chalkle-cloak-title", v || "Classes"); } catch (e) { /* no storage */ }
       });
     }
+
+    /* ---------- About:blank launcher ----------
+       Opens a blank tab and frames this site inside it, so the browser's
+       address bar just shows about:blank. One source of truth for both the
+       Settings button and the auto-open boot path. */
+
+    function openAboutBlankPopup(silent) {
+      var win = window.open("about:blank");
+      if (!win || win.closed) {
+        if (!silent) showToast("Popup blocked - allow popups for this site, then try again");
+        return false;
+      }
+      try {
+        var doc = win.document;
+        var frame = doc.createElement("iframe");
+        frame.src = location.href;
+        frame.title = "Chalkle";
+        frame.setAttribute("allow", (window.ChalkleApi && ChalkleApi.iframeAllow) ? ChalkleApi.iframeAllow() : "fullscreen; picture-in-picture");
+        frame.setAttribute("allowfullscreen", "");
+        Object.assign(frame.style, {
+          width: "100%",
+          height: "100%",
+          border: "none"
+        });
+        Object.assign(doc.body.style, {
+          margin: "0",
+          height: "100%"
+        });
+        doc.documentElement.style.height = "100%";
+        doc.body.appendChild(frame);
+        if (!silent) showToast("Opened in About:blank");
+        return true;
+      } catch (e) {
+        if (!silent) showToast("Couldn't build the About:blank page");
+        return false;
+      }
+    }
+
+    var aboutBtn = $("#opt-about-blank");
+    if (aboutBtn) aboutBtn.addEventListener("click", function () { openAboutBlankPopup(false); });
+
+    var AB_AUTO_KEY = "chalkle-about-blank-auto";
+    var aboutAuto = $("#opt-about-blank-auto");
+    if (aboutAuto) {
+      aboutAuto.checked = readPref(AB_AUTO_KEY) === "1";
+      aboutAuto.addEventListener("change", function () {
+        persist(AB_AUTO_KEY, aboutAuto.checked ? "1" : "0");
+      });
+    }
+    /* One source of truth for the launcher: the Settings button uses open(),
+       the auto-open boot path uses openSilent() (no toasts, no retry). */
+    window.ChalkleAboutBlank = {
+      open: function () { return openAboutBlankPopup(false); },
+      openSilent: function () { return openAboutBlankPopup(true); }
+    };
 
     /* Settings options */
 
@@ -3609,15 +3884,6 @@
       });
     }
 
-    var sitesSort = $("#sites-sort");
-    if (sitesSort) {
-      sitesSort.value = state.sitesSort;
-      sitesSort.addEventListener("change", function () {
-        state.sitesSort = sitesSort.value;
-        render();
-      });
-    }
-
     var clearProxies = $("#opt-clear");
     if (clearProxies) {
       clearProxies.addEventListener("click", function () {
@@ -3781,6 +4047,14 @@
           if (launchUrl) {
             if (isJamesEdition(launchUrl)) {
               openJamesEdition(launch.dataset.title || "Minecraft James Edition");
+            } else if (state.view === "games") {
+              /* Games launch straight into the dedicated player; the chooser
+                 stays one tap away on the card's open-with button and in the
+                 player's error state. */
+              var gpItem = findGameByLaunch(launch);
+              if (!gpItem || !openGamePlayer(gpItem)) {
+                window.ChalkleLaunch.openWithOptions(launchUrl, launch.dataset.title || launchUrl);
+              }
             } else if (state.view === "apps-tools" && /^https?:/i.test(launchUrl) && window.ChalkleLaunch.openShell) {
               /* Apps/Tools always bounce through the same-origin redirector
                  shell (/go.html#<base64>) so the destination never shows up
@@ -3796,7 +4070,7 @@
             state.clicks[key] = (state.clicks[key] || 0) + 1;
             persist(COUNTS_KEY, JSON.stringify(state.clicks));
             trackRecent(key, launch.dataset.title || "");
-            if (state.view === "games" || state.view === "sites") render();
+            if (state.view === "games") render();
           }, 400);
           return;
         }
@@ -3822,29 +4096,20 @@
       });
     }
 
-    var back = $("#overlay-back");
-    if (back) back.addEventListener("click", closeOverlay);
-
-    var overlay = $("#proxy-overlay");
-    if (overlay) {
-      overlay.addEventListener("click", function (e) {
-        if (e.target === overlay) closeOverlay();
-      });
-    }
-
-    var ext = $("#overlay-ext");
-    if (ext) {
-      ext.addEventListener("click", function () {
-        var url = currentProxy && currentProxy.url;
-        /* Launcher-opened games (in-app frame) have no currentProxy - pop
-           out whatever URL the launcher is showing instead. */
-        if (!url && window.ChalkleLaunch && window.ChalkleLaunch.lastOpenUrl) {
-          url = window.ChalkleLaunch.lastOpenUrl;
-        }
-        closeOverlay();
-        if (url) window.open(url, "_blank", "noopener");
-      });
-    }
+    /* Standalone browser.html (opened from Apps/Tools) posts back when its
+       Chalkle quick links are used: hop to that view here, and close the
+       in-app browser when the embedded page asks to. */
+    window.addEventListener("message", function (e) {
+      var d = e.data || {};
+      if (!d || typeof d !== "object") return;
+      if (d.chalkle === "goto") {
+        setView(String(d.view || "home"));
+        return;
+      }
+      if (d.chalkle === "close-browser" && window.ChalkleBrowser) {
+        window.ChalkleBrowser.close();
+      }
+    });
 
     /* ---------- Admin wiring ---------- */
 
@@ -3875,8 +4140,6 @@
           render();
         });
       }
-      var sitesCta = $("#sites-empty-cta");
-      if (sitesCta) sitesCta.addEventListener("click", openAdmin);
       var musicCta = $("#music-empty-cta");
       if (musicCta) {
         musicCta.addEventListener("click", function () {
