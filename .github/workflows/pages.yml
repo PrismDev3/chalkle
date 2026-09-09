@@ -11,7 +11,10 @@ permissions:
   id-token: write
 
 concurrency:
-  group: pages
+  # Unique group: cloudflare-pages.yml shares the generic "pages" group,
+  # and two workflows in one group cancel each other on every push, which
+  # left GitHub Pages permanently stale. Keep deploy groups per-workflow.
+  group: pages-github
   cancel-in-progress: true
 
 jobs:

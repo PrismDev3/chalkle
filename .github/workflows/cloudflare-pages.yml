@@ -11,7 +11,9 @@ permissions:
   id-token: write
 
 concurrency:
-  group: pages
+  # Unique group: pages.yml uses the generic "pages" group too, and the two
+  # workflows cancelled each other on every push, starving both deploys.
+  group: pages-cloudflare
   cancel-in-progress: true
 
 jobs:
