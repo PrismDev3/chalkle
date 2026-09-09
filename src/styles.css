@@ -5,6 +5,24 @@
    fast restrained motion, and a single card/button/input language.
    ========================================================================== */
 
+/* Self-hosted fonts (latin subsets). Loaded from the same origin as the app
+   so they work on every mirror and in srcdoc embeds - no Google Fonts. */
+@font-face {
+  font-family: "Boogaloo";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("../assets/fonts/boogaloo-latin.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Space Grotesk";
+  font-style: normal;
+  font-weight: 500 700;
+  font-display: swap;
+  src: url("../assets/fonts/space-grotesk-latin.woff2") format("woff2");
+}
+
 [hidden] {
   display: none !important;
 }

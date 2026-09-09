@@ -71,6 +71,10 @@ idx = idx.replace(/<link[^>]*rel="stylesheet"[^>]*href="([^"]+)"[^>]*>/gi, (m, h
      Pages), so make the background page-relative: the page and bg-chalk.webp
      always sit side by side. */
   css = css.replace(/url\("\.\.\/bg-chalk\.webp"\)/g, 'url("bg-chalk.webp")');
+  /* Same for the self-hosted fonts: ../assets/fonts/*.woff2 is right for the
+     multi-file origin (src/styles.css -> repo root assets/), but once inlined
+     the page sits at repo root, so use assets/fonts/*.woff2. */
+  css = css.replace(/url\("\.\.\/assets\/fonts\/([^"]+)"\)/g, 'url("assets/fonts/$1")');
   return `<style>${css}</style>`;
 });
 

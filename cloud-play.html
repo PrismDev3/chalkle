@@ -3,7 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        /* Self-hosted fonts (latin subsets) - same origin, no Google Fonts. */
+        @font-face { font-family: "Inter"; font-style: normal; font-weight: 400 500; font-display: swap; src: url("assets/fonts/inter-latin.woff2") format("woff2"); }
+        @font-face { font-family: "DM Mono"; font-style: normal; font-weight: 400; font-display: swap; src: url("assets/fonts/dm-mono-latin.woff2") format("woff2"); }
+        @font-face { font-family: "DM Mono"; font-style: normal; font-weight: 500; font-display: swap; src: url("assets/fonts/dm-mono-500-latin.woff2") format("woff2"); }
+    </style>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         html, body {

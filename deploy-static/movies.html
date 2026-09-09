@@ -4127,9 +4127,12 @@ body.light-mode .mobile-nav-link.active { color: var(--mb-accent); }
 }
 
 </style>
-    <link href="https://fonts.googleapis.com/css2?family=Boogaloo&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <style>
+      /* Self-hosted fonts (latin subsets) - same origin as the page so they
+         load on mirrors and in embeds without Google Fonts. */
+      @font-face { font-family: "Boogaloo"; font-style: normal; font-weight: 400; font-display: swap; src: url("assets/fonts/boogaloo-latin.woff2") format("woff2"); }
+      @font-face { font-family: "Space Grotesk"; font-style: normal; font-weight: 500 700; font-display: swap; src: url("assets/fonts/space-grotesk-latin.woff2") format("woff2"); }
+    </style>
     
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&icon_names=movie_edit">
 </head>

@@ -27,15 +27,14 @@
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <link rel="preconnect" href="https://chalkle.lootline.xyz">
   <link rel="preconnect" href="https://www.youtube-nocookie.com">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Boogaloo&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+  <!-- Fonts are self-hosted (assets/fonts, @font-face in src/styles.css) so
+       they load from this origin on every mirror and in embeds. -->
   <!-- No bg-chalk.webp preload: the wallpaper is just the body's
        background-image (26KB, HTTP-cached after the first visit), and a
        preload tag kept firing "preloaded but not used" warnings whenever
        the body didn't paint it during the boot intro. theme.js also strips
        any stale preload tag left by earlier builds. -->
-  <link rel="stylesheet" href="src/styles.css?v=20260917g">
+  <link rel="stylesheet" href="src/styles.css?v=20260919a">
   <!-- AdSense. This loader powers BOTH layers:
        1. Manual units - the .ad-slot placements below, each filled when its
           slot ID is pasted into CHALKLE_ADS.slots (AdSense → Ads → By ad unit).
