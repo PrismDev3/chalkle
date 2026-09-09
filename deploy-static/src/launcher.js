@@ -48,16 +48,16 @@
     if (!u || u.indexOf("your-proxy") !== -1) return true;
     try {
       var parsed = u.indexOf("://") === -1 ? new URL(u, location.href) : new URL(u);
-      if (parsed.origin === location.origin && /^\/uv\/?$/i.test(parsed.pathname)) return true;
+      if (parsed.origin === location.origin && /^\/res\/?$/i.test(parsed.pathname)) return true;
     } catch (e) {
-      if (/^\/uv\/?$/i.test(u)) return true;
+      if (/^\/res\/?$/i.test(u)) return true;
     }
     return false;
   }
 
-  /* A usable same-origin base for the built-in /uv/ proxy. The single-file
+  /* A usable same-origin base for the built-in proxy. The single-file
      build runs from file:// or an opaque origin, where location.origin is the
-     literal string "null" - the builtin /uv/ route cannot exist there. */
+     literal string "null" - the builtin /res/ route cannot exist there. */
   function usableOrigin() {
     try {
       if (window.ChalkleApi && window.ChalkleApi.root) {
@@ -74,8 +74,8 @@
     }
   }
 
-  /* The /uv/ rewriting proxy only exists when serve-chalk.py is actually
-     behind this origin. Probe at startup (with retries: the server may still
+  /* The built-in rewriting proxy only exists when serve-chalk.py is
+     actually behind this origin. Probe at startup (with retries: the server may still
      be waking when the first click lands) and only advertise it when it
      really answers. A passing probe is remembered for the browser session so
      the very first click after a reload already routes through the proxy
@@ -97,7 +97,7 @@
     if (!origin) { uvStatus = false; return; }
     if (uvStatus !== true && uvSeenGet()) uvStatus = true; /* trust this session */
     uvAttempts++;
-    fetch(origin + "/uv/", { method: "GET", cache: "no-store" })
+    fetch(origin + "/res/", { method: "GET", cache: "no-store" })
       .then(function (r) {
         if (r.ok) { uvStatus = true; uvSeenSet(true); return; }
         /* Not the proxy we know (404 on static hosts). Downgrade fast so a
@@ -113,17 +113,17 @@
         uvSeenSet(false);
       });
   }
-  /* Optimistic start on real http(s) origins: the built-in /uv route exists
-     on the hosted site, so browser tabs can route through it immediately
-     instead of waiting for the async probe - a search sent out direct in
-     that window gets X-Frame-Options-blocked. file:// and opaque origins
-     (single-file build) never get the flag; the probe downgrades it fast on
-     mirrors where /uv does not exist. */
+  /* Optimistic start on real http(s) origins: the built-in /res route
+     exists on the hosted site, so browser tabs can route through it
+     immediately instead of waiting for the async probe - a search sent out
+     direct in that window gets X-Frame-Options-blocked. file:// and opaque
+     origins (single-file build) never get the flag; the probe downgrades it
+     fast on mirrors where /res does not exist. */
   var bootOrigin = usableOrigin();
   if (bootOrigin && !/^file:/i.test(String(location.protocol || ""))) uvStatus = true;
   probeBuiltinProxy();
   /* Mirrors: when runtime-config failover re-points the relay (primary
-     blocked, backup took over), re-probe /uv/ against the new origin so the
+     blocked, backup took over), re-probe /res/ against the new origin so the
      proxy stays usable without a reload. */
   try {
     if (window.ChalkleApi && window.ChalkleApi.onFailover) {
@@ -139,11 +139,11 @@
     var origin = usableOrigin();
     if (!origin) return null;
     if (uvStatus !== true) return null;
-    return { name: "Built-in", url: origin + "/uv", mode: "path", builtin: true };
+    return { name: "Built-in", url: origin + "/res", mode: "path", builtin: true };
   }
 
   /* Pick the first real configured proxy (skips the "your-proxy-url"
-     placeholder). The same-origin /uv/ proxy always wins. */
+     placeholder). The same-origin /res/ proxy always wins. */
   function liveProxy() {
     var builtin = builtinProxy();
     var proxies =
@@ -341,10 +341,26 @@
   }
 
   /* Base64url helper - the encoding Ultraviolet / Scramjet / Rammerhead style
-     proxies understand. */
+     external proxies understand. The built-in proxy does NOT use this. */
   function b64url(s) {
     try {
       return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+    } catch (e) {
+      return encodeURIComponent(s);
+    }
+  }
+
+  /* XOR-hex codec for the built-in /res/ proxy route. Hex has no base64
+     padding or symbols, so the routed URL carries no proxy fingerprint. */
+  function pxEnc(s) {
+    try {
+      s = encodeURIComponent(s);
+      var o = "";
+      for (var i = 0; i < s.length; i++) {
+        var c = s.charCodeAt(i) ^ (0x2f + i % 0x31);
+        o += (c < 16 ? "0" : "") + c.toString(16);
+      }
+      return o;
     } catch (e) {
       return encodeURIComponent(s);
     }
@@ -357,16 +373,19 @@
     if (/^\s*(data:|blob:|javascript:|file:)/i.test(target)) return target;
     var localPath = target.charAt(0) === "/" && target.charAt(1) !== "/";
     var base = String(proxyUrl).replace(/\/+$/, "");
+    var builtin = isBuiltinProxyUrl(proxyUrl);
+    var enc = builtin ? pxEnc : b64url;
+    var sep = builtin ? "/res/" : "/";
     if (localPath) {
       if (uvStatus === true) {
-        return base + "/" + b64url(target);
+        return base + sep + enc(target);
       }
       return target;
     }
     if (target.indexOf("//") === 0) target = location.protocol + target;
     if (target.indexOf("://") === -1) target = "https://" + target;
-    if (hashRoute) return base + "#" + b64url(target);
-    return base + "/" + b64url(target);
+    if (hashRoute) return base + "#" + enc(target);
+    return base + sep + enc(target);
   }
 
   /* Proxy route (new tab). Falls back to returning false if no proxy is
@@ -421,9 +440,9 @@
     if (!live) { ChalkleLaunch.open(target || "", title || target || ""); return target || ""; }
     var url = routeProxy(target, live.url, live.mode === "frame" || !!live.hashRoute);
     /* Load inside Chalkle's own browser overlay: the whole point of the
-       built-in /uv/ proxy is that the site never leaves the app as a raw
+       built-in /res/ proxy is that the site never leaves the app as a raw
        tab. The overlay keeps tabs, back/forward and a pop-out button, and
-       its frames route through /uv/ (raw: the URL is already routed). */
+       its frames route through /res/ (raw: the URL is already routed). */
     if (window.ChalkleBrowser && window.ChalkleBrowser.open) {
       window.ChalkleBrowser.open(url, title || target || "", { raw: true });
       window.ChalkleLaunch.lastOpenUrl = url;

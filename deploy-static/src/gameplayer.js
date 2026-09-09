@@ -97,7 +97,7 @@
       if (d) {
         var t = d.title || "";
         var txt = d.body ? String(d.body.textContent || "") : "";
-        /* The /uv/ proxy returns a same-origin error page for unreachable
+        /* The /res/ relay returns a same-origin error page for unreachable
            targets - surface it as the Chalkle error state. */
         if (t === "Proxy error" || /proxy couldn't load/i.test(txt)) {
           fail("blocked");

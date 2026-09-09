@@ -1,13 +1,13 @@
 /* Chalkle data. Sites and proxy apps route through the proxy below so the tab
    only ever talks to this origin - never the blocked domain. Both built-in
-   routes ("Scramjet" and "Ultraviolet") point at the same-origin /uv/
-   rewriting proxy served by this site's own server: it fetches the target
-   server-side, rewrites the HTML/CSS so every URL flows back through /uv/,
+   routes ("Scramjet" and "Ultraviolet") point at the same-origin /res/
+   rewriting relay served by this site's own server: it fetches the target
+   server-side, rewrites the HTML/CSS so every URL flows back through /res/,
    and injects a tiny client patch for runtime fetch/XHR/WebSocket calls.
 
-   Route format:  <proxy-url>/<base64url(real-url)>
+   Route format:  <proxy-url>/<hex(real-url)>
 
-   Because /uv/ lives on this same origin (not a throwaway tunnel), there is
+   Because /res/ lives on this same origin (not a throwaway tunnel), there is
    nothing separate for a filter to block and the URL can never go stale. */
 
 window.ChalkProxies = [

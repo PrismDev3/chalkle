@@ -50,7 +50,7 @@
         {
           name: "This site's proxy",
           blurb: "Launch this site's own proxy, cloaked.",
-          code: "javascript:var w=window.open();var u=location.origin+'/uv/';var f=w.document.createElement('iframe');f.style='position:fixed;width:100vw;height:100vh;top:0;left:0;border:none;background:#fff';f.src=u;w.document.body.appendChild(f);"
+          code: "javascript:var w=window.open();var u=location.origin+'/res/';var f=w.document.createElement('iframe');f.style='position:fixed;width:100vw;height:100vh;top:0;left:0;border:none;background:#fff';f.src=u;w.document.body.appendChild(f);"
         },
         {
           name: "Nebula",

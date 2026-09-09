@@ -6,13 +6,13 @@
     <title id="siteTitle">JS Movies</title>
     <script>
     /* Mirror shim: on static mirrors (jsDelivr / GitHub Pages / Cloudflare Pages)
-       or inside srcdoc embeds, root-absolute server routes (/api/, /uv/,
+       or inside srcdoc embeds, root-absolute server routes (/api/, /res/,
        /_active, /_sync, /_fetch) resolve against the mirror host and die.
        Re-point them at the production relay. No-op on the real site. */
     (function () {
         var RELAY = 'https://chalkle.lootline.xyz';
         var BACKUPS = (window.CHALKLE_BACKUP_RELAYS || ['https://chalkle.lootline.workers.dev']).slice();
-        var ROUTES = ['/api/', '/uv/', '/_active', '/_sync', '/_fetch'];
+        var ROUTES = ['/api/', '/res/', '/_active', '/_sync', '/_fetch'];
         function mirrorCtx() {
             try {
                 var h = (location.hostname || '').toLowerCase();
@@ -90,7 +90,7 @@
             };
         }
         /* Absolute relay URLs survive inside srcdoc frames, where a relative
-           /uv/... src would resolve against the mirror host. */
+           /res/... src would resolve against the mirror host. */
         window.__mbRelayBase = function () { return window.__MB_RELAY__ ? RELAY : ''; };
     })();
     </script>
@@ -4727,11 +4727,11 @@ body.light-mode .mobile-nav-link.active { color: var(--mb-accent); }
             </div>
 
             <div class="settings-section">
-                <h3 class="settings-section-title">Unblock Sources</h3>
+                <h3 class="settings-section-title">Source Options</h3>
                 <div class="form-group">
                     <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
                         <input type="checkbox" id="srcProxyToggle">
-                        <span>Route blocked sources through the Chalkle proxy (recommended)</span>
+                        <span>Route blocked sources through Chalkle's relay (recommended)</span>
                     </label>
                     <small class="help-text">If a video source domain (vidsrc, vidlink, ...) is blocked on your network, playback is automatically re-routed through this site's own server so it still plays. Mirrors are tried first. Turn off only if sources load fine and you want direct connections.</small>
                 </div>
@@ -6866,7 +6866,7 @@ function tryAutoFallback(server) {
 // the same way the rest of Chalkle dodges blocks:
 //   1) Mirror rotation - several of these players have alternate domains; a
 //      dead/blocked one is retried on its mirrors automatically.
-//   2) Same-origin rescue - the site's built-in /uv/ rewriting proxy (the same
+//   2) Same-origin rescue - the site's built-in /res/ rewriting relay (the same
 //      one Games/Sites use) fetches the player through this origin, so the
 //      blocked domain is never touched by the browser at all.
 const SOURCE_MIRRORS = {
@@ -6892,17 +6892,23 @@ const srcProbeCache = {}; // base -> { ok, t }
 
 function uvEncode(s) {
     try {
-        return btoa(unescape(encodeURIComponent(s))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+        s = encodeURIComponent(s);
+        let o = '';
+        for (let i = 0; i < s.length; i++) {
+            const c = s.charCodeAt(i) ^ (0x2f + i % 0x31);
+            o += (c < 16 ? '0' : '') + c.toString(16);
+        }
+        return o;
     } catch (e) { return ''; }
 }
-// /uv/ only exists on the real Chalkle server (not file:// or static mirrors).
+// /res/ only exists on the real Chalkle server (not file:// or static mirrors).
 function uvReady() {
     if (uvAvailable !== null) return uvAvailable;
     if (!/^https?:$/.test(location.protocol)) { uvAvailable = false; return false; }
     /* On mirrors the probe must hit the relay, not the mirror host. */
     const uvBase = (typeof window.__mbRelayBase === 'function') ? (window.__mbRelayBase() || '') : '';
     uvAvailable = true; // optimistic: probe in the background, playback isn't blocked on it
-    fetch(uvBase + '/uv/', { method: 'GET', cache: 'no-store' })
+    fetch(uvBase + '/res/', { method: 'GET', cache: 'no-store' })
         .then(r => { uvAvailable = r.status < 500; })
         .catch(() => { uvAvailable = false; });
     return true;
@@ -6916,10 +6922,10 @@ function srcUrl(server, path) {
     const base = pickBase(server);
     if (!base) return null;
     if (srcMode[server] === 'proxy' && settings.sourceProxy !== false && uvReady()) {
-        /* On mirrors the /uv/ proxy only exists on the relay - emit an
+        /* On mirrors the /res/ proxy only exists on the relay - emit an
            absolute URL so iframes inside srcdoc embeds resolve correctly. */
         const rb = (typeof window.__mbRelayBase === 'function') ? (window.__mbRelayBase() || '') : '';
-        return rb + '/uv/' + uvEncode(base + path);
+        return rb + '/res/' + uvEncode(base + path);
     }
     return base + path;
 }
@@ -6939,7 +6945,7 @@ function probeSrc(server, base) {
         setTimeout(() => fin(true), 4000);
     });
 }
-// Advance one mirror; when mirrors are exhausted and /uv/ is available,
+// Advance one mirror; when mirrors are exhausted and /res/ is available,
 // flip the source into proxy mode (and back around to mirror 0).
 function markSrcFailed(server) {
     const list = SOURCE_MIRRORS[server];
@@ -6952,7 +6958,7 @@ function markSrcFailed(server) {
         if (srcMode[server] !== 'proxy') {
             srcMode[server] = 'proxy';
             srcIdx[server] = 0;
-            toast('Source blocked - routing through the Chalkle proxy...', 'error');
+            toast('Source blocked - routing through Chalkle...', 'error');
         }
     } else {
         srcIdx[server] = 0;

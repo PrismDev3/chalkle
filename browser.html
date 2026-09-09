@@ -511,19 +511,35 @@
   var resumeBtn = $("bkResume"), resumeLabel = $("bkResumeLabel");
   var embedded = window.parent !== window;
 
-  /* Same base64url encoding the site launcher uses for /uv/ routes. */
-  function b64url(s) {
-    try { return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""); }
-    catch (e) { return ""; }
+  /* XOR-hex codec matching the site launcher's built-in /res/ proxy route. */
+  function pxEnc(s) {
+    try {
+      s = encodeURIComponent(s);
+      var o = "";
+      for (var i = 0; i < s.length; i++) {
+        var c = s.charCodeAt(i) ^ (0x2f + i % 0x31);
+        o += (c < 16 ? "0" : "") + c.toString(16);
+      }
+      return o;
+    } catch (e) { return ""; }
+  }
+  function unpx(h) {
+    try {
+      var t = "";
+      for (var i = 0; i + 1 < h.length; i += 2) {
+        t += String.fromCharCode(parseInt(h.substr(i, 2), 16) ^ (0x2f + (i / 2) % 0x31));
+      }
+      return decodeURIComponent(t);
+    } catch (e) { return h; }
   }
   function proxied(url) {
-    return location.origin + "/uv/" + b64url(url);
+    return location.origin + "/res/" + pxEnc(url);
   }
   function unproxied(pu) {
     try {
-      var m = String(pu || "").match(/\/uv\/([A-Za-z0-9_-]+)$/);
+      var m = String(pu || "").match(/\/res\/([0-9a-f]+)$/);
       if (!m) return pu;
-      return atob(m[1].replace(/-/g, "+").replace(/_/g, "/"));
+      return unpx(m[1]);
     } catch (e) { return pu; }
   }
   function looksUrl(t) {

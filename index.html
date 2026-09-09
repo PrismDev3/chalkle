@@ -483,7 +483,7 @@
               <path d="M9.8 14.8l-3.5 3.5a2.9 2.9 0 0 1-4.1-4.1l3.5-3.5a2.9 2.9 0 0 1 4.1 0"/>
               <path d="M8.6 15.4l6.8-6.8"/>
             </svg>
-            <span class="nav-label">Proxies</span>
+            <span class="nav-label">Links</span>
           </button>
 
           <button class="nav-item nav-more-btn" id="nav-more-btn" type="button" aria-haspopup="true" aria-expanded="false" title="More tabs">
@@ -982,12 +982,12 @@
 
         <section class="view" data-view="proxies">
           <div class="view-head">
-            <h1 class="view-title">Proxies</h1>
+            <h1 class="view-title">Links</h1>
             <span class="view-meta" id="proxies-meta"></span>
           </div>
           <div class="panel proxy-form">
-            <h2 class="panel-title">Add a proxy</h2>
-            <p class="empty-hint panel-note">Paste a proxy URL here. Once one is set, the <b>proxy apps</b> in Apps/Tools (TikTok, Discord, and so on) open through it inside Chalkle\u2019s own browser - and blocked sites fall back to the in-app frame overlay.</p>
+            <h2 class="panel-title">Add a link</h2>
+            <p class="empty-hint panel-note">Paste a server URL here. Once one is set, the web apps in Apps/Tools (TikTok, Discord, and so on) open through it inside Chalkle\u2019s own browser.</p>
             <form id="proxy-form" class="form-row" autocomplete="off">
               <input class="field field-name" id="proxy-name" type="text" placeholder="Name" required>
               <input class="field field-url" id="proxy-url" type="text" placeholder="https://your-proxy.onrender.com" spellcheck="false" required>
@@ -1310,7 +1310,7 @@
               <div class="settings-body" id="settings-body-advanced" hidden>
                 <div class="settings-block">
                   <div class="settings-block-label">Saved proxies cache</div>
-                  <p class="settings-proxy-note">Looking for proxy apps or adding new servers? Visit the dedicated <button class="settings-proxy-btn-link" type="button" data-home-go="proxies">Proxies Tab</button></p>
+                  <p class="settings-proxy-note">Looking for the web apps or adding new servers? Visit the dedicated <button class="settings-proxy-btn-link" type="button" data-home-go="proxies">Links Tab</button></p>
                   <div class="settings-proxy-box">
                     <div class="proxy-links" id="settings-proxy-list"></div>
                     <div class="settings-block-inline">
@@ -1909,11 +1909,11 @@
   <script src="src/cloudgames.js?v=20260918c"></script>
   <script src="src/webports.js?v=20260908d"></script>
   <script src="src/sites.js?v=20260905j"></script>
-  <script src="src/proxies.js?v=20260917a"></script>
+  <script src="src/proxies.js?v=20260919a"></script>
   <script src="src/apps.js?v=20260905j"></script>
   <script src="src/music.js?v=20260910d"></script>
-  <script src="src/launcher.js?v=20260918e"></script>
-  <script src="src/browser.js?v=20260918b"></script>
+  <script src="src/launcher.js?v=20260919a"></script>
+  <script src="src/browser.js?v=20260919a"></script>
   <script src="src/cloud.js?v=20260917a"></script>
   <script src="src/editor.js?v=20260917a"></script>
   <script src="src/urlauditor.js?v=20260905j"></script>
@@ -1922,7 +1922,7 @@
   <script src="src/ai.js?v=20260918d"></script>
   <script src="src/partners.js?v=20260907b"></script>
   <script src="src/docs.js?v=20260918b"></script>
-  <script src="src/bookmarklets.js?v=20260905j"></script>
+  <script src="src/bookmarklets.js?v=20260919a"></script>
   <script src="assets/hls.min.js?v=20260905c"></script>
   <script src="src/livetv.js?v=20260910a"></script>
   <script src="src/youtube.js?v=20260910a"></script>
@@ -1979,7 +1979,7 @@
   </script>
   <!-- app.js consumes window.ChalkGames at eval time, so it must run after the
        deferred game scripts above - defer preserves document order, so it does. -->
-  <script defer src="src/app.js?v=20260918b"></script>
-  <script defer src="src/gameplayer.js?v=20260917c"></script>
+  <script defer src="src/app.js?v=20260919a"></script>
+  <script defer src="src/gameplayer.js?v=20260919a"></script>
 </body>
 </html>

@@ -16,14 +16,14 @@ same-origin routes:
         CORS relays (allorigins & co. time out or get blocked), so dead /
         live checks are accurate and fast. Only http/https targets allowed.
 
-    GET /uv/<base64url(target)>
-        The built-in rewriting proxy (the "Scramjet" / "Ultraviolet" routes).
-        Fetches the target server-side, rewrites HTML/CSS so every URL flows
-        back through /uv/, strips CSP/X-Frame-Options, injects a small client
-        patch (fetch/XHR/WebSocket/history) and serves it all from this same
-        origin - so there is nothing separate for a filter to block and the
-        route never goes stale the way a temporary tunnel does. WebSocket
-        upgrade requests to /uv/... are tunneled straight through.
+    GET /res/<hex(target)>
+        The built-in rewriting proxy. Fetches the target server-side, rewrites
+        HTML/CSS so every URL flows back through /res/, strips
+        CSP/X-Frame-Options, injects a small client patch
+        (fetch/XHR/WebSocket/history) and serves it all from this same origin
+        - so there is nothing separate for a filter to block and the route
+        never goes stale the way a temporary tunnel does. WebSocket upgrade
+        requests to /res/... are tunneled straight through.
 """
 import os
 import re
@@ -2312,8 +2312,8 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, _Bitc
             self.send_header("Cache-Control", "public, max-age=86400")
         elif route.endswith((".js", ".css", ".mjs")) and q.startswith("v="):
             self.send_header("Cache-Control", "public, max-age=86400")
-        elif route.startswith("/uv/") or route == "/uv":
-            # The /uv proxy writes its own Cache-Control per asset type after
+        elif route.startswith(_UV_PFX) or route == _UV_PFX.rstrip("/"):
+            # The proxy writes its own Cache-Control per asset type after
             # this (rewritten text gets a short cache, binaries/image/font get
             # long caches, HTML/API stay no-store) - don't preempt it with a
             # blanket no-store, which would duplicate and win the header merge.
@@ -2391,12 +2391,12 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, _Bitc
             return self._ai_convos_get((qs.get("v") or ["anon"])[0])
         if route == "/_cherri":
             return self._cherri()
-        if route == "/uv" or route == "/uv/":
+        if route == _UV_PFX.rstrip("/") or route == _UV_PFX:
             return self._uv_boot()
-        if route.startswith("/uv/"):
+        if route.startswith(_UV_PFX):
             if (self.headers.get("Upgrade") or "").lower() == "websocket":
-                return self._uv_ws(route[len("/uv/"):])
-            return self._uv_route(route[len("/uv/"):])
+                return self._uv_ws(route[len(_UV_PFX):])
+            return self._uv_route(route[len(_UV_PFX):])
         if route == "/cloud/health":
             return self._cloud_health()
         if route.startswith("/cloud/v1/signal/"):
@@ -2486,13 +2486,13 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, _Bitc
             length = int(self.headers.get("Content-Length", 0))
             body = self.rfile.read(length) if length > 0 else b"{}"
             return self._ai_convos_post(body)
-        if route.startswith("/uv/"):
+        if route.startswith(_UV_PFX):
             length = int(self.headers.get("Content-Length", 0))
             body = self.rfile.read(length) if length > 0 else None
             ctype = (self.headers.get("Content-Type") or "").lower()
             if body is not None and "application/x-www-form-urlencoded" in ctype:
                 body = body.decode("utf-8", "replace")
-            return self._uv_route(route[len("/uv/"):], body)
+            return self._uv_route(route[len(_UV_PFX):], body)
         # Bitcord chat embed: POST API proxy. The _bitcord_api method reads
         # the request body itself, so do_POST just delegates.
         if route.startswith("/bitcord/api/") or route.startswith("/bitcord/api?"):
@@ -3423,10 +3423,10 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, _Bitc
         self.end_headers()
         self.wfile.write(data)
 
-    # ---------------------------------------------------------------- /uv proxy
-    # The built-in rewriting proxy behind the "Scramjet" and "Ultraviolet"
-    # routes. <proxy>/uv/<base64url(target)> fetches the target server-side,
-    # rewrites every URL in the HTML/CSS back through /uv/ (so the tab only
+    # ------------------------------------------------------------ rewriting proxy
+    # The built-in rewriting proxy. <proxy>/res/<hex(target)> fetches the
+    # target server-side, rewrites every URL in the HTML/CSS back through
+    # /res/ (so the tab only
     # ever talks to this origin), strips CSP / X-Frame-Options, and injects a
     # small client patch that reroutes fetch/XHR/WebSocket/history calls that
     # only exist at runtime. No service worker, no separate host to block, and
@@ -3462,9 +3462,9 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, _Bitc
         self._uv_send(code if code else 502, "text/html", body)
 
     def _uv_boot(self):
-        """Small themed page for the /uv/ proxy root (what the proxy card's
+        """Small themed page for the proxy root (what the proxy card's
         in-app Open button shows). Lets you type a URL, and handles the
-        hash-route form (#<base64url>) by bouncing to the path route."""
+        hash-route form by bouncing to the path route."""
         html = (
             "<!doctype html><html><head><meta charset='utf-8'><title>Chalkle Proxy</title>"
             "<style>body{background:#0c1210;color:#e8eaed;font:15px/1.5 system-ui;display:grid;"
@@ -3483,28 +3483,29 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, _Bitc
             "<input id='u' placeholder='https://example.com' autocomplete='off' autofocus>"
             "<button id='go'>Open through proxy</button></div>"
             "<script>"
-            "function enc(s){try{return btoa(unescape(encodeURIComponent(s)))"
-            ".replace(/\\+/g,'-').replace(/\\//g,'_').replace(/=+$/,'')}"
+            "function enc(s){try{s=encodeURIComponent(s);var o='';"
+            "for(var i=0;i<s.length;i++){var c=s.charCodeAt(i)^(0x2f+i%0x31);"
+            "o+=(c<16?'0':'')+c.toString(16);}return o;}"
             "catch(e){return encodeURIComponent(s)}}"
             "function go(){var v=(document.getElementById('u').value||'').trim();"
             "if(!v)return;if(v.indexOf('://')===-1)v='https://'+v;"
-            "location.href='/uv/'+enc(v)}"
+            "location.href='/res/'+enc(v)}"
             "document.getElementById('go').onclick=go;"
             "document.getElementById('u').addEventListener('keydown',function(e){if(e.key==='Enter')go()});"
-            "var h=location.hash;if(h&&h.length>1)location.replace('/uv/'+h.slice(1));"
+            "var h=location.hash;if(h&&h.length>1)location.replace('/res/'+h.slice(1));"
             "</script></body></html>"
         )
         self._uv_send(200, "text/html", html.encode())
 
     def _uv_route(self, encoded, post_body=None):
-        """Serve /uv/<base64url(target)>[<extra path>]. The encoded value can
+        """Serve /res/<hex(target)>[<extra path>]. The encoded value can
         carry a trailing path (when the browser resolved a relative URL against
         the injected proxied <base>); append it to the decoded target. Local
         paths (starting with /) are served from this server's own webroot so
         /game-builds/... shells work even when their CDN assets are blocked -
-        the rewriter turns every CDN reference back into a /uv/ route."""
+        the rewriter turns every CDN reference back into a /res/ route."""
         seg, _, rest = encoded.partition("/")
-        target = _uv_b64url_decode(seg)
+        target = _uv_dec(seg)
         if not target:
             return self._uv_error(400, "bad route")
         if rest:
@@ -3549,8 +3550,8 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, _Bitc
                 is_html = True
             elif is_js:
                 # JS module: rewrite relative import specifiers to absolute
-                # /uv/ routes, then send. Verbatim streaming would break every
-                # `import "./chunk.js"` (they'd resolve against /uv/<name>.js
+                # /res/ routes, then send. Verbatim streaming would break every
+                # `import "./chunk.js"` (they'd resolve against /res/<name>.js
                 # and lose the encoded target).
                 raw = prefix + probe.read(40 * 1024 * 1024 + 1)
                 probe.close()
@@ -3666,8 +3667,8 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, _Bitc
 
     def _uv_local(self, path, post_body=None):
         """Serve a local webroot path (e.g. /game-builds/granny3/index.html)
-        through the /uv/ pipeline. The HTML/CSS rewriter turns any external
-        CDN reference (jsdelivr, raw.githubusercontent, ...) into a /uv/ route,
+        through the /res/ pipeline. The HTML/CSS rewriter turns any external
+        CDN reference (jsdelivr, raw.githubusercontent, ...) into a /res/ route,
         so a local shell whose assets live on a blocked CDN still boots: the
         browser only ever talks to this origin, and the server fetches the CDN
         parts server-side. Binary assets are streamed with their real MIME so
@@ -3751,7 +3752,7 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, _Bitc
         the 101 handshake back untouched (the client's Sec-WebSocket-Key is
         forwarded, so the upstream's accept value is valid), then pump bytes
         both ways."""
-        target = _uv_b64url_decode(encoded)
+        target = _uv_dec(encoded)
         if not target or not re.match(r"^wss?://", target, re.I):
             return self._uv_error(400, "bad ws target")
         import urllib.parse
@@ -4635,7 +4636,7 @@ def _http_status(url):
         return 0, type(e).__name__
 
 
-# ---------------------------------------------------------------- /uv helpers
+# ----------------------------------------------------------- proxy helpers
 # Rewriting proxy internals: base64url route encoding, the HTML/CSS rewriter,
 # the injected client patch, and the upstream fetcher.
 
@@ -4649,20 +4650,21 @@ _UV_URL_ATTRS = ("href", "src", "action", "poster", "data-src", "data-href",
 # Injected into every proxied page, right after <head>, so it runs before any
 # site script. It reroutes the runtime requests that static rewriting can't
 # see: fetch / XHR / WebSocket calls with absolute or root-relative URLs, and
-# history / location navigations, all through the same /uv/ route.
+# history / location navigations, all through the same /res/ route.
 _UV_PATCH_JS = (
     "<script>"
     "(function(){"
     "\"use strict\";"
     "try{"
-    "var TARGET=window.__UV_TARGET__||'';var P='/uv/';"
-    "function enc(u){try{return btoa(unescape(encodeURIComponent(u)))"
-    ".replace(/\\+/g,'-').replace(/\\//g,'_').replace(/=+$/,'')}"
+    "var TARGET=window.__UV_TARGET__||'';var P='/res/';"
+    "function enc(u){try{u=encodeURIComponent(u);var o='';"
+    "for(var i=0;i<u.length;i++){var c=u.charCodeAt(i)^(0x2f+i%0x31);"
+    "o+=(c<16?'0':'')+c.toString(16);}return o;}"
     "catch(e){return encodeURIComponent(u)}}"
     "function abs(u){"
     "if(!u||typeof u!=='string')return u;"
     "var s=u.trim();"
-    # file:/about: must never be wrapped: a file: URL routed through /uv/ would
+    # file:/about: must never be wrapped: a file: URL routed through /res/ would
     # make the relay fetch it server-side (local-file-read risk), and the
     # browser logs "may not load or link to file:///" on any file: reference.
     "if(!s||/^(data:|blob:|javascript:|file:|about:|mailto:|tel:|#)/i.test(s))return u;"
@@ -4728,15 +4730,30 @@ def _esc_html(s):
     return str(s).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
-def _uv_b64url_encode(s):
-    return base64.urlsafe_b64encode(s.encode("utf-8")).decode("ascii").rstrip("=")
+# Proxy route codec. The old /uv/ route + base64url was the exact
+# Ultraviolet fingerprint filters regex for. The built-in proxy now uses an
+# innocuous static-looking prefix and a position-XOR hex codec: no base64
+# symbols, no '=' padding, no path any known proxy rule matches.
+_UV_PFX = "/res/"
 
 
-def _uv_b64url_decode(s):
-    s = (s or "").strip().replace("-", "+").replace("_", "/")
-    s += "=" * (-len(s) % 4)
+def _uv_enc(s):
+    import urllib.parse
     try:
-        return base64.b64decode(s).decode("utf-8", "replace")
+        t = urllib.parse.quote(s, safe="")
+        return bytes(b ^ (0x2f + i % 0x31) for i, b in enumerate(t.encode("ascii"))).hex()
+    except Exception:
+        return ""
+
+
+def _uv_dec(s):
+    import urllib.parse
+    if not s:
+        return None
+    try:
+        raw = bytes.fromhex(s)
+        t = bytes(b ^ (0x2f + i % 0x31) for i, b in enumerate(raw)).decode("ascii")
+        return urllib.parse.unquote(t)
     except Exception:
         return None
 
@@ -4747,7 +4764,7 @@ def _uv_decode(raw):
     except Exception:
         return raw.decode("latin-1", "replace")
 
-# --- pooled upstream HTTP/1.1 client for the /uv proxy ---
+# --- pooled upstream HTTP/1.1 client for the proxy ---
 # urllib opened a brand-new connection (with a full TLS handshake) for every
 # proxied asset. These helpers keep a small pool of keep-alive connections per
 # upstream host so asset-heavy pages reuse one connection instead of paying a
@@ -4878,7 +4895,7 @@ class _UVResp:
 
 def _uv_cacheable(ctype, target):
     """Seconds a proxied response can be cached by the browser. Static assets
-    are deterministic per /uv URL; HTML, JSON and anything dynamic stay
+    are deterministic per /res URL; HTML, JSON and anything dynamic stay
     no-store. Rewritten text (css/js/svg) gets a short cache."""
     low = (ctype or "").lower()
     if low.startswith(("image/", "font/", "audio/", "video/")) or low == "application/wasm":
@@ -4991,7 +5008,7 @@ def _uv_fetch(url, post_body=None):
 
 
 def _uv_wrap_url(value, base_url):
-    """Rewrite one URL to an absolute /uv/ route. Relative values resolve
+    """Rewrite one URL to an absolute /res/ route. Relative values resolve
     against base_url first; non-URL values pass through untouched."""
     v = str(value or "").strip()
     # file:/about: pass through unwrapped: wrapping them would make the relay
@@ -5011,7 +5028,7 @@ def _uv_wrap_url(value, base_url):
         v = "https:" + v
     if not re.match(r"^https?://", v, re.I):
         v = urljoin(base_url, v)
-    return "/uv/" + _uv_b64url_encode(v)
+    return _UV_PFX + _uv_enc(v)
 
 
 # ES module import specifiers: import "./x.js" / import("./x.js") / export * from
@@ -5026,13 +5043,13 @@ _UV_JS_IMPORT_RE = re.compile(
 
 
 def _uv_rewrite_js(js, base_url):
-    """Rewrite module import specifiers inside streamed JS to absolute /uv/
+    """Rewrite module import specifiers inside streamed JS to absolute /res/
     routes. Without this, `import"./D7UGAqZr.js"` inside a proxied module
-    resolves against /uv/<name>.js and 404s (the encoded target is lost)."""
+    resolves against /res/<name>.js and 404s (the encoded target is lost)."""
     def rep(m):
         pre, spec, quote = m.group(1), m.group(2), m.group(3)
         # Skip already-rewritten routes
-        if spec.startswith("/uv/"):
+        if spec.startswith(_UV_PFX):
             return m.group(0)
         return pre + _uv_wrap_url(spec, base_url) + quote
     return _UV_JS_IMPORT_RE.sub(rep, str(js or ""))
@@ -5213,12 +5230,12 @@ def _uv_rewrite_svg(svg, target):
 
 def _uv_rewrite_html(html, target, _depth=0):
     """Rewrite a full HTML document: every URL attribute becomes an absolute
-    /uv/ route, <style>/inline CSS url()s get rewritten, CSP meta tags and
+    /res/ route, <style>/inline CSS url()s get rewritten, CSP meta tags and
     <base> tags are replaced with a proxied <base> (so any relative URL a
     script assigns at runtime still lands on the proxy), and raw-text
     elements are left untouched."""
     base_dir = urljoin(target, ".")
-    base_href = "/uv/" + _uv_b64url_encode(base_dir) + "/"
+    base_href = _UV_PFX + _uv_enc(base_dir) + "/"
     out = []
     i = 0
     n = len(html)
@@ -5311,12 +5328,12 @@ def _uv_rewrite_html(html, target, _depth=0):
 def _uv_inject_patch(html, target):
     # Proxied <base>: any relative URL a script assigns at runtime (img.src =
     # "logo.png", video.src, link.href...) resolves against this instead of the
-    # raw /uv/ route, so it still lands on the proxy. The rewriter already
+    # raw /res/ route, so it still lands on the proxy. The rewriter already
     # replaced a site <base>; only inject when the document had none.
     base = ""
     if not re.search(r"<base\b[^>]*>", html, re.I):
         base_dir = urljoin(target, ".")
-        base = '<base href="/uv/' + _uv_b64url_encode(base_dir) + '/">'
+        base = '<base href="' + _UV_PFX + _uv_enc(base_dir) + '/">'
     inject = base + "<script>window.__UV_TARGET__=" + json.dumps(target) + ";</script>" + _UV_PATCH_JS
     m = re.search(r"<head\b[^>]*>", html, re.I)
     if m:

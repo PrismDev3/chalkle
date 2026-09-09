@@ -433,18 +433,19 @@
     });
 
     /* Proxy migration (v2): the old Scramjet pointed at a trycloudflare
-       quick-tunnel that expires (that one is dead now). Both Scramjet and
-       Ultraviolet route through the same-origin /uv/ rewriting proxy served
-       by this site's own server - the URL can never go stale and there is
-       nothing separate for a filter to block. Fix saved copies in place, then
-       make sure both default proxies exist. */
+       quick-tunnel that expires (that one is dead now). Proxies route
+       through the same-origin /res/ rewriting proxy served by this site's
+       own server - the URL can never go stale and there is nothing separate
+       for a filter to block. Fix saved copies in place, then make sure both
+       default proxies exist. */
     var dirty = false;
     list.forEach(function (p) {
       if (!p || !p.url) return;
       var u = String(p.url);
-      if (u.indexOf("trycloudflare") !== -1 || /^\/uv\/?$/i.test(u)) {
-        /* /uv/ is not shipped with the static site - routing through it
-           made every game look blocked. Point stale entries at a real host. */
+      if (u.indexOf("trycloudflare") !== -1 || /^(\/uv|\/res)\/?$/i.test(u)) {
+        /* The built-in proxy is not shipped with the static site - routing
+           through a dead copy made every game look blocked. Point stale
+           entries at a real host. */
         p.url = "https://gjsd.yan.ch/";
         p.mode = "frame";
         dirty = true;
@@ -558,8 +559,8 @@
     try {
       var relay = window.ChalkleApi && window.ChalkleApi.root ? String(window.ChalkleApi.root() || "").replace(/\/+$/, "") : "";
       if (relay && /^https?:/i.test(relay)) {
-        var hasRelay = list.some(function (p) { return p && p.builtin && p.url === relay + "/uv"; });
-        if (!hasRelay) list.unshift({ name: "Chalkle Relay", url: relay + "/uv", mode: "path", builtin: true, icon: "/favicon.svg" });
+        var hasRelay = list.some(function (p) { return p && p.builtin && p.url === relay + "/res"; });
+        if (!hasRelay) list.unshift({ name: "Chalkle Relay", url: relay + "/res", mode: "path", builtin: true, icon: "/favicon.svg" });
       }
     } catch (e) { /* keep the normal proxy list */ }
     window.ChalkleProxies = list;
@@ -1265,7 +1266,7 @@
   function openBrowser() {
     /* Open the in-app browser overlay directly on its new-tab page. The
        overlay already has tabs, an address bar, bookmarks, quick links and
-       /uv/ routing, so there is nothing left for browser.html to add - and
+       /res/ routing, so there is nothing left for browser.html to add - and
        hosting it inside the overlay would nest two browser UIs. */
     if (window.ChalkleBrowser && window.ChalkleBrowser.open) {
       window.ChalkleBrowser.open("", "Browser");
@@ -4008,7 +4009,7 @@
         }
 
         /* Game-card proxy button - route this one game through the configured
-           proxy (built-in /uv/ when available) in a new tab. */
+           proxy (built-in /res/ when available) in a new tab. */
         var gameProxy = e.target.closest("[data-game-proxy]");
         if (gameProxy && window.ChalkleLaunch) {
           e.preventDefault();
