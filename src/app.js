@@ -4013,6 +4013,8 @@
             var ipTile = toolKind.closest(".tool-tile");
             ipTileClick(ipTile);
           }
+          else if (toolKind.dataset.toolKind === "browser") openBrowser();
+          else if (toolKind.dataset.toolKind === "vm") openVm();
           return;
         }
 
