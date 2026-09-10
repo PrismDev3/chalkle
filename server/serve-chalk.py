@@ -2571,8 +2571,6 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, _Bitc
             from urllib.parse import urlparse, parse_qs
             qs = parse_qs(urlparse(self.path).query)
             return self._ai_convos_get((qs.get("v") or ["anon"])[0])
-        if route == "/_cherri":
-            return self._cherri()
         if route == _UV_PFX.rstrip("/") or route == _UV_PFX:
             return self._uv_boot()
         if route.startswith(_UV_PFX):
@@ -2757,106 +2755,6 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, _Bitc
     # serves tiny JSON pages: line-range browsing when no query is given, and a
     # case-insensitive substring search when one is. The file is mmap'd lazily
     # with a line-offset index so paging is O(1); search scans once per query.
-    CHERRI_PATH = os.path.join(WEB_ROOT, "cherri-list.txt")
-    _cherri_mm = None        # mmap of the raw file
-    _cherri_lower = None     # lazy lowercase copy of the raw bytes (search only)
-    _cherri_offsets = None   # byte offset of each line start (array 'Q')
-    _cherri_total = 0
-
-    @classmethod
-    def _cherri_index(cls):
-        if cls._cherri_offsets is not None:
-            return
-        import array as _array
-        if not os.path.isfile(cls.CHERRI_PATH):
-            cls._cherri_offsets = _array.array("Q")
-            return
-        with open(cls.CHERRI_PATH, "rb") as f:
-            mm = mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ)
-        cls._cherri_mm = mm
-        offs = _array.array("Q", [0])
-        pos = 0
-        n = len(mm)
-        while True:
-            nl = mm.find(b"\n", pos)
-            if nl == -1:
-                break
-            offs.append(nl + 1)
-            pos = nl + 1
-        # One line-start offset per newline found, plus the implicit start of a
-        # final line that has no trailing newline. Total lines = len(offs), minus
-        # one when the file ends with a newline (no trailing empty line).
-        cls._cherri_offsets = offs
-        ends_nl = len(mm) > 0 and mm[-1:] == b"\n"
-        cls._cherri_total = max(0, len(offs) - (1 if ends_nl else 0))
-
-    def _cherri(self):
-        from urllib.parse import parse_qs, urlparse
-        q = parse_qs(urlparse(self.path).query)
-        query = (q.get("q") or [""])[0].strip()
-        try:
-            offset = max(0, int((q.get("offset") or ["0"])[0]))
-            limit = min(200, max(1, int((q.get("limit") or ["50"])[0])))
-        except Exception:
-            offset, limit = 0, 50
-        Handler._cherri_index()
-        mm = Handler._cherri_mm
-        offs = Handler._cherri_offsets
-        total = Handler._cherri_total
-        results = []
-        if mm is None or offs is None or len(offs) < 2:
-            body = json.dumps({"ok": True, "total": 0, "results": []}).encode()
-        else:
-            if not query:
-                # Line-range browse: O(1) via the offset index.
-                for i in range(offset, min(offset + limit, total)):
-                    s = offs[i]
-                    e = offs[i + 1] if i + 1 < len(offs) else len(mm)
-                    line = mm[s:e].strip()
-                    if line:
-                        results.append(line.decode("utf-8", "replace"))
-                match_total = total
-            else:
-                # Case-insensitive substring search over the lazy lowercase copy.
-                if Handler._cherri_lower is None:
-                    Handler._cherri_lower = bytes(mm).lower()
-                lower = Handler._cherri_lower
-                needle = query.lower().encode()
-                idx = [0]
-                match_total = 0
-                seen_line = -1
-                skip = offset
-                pos = 0
-                while True:
-                    hit = lower.find(needle, pos)
-                    if hit == -1:
-                        break
-                    # map hit position -> line index
-                    import bisect
-                    li = bisect.bisect_right(offs, hit) - 1
-                    if li < 0:
-                        li = 0
-                    if li != seen_line:
-                        seen_line = li
-                        match_total += 1
-                        if skip > 0:
-                            skip -= 1
-                        elif len(results) < limit:
-                            s = offs[li]
-                            e = offs[li + 1] if li + 1 < len(offs) else len(mm)
-                            line = mm[s:e].strip()
-                            if line:
-                                results.append(line.decode("utf-8", "replace"))
-                    pos = hit + 1
-            body = json.dumps({"ok": True, "total": total, "match_total": match_total, "results": results}).encode()
-        self.send_response(200)
-        self.send_header("Content-Type", "application/json")
-        self.send_header("Cache-Control", "no-store")
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Content-Length", str(len(body)))
-        self.end_headers()
-        self.wfile.write(body)
-
     def _sync_get(self):
         db_path = os.path.join(WEB_ROOT, "sync.json")
         data = b"{}"
