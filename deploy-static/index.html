@@ -34,7 +34,7 @@
        preload tag kept firing "preloaded but not used" warnings whenever
        the body didn't paint it during the boot intro. theme.js also strips
        any stale preload tag left by earlier builds. -->
-  <link rel="stylesheet" href="src/styles.css?v=20260919a">
+  <link rel="stylesheet" href="src/styles.css?v=20260919e">
   <!-- AdSense. This loader powers BOTH layers:
        1. Manual units - the .ad-slot placements below, each filled when its
           slot ID is pasted into CHALKLE_ADS.slots (AdSense → Ads → By ad unit).
@@ -1920,7 +1920,7 @@
   <script src="src/webports.js?v=20260908d"></script>
   <script src="src/sites.js?v=20260905j"></script>
   <script src="src/proxies.js?v=20260919a"></script>
-  <script src="src/apps.js?v=20260905j"></script>
+  <script src="src/apps.js?v=20260919e"></script>
   <script src="src/music.js?v=20260910d"></script>
   <script src="src/launcher.js?v=20260919a"></script>
   <script src="src/browser.js?v=20260919a"></script>
@@ -1990,6 +1990,6 @@
   <!-- app.js consumes window.ChalkGames at eval time, so it must run after the
        deferred game scripts above - defer preserves document order, so it does. -->
   <script defer src="src/app.js?v=20260919d"></script>
-  <script defer src="src/gameplayer.js?v=20260919b20260919a"></script>
+  <script defer src="src/gameplayer.js?v=20260919e"></script>
 </body>
 </html>
