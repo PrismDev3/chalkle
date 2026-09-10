@@ -36,6 +36,7 @@ call :check_server
 call :check_music
 call :check_cloud
 call :check_bitcord
+call :check_esm
 call :check_tunnel
 timeout /t 20 /nobreak >nul 2>&1
 goto LOOP
@@ -82,6 +83,16 @@ set /p bcd=<"%TEMP%\ck-bcd.txt"
 if not "%bcd%"=="000" if not "%bcd%"=="" goto :eof
 echo [%date% %time%] bitcord backend down, starting >> "%LOG%"
 powershell -NoProfile -Command "Start-Process -FilePath 'node' -ArgumentList @('server.cjs') -WorkingDirectory '%ROOT%\bitcord-backend' -WindowStyle Hidden -RedirectStandardOutput '%ROOT%\chalkle-bitcord.log' -RedirectStandardError '%ROOT%\chalkle-bitcord-err.log'"
+goto :eof
+
+:check_esm
+rem self-hosted esm.sh CDN on :80 (esm.lootline.xyz). Any HTTP answer
+rem (even 404/500) means the process is alive; 000 means not listening.
+curl -s -o nul -w "%%{http_code}" --max-time 3 http://127.0.0.1:80/ > "%TEMP%\ck-esm.txt" 2>nul
+set /p esm=<"%TEMP%\ck-esm.txt"
+if not "%esm%"=="000" if not "%esm%"=="" goto :eof
+echo [%date% %time%] esm CDN down, starting >> "%LOG%"
+powershell -NoProfile -Command "Start-Process -FilePath '%ROOT%\.freebuff\tools\esmd.exe' -ArgumentList @('""%ROOT%\.freebuff\tools\esm.sh\config.json""') -WorkingDirectory '%ROOT%\.freebuff\tools' -WindowStyle Hidden -RedirectStandardOutput '%ROOT%\chalkle-esm.log' -RedirectStandardError '%ROOT%\chalkle-esm-err.log'"
 goto :eof
 
 rem ---- named tunnel for lootline.xyz ----
