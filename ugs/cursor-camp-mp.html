@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Cursor Camp</title>
+<style>
+  html, body { margin: 0; padding: 0; height: 100%; background: #0b0f0e; color: #e8f0ec; overflow: hidden; }
+  #cc-load {
+    position: fixed; inset: 0; display: grid; place-items: center;
+    font: 600 14px/1.5 system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
+  }
+  #cc-load .cc-box { text-align: center; max-width: 80vw; }
+  #cc-load h1 { margin: 0 0 10px; font-size: clamp(22px, 4vw, 34px); letter-spacing: .5px; }
+  #cc-load p { margin: 0 0 14px; color: #9fb8ac; }
+  .cc-bar { width: min(340px, 64vw); height: 12px; margin: 0 auto; border-radius: 999px; background: #18231f; overflow: hidden; }
+  .cc-bar > i { display: block; height: 100%; width: 0; border-radius: 999px; background: linear-gradient(90deg, #34d399, #22d3ee); transition: width .15s ease; }
+  #cc-msg { margin-top: 12px; font-size: 12px; color: #6b8277; min-height: 18px; }
+  .cc-dots span { animation: ccdot 1.2s infinite; display: inline-block; }
+  .cc-dots span:nth-child(2) { animation-delay: .2s; }
+  .cc-dots span:nth-child(3) { animation-delay: .4s; }
+  @keyframes ccdot { 0%, 60%, 100% { opacity: .25; } 30% { opacity: 1; } }
+</style>
+</head>
+<body>
+<div id="cc-load">
+  <div class="cc-box">
+    <h1>Cursor Camp</h1>
+    <p>Loading game<span class="cc-dots"><span>.</span><span>.</span><span>.</span></span></p>
+    <div class="cc-bar"><i id="cc-bar"></i></div>
+    <div id="cc-msg"></div>
+  </div>
+</div>
+<script>
+/* Cursor Camp is a 119 MB single-file HTML build - over GitHub's 100 MB
+   per-file hard limit - so it ships as byte-exact chunks under
+   ugs/cursor-camp/ (part-00..part-07). This loader fetches them in order
+   and streams them into the document via document.write, which keeps the
+   real relay origin (the game's own scripts must run same-origin). On
+   mirrors the /ugs/ launch URL is re-pointed at the relay, so the chunks
+   resolve correctly there too. */
+(function () {
+  "use strict";
+  var PARTS = 8;
+  var bar = document.getElementById("cc-bar");
+  var msg = document.getElementById("cc-msg");
+  var count = 0;
+
+  function status(t) { if (msg) msg.textContent = t || ""; }
+
+  var opened = false;
+
+  function load(i) {
+    if (i >= PARTS) {
+      if (opened) {
+        try { document.close(); } catch (e) {}
+      }
+      return;
+    }
+    var name = "cursor-camp/part-" + (i < 10 ? "0" : "") + i;
+    var url;
+    try { url = new URL(name, location.href).href; } catch (e) { url = name; }
+    fetch(url, { cache: "force-cache", credentials: "omit" })
+      .then(function (r) {
+        if (!r.ok) throw new Error("HTTP " + r.status + " on " + name);
+        return r.text();
+      })
+      .then(function (text) {
+        if (!text || text.length < 100) throw new Error("Empty part " + name);
+        if (!opened) {
+          opened = true;
+          try { document.open(); } catch (e) {}
+        }
+        document.write(text);
+        count++;
+        if (bar) bar.style.width = Math.round((count / PARTS) * 100) + "%";
+        status("Loading chunk " + count + " of " + PARTS + " (" + Math.round((count / PARTS) * 100) + "%)");
+        load(i + 1);
+      })
+      .catch(function (e) {
+        status("Couldn't load Cursor Camp (" + e.message + "). Check your connection and refresh.");
+      });
+  }
+
+  status("Preparing...");
+  load(0);
+})();
+</script>
+</body>
+</html>
