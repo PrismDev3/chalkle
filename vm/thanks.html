@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Chalkle</title>
+    <style>
+      html, body { height: 100%; margin: 0; }
+      body {
+        display: flex; align-items: center; justify-content: center;
+        background: #12101a; color: #f2eef7;
+        font: 500 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        text-align: center;
+      }
+      .box { max-width: 420px; padding: 24px; }
+      .mark {
+        width: 64px; height: 64px; margin: 0 auto 16px; border-radius: 16px;
+        background: linear-gradient(135deg, #ff3d81, #b3145e);
+        display: flex; align-items: center; justify-content: center;
+        font: 800 30px system-ui, sans-serif; color: #fff;
+      }
+      h1 { font-size: 19px; margin: 0 0 8px; }
+      p { color: #9aa0b4; font-size: 13.5px; margin: 0 0 18px; }
+      a.btn {
+        display: inline-block; padding: 10px 22px; border-radius: 10px;
+        background: #ff3d81; color: #fff; font-weight: 700; font-size: 13.5px;
+        text-decoration: none;
+      }
+      a.btn:hover { filter: brightness(1.08); }
+    </style>
+  </head>
+  <body>
+    <div class="box">
+      <div class="mark">c</div>
+      <h1>You're in the VM's browser</h1>
+      <p>This Firefox runs inside your browser tab. Sites you open here go through Chalkle's relay.</p>
+      <a class="btn" href="/">Back to Chalkle</a>
+    </div>
+  </body>
+</html>

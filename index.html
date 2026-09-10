@@ -579,6 +579,7 @@
             <span class="chalkle-logo home-logo" role="img" aria-label="Chalkle"></span>
             <p class="home-tag">One launcher for games, music, sites &amp; tools.</p>
             <div class="home-search">
+              <span class="home-search-glow" aria-hidden="true"></span>
               <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
                 <circle cx="11" cy="11" r="6.5"/>
                 <line x1="16" y1="16" x2="20.5" y2="20.5"/>
@@ -1392,6 +1393,16 @@
         <div class="gp-stage">
           <div class="gp-progress" id="gp-progress" aria-hidden="true"></div>
           <div class="gp-frame-wrap" id="gp-frame-wrap">
+            <div class="gp-splash" id="gp-splash" hidden aria-hidden="true">
+              <div class="gp-splash-wall" id="gp-splash-rows"></div>
+              <div class="gp-splash-panel">
+                <span class="gp-splash-logo" aria-hidden="true">c</span>
+                <span class="gp-splash-spin" aria-hidden="true"></span>
+                <span class="gp-splash-title" id="gp-splash-title"></span>
+                <span class="gp-splash-sub">Warming up Chalkle</span>
+                <button class="btn gp-splash-skip" id="gp-splash-skip" type="button">Enter game</button>
+              </div>
+            </div>
             <div class="gp-loading" id="gp-loading">
               <span class="gp-loading-art" id="gp-loading-art"></span>
               <span class="gp-loading-title" id="gp-loading-title"></span>
@@ -1978,7 +1989,7 @@
   </script>
   <!-- app.js consumes window.ChalkGames at eval time, so it must run after the
        deferred game scripts above - defer preserves document order, so it does. -->
-  <script defer src="src/app.js?v=20260919a"></script>
-  <script defer src="src/gameplayer.js?v=20260919a"></script>
+  <script defer src="src/app.js?v=20260919b20260919a"></script>
+  <script defer src="src/gameplayer.js?v=20260919b20260919a"></script>
 </body>
 </html>

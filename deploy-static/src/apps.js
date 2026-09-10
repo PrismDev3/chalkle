@@ -17,6 +17,13 @@ window.ChalkApps = [
     thumb: "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2064%2064%22%3E%3Cdefs%3E%3ClinearGradient%20id%3D%22g%22%20x1%3D%220%22%20y1%3D%220%22%20x2%3D%221%22%20y2%3D%221%22%3E%3Cstop%20offset%3D%220%22%20stop-color%3D%22%234285f4%22%2F%3E%3Cstop%20offset%3D%221%22%20stop-color%3D%22%232a7d44%22%2F%3E%3C%2FlinearGradient%3E%3C%2Fdefs%3E%3Crect%20width%3D%2264%22%20height%3D%2264%22%20rx%3D%2214%22%20fill%3D%22url(%23g)%22%2F%3E%3Ccircle%20cx%3D%2232%22%20cy%3D%2232%22%20r%3D%2218%22%20fill%3D%22none%22%20stroke%3D%22%230c1210%22%20stroke-width%3D%223.5%22%2F%3E%3Cellipse%20cx%3D%2232%22%20cy%3D%2232%22%20rx%3D%227%22%20ry%3D%2218%22%20fill%3D%22none%22%20stroke%3D%22%230c1210%22%20stroke-width%3D%223%22%2F%3E%3Cpath%20d%3D%22M14%2032h36%22%20stroke%3D%22%230c1210%22%20stroke-width%3D%223%22%2F%3E%3C%2Fsvg%3E"
   },
   {
+    title: "Firefox VM",
+    kind: "vm",
+    category: "Built-in",
+    desc: "A real Firefox browser running in your tab, routed through Chalkle.",
+    thumb: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23ff9500'/%3E%3Ccircle cx='32' cy='36' r='17' fill='none' stroke='%2312101a' stroke-width='4'/%3E%3Cpath d='M14 22c4-8 12-12 20-10l-6 8z' fill='%2312101a'/%3E%3Ccircle cx='26' cy='33' r='2.5' fill='%2312101a'/%3E%3Ccircle cx='38' cy='33' r='2.5' fill='%2312101a'/%3E%3Cpath d='M25 42c4 3 10 3 14 0' fill='none' stroke='%2312101a' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E"
+  },
+  {
     title: "HTML Editor",
     kind: "editor",
     category: "Built-in",

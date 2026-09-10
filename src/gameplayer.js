@@ -25,6 +25,8 @@
   var backBtn = $("gp-back"), closeBtn = $("gp-close"), reloadBtn = $("gp-reload");
   var fsBtn = $("gp-fs"), exitFsBtn = $("gp-exitfs");
   var retryBtn = $("gp-retry"), errTabBtn = $("gp-error-tab"), errBackBtn = $("gp-error-back");
+  var splashEl = $("gp-splash"), splashRows = $("gp-splash-rows"), splashTitle = $("gp-splash-title");
+  var splashTimer = null;
 
   var current = null;      /* { url, title, failed, favKey, fav, onFav } */
   var loadTimer = null;
@@ -61,8 +63,52 @@
     }, 15000);
   }
 
+  /* ---------- Launch splash (cover-art wall behind the load panel) ---------- */
+
+  function hideSplash() {
+    if (splashTimer) { clearTimeout(splashTimer); splashTimer = null; }
+    if (splashEl && !splashEl.hidden) {
+      splashEl.classList.add("out");
+      setTimeout(function () {
+        if (!splashEl) return;
+        splashEl.hidden = true;
+        splashEl.classList.remove("out");
+        if (splashRows) splashRows.innerHTML = "";
+      }, 430);
+    }
+  }
+
+  function beginSplash(covers) {
+    if (!splashEl || !splashRows) return;
+    var list = Array.isArray(covers) ? covers.slice(0, 9) : [];
+    if (!list.length) return;
+    splashRows.innerHTML = "";
+    for (var r = 0; r < 3; r++) {
+      var row = document.createElement("div");
+      row.className = "gp-splash-row";
+      for (var c = 0; c < 3; c++) {
+        var cell = document.createElement("div");
+        cell.className = "gp-splash-cell";
+        var cover = list[r * 3 + c];
+        if (cover && cover.i) {
+          cell.title = cover.t || "";
+          cell.innerHTML = cover.i;
+        }
+        row.appendChild(cell);
+      }
+      splashRows.appendChild(row);
+    }
+    if (splashTitle) splashTitle.textContent = current ? current.title : "";
+    splashEl.hidden = false;
+    splashEl.classList.remove("out");
+    if (splashTimer) clearTimeout(splashTimer);
+    /* Hard cap: never hold the wall more than 6s even if the frame stalls. */
+    splashTimer = setTimeout(hideSplash, 6000);
+  }
+
   function finishLoad() {
     if (loadTimer) { clearTimeout(loadTimer); loadTimer = null; }
+    hideSplash();
     if (loadingEl) loadingEl.hidden = true;
     if (iframeEl) iframeEl.style.opacity = "1";
     if (progressEl) {
@@ -74,6 +120,7 @@
   function fail(reason) {
     if (loadTimer) { clearTimeout(loadTimer); loadTimer = null; }
     if (current) current.failed = true;
+    hideSplash();
     if (loadingEl) loadingEl.hidden = true;
     if (errorEl) errorEl.hidden = false;
     if (progressEl) {
@@ -180,6 +227,7 @@
       if (progressEl) progressEl.style.opacity = "0";
     } else {
       beginLoad();
+      beginSplash(opts.covers);
       if (iframeEl) {
         /* Chromium enforces @allow feature names; Firefox only warns about
            the ones it doesn't implement. Keep the full list for Chromium. */
@@ -196,6 +244,8 @@
     player.hidden = true;
     document.body.style.overflow = "";
     exitFs(true);
+    hideSplash();
+    if (splashEl) { splashEl.hidden = true; splashEl.classList.remove("out"); if (splashRows) splashRows.innerHTML = ""; }
     if (loadTimer) { clearTimeout(loadTimer); loadTimer = null; }
     if (relatedGrid) relatedGrid.innerHTML = "";
     var cb = current && current.onClose;
@@ -254,6 +304,9 @@
     }
   });
   if (exitFsBtn) exitFsBtn.addEventListener("click", function () { exitFs(); });
+
+  var splashSkip = $("gp-splash-skip");
+  if (splashSkip) splashSkip.addEventListener("click", function () { hideSplash(); });
 
   document.addEventListener("fullscreenchange", syncFromBrowser);
   document.addEventListener("webkitfullscreenchange", syncFromBrowser);

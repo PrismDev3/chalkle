@@ -1230,6 +1230,7 @@
     else if (item.kind === "domainhub" && window.ChalkleDomainHub) window.ChalkleDomainHub.open();
     else if (item.kind === "iphone16") openIphone16();
     else if (item.kind === "browser") openBrowser();
+    else if (item.kind === "vm") openVm();
   }
 
   /* iPhone 16 simulator always opens in its own full-screen about:blank tab -
@@ -1276,6 +1277,15 @@
     try { win = window.open(browserPageUrl(), "_blank"); } catch (e) { /* ignore */ }
     if (win) {
       try { win.document.title = (window.ChalkleCloakTitle || "Home") + ""; } catch (e) { /* cross-origin - can't set title */ }
+    }
+  }
+
+  /* Firefox VM needs a top-level tab for cross-origin isolation (its WASM
+     threads refuse to boot inside an iframe), so it always opens full-page. */
+  function openVm() {
+    var w = window.open(ChalkleApi.url("/vm/"), "_blank");
+    if (!w || w.closed) {
+      try { if (window.showToast) showToast("Allow popups to launch the VM.", "error"); } catch (e) {}
     }
   }
 
@@ -1525,7 +1535,7 @@
     /* Built-in apps (Blank tab launcher, HTML Editor) open their own modal
        instead of launching a URL - data-tool-kind handles that in the click
        handler. Everything else is a plain link tile. */
-    var kind = item.kind === "editor" || item.kind === "urlauditor" || item.kind === "pixel" || item.kind === "domainhub" || item.kind === "iphone16" || item.kind === "browser" ? escapeAttr(item.kind) : "";
+    var kind = item.kind === "editor" || item.kind === "urlauditor" || item.kind === "pixel" || item.kind === "domainhub" || item.kind === "iphone16" || item.kind === "browser" || item.kind === "vm" ? escapeAttr(item.kind) : "";
     var kindAttr = kind ? ' data-tool-kind="' + kind + '"' : '';
     var isProxy = item.via === "proxy" && !!item.url;
     var proxyAttr = isProxy ? ' data-proxy-app="' + escapeAttr(item.url) + '"' : "";
@@ -1593,6 +1603,31 @@
       games.hidden = items.length === 0 || !browsing;
       if (gamesGrid && !games.hidden) gamesGrid.innerHTML = items.map(card).join("");
     }
+  }
+
+  /* Cover wall for the launch splash: the most played games plus a few
+     random picks from the same category, excluding the launched game. */
+  function splashCovers(item) {
+    var list = DATA.games || [];
+    var key = gameKey(item);
+    var pool = [];
+    for (var i = 0; i < list.length; i++) {
+      var g = list[i];
+      if (!g || gameKey(g) === key) continue;
+      var ck = gameKey(g);
+      pool.push({ g: g, plays: state.clicks[ck] || 0, same: g.category && item.category && g.category === item.category });
+    }
+    pool.sort(function (a, b) { return (b.same - a.same) || (b.plays - a.plays); });
+    var top = pool.slice(0, 6);
+    var rest = pool.slice(6);
+    for (var j = rest.length - 1; j > 0; j--) {
+      var k = Math.floor(Math.random() * (j + 1));
+      var tmp = rest[j]; rest[j] = rest[k]; rest[k] = tmp;
+    }
+    var picks = top.concat(rest.slice(0, 3)).slice(0, 9);
+    return picks.map(function (p) {
+      return { t: p.g.title || "", i: gameThumbInner(p.g) };
+    });
   }
 
   function gameKey(item) {
@@ -1966,6 +2001,7 @@
       originalUrl: url,
       favKey: key,
       fav: !!state.favs[key],
+      covers: splashCovers(item),
       related: relatedGames(item, 8).map(gameCard).join(""),
       onFav: function (favKey, isFav) {
         if (isFav) state.favs[favKey] = 1; else delete state.favs[favKey];
@@ -3249,6 +3285,24 @@
        plain text into a web search. Keeping these separate prevents Home
        searches from hijacking the catalog dropdown. */
     bindSearchBox(els.search);
+    /* Edge glow sweep on the home search bar - only on capable devices,
+       and never while the tab is hidden. */
+    (function () {
+      var bar = document.querySelector(".home-search");
+      if (!bar || !window.matchMedia) return;
+      if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+      var nav = navigator.userAgent || "";
+      var lowMem = (navigator.deviceMemory && navigator.deviceMemory <= 2) || (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 2);
+      if (lowMem) return;
+      var t0 = setTimeout(tick, 1800), iv = null;
+      function tick() {
+        if (document.hidden) return;
+        bar.classList.remove("glow-run");
+        void bar.offsetWidth;
+        bar.classList.add("glow-run");
+      }
+      iv = setInterval(tick, 7000);
+    })();
     function openHomeWebSearch() {
       if (!els.homeSearch) return;
       var value = els.homeSearch.value.trim();

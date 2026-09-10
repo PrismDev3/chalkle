@@ -45,6 +45,7 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 # WebAssembly.compileStreaming to skip the arrayBuffer fallback.
 try:
     mimetypes.add_type("application/wasm", ".wasm")
+    mimetypes.add_type("application/zstd", ".zst")
 except Exception:
     pass
 
@@ -207,6 +208,9 @@ def _pruner():
 # is injected here (never visible to the page) unless the client sends its own.
 
 CLOUD_BACKEND_DEFAULT = "http://127.0.0.1:3001"
+# Chalkle VM: static Firefox-WASM build in vm/ + wisp relay on 3002.
+VM_ROOT = os.path.join(WEB_ROOT, "vm")
+VM_WISP_BACKEND = "http://127.0.0.1:3002"
 CLOUD_API_KEY_DEFAULT = "sk_chalkle_local_7f2c9a"
 CLOUD_CFG_PATH = os.path.join(WEB_ROOT, "cloud-relay.json")
 CLOUD_PATH_RE = re.compile(r"^/cloud/v1/(getQueue|embed-data)$")
@@ -311,6 +315,18 @@ class _CloudRelay:
             self.wfile.write(r["body"])
         except Exception:
             pass
+
+    def _vm_health(self):
+        """Health for the VM stack: static dir present + wisp relay up."""
+        import socket
+        ok = os.path.isfile(os.path.join(VM_ROOT, "index.html"))
+        try:
+            with socket.create_connection(("127.0.0.1", 3002), timeout=1.5):
+                pass
+        except Exception:
+            ok = False
+        self._cloud_json({"ok": ok}, 200 if ok else 503)
+        return True
 
     def _cloud_health(self):
         import socket
@@ -490,6 +506,172 @@ class _CloudRelay:
             sock.close()
         except Exception:
             pass
+        return True
+
+    def _vm_wisp_ws(self, route):
+        """Tunnel a /wisp/* WebSocket upgrade to the local VM relay
+        (chalkle-vm-relay/server.mjs on 127.0.0.1:3002)."""
+        import urllib.parse
+        backend = VM_WISP_BACKEND
+        parts = urllib.parse.urlsplit(backend)
+        host = parts.hostname or "127.0.0.1"
+        port = parts.port or 3002
+        path = route if route.startswith("/") else "/" + route
+        try:
+            sock = socket.create_connection((host, port), timeout=15)
+        except Exception as e:
+            self._cloud_json({"error": "vm relay unreachable: " + type(e).__name__}, 502)
+            return True
+        try:
+            key = self.headers.get("Sec-WebSocket-Key", "").strip()
+            ver = self.headers.get("Sec-WebSocket-Version", "13").strip()
+            proto = self.headers.get("Sec-WebSocket-Protocol", "").strip()
+            lines = ["GET %s HTTP/1.1" % path, "Host: %s:%s" % (host, port),
+                     "Upgrade: websocket", "Connection: Upgrade"]
+            if key:
+                lines.append("Sec-WebSocket-Key: " + key)
+            if ver:
+                lines.append("Sec-WebSocket-Version: " + ver)
+            if proto:
+                lines.append("Sec-WebSocket-Protocol: " + proto)
+            origin = self.headers.get("Origin", "")
+            if origin:
+                lines.append("Origin: " + origin)
+            sock.sendall(("\r\n".join(lines) + "\r\n\r\n").encode())
+            head = b""
+            while b"\r\n\r\n" not in head:
+                chunk = sock.recv(4096)
+                if not chunk:
+                    break
+                head += chunk
+                if len(head) > 65536:
+                    break
+        except Exception as e:
+            try:
+                sock.close()
+            except Exception:
+                pass
+            self._cloud_json({"error": "ws connect failed: " + type(e).__name__}, 502)
+            return True
+        try:
+            self.connection.sendall(head)
+            self.close_connection = True
+        except Exception:
+            try:
+                sock.close()
+            except Exception:
+                pass
+            return True
+
+        def pump(src, dst):
+            try:
+                while True:
+                    data = src.recv(65536)
+                    if not data:
+                        break
+                    dst.sendall(data)
+            except Exception:
+                pass
+            finally:
+                try:
+                    dst.shutdown(socket.SHUT_WR)
+                except Exception:
+                    pass
+
+        t1 = threading.Thread(target=pump, args=(self.connection, sock), daemon=True)
+        t2 = threading.Thread(target=pump, args=(sock, self.connection), daemon=True)
+        t1.start()
+        t2.start()
+        t1.join()
+        t2.join()
+        try:
+            sock.close()
+        except Exception:
+            pass
+        return True
+
+    def _vm_page(self, route):
+        """Serve the Chalkle VM (Puter firefox-wasm) from vm/ with the
+        cross-origin-isolation headers its WASM threads require."""
+        import urllib.parse
+        rel = urllib.parse.unquote(route[len("/vm/"):]) or "index.html"
+        rel = rel.split("?", 1)[0].split("#", 1)[0]
+        if rel in ("", "/"):
+            rel = "index.html"
+        full = os.path.normpath(os.path.join(VM_ROOT, rel))
+        if not full.startswith(os.path.normpath(VM_ROOT) + os.sep) and full != os.path.normpath(VM_ROOT):
+            self.send_error(403)
+            return True
+        if not os.path.isfile(full):
+            self.send_error(404)
+            return True
+        ext = os.path.splitext(full)[1].lower()
+        ctype = mimetypes.guess_type(full)[0] or "application/octet-stream"
+        if ext == ".wasm":
+            ctype = "application/wasm"
+        elif ext == ".js":
+            ctype = "text/javascript"
+        elif ext == ".zst":
+            ctype = "application/zstd"
+        elif ext == ".html":
+            ctype = "text/html; charset=utf-8"
+        size = os.path.getsize(full)
+        # The Firefox WASM build needs cross-origin isolation for its worker
+        # threads; these headers are non-negotiable or boot stalls.
+        iso_headers = [
+            ("Cross-Origin-Opener-Policy", "same-origin"),
+            ("Cross-Origin-Embedder-Policy", "require-corp"),
+            ("Cross-Origin-Resource-Policy", "same-origin"),
+        ]
+        cache = ("public, max-age=604800" if ext in (".zst", ".wasm", ".tar")
+                 else "no-cache")
+        rng_match = None
+        if "Range" in self.headers and size > 0:
+            m = re.match(r"bytes=(\d*)-(\d*)$", self.headers["Range"].strip())
+            if m:
+                start = int(m.group(1) or 0)
+                end = min(int(m.group(2) or size - 1), size - 1)
+                if start <= end < size:
+                    rng_match = (start, end)
+        if rng_match:
+            start, end = rng_match
+            self.send_response(206)
+            self.send_header("Content-Type", ctype)
+            for hk, hv in iso_headers:
+                self.send_header(hk, hv)
+            self.send_header("Cache-Control", cache)
+            self.send_header("Content-Range", "bytes %d-%d/%d" % (start, end, size))
+            self.send_header("Content-Length", str(end - start + 1))
+            self.end_headers()
+            with open(full, "rb") as f:
+                f.seek(start)
+                remaining = end - start + 1
+                while remaining > 0:
+                    chunk = f.read(min(65536, remaining))
+                    if not chunk:
+                        break
+                    try:
+                        self.wfile.write(chunk)
+                    except Exception:
+                        return True
+                    remaining -= len(chunk)
+            return True
+        self.send_response(200)
+        self.send_header("Content-Type", ctype)
+        for hk, hv in iso_headers:
+            self.send_header(hk, hv)
+        self.send_header("Cache-Control", cache)
+        self.send_header("Content-Length", str(size))
+        self.end_headers()
+        with open(full, "rb") as f:
+            while True:
+                chunk = f.read(65536)
+                if not chunk:
+                    break
+                try:
+                    self.wfile.write(chunk)
+                except Exception:
+                    break
         return True
 
 
@@ -2402,6 +2584,13 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, _Bitc
         if route.startswith("/cloud/v1/signal/"):
             if (self.headers.get("Upgrade") or "").lower() == "websocket":
                 return self._cloud_ws(route)
+        if route == "/vm/health":
+            return self._vm_health()
+        if route.startswith("/vm/") or route == "/vm":
+            return self._vm_page(route if route.startswith("/vm/") else "/vm/index.html")
+        if route.startswith("/wisp/"):
+            if (self.headers.get("Upgrade") or "").lower() == "websocket":
+                return self._vm_wisp_ws(route)
         got = self._cloud_get(route)
         if got is not None:
             return got

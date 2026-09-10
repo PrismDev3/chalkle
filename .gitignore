@@ -74,3 +74,7 @@ tmp_patch_*.py
 # runtime cache of provider pools (regenerated)
 server/cinemeta-pools.json
 server/ai_key.txt
+# VM binaries stay on the relay disk (87MB, way past git/jsDelivr limits)
+/vm/gecko.wasm.zst
+/vm/chrome-assets.tar.zst
+chalkle-vm-relay/node_modules/
