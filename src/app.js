@@ -2560,6 +2560,7 @@
     { id: "canvas", name: "Canvas", title: "Dashboard", icon: "https://du11hjcvx0uqb.cloudfront.net/dist/images/favicon.ico" },
     { id: "clever", name: "Clever", title: "Clever | Portal", icon: "https://www.clever.com/wp-content/uploads/2023/06/cropped-Favicon-512px-32x32.png" },
     { id: "khan", name: "Khan Academy", title: "Dashboard | Khan Academy", icon: "https://www.khanacademy.org/favicon.ico" },
+    { id: "studyisland", name: "Study Island", title: "Edmentum\u00ae Learning Environment Login", icon: "https://app.studyisland.com/favicon.ico" },
     { id: "ixl", name: "IXL", title: "IXL | Math, Language Arts, Science, Social Studies, and Spanish", icon: "https://www.ixl.com/favicon.ico" }
   ];
 
