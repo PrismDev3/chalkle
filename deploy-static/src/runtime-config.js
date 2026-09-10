@@ -30,7 +30,7 @@
     try {
       if (location.protocol === "file:" || location.origin === "null") return true;
       var host = String(location.hostname || "");
-      return /(?:^|\.)(?:jsdelivr\.net|githack\.com|unpkg\.com|github\.io|pages\.dev|gitlab\.io|githubusercontent\.com|vercel\.app|netlify\.app)$/i.test(host);
+      return /(?:^|\.)(?:jsdelivr\.net|githack\.com|unpkg\.com|esm\.sh|github\.io|pages\.dev|gitlab\.io|githubusercontent\.com|vercel\.app|netlify\.app)$/i.test(host);
     } catch (e) {
       return false;
     }
