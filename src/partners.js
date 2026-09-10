@@ -417,7 +417,8 @@
     { name: "Ghost Proxy", official: "https://ghostub.surge.sh/", discord: "https://dsc.gg/ghostub", icon: "/assets/partners/ghostproxy.webp" },
     { name: "The Array", official: "https://discord.gg/Z9wJfZr7e", discord: "https://discord.gg/Z9wJfZr7e", icon: "/assets/partners/array.webp" },
     { name: "Sizzle Studios", official: "", discord: "https://discord.gg/9gpQW5UBP5", icon: "/assets/partners/sizzle.png" },
-    { name: "korona.lat", official: "https://student-42.baccharismail.com/", discord: "https://discord.gg/ADs5ZzXFa", icon: "/assets/partners/korona.lat.png" }
+    { name: "korona.lat", official: "https://student-42.baccharismail.com/", discord: "https://discord.gg/ADs5ZzXFa", icon: "/assets/partners/korona.lat.png" },
+    { name: "Studify", official: "", discord: "https://discord.gg/Y8yEzdG74R", icon: "/assets/partners/studify.png" }
   ];
 
   function seedDefaults() {
