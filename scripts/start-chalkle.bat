@@ -38,7 +38,7 @@ call :check_cloud
 call :check_bitcord
 call :check_esm
 call :check_tunnel
-timeout /t 20 /nobreak >nul 2>&1
+ping -n 21 127.0.0.1 >nul 2>&1
 goto LOOP
 
 rem ---- server on :4173 ----
@@ -46,7 +46,7 @@ rem ---- server on :4173 ----
 curl -s -o nul -w "%%{http_code}" --max-time 3 http://127.0.0.1:4173/ > "%TEMP%\ck-srv.txt" 2>nul
 set /p srv=<"%TEMP%\ck-srv.txt"
 if "%srv%"=="200" goto :eof
-echo [%date% %time%] server down (was %%srv%%), starting >> "%LOG%"
+echo [%date% %time%] server down (was %srv%), starting >> "%LOG%"
 rem Double-quoted argument: Start-Process does not quote array items that
 rem contain spaces on its own, and %~dp0 has spaces, so embed the quotes.
 powershell -NoProfile -Command "Start-Process -FilePath '%PY%' -ArgumentList @('""%ROOT%\server\serve-chalk.py""') -WorkingDirectory '%ROOT%' -WindowStyle Hidden -RedirectStandardOutput '%ROOT%\chalkle-server.log' -RedirectStandardError '%ROOT%\chalkle-server-err.log'"
@@ -110,7 +110,7 @@ set /p srv=<"%TEMP%\ck-srv.txt"
 if not "%srv%"=="200" goto :eof
 echo [%date% %time%] tunnel up but lootline.xyz unreachable (%%tun%%), restarting tunnel >> "%LOG%"
 taskkill /IM cloudflared.exe /F >nul 2>&1
-timeout /t 2 /nobreak >nul 2>&1
+ping -n 3 127.0.0.1 >nul 2>&1
 :start_tunnel
 echo [%date% %time%] starting cloudflared named tunnel >> "%LOG%"
 powershell -NoProfile -Command "Start-Process -FilePath '%CF%' -ArgumentList @('tunnel','run','%TUNNEL_ID%') -WorkingDirectory '%ROOT%' -WindowStyle Hidden -RedirectStandardOutput '%ROOT%\chalkle-named-tunnel.log' -RedirectStandardError '%ROOT%\chalkle-named-tunnel-err.log'"

@@ -2565,6 +2565,8 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, _Bitc
             return self._dh_geo()
         if route.startswith("/chat-image/"):
             return self.handle_chat_image_get(route[len("/chat-image/"):])
+        if route == "/api/proxy/backends" or route == "/api/proxy/backend":
+            return self._proxy_backends_get()
         if route == "/api/ai/models":
             return self._ai_models()
         if route == "/api/ai/convos":
@@ -2576,6 +2578,14 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, _Bitc
         if route.startswith(_UV_PFX):
             if (self.headers.get("Upgrade") or "").lower() == "websocket":
                 return self._uv_ws(route[len(_UV_PFX):])
+            # ?b=<id> pins a backend straight from a link (the Proxies tab
+            # POSTs the same choice, this is just the shareable form).
+            try:
+                qb = urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query).get("b")
+                if qb:
+                    _chain_set(qb[0])
+            except Exception:
+                pass
             return self._uv_route(route[len(_UV_PFX):])
         if route == "/cloud/health":
             return self._cloud_health()
@@ -2665,6 +2675,8 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, _Bitc
         route = self.path.split("?", 1)[0]
         if route == "/_sync":
             return self._sync_post()
+        if route == "/api/proxy/backend":
+            return self._proxy_backend_post()
         if route == "/api/ai/chat":
             length = int(self.headers.get("Content-Length", 0))
             body = self.rfile.read(length) if length > 0 else b"{}"
@@ -3547,6 +3559,22 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, _Bitc
                 "<body><p><b>Proxy couldn't load that page.</b><br>" + _esc_html(str(msg)) +
                 "</p></body></html>").encode()
         self._uv_send(code if code else 502, "text/html", body)
+
+    def _proxy_backends_get(self):
+        """Live view of every backend the Proxies tab's selector can pick."""
+        self._json_out(_proxy_backends_payload())
+
+    def _proxy_backend_post(self):
+        """Set the active upstream. Body: {"id": "<backend-id>"}."""
+        length = int(self.headers.get("Content-Length", 0) or 0)
+        raw = self.rfile.read(length) if length > 0 else b"{}"
+        wanted = ""
+        try:
+            wanted = str((json.loads(raw.decode("utf-8", "replace")) or {}).get("id") or "")
+        except Exception:
+            wanted = ""
+        _chain_set(wanted)
+        self._json_out(_proxy_backends_payload())
 
     def _uv_boot(self):
         """Small themed page for the proxy root (what the proxy card's
@@ -4872,8 +4900,13 @@ class _UVPoolConn:
         self.idle_at = time.time()
 
 
-def _uv_pool_key(scheme, host, port):
-    return scheme + "|" + host + "|" + str(port)
+def _uv_pool_key(scheme, host, port, chain=None):
+    k = scheme + "|" + host + "|" + str(port)
+    if chain:
+        # A pooled connection carries the upstream it was opened with, so
+        # switching the selected backend must never reuse a stale tunnel.
+        k += "|up:" + chain[0] + ":" + str(chain[1])
+    return k
 
 
 def _uv_pool_take(key):
@@ -4980,6 +5013,305 @@ class _UVResp:
         return False
 
 
+# --- upstream selection ---------------------------------------------------
+# Local proxy-client chaining is intentionally disabled. The relay uses its
+# direct outbound connection; hosted web backends remain a browser concern.
+import http.client as _http_client
+
+_PROXY_CHAINS = {}
+# Panels are admin UIs, not transports: "live" only means the port answers.
+_PROXY_PANELS = {
+    "3xui":    [2053, 54321, 2096],
+    "hiddify": [2333, 2334],
+    "npm":     [81, 8181],
+}
+_CHAIN_TTL = 15.0          # seconds a detection result is trusted
+_CHAIN_TIMEOUT = 0.35      # per-port handshake budget
+_chain_lock = threading.Lock()
+_chain_cache = {}          # backend id -> (checked_at, (kind, port, ms) or None)
+_chain_pending = set()
+_chain_active = "relay"    # what the selector last picked (sticky, per process)
+
+
+def _chain_probe(port, kind, timeout=_CHAIN_TIMEOUT):
+    """Handshake against a loopback listener. SOCKS5: greeting (optionally a
+    CONNECT). HTTP: a real CONNECT. Returns ms on success, None when nothing
+    usable answers - a random service on that port is never chained."""
+    t0 = time.time()
+    try:
+        sock = socket.create_connection(("127.0.0.1", port), timeout)
+    except Exception:
+        return None
+    try:
+        sock.settimeout(timeout)
+        if kind == "socks5":
+            sock.sendall(b"\x05\x01\x00")
+            if sock.recv(2) != b"\x05\x00":
+                return None
+            # Greeting answered without auth: this IS a SOCKS5 listener (our
+            # client). A refused CONNECT (school policy, blocked host) must
+            # not hide it, so the probe stops here when the connect is denied.
+            host = b"example.com"
+            try:
+                sock.sendall(b"\x05\x01\x00\x03" + bytes([len(host)]) + host + (80).to_bytes(2, "big"))
+                rep = sock.recv(4)
+                if len(rep) >= 2 and rep[1] not in (0,):
+                    return int((time.time() - t0) * 1000) if rep[1] == 2 else None
+            except Exception:
+                pass
+        else:
+            sock.sendall(b"CONNECT example.com:80 HTTP/1.1\r\nHost: example.com:80\r\n\r\n")
+            head = b""
+            while b"\r\n\r\n" not in head and len(head) < 1024:
+                chunk = sock.recv(256)
+                if not chunk:
+                    break
+                head += chunk
+            if not head.startswith(b"HTTP/") or b" 200" not in head.split(b"\r\n", 1)[0]:
+                return None
+        return int((time.time() - t0) * 1000)
+    except Exception:
+        return None
+    finally:
+        try:
+            sock.close()
+        except Exception:
+            pass
+
+
+def _port_open(port, timeout=0.25):
+    try:
+        sock = socket.create_connection(("127.0.0.1", port), timeout)
+    except Exception:
+        return False
+    try:
+        sock.close()
+    except Exception:
+        pass
+    return True
+
+
+def _parallel(fn, items, timeout=2.0):
+    """Run fn over items on threads and return results in order. Detection
+    touches ~25 loopback ports; serially that is ~10s of refused/timeout
+    waiting, which the selector should never show. Threads make it ~0.4s and
+    the per-port timeout still bounds the whole batch."""
+    results = {}
+
+    def work(i, item):
+        try:
+            results[i] = fn(item)
+        except Exception:
+            results[i] = None
+
+    threads = [threading.Thread(target=work, args=(i, it), daemon=True)
+               for i, it in enumerate(items)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join(timeout)
+    return [results.get(i) for i in range(len(items))]
+
+
+def _chain_probe_list(backend_id):
+    """First listening candidate for this backend, in listed preference
+    order (each client's most common port first)."""
+    candidates = _PROXY_CHAINS.get(backend_id, [])
+    if not candidates:
+        return None
+    hits = _parallel(lambda c: _chain_probe(c[0], c[1]), candidates,
+                     timeout=_CHAIN_TIMEOUT + 0.5)
+    for (port, kind), ms in zip(candidates, hits):
+        if ms is not None:
+            return (kind, port, ms)
+    return None
+
+
+def _chain_refresh_async(backend_id):
+    """Detect in the background so a proxied page never waits on a handshake."""
+    with _chain_lock:
+        if backend_id in _chain_pending:
+            return
+        _chain_pending.add(backend_id)
+
+    def work():
+        try:
+            found = _chain_probe_list(backend_id)
+            with _chain_lock:
+                _chain_cache[backend_id] = (time.time(), found)
+        except Exception:
+            pass
+        finally:
+            with _chain_lock:
+                _chain_pending.discard(backend_id)
+
+    threading.Thread(target=work, daemon=True).start()
+
+
+def _chain_lookup(backend_id, blocking=True):
+    """(kind, port, ms) for a live local client, or None. Non-blocking callers
+    get the last known value and trigger a background refresh."""
+    if not backend_id or backend_id not in _PROXY_CHAINS:
+        return None
+    now = time.time()
+    with _chain_lock:
+        hit = _chain_cache.get(backend_id)
+    if hit and (now - hit[0]) < _CHAIN_TTL:
+        return hit[1]
+    if not blocking:
+        _chain_refresh_async(backend_id)
+        return hit[1] if hit else None
+    found = _chain_probe_list(backend_id)
+    with _chain_lock:
+        _chain_cache[backend_id] = (now, found)
+    return found
+
+
+def _chain_set(backend_id):
+    """Keep legacy API callers on a built-in backend.
+
+    Older browser tabs may still POST a removed local-client id. Treat those
+    requests as the relay selection instead of probing or chaining through a
+    loopback process.
+    """
+    global _chain_active
+    wanted = str(backend_id or "relay")
+    if wanted not in ("relay", "direct"):
+        wanted = "relay"
+    with _chain_lock:
+        _chain_active = wanted
+        _chain_cache.clear()
+    return _chain_active
+
+
+def _chain_effective():
+    """The live upstream for the selected backend, or None to fetch directly.
+    Web proxies and panels are not transports, so they never chain here."""
+    with _chain_lock:
+        active = _chain_active
+    if active in ("", None, "relay", "direct"):
+        return None
+    if active not in _PROXY_CHAINS:
+        return None
+    return _chain_lookup(active, blocking=False)
+
+
+def _socks_connect(proxy_kind, proxy_port, host, port, timeout):
+    """Raw socket to host:port through the local client (no TLS - the caller
+    wraps HTTPS itself so cert verification stays against the real host)."""
+    last = None
+    for _attempt in (1, 2):
+        sock = None
+        try:
+            sock = socket.create_connection(("127.0.0.1", proxy_port), timeout)
+            sock.settimeout(timeout)
+            if proxy_kind == "socks5":
+                sock.sendall(b"\x05\x01\x00")
+                if sock.recv(2) != b"\x05\x00":
+                    raise OSError("socks5 greeting refused")
+                try:
+                    addr = b"\x01" + socket.inet_aton(host)
+                except Exception:
+                    hb = host.encode("idna")
+                    addr = b"\x03" + bytes([len(hb)]) + hb
+                sock.sendall(b"\x05\x01\x00" + addr + int(port).to_bytes(2, "big"))
+                rep = sock.recv(4)
+                if len(rep) < 2 or rep[1] != 0:
+                    raise OSError("socks5 connect failed (%s)" % (rep[1] if len(rep) > 1 else "?"))
+                # Consume the bound-address tail so the next read is payload.
+                if len(rep) > 3:
+                    typ = rep[3]
+                    need = {1: 4, 4: 16}.get(typ)
+                    if need is None:  # domain name
+                        if len(rep) < 5:
+                            rep += sock.recv(5 - len(rep))
+                        need = rep[4]
+                    tail = 2 + need  # port + address
+                    got = max(0, len(rep) - 4)
+                    while got < tail:
+                        chunk = sock.recv(min(64, tail - got))
+                        if not chunk:
+                            break
+                        got += len(chunk)
+            else:
+                target = host + ":" + str(port)
+                sock.sendall(("CONNECT " + target + " HTTP/1.1\r\nHost: " + target +
+                              "\r\nProxy-Connection: keep-alive\r\n\r\n").encode())
+                head = b""
+                while b"\r\n\r\n" not in head and len(head) < 2048:
+                    chunk = sock.recv(512)
+                    if not chunk:
+                        break
+                    head += chunk
+                if not head.startswith(b"HTTP/") or b" 200" not in head.split(b"\r\n", 1)[0]:
+                    raise OSError("http proxy refused CONNECT")
+            return sock
+        except Exception as e:
+            last = e
+            if sock is not None:
+                try:
+                    sock.close()
+                except Exception:
+                    pass
+    raise OSError(str(last or "proxy connect failed"))
+
+
+class _ChainHTTPConnection(_http_client.HTTPConnection):
+    """Plain-HTTP connection whose transport is the selected local proxy."""
+
+    def __init__(self, host, port, timeout, chain):
+        _http_client.HTTPConnection.__init__(self, host, port, timeout=timeout)
+        self._chain = chain
+
+    def connect(self):
+        self.sock = _socks_connect(self._chain[0], self._chain[1], self.host, self.port, self.timeout)
+
+
+class _ChainHTTPSConnection(_http_client.HTTPSConnection):
+    """HTTPS connection tunnelled through the local proxy. TLS is still
+    negotiated end-to-end with the real host (server_hostname), so
+    certificate checks are unchanged by the extra hop."""
+
+    def __init__(self, host, port, timeout, chain):
+        _http_client.HTTPSConnection.__init__(self, host, port, timeout=timeout)
+        self._chain = chain
+
+    def connect(self):
+        raw = _socks_connect(self._chain[0], self._chain[1], self.host, self.port, self.timeout)
+        ctx = self._context or ssl.create_default_context()
+        self.sock = ctx.wrap_socket(raw, server_hostname=self.host)
+
+
+def _proxy_backends_payload():
+    """Live table the selector renders: every chain backend with its real
+    detection result, plus the panel ports and the active pick."""
+    chain_ids = list(_PROXY_CHAINS.keys())
+    probe_timeout = _CHAIN_TIMEOUT + 0.6
+    found_all = _parallel(lambda b: _chain_lookup(b, blocking=True), chain_ids,
+                          timeout=probe_timeout)
+    backends = {}
+    for bid, found in zip(chain_ids, found_all):
+        if found:
+            backends[bid] = {"live": True, "transport": found[0], "port": found[1], "ms": found[2]}
+        else:
+            backends[bid] = {"live": False}
+    panel_ids = list(_PROXY_PANELS.keys())
+    panel_hits = _parallel(
+        lambda b: next((prt for prt in _PROXY_PANELS[b] if _port_open(prt)), None),
+        panel_ids, timeout=0.9)
+    panels = {}
+    for bid, hit in zip(panel_ids, panel_hits):
+        panels[bid] = {"live": hit is not None,
+                       "url": ("http://127.0.0.1:%d/" % hit) if hit else ""}
+    with _chain_lock:
+        active = _chain_active
+    chain = _chain_lookup(active, blocking=False) if active in _PROXY_CHAINS else None
+    return {"ok": True, "active": active, "backends": backends, "panels": panels,
+            "chained": chain is not None,
+            "via": ("%s://127.0.0.1:%d" % (chain[0], chain[1])) if chain else ""}
+
+
+
 def _uv_cacheable(ctype, target):
     """Seconds a proxied response can be cached by the browser. Static assets
     are deterministic per /res URL; HTML, JSON and anything dynamic stay
@@ -5012,6 +5344,9 @@ def _uv_open(url, post_body=None):
         "Accept-Language": "en-US,en;q=0.9",
         "Accept-Encoding": "identity",
     }
+    # Resolve the upstream once per call (not per redirect): switching
+    # backends in the Proxies tab applies to the very next request.
+    chain = _chain_effective()
     cur = url
     for _redirect in range(6):
         parts = urllib.parse.urlsplit(cur)
@@ -5023,7 +5358,7 @@ def _uv_open(url, post_body=None):
         path = parts.path or "/"
         if parts.query:
             path += "?" + parts.query
-        key = _uv_pool_key(scheme, host, port)
+        key = _uv_pool_key(scheme, host, port, chain)
         pooled = None
         resp = None
         err = None
@@ -5040,9 +5375,11 @@ def _uv_open(url, post_body=None):
             try:
                 if pooled is None:
                     if scheme == "https":
-                        conn = http.client.HTTPSConnection(host, port, timeout=FETCH_TIMEOUT)
+                        conn = (_ChainHTTPSConnection(host, port, FETCH_TIMEOUT, chain) if chain
+                                else http.client.HTTPSConnection(host, port, timeout=FETCH_TIMEOUT))
                     else:
-                        conn = http.client.HTTPConnection(host, port, timeout=FETCH_TIMEOUT)
+                        conn = (_ChainHTTPConnection(host, port, FETCH_TIMEOUT, chain) if chain
+                                else http.client.HTTPConnection(host, port, timeout=FETCH_TIMEOUT))
                     pooled = _UVPoolConn(conn, key)
                 req_headers = dict(headers)
                 if data is not None:

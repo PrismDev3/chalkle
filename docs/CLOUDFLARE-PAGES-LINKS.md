@@ -39,8 +39,8 @@ All mirrors use the same IXL-themed metadata (title, description, OG tags, favic
 All mirrors are configured with:
 - **Title**: IXL | Math, Language Arts, Science, Social Studies, and Spanish
 - **Description**: IXL is the world's most popular subscription-based learning site for K–12...
-- **OG Image**: https://www.ixl.com/favicon.ico
-- **Favicon**: https://www.ixl.com/favicon.ico (mirrors to Chalkle favicon)
+- **OG Image**: https://www.ixl.com/dv3/powZqMuTE7du4asFrVyNGxxoqkw/yui3/opengraph/assets/square_og_ixl.png
+- **Favicon**: https://www.ixl.com/dv3/powZqMuTE7du4asFrVyNGxxoqkw/yui3/opengraph/assets/square_og_ixl.png (IXL's square OG card; ixl.com/favicon.ico no longer serves an icon)
 - **Theme Color**: #0c1210
 
 This makes link previews in Discord, email, and social media appear as legitimate educational sites.

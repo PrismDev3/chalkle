@@ -3,9 +3,15 @@
 # Deploy Chalkle to all Cloudflare Pages projects
 # Run this after pushing to main to deploy to all educational mirrors
 
-TOKEN="${CLOUDFLARE_API_TOKEN:-cfoat_vC-2tMKlNjcy8rXk07zoBXct46ov7zleTXy3oLim7yk.Bsm7svVix9H3yy_7NYxOoRoQNfdP0YsAs3Josu6_Rm0}"
-ACCOUNT="24daff7bc56afcdf6dbcb94e94460700"
-BRANCH="main"
+if [ -z "${CLOUDFLARE_API_TOKEN:-}" ]; then
+  echo "error: CLOUDFLARE_API_TOKEN is not set." >&2
+  echo "  Create a token at https://dash.cloudflare.com/profile/api-tokens" >&2
+  echo "  then run: CLOUDFLARE_API_TOKEN=your_token bash $0" >&2
+  exit 1
+fi
+TOKEN="$CLOUDFLARE_API_TOKEN"
+ACCOUNT="${CLOUDFLARE_ACCOUNT_ID:-24daff7bc56afcdf6dbcb94e94460700}"
+BRANCH="${CLOUDFLARE_PAGES_BRANCH:-main}"
 
 echo "=========================================="
 echo "Deploying Chalkle to Cloudflare Pages"

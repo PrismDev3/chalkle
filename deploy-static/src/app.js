@@ -620,6 +620,214 @@
     return row;
   }
 
+  /* --------------------------------------------------------- proxy backend
+     The Proxies tab's backend selector. The registry itself lives in
+     proxies.js (window.ChalkProxyBackends); everything here is rendering the
+     picker, saving the choice, and showing the live status the relay reports
+     at /api/proxy/backends. Built-in relay/direct and hosted web backends are
+     the only selectable routing options. */
+  var backendProbe = { ok: false, backends: {}, panels: {}, active: "", chained: false, via: "" };
+  var backendProbedAt = 0;
+
+  function backendById(id) {
+    if (typeof window.ChalkProxyBackendFind !== "function") return null;
+    return window.ChalkProxyBackendFind(id);
+  }
+
+  function backendActiveId() {
+    if (typeof window.ChalkProxyBackendGet === "function") return window.ChalkProxyBackendGet();
+    return "relay";
+  }
+
+  function backendPill(b) {
+    if (!b) return "";
+    if (b.kind === "relay") return '<span class="proxy-pill is-live">Always on</span>';
+    if (b.kind === "direct") return '<span class="proxy-pill">No proxy</span>';
+    if (b.kind === "chain") {
+      var st = backendProbe.backends[b.id];
+      if (st && st.live) {
+        return '<span class="proxy-pill is-live">Auto-detected: ' +
+          escapeHtml(String(st.transport || "")) + " on :" + escapeHtml(String(st.port || "")) + "</span>";
+      }
+      return '<span class="proxy-pill">Unavailable</span>';
+    }
+    if (b.kind === "panel") {
+      var pn = backendProbe.panels[b.id];
+      if (pn && pn.live) {
+        var host = String(pn.url || "").replace(/^https?:\/\//, "").replace(/\/+$/, "");
+        return '<span class="proxy-pill is-live">Panel up: ' + escapeHtml(host) + "</span>";
+      }
+      return '<span class="proxy-pill">Panel not running</span>';
+    }
+    return '<span class="proxy-pill is-live">Hosted node</span>';
+  }
+
+  function backendWhy(b) {
+    if (!b) return "";
+    if (b.kind === "chain") {
+      var st = backendProbe.backends[b.id];
+      if (st && st.live) {
+        return "Chaining through " + String(st.transport || "") + "://127.0.0.1:" + String(st.port || "") +
+          " - proxied pages are fetched through it.";
+      }
+      return "This backend is unavailable. Pages use the built-in relay or a hosted web backend.";
+    }
+    if (b.kind === "panel") {
+      var pn = backendProbe.panels[b.id];
+      if (pn && pn.live) return "Panel answered on " + String(pn.url || "") + " - Open loads it.";
+      return "That panel is not running on this machine yet. Open will load it as soon as it is.";
+    }
+    if (b.kind === "relay") {
+      if (!backendProbe.ok) return "Chalkle's own rewriting relay. This is what every game and app already uses.";
+      if (backendProbe.chained && backendProbe.via) {
+        return "Relay is live and its fetches are going out through " + String(backendProbe.via) + ".";
+      }
+      return "Relay is live - fetches go straight out from this machine.";
+    }
+    if (b.kind === "direct") return "Nothing is proxied. Games still load; nothing is hidden.";
+    return b.note || "";
+  }
+
+  var backendBarBound = false;
+
+  /* The bar's markup is static (index.html) so the audit's "every JS id exists
+     in HTML" check passes; this only fills the options and the status line. */
+  function renderProxyBackendBar() {
+    var sel = $("#proxy-backend-select");
+    if (!sel) return;
+    var list = (typeof window.ChalkProxyBackendList === "function" && window.ChalkProxyBackendList()) || [];
+    if (!list.length) return;
+    var groups = window.ChalkProxyBackendGroups || [];
+    var active = backendActiveId();
+    var cur = backendById(active);
+    sel.innerHTML = groups.map(function (g) {
+      var inGroup = list.filter(function (b) { return b && b.group === g.id; });
+      if (!inGroup.length) return "";
+      return '<optgroup label="' + escapeAttr(g.label) + '">' +
+        inGroup.map(function (b) {
+          return '<option value="' + escapeAttr(b.id) + '"' + (b.id === active ? " selected" : "") + ">" +
+            escapeHtml(b.name) + "</option>";
+        }).join("") + "</optgroup>";
+    }).join("");
+    sel.value = active;
+    var meta = $("#proxy-backend-meta");
+    if (meta) {
+      meta.innerHTML = cur
+        ? '<span class="backend-bar-name">' + escapeHtml(cur.name) + "</span>" + backendPill(cur)
+        : "";
+    }
+    var why = $("#proxy-backend-why");
+    if (why) why.textContent = backendWhy(cur);
+    if (!backendBarBound) {
+      backendBarBound = true;
+      sel.addEventListener("change", function () { useProxyBackend(sel.value); });
+      var openBtn = $("#proxy-backend-open");
+      if (openBtn) openBtn.addEventListener("click", function () { openProxyBackend(sel.value); });
+    }
+  }
+
+  function renderProxyBackendCards() {
+    var box = $("#proxy-backends-grid");
+    if (!box) return;
+    var list = (typeof window.ChalkProxyBackendList === "function" && window.ChalkProxyBackendList()) || [];
+    if (!list.length) { box.innerHTML = ""; return; }
+    var groups = window.ChalkProxyBackendGroups || [];
+    var active = backendActiveId();
+    box.innerHTML = groups.map(function (g) {
+      var inGroup = list.filter(function (b) { return b && b.group === g.id; });
+      if (!inGroup.length) return "";
+      return '<div class="backend-group">' +
+        '<h3 class="backend-group-title">' + escapeHtml(g.label) +
+        '<span class="backend-group-hint">' + escapeHtml(g.hint || "") + "</span></h3>" +
+        '<div class="grid backend-grid">' +
+        inGroup.map(function (b) {
+          var isActive = b.id === active;
+          return '<div class="card backend-card' + (isActive ? " is-active" : "") + '">' +
+            '<div class="backend-head"><span class="backend-name">' + escapeHtml(b.name) + "</span>" +
+            (isActive ? '<span class="proxy-pill is-live">In use</span>' : "") + "</div>" +
+            '<div class="backend-pills">' + backendPill(b) +
+            (b.credit ? '<span class="proxy-pill is-credit">by ' + escapeHtml(b.credit) + "</span>" : "") + "</div>" +
+            '<p class="backend-note">' + escapeHtml(backendWhy(b)) + "</p>" +
+            '<div class="backend-actions">' +
+            '<button class="btn-ghost" data-backend-use="' + escapeAttr(b.id) + '">' + (isActive ? "Selected" : "Use") + "</button>" +
+            (b.kind === "frame" || b.kind === "panel"
+              ? '<button class="btn-ghost" data-backend-open="' + escapeAttr(b.id) + '">Open</button>'
+              : "") +
+            "</div></div>";
+        }).join("") + "</div></div>";
+    }).join("");
+  }
+
+  /* One probe per ~20s: the relay's detection is cached for 15s anyway, and
+     this keeps a tab switch back into Proxies from re-probing every time. */
+  function refreshProxyBackends(force) {
+    if (typeof window.ChalkProxyBackendProbe !== "function") return;
+    var now = Date.now();
+    if (!force && now - backendProbedAt < 20000) return;
+    backendProbedAt = now;
+    window.ChalkProxyBackendProbe(function (j) {
+      if (j) backendProbe = j;
+      renderProxyBackendBar();
+      renderProxyBackendCards();
+    });
+  }
+
+  function useProxyBackend(id) {
+    var b = backendById(id);
+    if (!b) return;
+    if (typeof window.ChalkProxyBackendSet === "function") window.ChalkProxyBackendSet(id);
+    else persist("chalkle-proxy-backend", id);
+    if (b.kind === "panel") {
+      showToast(b.name + " selected - opening its panel");
+      openProxyBackend(id);
+    } else {
+      showToast("Proxy backend: " + b.name);
+    }
+    renderProxyBackendBar();
+    renderProxyBackendCards();
+    refreshProxyBackends(true);
+  }
+
+  function openProxyBackend(id) {
+    var b = backendById(id);
+    if (!b) return;
+    if (b.kind === "panel") {
+      var pn = backendProbe.panels[b.id];
+      if (pn && pn.url) {
+        try { window.open(pn.url, "_blank", "noopener"); } catch (e) { /* popup blocked */ }
+        return;
+      }
+      showToast("Start " + b.name + " and it is detected automatically");
+      return;
+    }
+    if (b.kind === "frame" && b.url) {
+      if (window.ChalkleBrowser && window.ChalkleBrowser.open) window.ChalkleBrowser.open(b.url, b.name);
+      else { try { window.open(b.url, "_blank", "noopener"); } catch (e) { /* popup blocked */ } }
+      return;
+    }
+    if (b.kind === "chain") {
+      var st = backendProbe.backends[b.id];
+      showToast(st && st.live
+        ? "Chaining through " + String(st.transport || "") + " on :" + String(st.port || "")
+        : "Start " + b.name + " and it is detected automatically");
+      return;
+    }
+    /* relay / direct: prove it with a real page through the launcher. */
+    if (window.ChalkleLaunch && window.ChalkleLaunch.openWithOptions) {
+      window.ChalkleLaunch.openWithOptions("https://example.com/", b.name);
+    }
+  }
+
+  /* Delegated once for the whole document: the two grids are re-rendered on
+     every filter/theme change, so per-element handlers would leak. */
+  document.addEventListener("click", function (e) {
+    if (!e.target || !e.target.closest) return;
+    var use = e.target.closest("[data-backend-use]");
+    if (use) { e.preventDefault(); useProxyBackend(use.getAttribute("data-backend-use")); return; }
+    var op = e.target.closest("[data-backend-open]");
+    if (op) { e.preventDefault(); openProxyBackend(op.getAttribute("data-backend-open")); }
+  });
+
   function renderProxies() {
     var grid = $(GRID_IDS.proxies);
     var empty = $(EMPTY_IDS.proxies);
@@ -652,6 +860,12 @@
         return proxyCard(entry.item, entry.index);
       })
       .join("");
+
+    /* Backend selector + the registry cards, then a fresh (throttled) probe
+       so the status pills reflect the machine as it is right now. */
+    renderProxyBackendBar();
+    renderProxyBackendCards();
+    refreshProxyBackends(false);
   }
 
   function openProxy(i) {
@@ -2561,7 +2775,7 @@
     { id: "clever", name: "Clever", title: "Clever | Portal", icon: "https://www.clever.com/wp-content/uploads/2023/06/cropped-Favicon-512px-32x32.png" },
     { id: "khan", name: "Khan Academy", title: "Dashboard | Khan Academy", icon: "https://www.khanacademy.org/favicon.ico" },
     { id: "studyisland", name: "Study Island", title: "Edmentum\u00ae Learning Environment Login", icon: "https://app.studyisland.com/favicon.ico" },
-    { id: "ixl", name: "IXL", title: "IXL | Math, Language Arts, Science, Social Studies, and Spanish", icon: "https://www.ixl.com/favicon.ico" }
+    { id: "ixl", name: "IXL", title: "IXL | Math, Language Arts, Science, Social Studies, and Spanish", icon: "https://www.ixl.com/dv3/powZqMuTE7du4asFrVyNGxxoqkw/yui3/opengraph/assets/square_og_ixl.png" }
   ];
 
   /* Capture the real favicon href once, at first apply, so "None" restores it. */
@@ -4025,18 +4239,16 @@
         if (proxyApp && window.ChalkleLaunch) {
           e.preventDefault();
           var paTarget = proxyApp.dataset.proxyApp || "";
-          var proxies =
-            (typeof window.ChalkleGetProxies === "function" && window.ChalkleGetProxies()) ||
-            window.ChalkleProxies || window.ChalkProxies || [];
-          var liveProxy = null;
-          for (var pi = 0; pi < proxies.length; pi++) {
-            if (proxies[pi] && proxies[pi].url) { liveProxy = proxies[pi]; break; }
-          }
+          var liveProxy =
+            (window.ChalkleLaunch.firstProxy && window.ChalkleLaunch.firstProxy()) || null;
           var tileTitle = proxyApp.querySelector(".tool-tile-title");
           var paTitle = tileTitle ? tileTitle.textContent : "";
           if (!liveProxy) {
-            alert("No proxy configured. Add your proxy in the Proxies tab first (e.g. your Ultraviolet or Scramjet host), then this app will route through it.");
-            setView("proxies");
+            /* Direct mode is an intentional selection, not a configuration
+               error. Open the real app through the shell without pretending
+               the hosted dashboard can consume a target hash. */
+            if (window.ChalkleLaunch.openShell) window.ChalkleLaunch.openShell(paTarget, paTitle);
+            else window.ChalkleLaunch.open(paTarget, paTitle);
             return;
           }
           var paRouted = window.ChalkleLaunch.routeProxy(paTarget, liveProxy.url, liveProxy.mode === "frame" || !!liveProxy.hashRoute);

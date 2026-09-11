@@ -1712,4 +1712,7 @@ window.ChalkGames.push.apply(window.ChalkGames, [  { title: "Trees Hate You", ur
   { title: "Rubblar", url: "https://raw.githubusercontent.com/SnakierdoorCode/GAMES/main/RIPS/rubblar.html", category: "Arcade", thumb: "https://cdn.jsdelivr.net/gh/SnakierdoorCode/TheUniversalStashSite@main/Icons/rubblar.png" },
   { title: "Taiko Drum Master", url: "/taiko/", category: "Rhythm", thumb: "/assets/games/taiko.jpg", isNew: true },
   { title: "Chalkle Circles", url: "/osu/", category: "Rhythm", thumb: "/assets/games/circles.jpg", isNew: true },
+  { title: "Finccer", url: "/game-builds/finccer/index.html", category: "Arcade", thumb: "/assets/games/finccer.png", isNew: true },
+  { title: "Otto's Basketball Game", url: "/game-builds/otto-basketball/index.html", category: "Sports", thumb: "/assets/games/otto-basketball.jpg", isNew: true },
+  { title: "Geometry Dash (GBA)", url: "/assets/gba/?rom=geometry-dash", category: "Retro", thumb: "/assets/games/geometry-dash-gba.png", isNew: true },
 ]);

@@ -14,6 +14,7 @@ stratus-api/node_modules/
 music-backend/node_modules/
 pack-lock.json
 package-lock.json
+.tmp/
 /tmp/
 tmp-*
 /keeper.log

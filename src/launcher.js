@@ -142,9 +142,42 @@
     return { name: "Built-in", url: origin + "/res", mode: "path", builtin: true };
   }
 
-  /* Pick the first real configured proxy (skips the "your-proxy-url"
-     placeholder). The same-origin /res/ proxy always wins. */
+  /* The backend the user picked in the Proxies tab. proxies.js owns the
+     registry + the saved id; this is only a read so the launcher never has
+     to know about the selector UI. */
+  function chosenBackend() {
+    try {
+      if (typeof window.ChalkProxyBackendFind === "function" &&
+          typeof window.ChalkProxyBackendGet === "function") {
+        return window.ChalkProxyBackendFind(window.ChalkProxyBackendGet());
+      }
+    } catch (e) { /* fall through to the plain id */ }
+    try {
+      var id = localStorage.getItem("chalkle-proxy-backend") || "";
+      if (id === "direct") return { id: "direct", kind: "direct" };
+    } catch (e) { /* no storage */ }
+    return null;
+  }
+
+  /* Pick the proxy every launcher path routes through:
+       direct      -> null, so callers fall back to the real URL
+       frame       -> hosted dashboards open explicitly from the Proxies tab;
+                      navigation uses the built-in relay instead of appending a
+                      hash that the dashboard ignores
+       relay -> the same-origin /res/ relay. The built-in
+                      relay never probes or chains through local processes.
+     Anything unavailable falls through to the built-in relay, so picking a
+     backend can never leave the user with nothing. */
   function liveProxy() {
+    var chosen = chosenBackend();
+    if (chosen && chosen.kind === "direct") return null;
+    if (chosen && chosen.kind === "frame") {
+      /* The listed hosted pages are dashboards, not target routers. A hash
+         containing a search URL only reopens their welcome page. Prefer the
+         working same-origin relay for the requested target; if it is not
+         available, return null so the caller opens the actual target directly. */
+      return builtinProxy();
+    }
     var builtin = builtinProxy();
     var proxies =
       (typeof window.ChalkleGetProxies === "function" && window.ChalkleGetProxies()) ||
@@ -162,8 +195,10 @@
         if (builtin) break;
       }
     }
-    if (builtin) return builtin;
-    return hosted || null;
+    /* The built-in relay is the safe default whenever its health probe says it
+       is available. Hosted dashboards are never treated as target routers:
+       their homepage ignores hash targets and would lose a search query. */
+    return builtin || null;
   }
 
   /* Resolve a game target to the URL the in-app player or browser should
@@ -366,6 +401,32 @@
     }
   }
 
+  /* Is this proxy URL our own same-origin /res relay? routeProxy picks its
+     codec (XOR hex + "/res/" vs base64url + "/") from this, so it has to
+     agree with whatever builtinProxy() hands back. The relay origin can be
+     this page's origin OR the one runtime-config resolves on a mirror, and
+     comparing only against location.origin silently mis-encoded every route
+     on mirrors. */
+  function isBuiltinProxyUrl(url) {
+    var u = String(url || "").trim();
+    if (!u) return false;
+    try {
+      var parsed = u.indexOf("://") === -1 ? new URL(u, location.href) : new URL(u);
+      if (!/^\/(res|uv)\/?$/i.test(parsed.pathname)) return false;
+      var page = "";
+      try { page = String(location.origin || ""); } catch (e) { page = ""; }
+      var api = "";
+      try {
+        if (window.ChalkleApi && window.ChalkleApi.root) {
+          api = String(window.ChalkleApi.root() || "").replace(/\/+$/, "");
+        }
+      } catch (e) { api = ""; }
+      return parsed.origin === page || (!!api && parsed.origin === api);
+    } catch (e) {
+      return /^\/(res|uv)\/?$/i.test(u);
+    }
+  }
+
   /* Build a routed URL for a target behind a given proxy host. */
   function routeProxy(target, proxyUrl, hashRoute) {
     target = String(target || "").trim();
@@ -376,6 +437,10 @@
     var builtin = isBuiltinProxyUrl(proxyUrl);
     var enc = builtin ? pxEnc : b64url;
     var sep = builtin ? "/res/" : "/";
+    /* builtinProxy() hands back "<origin>/res", and the separator below is
+       already "/res/" - without this the route came out as
+       /res/res/<hex> and the relay answered 400 for every proxied open. */
+    if (builtin) base = base.replace(/\/(res|uv)$/i, "");
     if (localPath) {
       if (uvStatus === true) {
         return base + sep + enc(target);
@@ -467,7 +532,7 @@
       canvas: ["Dashboard", "https://du11hjcvx0uqb.cloudfront.net/dist/images/favicon.ico"],
       clever: ["Clever | Portal", "https://www.clever.com/wp-content/uploads/2023/06/cropped-Favicon-512px-32x32.png"],
       khan: ["Dashboard | Khan Academy", "https://www.khanacademy.org/favicon.ico"],
-      ixl: ["IXL | Math, Language Arts, Science, Social Studies, and Spanish", "https://www.ixl.com/favicon.ico"]
+      ixl: ["IXL | Math, Language Arts, Science, Social Studies, and Spanish", "https://www.ixl.com/dv3/powZqMuTE7du4asFrVyNGxxoqkw/yui3/opengraph/assets/square_og_ixl.png"]
     };
     var preset = null;
     try {

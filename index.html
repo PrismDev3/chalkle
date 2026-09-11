@@ -15,13 +15,15 @@
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://www.ixl.com/">
   <meta property="og:site_name" content="IXL Learning">
-  <meta property="og:image" content="https://www.ixl.com/favicon.ico">
+  <meta property="og:image" content="https://www.ixl.com/dv3/powZqMuTE7du4asFrVyNGxxoqkw/yui3/opengraph/assets/square_og_ixl.png">
+  <meta property="og:image:secure_url" content="https://www.ixl.com/dv3/powZqMuTE7du4asFrVyNGxxoqkw/yui3/opengraph/assets/square_og_ixl.png">
+  <meta property="og:image:type" content="image/png">
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="IXL | Math, Language Arts, Science, Social Studies, and Spanish">
   <meta name="twitter:description" content="IXL is the world's most popular subscription-based learning site for K–12. Used by over 18 million students, IXL provides personalized learning in more than 20,000 topics, covering math, language arts, science, social studies, and Spanish.">
-  <meta name="twitter:image" content="https://www.ixl.com/favicon.ico">
+  <meta name="twitter:image" content="https://www.ixl.com/dv3/powZqMuTE7du4asFrVyNGxxoqkw/yui3/opengraph/assets/square_og_ixl.png">
   <title>IXL | Math, Language Arts, Science, Social Studies, and Spanish</title>
-  <link rel="icon" href="https://www.ixl.com/favicon.ico">
+  <link rel="icon" type="image/png" href="https://www.ixl.com/dv3/powZqMuTE7du4asFrVyNGxxoqkw/yui3/opengraph/assets/square_og_ixl.png">
   <link rel="alternate icon" type="image/svg+xml" href="favicon.svg">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -985,6 +987,20 @@
             <h1 class="view-title">Links</h1>
             <span class="view-meta" id="proxies-meta"></span>
           </div>
+          <!-- Which backend every game / app / site routes through. The list
+               comes from src/proxies.js and every entry is keyless: the
+               built-in relay always works, hosted web backends are optional,
+               and local proxy clients are never started or chained. -->
+          <div class="panel backend-bar" id="proxy-backend-bar">
+            <div class="backend-bar-inner">
+              <label class="backend-bar-label" for="proxy-backend-select">Proxy backend</label>
+              <select class="field backend-bar-select" id="proxy-backend-select" aria-label="Proxy backend"></select>
+              <button class="btn-ghost backend-bar-open" type="button" id="proxy-backend-open">Open</button>
+            </div>
+            <div class="backend-bar-meta" id="proxy-backend-meta"></div>
+            <p class="backend-bar-why" id="proxy-backend-why"></p>
+          </div>
+          <div id="proxy-backends-grid"></div>
           <div class="panel proxy-form">
             <h2 class="panel-title">Add a link</h2>
             <p class="empty-hint panel-note">Paste a server URL here. Once one is set, the web apps in Apps/Tools (TikTok, Discord, and so on) open through it inside Chalkle\u2019s own browser.</p>
@@ -1027,7 +1043,7 @@
                 <button class="chip" data-docs-filter="html" type="button">HTMLs</button>
               </div>
               <select class="field field-mode" id="docs-sort" aria-label="Sort docs">
-                <option value="new">Newest</option>
+                <option value="new">Newest first</option>
                 <option value="az">A-Z</option>
                 <option value="za">Z-A</option>
                 <option value="links">Most links</option>
@@ -1904,7 +1920,7 @@
       </div>
     </div>
 
-  <script src="src/runtime-config.js?v=20260919e"></script>
+  <script src="src/runtime-config.js?v=20260919f"></script>
   <script src="src/sync.js?v=20260912a"></script>
   <!-- The game library files are ~11.5MB each. They used to be synchronous,
        so the browser couldn't finish parsing (or paint the boot screen) until
@@ -1912,17 +1928,17 @@
        (games.js then games2.js before app.js below) but lets the page parse
        and paint immediately and downloads all scripts in parallel. -->
   <script defer src="src/games.js?v=20260910b"></script>
-  <script defer src="src/games2.js?v=20260918c"></script>
+  <script defer src="src/games2.js?v=20260919l"></script>
   <script src="src/noah-games.js?v=20260918a"></script>
   <script src="src/community-games.js?v=20260905j"></script>
   <script src="src/real-shots.js?v=20260905u"></script>
   <script src="src/cloudgames.js?v=20260918c"></script>
   <script src="src/webports.js?v=20260908d"></script>
   <script src="src/sites.js?v=20260905j"></script>
-  <script src="src/proxies.js?v=20260919a"></script>
+  <script src="src/proxies.js?v=20260919d"></script>
   <script src="src/apps.js?v=20260919e"></script>
   <script src="src/music.js?v=20260910d"></script>
-  <script src="src/launcher.js?v=20260919a"></script>
+  <script src="src/launcher.js?v=20260919f"></script>
   <script src="src/browser.js?v=20260919a"></script>
   <script src="src/cloud.js?v=20260919a"></script>
   <script src="src/editor.js?v=20260917a"></script>
@@ -1931,7 +1947,7 @@
   <script src="src/domainhub.js?v=20260912a"></script>
   <script src="src/ai.js?v=20260918d"></script>
   <script src="src/partners.js?v=20260919c"></script>
-  <script src="src/docs.js?v=20260919g"></script>
+  <script src="src/docs.js?v=20260919k"></script>
   <script src="src/bookmarklets.js?v=20260919a"></script>
   <script src="assets/hls.min.js?v=20260905c"></script>
   <script src="src/livetv.js?v=20260910a"></script>
@@ -1989,7 +2005,7 @@
   </script>
   <!-- app.js consumes window.ChalkGames at eval time, so it must run after the
        deferred game scripts above - defer preserves document order, so it does. -->
-  <script defer src="src/app.js?v=20260919e"></script>
+  <script defer src="src/app.js?v=20260919g"></script>
   <script defer src="src/gameplayer.js?v=20260919e"></script>
 </body>
 </html>
