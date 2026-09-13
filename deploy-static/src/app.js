@@ -3,6 +3,12 @@
 (function () {
   "use strict";
 
+  /* Diagnostics error ring: catch uncaught errors + rejections so Settings
+     can show what actually went wrong instead of a silent blank page. */
+  if (window.ChalkleCore && window.ChalkleCore.installErrorCapture) {
+    window.ChalkleCore.installErrorCapture();
+  }
+
   /* Saved libraries. On first load each list is seeded from the built-in
      data, then everything lives in localStorage so the Admin panel can add,
      edit and remove games / sites / tools and it all sticks on this device. */
@@ -26,7 +32,7 @@
         realShots.forEach(function (s) { realSet[s] = true; });
         var withRealArt = function (g) {
           var copy = Object.assign({}, g);
-          if (copy.thumb && /^data:image\/svg\+xml/i.test(String(copy.thumb))) {
+          if (copy.thumb && /^data:image\//i.test(String(copy.thumb))) {
             var m = /^\/(?:ugs|mc)\/([^/]+)\.html$/i.exec(String(copy.url || ""));
             if (m && realSet[m[1]]) {
               copy.thumb = "/assets/games/real/" + encodeURIComponent(m[1]) + ".jpg";
@@ -183,7 +189,7 @@
           var merged = withId(parsed).map(sanitizeItem).filter(Boolean);
           var seeds = withId(conf.seed()).map(sanitizeItem).filter(Boolean);
           var dirty = merged.length !== parsed.length; /* holes / nulls removed */
-          var SYNC_FIELDS = ["url", "thumb", "category", "porter", "isNew", "html", "kind", "via", "thumbCover", "sourceRepo", "license", "sourceLabel", "desc"];
+          var SYNC_FIELDS = ["url", "thumb", "banner", "category", "porter", "isNew", "html", "kind", "via", "thumbCover", "sourceRepo", "license", "sourceLabel", "desc"];
           seeds.forEach(function (seed) {
             if (!seed || !seed.title || delSet[seed.title]) return;
             var hit = null;
@@ -1002,36 +1008,30 @@
      convert them to a blob: URL first - blob: opens fine and stays
      same-origin even from file://. */
   function openResolvedTab(url) {
-    if (!url) return;
-    /* Inside embed wrappers the CDN serves .html as text/plain, so a direct
-       new-tab navigation would show raw source. Fetch + blob (same trick as
-       the data: branch below) so the new tab renders the app. */
-    if (window.__CHALKLE_EMBED__ && url.indexOf("data:") !== 0) {
-      fetch(url).then(function (r) { return r.blob(); }).then(function (b) {
-        var u = URL.createObjectURL(b);
-        var win = window.open(u, "_blank");
-        if (win) { try { win.opener = null; } catch (e) { } }
-        setTimeout(function () { try { URL.revokeObjectURL(u); } catch (e) { } }, 180000);
-      }).catch(function () {
-        var win = window.open(url, "_blank");
-        if (win) { try { win.opener = null; } catch (e) { } }
-      });
-      return;
+    return (window.ChalkleCore ? window.ChalkleCore.openTab(url) : fallbackOpen(url));
+  }
+
+  /* Pre-appcore path, kept for the rare case ChalkleCore is missing (e.g. a
+     cached page half-loaded during a deploy). Handles the data:/embed blob
+     wrap the shared helper also does. */
+  function fallbackOpen(url) {
+    if (!url) return null;
+    if (url.indexOf("data:") !== 0 && !(window.__CHALKLE_EMBED__ && url.indexOf("data:") !== 0)) {
+      var win0 = null;
+      try { win0 = window.open(url, "_blank"); } catch (e) { return null; }
+      if (win0) { try { win0.opener = null; } catch (e) { /* ignore */ } }
+      return win0;
     }
-    if (url.indexOf("data:") === 0) {
-      fetch(url).then(function (r) { return r.blob(); }).then(function (b) {
-        var u = URL.createObjectURL(b);
-        var win = window.open(u, "_blank");
-        if (win) { try { win.opener = null; } catch (e) { } }
-        setTimeout(function () { try { URL.revokeObjectURL(u); } catch (e) { } }, 180000);
-      }).catch(function () {
-        var win = window.open(url, "_blank");
-        if (win) { try { win.opener = null; } catch (e) { } }
-      });
-      return;
-    }
-    var win2 = window.open(url, "_blank");
-    if (win2) { try { win2.opener = null; } catch (e) { } }
+    fetch(url).then(function (r) { return r.blob(); }).then(function (b) {
+      var u = URL.createObjectURL(b);
+      var win = window.open(u, "_blank");
+      if (win) { try { win.opener = null; } catch (e) { } }
+      setTimeout(function () { try { URL.revokeObjectURL(u); } catch (e) { } }, 180000);
+    }).catch(function () {
+      var win = window.open(url, "_blank");
+      if (win) { try { win.opener = null; } catch (e) { } }
+    });
+    return null;
   }
 
   function chatPageUrl() {
@@ -1294,7 +1294,7 @@
       var rank = { "apps-tools": 0, games: 1 };
       var dv = (rank[a.__view] || 3) - (rank[b.__view] || 3);
       if (dv) return dv;
-      return String(a.title || "").localeCompare(String(b.title || ""));
+      return naturalCmp(a.title, b.title);
     });
     return out.slice(0, SEARCH_MAX);
   }
@@ -1574,9 +1574,10 @@
     /* thum.io wants the target URL as a raw path segment - fully encoding it
        returns 400. Targets carrying their own query/hash would be ambiguous,
        so those keep the generated SVG cover. */
-    var thumbUrl = String(item.url || "");
-    var rasterThumb = item.thumb && /^data:image\/svg\+xml/i.test(String(item.thumb)) && /^https?:/i.test(thumbUrl) && thumbUrl.indexOf("?") === -1 && thumbUrl.indexOf("#") === -1
-      ? "https://image.thum.io/get/width/640/crop/360/" + thumbUrl
+    var thumbUrl = String(item.thumb || "");
+    var thumbTarget = /^https?:/i.test(thumbUrl) ? thumbUrl : (/^\//.test(thumbUrl) ? location.origin + thumbUrl : "");
+    var rasterThumb = item.thumb && /^data:image\/svg\+xml/i.test(String(item.thumb)) && thumbTarget && thumbTarget.indexOf("?") === -1 && thumbTarget.indexOf("#") === -1
+      ? "https://image.thum.io/get/width/640/crop/360/" + thumbTarget
       : "";
     if (rasterThumb) { item.__rasterThumb = rasterThumb; safeThumb = true; }
     /* 16:9 SVG banners (our Eaglercraft tiles) should fill the card like covers;
@@ -1665,7 +1666,7 @@
       "</button>" +
       '<a class="game-launch" href="' + href + '" data-launch="1" data-url="' + href + '" data-title="' + dataTitle + '"' + htmlAttr + directAttr + ' title="' + dataTooltip + '">' +
       ribbon +
-      '<span class="card-thumb">' + thumb + '<span class="quick-launch">Launch</span></span>' +
+      '<span class="card-thumb">' + thumb + '<span class="quick-launch"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l10-6.5z" fill="currentColor" stroke="none"/></svg>Open</span></span>' +
       '<span class="card-body">' +
       '<span class="card-main"><span class="card-title" title="' + dataTooltip + '">' + title + "</span>" + category + badge + porter + "</span>" +
       '<span class="card-side"><span class="card-source">' + escapeHtml(source) + sourceLink + '</span><span class="card-count">' + countLabel + "</span></span>" +
@@ -1675,10 +1676,10 @@
     );
   }
 
-  /* The Games-library card: artwork fills the tile, with one compact meta
-     line under the title. Same delegated data attributes as the classic
-     card, so favorites, the proxy escape hatch, the open-with menu and the
-     launch flow all keep working untouched. */
+  /* The Games-library card: artwork fills the tile, one compact meta line
+     under the title. Same delegated data attributes as the classic card, so
+     favorites, the proxy escape hatch, the open-with menu and the launch
+     flow all keep working untouched. */
   function gameCard(item) {
     var rawTitle = item.title || "Untitled";
     var title = escapeHtml(rawTitle);
@@ -1689,14 +1690,24 @@
     var key = gameKey(item);
     var clicks = state.clicks[key] || 0;
     var fav = !!state.favs[key];
+    var recent = isRecentGame(key);
 
+    /* Meta line: category first, then extra signals - only what the data
+       actually carries. Play count shows only once the game has been played
+       here; recents get a small Continue tag instead of a fake status. */
     var metaBits = [];
     if (item.category) metaBits.push('<span class="card-cat">' + escapeHtml(item.category) + "</span>");
     if (source) metaBits.push('<span class="card-src">' + escapeHtml(source) + "</span>");
     if (creditTxt) metaBits.push('<span class="card-src">' + creditTxt + "</span>");
     if (clicks > 0) metaBits.push('<span class="card-src card-plays">' + (clicks === 1 ? "1 play" : clicks + " plays") + "</span>");
+    if (recent) metaBits.push('<span class="card-recent-tag">Continue</span>');
     var meta = metaBits.length ? '<span class="card-meta">' + metaBits.join('<span class="meta-sep" aria-hidden="true">&middot;</span>') + "</span>" : "";
-    var sourceLink = item.sourceRepo ? '<span class="card-source-link" data-credit-repo="' + escapeAttr(item.sourceRepo) + '" title="View source repository (open source game)">' + escapeHtml(item.license ? item.license + " source" : "Source") + '</span>' : "";
+    /* Ready marker: every library entry launches in the browser, so this
+       status is honest without pretending to ping anything. */
+    var status = '<span class="card-status"><span class="card-status-dot" aria-hidden="true"></span>Ready</span>';
+    var metaRow = (meta || status || item.sourceRepo)
+      ? '<span class="card-meta-row">' + meta + sourceLinkFor(item) + status + "</span>"
+      : "";
     var htmlAttr = (item.html && String(item.html).trim()) ? ' data-html="' + escapeAttr(item.html) + '"' : "";
     var hostedHere = !!(item.url && window.ChalkleLaunch && window.ChalkleLaunch.isLocalPlayUrl && window.ChalkleLaunch.isLocalPlayUrl(item.url));
     var directAttr = (item.directOnly || hostedHere) ? ' data-direct-only="1"' : "";
@@ -1708,7 +1719,7 @@
 
     var href = safeHref(item.url);
     var tooltip = rawTitle + (item.url ? "\n" + item.url : (item.html ? "\nHTML code" : ""));
-    var ribbon = item.isNew ? '<span class="ribbon">New this week</span>' : "";
+    var ribbon = item.isNew ? '<span class="ribbon">New</span>' : "";
 
     return (
       '<article class="card game-card">' +
@@ -1721,14 +1732,23 @@
       "</button>" +
       '<a class="game-launch" href="' + href + '" data-launch="1" data-url="' + href + '" data-title="' + escapeAttr(rawTitle) + '"' + htmlAttr + directAttr + ' title="' + escapeAttr(tooltip) + '">' +
       ribbon +
-      '<span class="card-thumb">' + thumb + '<span class="quick-launch">Launch</span></span>' +
+      '<span class="card-thumb">' + thumb + '<span class="quick-launch"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l10-6.5z" fill="currentColor" stroke="none"/></svg>Play</span></span>' +
       '<span class="card-body">' +
       '<span class="card-title" title="' + escapeAttr(tooltip) + '">' + title + "</span>" +
-      (meta || sourceLink ? '<span class="card-meta-row">' + meta + sourceLink + "</span>" : "") +
+      metaRow +
       "</span>" +
       "</a>" +
       "</article>"
     );
+  }
+
+  /* Source link shared by both card flavors. A span, not an <a>: nested links
+     inside the card's launch <a> are invalid HTML, so the delegated #main
+     handler opens the repo with preventDefault instead. */
+  function sourceLinkFor(item) {
+    return item.sourceRepo
+      ? '<span class="card-source-link" data-credit-repo="' + escapeAttr(item.sourceRepo) + '" title="View source repository (open source game)">' + escapeHtml(item.license ? item.license + " source" : "Source") + '</span>'
+      : "";
   }
 
   /* Apps/Tools get their own presentation: a clean app tile with a rounded
@@ -1806,7 +1826,7 @@
     var homeGrid = document.getElementById("home-picks-grid");
     var gamesGrid = document.getElementById("games-picks-grid");
     if (home) home.hidden = items.length === 0;
-    if (homeGrid) homeGrid.innerHTML = items.map(card).join("");
+    if (homeGrid) homeGrid.innerHTML = items.map(gameCard).join("");
     /* On the Games tab the shelf is editorial browsing only - once the user
        searches or filters the grid it steps aside instead of showing a
        second, unrelated list of cards above the results. */
@@ -1815,7 +1835,7 @@
         !(state.genreFilters && state.genreFilters.length) &&
         (state.gameFilter === "all" || !state.gameFilter);
       games.hidden = items.length === 0 || !browsing;
-      if (gamesGrid && !games.hidden) gamesGrid.innerHTML = items.map(card).join("");
+      if (gamesGrid && !games.hidden) gamesGrid.innerHTML = items.map(gameCard).join("");
     }
   }
 
@@ -1846,6 +1866,37 @@
 
   function gameKey(item) {
     return String((item && (item.url || item.title)) || "").toLowerCase();
+  }
+
+  /* Natural compare: "level 2" sorts before "level 10", not after it.
+     Falls back to localeCompare for equal digit runs so letter casing and
+     accents still order sensibly. */
+  function naturalCmp(a, b) {
+    var as = String(a || "").toLowerCase();
+    var bs = String(b || "").toLowerCase();
+    var ai = 0, bi = 0;
+    while (ai < as.length && bi < bs.length) {
+      var ac = as.charCodeAt(ai), bc = bs.charCodeAt(bi);
+      var aDig = ac >= 48 && ac <= 57, bDig = bc >= 48 && bc <= 57;
+      if (aDig && bDig) {
+        var aj = ai, bj = bi;
+        while (aj < as.length && as.charCodeAt(aj) >= 48 && as.charCodeAt(aj) <= 57) aj++;
+        while (bj < bs.length && bs.charCodeAt(bj) >= 48 && bs.charCodeAt(bj) <= 57) bj++;
+        /* Skip leading zeros so "007" == "7"; longer run means bigger number. */
+        var az = ai; while (az < aj - 1 && as.charCodeAt(az) === 48) az++;
+        var bz = bi; while (bz < bj - 1 && bs.charCodeAt(bz) === 48) bz++;
+        if (aj - az !== bj - bz) return (aj - az) - (bj - bz);
+        while (az < aj && bz < bj) {
+          if (as.charCodeAt(az) !== bs.charCodeAt(bz)) return as.charCodeAt(az) - bs.charCodeAt(bz);
+          az++; bz++;
+        }
+        ai = aj; bi = bj;
+      } else {
+        if (ac !== bc) return ac - bc;
+        ai++; bi++;
+      }
+    }
+    return (as.length - ai) - (bs.length - bi);
   }
 
   /* A game counts as "recent" if it is in the saved recents list. */
@@ -1938,9 +1989,9 @@
           var popular = (state.clicks[bk] || 0) - (state.clicks[ak] || 0);
           if (popular) return popular;
         }
-        var at = (a.title || "").toLowerCase();
-        var bt = (b.title || "").toLowerCase();
-        return state.sort === "za" ? bt.localeCompare(at) : at.localeCompare(bt);
+        var at = (a.title || "");
+        var bt = (b.title || "");
+        return state.sort === "za" ? naturalCmp(bt, at) : naturalCmp(at, bt);
       });
       renderGameStats(items.length);
     }
@@ -2202,6 +2253,9 @@
     if (window.ChalkleLaunch && window.ChalkleLaunch.pauseMusicForTarget) {
       window.ChalkleLaunch.pauseMusicForTarget(url);
     }
+    /* The game player always makes sound: stop Chalkle Music regardless of
+       what the target URL is, so the two never play over each other. */
+    try { if (window.ChalkleMusic && window.ChalkleMusic.pause) window.ChalkleMusic.pause(); } catch (e) { /* no music module */ }
     var art = gameThumbInner(item);
     var metaBits = [];
     if (item.category) metaBits.push(escapeHtml(item.category));
@@ -2271,7 +2325,7 @@
         '<span class="home-featured-eyebrow">Featured game<span class="home-feat-badge">Web</span></span>' +
         '<span class="home-featured-title">Minecraft James Edition</span>' +
         '<span class="home-featured-desc">The full self-contained Eaglercraft 26.2 client served straight from this site. Survival, creative, servers. Nothing to download or block.</span>' +
-        '<span class="home-featured-cta">Launch</span>' +
+        '<span class="home-featured-cta">Play now</span>' +
         "</span></button>";
       featured.querySelector("[data-featured-mc]").addEventListener("click", function () {
         openJamesEdition("Minecraft James Edition");
@@ -2291,8 +2345,9 @@
         var title = escapeHtml(item.title || "Untitled");
         var key = item._id || gameKey(item);
         var rasterTarget = String(item.url || "");
-        var raster = item.thumb && /^data:image\/svg\+xml/i.test(String(item.thumb)) && /^https?:/i.test(rasterTarget) && rasterTarget.indexOf("?") === -1 && rasterTarget.indexOf("#") === -1
-          ? "https://image.thum.io/get/width/640/crop/360/" + rasterTarget
+        var rasterTargetAbs = /^https?:/i.test(rasterTarget) ? rasterTarget : (/^\//.test(rasterTarget) ? location.origin + rasterTarget : "");
+        var raster = item.thumb && /^data:image\/svg\+xml/i.test(String(item.thumb)) && rasterTargetAbs && rasterTargetAbs.indexOf("?") === -1 && rasterTargetAbs.indexOf("#") === -1
+          ? "https://image.thum.io/get/width/640/crop/360/" + rasterTargetAbs
           : item.thumb;
         var art = (raster && !isLocalFileUrl(raster))
           ? hvFallback(escapeHtml((item.title || "?").charAt(0).toUpperCase() || "?")) + hvImg(raster, "")
@@ -2323,42 +2378,6 @@
           }
         });
       });
-    }
-
-    var recBox = $("#home-youtube-recs");
-    if (recBox) {
-      recBox.innerHTML = '<div class="home-recs-loading">Loading trending videos&hellip;</div>';
-      if (window.ChalkleFeaturedVideos) {
-        window.ChalkleFeaturedVideos().then(function (tracks) {
-          if (!tracks || tracks.length === 0) {
-            recBox.innerHTML = '<div class="home-recs-loading">No videos right now - check the YouTube tab.</div>';
-            return;
-          }
-          recBox.innerHTML = tracks.map(function (t) {
-            var title = escapeHtml(t.title || "Untitled");
-            var artist = escapeHtml(t.artist || "");
-            var art = t.cover
-              ? hvFallback(escapeHtml((t.title || "?").charAt(0).toUpperCase() || "?")) + hvImg(t.cover, "")
-              : hvFallback(escapeHtml((t.title || "?").charAt(0).toUpperCase() || "?"));
-            return homeCard("home-video", String(t.id), title, artist, art);
-          }).join("");
-          recBox.querySelectorAll("[data-home-video]").forEach(function (btn) {
-            btn.addEventListener("click", function () {
-              var id = btn.dataset.homeVideo;
-              var track = tracks.find(function (x) { return x.id === id; });
-              if (!track) return;
-              setView("music");
-              setTimeout(function () {
-                if (window.ChalkleOpenVideo) window.ChalkleOpenVideo(track);
-              }, 0);
-            });
-          });
-        }).catch(function () {
-          recBox.innerHTML = '<div class="home-recs-loading">Couldn\u2019t load videos - check the YouTube tab.</div>';
-        });
-      } else {
-        recBox.innerHTML = "";
-      }
     }
   }
 
@@ -3500,13 +3519,12 @@
        plain text into a web search. Keeping these separate prevents Home
        searches from hijacking the catalog dropdown. */
     bindSearchBox(els.search);
-    /* Edge glow sweep on the home search bar - only on capable devices,
-       and never while the tab is hidden. */
+    /* Quiet border pulse on the home search bar - only on capable devices,
+       and never while the tab is hidden. Flat accent color, no gradients. */
     (function () {
       var bar = document.querySelector(".home-search");
       if (!bar || !window.matchMedia) return;
       if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-      var nav = navigator.userAgent || "";
       var lowMem = (navigator.deviceMemory && navigator.deviceMemory <= 2) || (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 2);
       if (lowMem) return;
       var t0 = setTimeout(tick, 1800), iv = null;
@@ -3761,6 +3779,40 @@
           '<div class="debug-row"><span>Saved proxies</span><b>' + (state.proxies ? state.proxies.length : 0) + '</b></div>' +
           '<div class="debug-row"><span>Favorites</span><b>' + (state.favs ? Object.keys(state.favs).length : 0) + '</b></div>';
       }
+      /* Diagnostics: version, connection, storage health and the last few
+         captured errors. Rendered with textContent so an error message can
+         never inject markup. */
+      var diag = $("#diag-info");
+      if (diag) {
+        diag.innerHTML = "";
+        var core = window.ChalkleCore;
+        var rows = [];
+        if (core) {
+          var st = core.storageStat();
+          rows.push(["Version", "v" + core.version]);
+          rows.push(["Online", navigator.onLine ? "yes" : "no"]);
+          rows.push(["Storage", st.available ? "ok - " + st.keys + " keys, " + st.kb + " KB" : "unavailable"]);
+          var errs = core.errors();
+          rows.push(["Recent errors", errs.length ? String(errs.length) : "none"]);
+          for (var e2 = 0; e2 < errs.length && e2 < 3; e2++) {
+            rows.push(["  " + errs[e2].kind, errs[e2].message]);
+          }
+        } else {
+          rows.push(["Version", "v1.1"]);
+          rows.push(["Core module", "not loaded"]);
+        }
+        rows.forEach(function (pair) {
+          var row = document.createElement("div");
+          row.className = "debug-row";
+          var label = document.createElement("span");
+          label.textContent = pair[0];
+          var value = document.createElement("b");
+          value.textContent = pair[1];
+          row.appendChild(label);
+          row.appendChild(value);
+          diag.appendChild(row);
+        });
+      }
     }
     refreshAdvancedSummary();
 
@@ -3776,15 +3828,21 @@
     }
     refreshCloudStatus();
 
-    /* Export: download every chalkle-* key as JSON. */
+    /* Export: download every chalkle-* key as a versioned JSON envelope. */
     var exportBtn = $("#opt-export");
     if (exportBtn) {
       exportBtn.addEventListener("click", function () {
-        var data = {};
+        var settings = {};
         for (var i = 0; i < localStorage.length; i++) {
           var k = localStorage.key(i);
-          if (k && k.indexOf("chalkle") === 0) data[k] = localStorage.getItem(k);
+          if (k && k.indexOf("chalkle") === 0) settings[k] = localStorage.getItem(k);
         }
+        var data = {
+          app: "chalkle",
+          version: (window.ChalkleCore ? window.ChalkleCore.version : "1"),
+          exported: new Date().toISOString(),
+          settings: settings
+        };
         var blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
         var a = document.createElement("a");
         a.href = URL.createObjectURL(blob);
@@ -3806,10 +3864,21 @@
         var reader = new FileReader();
         reader.onload = function () {
           try {
-            var data = JSON.parse(reader.result);
+            var parsed = JSON.parse(reader.result);
+            if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+              alert("That file is not a valid settings backup.");
+              return;
+            }
+            /* Accept both the versioned envelope (settings key) and the old
+               flat format, so pre-1.1 exports still restore. */
+            var data = (parsed.settings && typeof parsed.settings === "object" && !Array.isArray(parsed.settings)) ? parsed.settings : parsed;
             var count = 0;
             for (var k in data) {
-              if (Object.prototype.hasOwnProperty.call(data, k) && k.indexOf("chalkle") === 0) {
+              if (!Object.prototype.hasOwnProperty.call(data, k)) continue;
+              /* Prototype-pollution guard: these key names are dangerous
+                 even though localStorage treats them as plain strings. */
+              if (k === "__proto__" || k === "constructor" || k === "prototype") continue;
+              if (k.indexOf("chalkle") === 0) {
                 try { localStorage.setItem(k, String(data[k])); count++; } catch (e) { /* full */ }
               }
             }
@@ -3821,6 +3890,57 @@
         };
         reader.readAsText(f);
         importFile.value = "";
+      });
+    }
+
+    /* Copy diagnostics: shared-core text via clipboard, textarea fallback. */
+    var copyDiagBtn = $("#opt-copy-diag");
+    if (copyDiagBtn) {
+      copyDiagBtn.addEventListener("click", function () {
+        if (window.ChalkleCore && window.ChalkleCore.copyDiagnostics) {
+          window.ChalkleCore.copyDiagnostics(function (ok) {
+            copyDiagBtn.textContent = ok ? "Copied" : "Copy failed - select manually";
+            setTimeout(function () { copyDiagBtn.textContent = "Copy diagnostics"; }, 1800);
+          });
+        } else {
+          copyDiagBtn.textContent = "Diagnostics unavailable";
+        }
+      });
+    }
+
+    /* Service check: one on-demand probe of the relay's /_health, shown as
+       ONLINE / OFFLINE rows. Never runs in the background. */
+    var svcBtn = $("#opt-check-services");
+    var svcBox = $("#svc-info");
+    if (svcBtn && svcBox) {
+      svcBtn.addEventListener("click", function () {
+        if (!window.ChalkleCore || !window.ChalkleCore.checkServices) return;
+        svcBtn.disabled = true;
+        svcBtn.textContent = "Checking…";
+        svcBox.hidden = false;
+        svcBox.innerHTML = "";
+        var waiting = document.createElement("div");
+        waiting.className = "debug-row";
+        waiting.innerHTML = "<span>Relay</span><b>…</b>";
+        svcBox.appendChild(waiting);
+        window.ChalkleCore.checkServices(function (rows) {
+          svcBox.innerHTML = "";
+          rows.forEach(function (r) {
+            var row = document.createElement("div");
+            row.className = "debug-row";
+            var label = document.createElement("span");
+            label.textContent = r.name;
+            var value = document.createElement("b");
+            value.textContent = r.state;
+            if (r.state === "OFFLINE") value.style.color = "#e5534b";
+            else if (r.state === "DEGRADED") value.style.color = "#d4a72c";
+            row.appendChild(label);
+            row.appendChild(value);
+            svcBox.appendChild(row);
+          });
+          svcBtn.disabled = false;
+          svcBtn.textContent = "Check services";
+        });
       });
     }
 
@@ -4251,7 +4371,16 @@
             else window.ChalkleLaunch.open(paTarget, paTitle);
             return;
           }
-          var paRouted = window.ChalkleLaunch.routeProxy(paTarget, liveProxy.url, liveProxy.mode === "frame" || !!liveProxy.hashRoute);
+          /* Same guard as the launcher: hosted dashboards are not URL
+             routers, so a hash-routed proxy would drop the target and show
+             the dashboard's own welcome page instead of the app. */
+          var paRoutes = liveProxy.builtin || liveProxy.mode === "path" ||
+            (window.ChalkleLaunch.isTargetRoutingProxy
+              ? window.ChalkleLaunch.isTargetRoutingProxy(liveProxy)
+              : liveProxy.mode === "path");
+          var paRouted = paRoutes
+            ? window.ChalkleLaunch.routeProxy(paTarget, liveProxy.url, false)
+            : paTarget;
           if (window.ChalkleLaunch.openShell) {
             /* Proxy apps are walled sites - bounce even the proxied URL
                through the redirector shell so no filter sees it as a link. */

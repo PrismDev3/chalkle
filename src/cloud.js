@@ -60,6 +60,35 @@
 
   /* ---------------- Catalog rendering ---------------- */
 
+  /* Natural compare so "Race 2" sorts before "Race 10". Same logic as the
+     games sort in app.js. */
+  function naturalCmp(a, b) {
+    var as = String(a || "").toLowerCase();
+    var bs = String(b || "").toLowerCase();
+    var ai = 0, bi = 0;
+    while (ai < as.length && bi < bs.length) {
+      var ac = as.charCodeAt(ai), bc = bs.charCodeAt(bi);
+      var aDig = ac >= 48 && ac <= 57, bDig = bc >= 48 && bc <= 57;
+      if (aDig && bDig) {
+        var aj = ai, bj = bi;
+        while (aj < as.length && as.charCodeAt(aj) >= 48 && as.charCodeAt(aj) <= 57) aj++;
+        while (bj < bs.length && bs.charCodeAt(bj) >= 48 && bs.charCodeAt(bj) <= 57) bj++;
+        var az = ai; while (az < aj - 1 && as.charCodeAt(az) === 48) az++;
+        var bz = bi; while (bz < bj - 1 && bs.charCodeAt(bz) === 48) bz++;
+        if (aj - az !== bj - bz) return (aj - az) - (bj - bz);
+        while (az < aj && bz < bj) {
+          if (as.charCodeAt(az) !== bs.charCodeAt(bz)) return as.charCodeAt(az) - bs.charCodeAt(bz);
+          az++; bz++;
+        }
+        ai = aj; bi = bj;
+      } else {
+        if (ac !== bc) return ac - bc;
+        ai++; bi++;
+      }
+    }
+    return (as.length - ai) - (bs.length - bi);
+  }
+
   function filtered() {
     var q = state.query.trim().toLowerCase();
     var out = games.filter(function (g) {
@@ -73,7 +102,7 @@
       return true;
     });
     return out.sort(function (a, b) {
-      return (a.title || "").toLowerCase().localeCompare((b.title || "").toLowerCase());
+      return naturalCmp(a.title, b.title);
     });
   }
 
@@ -93,10 +122,74 @@
     return PAL[n % PAL.length];
   }
 
+  /* A few Stratus records have no supplied artwork. Keep a real cover URL for
+     those records instead of rendering the controller/letter placeholder. The
+     Steam CDN images are public raster assets and load independently of the
+     cloud-session backend. */
+  var CLOUD_ART = {
+    "transformers: battlegrounds": "1059690",
+    "jdm: japanese drift master": "1153410",
+    "god of war: ragnarok": "2322010",
+    "fifa23": "1811260",
+    "wobbly life": "1211020",
+    "sniper:ghost warrior contracts2": "1338770",
+    "marvels spider-man: miles morales": "1817190",
+    "marvels spider-man remastered": "1817070",
+    "forza horizon 5": "1551360",
+    "hitman 3": "1659040",
+    "grand theft auto iii": "12100",
+    "assassin's creed: brotherhood": "48190",
+    "assassin's creed: revelations": "201870",
+    "assassin's creed: black flag": "242050",
+    "assassin's creed: syndicate": "368500",
+    "slime rancher": "433340",
+    "alba: a wildlife adventure": "1337010",
+    "my friend pedro": "557340",
+    "mafia: definitive edition": "1030840",
+    "far cry 3": "220240",
+    "far cry new dawn": "939960",
+    "watch dogs 2": "447040",
+    "ori and the will of the wisps": "1057090",
+    "ace combat 7: skies unknown": "502500",
+    "assassin's creed: odyssey": "812140",
+    "assassin�s creed: odyssey": "812140",
+    "resident evil 2: remake": "883710",
+    "final fantasy vii remake intergrade": "1462040",
+    "transformers battlegrounds": "1059690",
+    "jdm japanese drift master": "1153410",
+    "god of war ragnarok": "2322010",
+    "god of war: ragnar�k": "2322010",
+    "marvels spider-man miles morales": "1817190",
+    "marvels spider-man remastered": "1817070",
+    "assassins creed brotherhood": "48190",
+    "assassins creed revelations": "201870",
+    "assassins creed black flag": "242050",
+    "assassins creed syndicate": "368500"
+  };
+  function cloudArtKey(value) {
+    var text = String(value || "").toLowerCase();
+    try { text = text.normalize("NFKD").replace(/[\u0300-\u036f]/g, ""); } catch (e) { /* old browser */ }
+    return text.replace(/[^a-z0-9]+/g, " ").trim();
+  }
+  function realCloudArt(g) {
+    var title = cloudArtKey(g && g.title);
+    var appid = CLOUD_ART[title];
+    if (!appid) {
+      var keys = Object.keys(CLOUD_ART);
+      for (var i = 0; i < keys.length; i++) {
+        if (cloudArtKey(keys[i]) === title) { appid = CLOUD_ART[keys[i]]; break; }
+      }
+    }
+    return appid ? "https://cdn.cloudflare.steamstatic.com/steam/apps/" + appid + "/header.jpg" : "";
+  }
+
   function thumbHtml(g) {
-    var src = g.img || g.cover || "";
+    var mapped = realCloudArt(g);
+    var supplied = g.img || g.cover || "";
+    var src = mapped || supplied;
+    var backup = supplied && supplied !== src ? supplied : "";
     if (src) {
-      return '<img class="thumb-art" src="' + esc(src) + '" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.remove()">' +
+      return '<img class="thumb-art" src="' + esc(src) + '" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer"' + (backup ? ' data-thumb-backup="' + esc(backup) + '"' : '') + ' onerror="if(this.dataset.thumbBackup&&this.src!==this.dataset.thumbBackup){this.src=this.dataset.thumbBackup;this.removeAttribute(\'data-thumb-backup\');}else{this.remove();}">' +
         '<span class="thumb-letter">' + esc((g.title || "?").charAt(0).toUpperCase()) + "</span>";
     }
     var pal = tilePalette(g.key);
@@ -407,6 +500,8 @@
     setStatus("Starting " + g.title, "busy");
     if (ui) ui.status("Preparing session\u2026");
     else writePlayerPage(playerWindow, "loading", g);
+    /* One audio source at a time: the stream carries its own sound. */
+    try { if (window.ChalkleMusic && window.ChalkleMusic.pause) window.ChalkleMusic.pause(); } catch (e) { /* no music module */ }
     createSession(g)
       .then(function (uuid) {
         setStatus("Waiting in queue for " + g.title, "busy");
@@ -511,7 +606,7 @@
         var saved = document.getElementById("cloud-cfg-saved");
         fetch(apiUrl("/cloud/config"), {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", "X-Requested-With": "chalkle" },
           body: JSON.stringify(payload)
         }).then(function (r) { return r.json(); }).then(function (j) {
           if (saved) {

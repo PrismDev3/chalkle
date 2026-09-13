@@ -30,6 +30,7 @@
   };
 
   var cov = {};
+  var covPending = {};
   var metaIndex = {};
   var els = {};
   var audio = null;
@@ -139,26 +140,54 @@
     return uniqueTracks(items).sort(function (a, b) { return (Number(b.views) || 0) - (Number(a.views) || 0); });
   }
 
+  function directCoverUrl(meta, size) {
+    if (!meta || !meta.pic_id || String(meta.source || "").toLowerCase() !== "youtube") return "";
+    return "https://i.ytimg.com/vi/" + encodeURIComponent(String(meta.pic_id)) + "/" + (size || "mqdefault") + ".jpg";
+  }
+  function relayCoverUrl(meta, size) {
+    if (!meta || !meta.pic_id || String(meta.source || "").toLowerCase() !== "youtube") return "";
+    var raw = "https://i.ytimg.com/vi/" + String(meta.pic_id) + "/" + (size || "mqdefault") + ".jpg";
+    try {
+      var token = btoa(raw).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+      var path = "/yt/thumb?u=" + token;
+      return window.ChalkleApi ? window.ChalkleApi.url(path) : path;
+    } catch (e) { return ""; }
+  }
   function coverUrl(meta) {
     if (!meta || !meta.pic_id) return Promise.resolve("");
     if (meta._cover) return Promise.resolve(meta._cover);
     if (cov[meta.pic_id]) { meta._cover = cov[meta.pic_id]; return Promise.resolve(meta._cover); }
-    return getJSON(api({ path: "pic", id: meta.pic_id, size: 480 })).then(function (d) {
+    /* YouTube's thumbnail is already a public JPEG keyed by the video id.
+       Use it immediately; the relay remains the fallback for filtered networks
+       and for providers that do not expose a predictable image URL. */
+    var direct = directCoverUrl(meta, "mqdefault");
+    if (direct) { cov[meta.pic_id] = direct; meta._cover = direct; return Promise.resolve(direct); }
+    var pending = covPending[meta.pic_id];
+    if (pending) return pending;
+    var request = getJSON(api({ path: "pic", id: meta.pic_id, size: 480 })).then(function (d) {
       var url = d && d.url || "";
       cov[meta.pic_id] = url;
       meta._cover = url;
+      delete covPending[meta.pic_id];
       return url;
-    }).catch(function () { return ""; });
+    }).catch(function () { delete covPending[meta.pic_id]; return ""; });
+    covPending[meta.pic_id] = request;
+    return request;
   }
   function artHtml(meta, cls) {
     var letter = esc((meta && (meta.name || meta.album || meta.artist && meta.artist[0]) || "?").charAt(0).toUpperCase());
+    var direct = directCoverUrl(meta, "mqdefault");
+    var relay = relayCoverUrl(meta, "mqdefault");
+    if (direct) {
+      return '<span class="' + cls + '"><img src="' + esc(direct) + '" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer"' + (relay ? ' data-cover-relay="' + esc(relay) + '" onerror="if(this.dataset.coverRelay){this.src=this.dataset.coverRelay;this.removeAttribute(\'data-cover-relay\');}else{this.remove();}"' : ' onerror="this.remove()"') + '><span class="thumb-letter">' + letter + "</span></span>";
+    }
     return '<span class="' + cls + '" data-pic="' + esc(meta && meta.pic_id || "") + '"><span class="thumb-letter">' + letter + "</span></span>";
   }
   function hydrateArts(scope) {
     (scope || document).querySelectorAll("[data-pic]").forEach(function (el) {
       var id = el.getAttribute("data-pic");
       if (!id || !cov[id]) return;
-      el.innerHTML = '<img src="' + esc(cov[id]) + '" alt="" loading="lazy" decoding="async" onerror="this.remove()">';
+      el.innerHTML = '<img src="' + esc(cov[id]) + '" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.remove()">';
       el.removeAttribute("data-pic");
     });
   }
@@ -536,6 +565,7 @@
     els.player.hidden = false;
     els.title.textContent = cleanName(meta.name) || "Untitled";
     els.artist.textContent = artistName(meta);
+    updateMediaSession(meta);
     miniShow(meta); miniArt(cov[meta.pic_id] || meta._cover, meta);
     setPlayingUI(false);
     coverUrl(meta).then(function () { fillPlayerArt(); });
@@ -578,6 +608,60 @@
     els.pArt.innerHTML = url ? '<img src="' + esc(url) + '" alt="">' : '<span class="thumb-letter">' + esc((meta.name || "?").charAt(0).toUpperCase()) + '</span>';
     miniArt(url, meta);
   }
+  /* ---- OS media controls ---------------------------------------------------
+     The Media Session API is what puts the current song on a lock screen,
+     a Windows media overlay or a car head unit, and what makes the hardware
+     play/pause/next keys work on the Music tab. Every call is guarded, so a
+     browser without the API loses nothing. */
+  function mediaSessionOk() {
+    return typeof navigator !== "undefined" && "mediaSession" in navigator;
+  }
+
+  function setMediaAction(name, handler) {
+    try { navigator.mediaSession.setActionHandler(name, handler); }
+    catch (e) { /* unsupported action name on this browser */ }
+  }
+
+  function updateMediaSession(meta) {
+    if (!mediaSessionOk() || !meta) return;
+    var title = cleanName(meta.name) || "Untitled";
+    var artist = artistName(meta) || "Chalkle Music";
+    try {
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: title,
+        artist: artist,
+        album: meta.album || "Chalkle Music"
+      });
+    } catch (e) { /* MediaMetadata missing */ }
+    coverUrl(meta).then(function (url) {
+      if (!url || !navigator.mediaSession.metadata) return;
+      try {
+        navigator.mediaSession.metadata.artwork = [
+          { src: url, sizes: "96x96", type: "image/jpeg" },
+          { src: url, sizes: "256x256", type: "image/jpeg" },
+          { src: url, sizes: "512x512", type: "image/jpeg" }
+        ];
+      } catch (e) { /* metadata locked by the browser */ }
+    });
+  }
+
+  function setMediaPlaybackState(playing) {
+    if (!mediaSessionOk()) return;
+    try { navigator.mediaSession.playbackState = playing ? "playing" : "paused"; }
+    catch (e) { /* ignore */ }
+  }
+
+  function bindMediaKeys() {
+    if (!mediaSessionOk()) return;
+    setMediaAction("play", function () { if (audio && audio.paused) togglePlay(); });
+    setMediaAction("pause", function () { if (audio && !audio.paused) togglePlay(); });
+    setMediaAction("previoustrack", function () { prev(); });
+    setMediaAction("nexttrack", function () { next(); });
+    setMediaAction("seekbackward", function (d) { if (audio) audio.currentTime = Math.max(0, (audio.currentTime || 0) - (d && d.seekOffset || 10)); });
+    setMediaAction("seekforward", function (d) { if (audio) audio.currentTime = (audio.currentTime || 0) + (d && d.seekOffset || 10); });
+    setMediaAction("seekto", function (d) { if (audio && d && typeof d.seekTime === "number") audio.currentTime = d.seekTime; });
+  }
+
   /* ---- Mini player (topbar) ------------------------------------------------
      A tiny transport that lives next to the clock so play/pause/next/prev/mute
      are always one click away without switching back to the Music tab. It is
@@ -635,6 +719,8 @@
 
   function stopAll() {
     if (audio) { audio.pause(); audio.removeAttribute("src"); audio.load(); }
+    setMediaPlaybackState(false);
+    if (mediaSessionOk()) { try { navigator.mediaSession.metadata = null; } catch (e) { /* ignore */ } }
     state.idx = -1; state.queue = []; setPlayingUI(false); els.player.hidden = true; renderQueue(); highlightRows();
     miniShow(null); miniPlaying(false);
   }
@@ -788,11 +874,12 @@
       if (save && !save._musicBound) { e.preventDefault(); toggleSavedById(save.getAttribute("data-msave")); }
     });
     document.addEventListener("keydown", function (e) { if ((e.key === " " || e.key === "Spacebar") && !/INPUT|TEXTAREA/.test(document.activeElement && document.activeElement.tagName || "")) { if (!state.viewHidden) { e.preventDefault(); togglePlay(); } } });
-    audio.addEventListener("play", function () { state.playing = true; setPlayingUI(true); syncPlayingUI(); });
+    audio.addEventListener("play", function () { state.playing = true; setPlayingUI(true); syncPlayingUI(); setMediaPlaybackState(true); });
     audio.addEventListener("pause", function () {
       if (audio.src) {
         state.playing = false;
         setPlayingUI(false);
+        setMediaPlaybackState(false);
       }
     });
     audio.addEventListener("ended", function () { next(); });
@@ -814,7 +901,7 @@
     var view = document.querySelector('.view[data-view="music"]');
     state.viewHidden = view ? !view.classList.contains("is-visible") : true;
     if (view) new MutationObserver(function () { state.viewHidden = !view.classList.contains("is-visible"); }).observe(view, { attributes: true, attributeFilter: ["class"] });
-    bind(); applyVol(); applyTempo(); els.pitch.value = state.pitch; els.speed.value = Math.round(state.speed * 100);
+    bind(); bindMediaKeys(); applyVol(); applyTempo(); els.pitch.value = state.pitch; els.speed.value = Math.round(state.speed * 100);
     /* Don't fire the 8 chart searches on page load when the Music tab is
        hidden - they all hit the relay at once and compete with the boot
        scripts. render() below (called by setView when the tab is opened)

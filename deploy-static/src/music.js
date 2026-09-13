@@ -30,6 +30,7 @@
   };
 
   var cov = {};
+  var covPending = {};
   var metaIndex = {};
   var els = {};
   var audio = null;
@@ -139,26 +140,54 @@
     return uniqueTracks(items).sort(function (a, b) { return (Number(b.views) || 0) - (Number(a.views) || 0); });
   }
 
+  function directCoverUrl(meta, size) {
+    if (!meta || !meta.pic_id || String(meta.source || "").toLowerCase() !== "youtube") return "";
+    return "https://i.ytimg.com/vi/" + encodeURIComponent(String(meta.pic_id)) + "/" + (size || "mqdefault") + ".jpg";
+  }
+  function relayCoverUrl(meta, size) {
+    if (!meta || !meta.pic_id || String(meta.source || "").toLowerCase() !== "youtube") return "";
+    var raw = "https://i.ytimg.com/vi/" + String(meta.pic_id) + "/" + (size || "mqdefault") + ".jpg";
+    try {
+      var token = btoa(raw).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+      var path = "/yt/thumb?u=" + token;
+      return window.ChalkleApi ? window.ChalkleApi.url(path) : path;
+    } catch (e) { return ""; }
+  }
   function coverUrl(meta) {
     if (!meta || !meta.pic_id) return Promise.resolve("");
     if (meta._cover) return Promise.resolve(meta._cover);
     if (cov[meta.pic_id]) { meta._cover = cov[meta.pic_id]; return Promise.resolve(meta._cover); }
-    return getJSON(api({ path: "pic", id: meta.pic_id, size: 480 })).then(function (d) {
+    /* YouTube's thumbnail is already a public JPEG keyed by the video id.
+       Use it immediately; the relay remains the fallback for filtered networks
+       and for providers that do not expose a predictable image URL. */
+    var direct = directCoverUrl(meta, "mqdefault");
+    if (direct) { cov[meta.pic_id] = direct; meta._cover = direct; return Promise.resolve(direct); }
+    var pending = covPending[meta.pic_id];
+    if (pending) return pending;
+    var request = getJSON(api({ path: "pic", id: meta.pic_id, size: 480 })).then(function (d) {
       var url = d && d.url || "";
       cov[meta.pic_id] = url;
       meta._cover = url;
+      delete covPending[meta.pic_id];
       return url;
-    }).catch(function () { return ""; });
+    }).catch(function () { delete covPending[meta.pic_id]; return ""; });
+    covPending[meta.pic_id] = request;
+    return request;
   }
   function artHtml(meta, cls) {
     var letter = esc((meta && (meta.name || meta.album || meta.artist && meta.artist[0]) || "?").charAt(0).toUpperCase());
+    var direct = directCoverUrl(meta, "mqdefault");
+    var relay = relayCoverUrl(meta, "mqdefault");
+    if (direct) {
+      return '<span class="' + cls + '"><img src="' + esc(direct) + '" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer"' + (relay ? ' data-cover-relay="' + esc(relay) + '" onerror="if(this.dataset.coverRelay){this.src=this.dataset.coverRelay;this.removeAttribute(\'data-cover-relay\');}else{this.remove();}"' : ' onerror="this.remove()"') + '><span class="thumb-letter">' + letter + "</span></span>";
+    }
     return '<span class="' + cls + '" data-pic="' + esc(meta && meta.pic_id || "") + '"><span class="thumb-letter">' + letter + "</span></span>";
   }
   function hydrateArts(scope) {
     (scope || document).querySelectorAll("[data-pic]").forEach(function (el) {
       var id = el.getAttribute("data-pic");
       if (!id || !cov[id]) return;
-      el.innerHTML = '<img src="' + esc(cov[id]) + '" alt="" loading="lazy" decoding="async" onerror="this.remove()">';
+      el.innerHTML = '<img src="' + esc(cov[id]) + '" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.remove()">';
       el.removeAttribute("data-pic");
     });
   }
