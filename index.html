@@ -23,10 +23,12 @@
   <meta name="twitter:description" content="IXL is the world's most popular subscription-based learning site for K–12. Used by over 18 million students, IXL provides personalized learning in more than 20,000 topics, covering math, language arts, science, social studies, and Spanish.">
   <meta name="twitter:image" content="https://www.ixl.com/dv3/powZqMuTE7du4asFrVyNGxxoqkw/yui3/opengraph/assets/square_og_ixl.png">
   <title>IXL | Math, Language Arts, Science, Social Studies, and Spanish</title>
-  <link rel="icon" type="image/png" href="https://www.ixl.com/dv3/powZqMuTE7du4asFrVyNGxxoqkw/yui3/opengraph/assets/square_og_ixl.png">
+  <link rel="icon" href="favicon.ico" sizes="any">
+  <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="favicon-192.png">
   <link rel="alternate icon" type="image/svg+xml" href="favicon.svg">
-  <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="manifest" href="manifest.json">
   <link rel="preconnect" href="https://chalkle.lootline.xyz">
   <link rel="preconnect" href="https://www.youtube-nocookie.com">
   <!-- Fonts are self-hosted (assets/fonts, @font-face in src/styles.css) so
@@ -113,6 +115,7 @@
     }
   };
   </script>
+  <script src="src/appcore.js?v=20260920a"></script>
   <script src="src/theme.js?v=20260919c"></script>
   <script>
   /* Panic key: press ` (backtick) three times quickly (or Ctrl+Shift+` once)
@@ -381,7 +384,10 @@
       </button>
       <div class="topbar-spacer" aria-hidden="true"></div>
       <div class="topbar-clock" id="topbar-clock" title="Local time" aria-hidden="true">
-        <img class="clock-gif" src="https://minecraft.wiki/images/Clock_JE3_BE3.gif?a4011" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">
+        <svg class="clock-dial" viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="8.6"/>
+          <path d="M12 12V7.4"/><path d="M12 12l3.4 2.2"/>
+        </svg>
         <span class="clock-time" id="clock-time">--:--</span>
         <span class="clock-ampm" id="clock-ampm"></span>
       </div>
@@ -651,7 +657,7 @@
               <h2 class="home-block-title">Editor&rsquo;s picks</h2>
               <span class="home-block-note">A few good starting points</span>
             </div>
-            <div class="home-shelf" id="home-picks-grid"></div>
+            <div class="home-shelf games-grid" id="home-picks-grid"></div>
           </section>
 
           <div class="home-recents" id="home-recents" hidden></div>
@@ -662,7 +668,7 @@
               <h2 class="home-block-title">Popular right now</h2>
               <span class="home-block-note">What everyone&rsquo;s been launching</span>
             </div>
-            <div class="home-shelf" id="home-popular-games"></div>
+            <div class="home-shelf games-grid" id="home-popular-games"></div>
           </section>
 
 
@@ -716,7 +722,7 @@
               <h2 class="home-block-title">Editor&rsquo;s picks</h2>
               <span class="home-block-note">A good first handful. The rest is below.</span>
             </div>
-            <div class="home-shelf" id="games-picks-grid"></div>
+            <div class="home-shelf games-grid" id="games-picks-grid"></div>
           </section>
           <div class="ad-slot" id="ad-slot-games" data-slot-key="games" hidden>
             <span class="ad-slot-label">Sponsored</span>
@@ -762,7 +768,7 @@
           </div>
           <div class="genre-filters" id="cloud-genres" role="group" aria-label="Filter by genre" hidden></div>
           <div class="cloud-player-host" id="cloud-player-host" hidden></div>
-          <div class="grid" id="cloud-grid"></div>
+          <div class="grid games-grid" id="cloud-grid"></div>
           <div class="empty" id="cloud-empty" hidden>
             <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
               <path d="M6.9 17.5a4.2 4.2 0 0 1-.74-8.34 5.6 5.6 0 0 1 10.9 1.15 4 4 0 0 1-.16 7.19z"/>
@@ -933,7 +939,8 @@
                 <span>Open in new tab</span>
               </a>
             </div>
-          </div>            <iframe class="movies-frame" id="movies-frame" title="JS Movies" data-src="movies.html"
+          </div>
+          <iframe class="movies-frame" id="movies-frame" title="JS Movies" data-src="movies.html"
             allow="fullscreen; autoplay; encrypted-media; picture-in-picture" allowfullscreen
             referrerpolicy="no-referrer" loading="lazy"></iframe>
         </section>
@@ -950,7 +957,7 @@
                 <span class="fx-fs-label">Fullscreen</span>
               </button>
               <a class="btn" id="chat-open-tab" href="chat.html" target="_blank" rel="noopener">
-                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 6H3v2h18V6zM4 14H3v2h18v-2H4zM4 18H3v2h18v-2H4z"/></svg>
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17L17 7"/><path d="M9 7h8v8"/></svg>
                 <span>Open in new tab</span>
               </a>
             </div>
@@ -968,14 +975,17 @@
 
         <section class="view" data-view="apps-tools">
           <div class="view-head">
-            <h1 class="view-title">Apps/Tools</h1>
-            <span class="view-meta" id="apps-tools-meta"></span>
-          </div>              <div class="genre-filters" id="apps-genres" role="group" aria-label="Filter tools by category" hidden></div>
-              <div class="ad-slot" id="ad-slot-apps" data-slot-key="apps" hidden>
-                <span class="ad-slot-label">Sponsored</span>
-                <ins class="adsbygoogle" data-ad-client="ca-pub-3031332925462724" data-ad-slot="" data-ad-format="auto" data-full-width-responsive="true"></ins>
-              </div>
-              <div class="grid" id="apps-grid"></div>
+            <div class="view-heading">
+              <h1 class="view-title">Apps/Tools</h1>
+              <span class="view-meta" id="apps-tools-meta"></span>
+            </div>
+          </div>
+          <div class="genre-filters" id="apps-genres" role="group" aria-label="Filter tools by category" hidden></div>
+          <div class="ad-slot" id="ad-slot-apps" data-slot-key="apps" hidden>
+            <span class="ad-slot-label">Sponsored</span>
+            <ins class="adsbygoogle" data-ad-client="ca-pub-3031332925462724" data-ad-slot="" data-ad-format="auto" data-full-width-responsive="true"></ins>
+          </div>
+          <div class="grid" id="apps-grid"></div>
           <div class="empty" id="apps-empty" hidden>
             <p class="empty-title">No tools yet.</p>
             <p class="empty-hint">Add one from the Admin panel.</p>
@@ -984,8 +994,10 @@
 
         <section class="view" data-view="proxies">
           <div class="view-head">
-            <h1 class="view-title">Links</h1>
-            <span class="view-meta" id="proxies-meta"></span>
+            <div class="view-heading">
+              <h1 class="view-title">Links</h1>
+              <span class="view-meta" id="proxies-meta"></span>
+            </div>
           </div>
           <!-- Which backend every game / app / site routes through. The list
                comes from src/proxies.js and every entry is keyless: the
@@ -1003,7 +1015,7 @@
           <div id="proxy-backends-grid"></div>
           <div class="panel proxy-form">
             <h2 class="panel-title">Add a link</h2>
-            <p class="empty-hint panel-note">Paste a server URL here. Once one is set, the web apps in Apps/Tools (TikTok, Discord, and so on) open through it inside Chalkle\u2019s own browser.</p>
+            <p class="empty-hint panel-note">Paste a server URL here. Once one is set, the web apps in Apps/Tools (TikTok, Discord, and so on) open through it inside Chalkle&rsquo;s own browser.</p>
             <form id="proxy-form" class="form-row" autocomplete="off">
               <input class="field field-name" id="proxy-name" type="text" placeholder="Name" required>
               <input class="field field-url" id="proxy-url" type="text" placeholder="https://your-proxy.onrender.com" spellcheck="false" required>
@@ -1066,6 +1078,12 @@
             <div class="docs-count" id="docs-count">0 docs</div>
           </div>
 
+          <div class="docs-workspace" id="docs-workspace" aria-label="Link collection browser"></div>
+
+          <div class="docs-section-divider">
+            <span>Other docs</span>
+            <span class="docs-section-line" aria-hidden="true"></span>
+          </div>
           <div class="docs-grid" id="docs-grid"></div>
 
           <div class="empty" id="docs-empty" hidden>
@@ -1353,6 +1371,16 @@
                   <p class="settings-block-hint">What this device has stored locally</p>
                   <div class="debug-box" id="debug-info"></div>
                 </div>
+                <div class="settings-block">
+                  <div class="settings-block-label">Diagnostics</div>
+                  <p class="settings-block-hint">Version, connection and recent errors on this device. Nothing leaves the page</p>
+                  <div class="debug-box" id="diag-info"></div>
+                  <div class="settings-block-inline">
+                    <button class="btn-theme" id="opt-check-services" type="button">Check services</button>
+                    <button class="btn-theme" id="opt-copy-diag" type="button">Copy diagnostics</button>
+                  </div>
+                  <div class="debug-box" id="svc-info" hidden></div>
+                </div>
               </div>
             </div>
 
@@ -1576,7 +1604,7 @@
         <ul class="whatsnew-list">
           <li><span class="wn-tag">Launcher</span>Games and sites open inside Chalkle through its own browser. No chooser screens.</li>
           <li><span class="wn-tag">Home</span>Editor&rsquo;s picks shelf, clickable stat tiles, and a Discord join bar.</li>
-          <li><span class="wn-tag">Sites</span>Arctic &amp; Cherri mirrors are labelled 1&ndash;10 with their own thumbnails.</li>
+          <li><span class="wn-tag">Sites</span>Arctic &amp; Cherri mirrors are labelled 1-10 with their own thumbnails.</li>
           <li><span class="wn-tag">Board</span>Open team spots now jump straight to the Apply channel.</li>
           <li><span class="wn-tag">Tools</span>Emulator tiles say which ROM or file to bring.</li>
           <li><span class="wn-tag">Live TV</span>The filter row scrolls instead of wrapping on small screens.</li>
@@ -1921,13 +1949,13 @@
     </div>
 
   <script src="src/runtime-config.js?v=20260919f"></script>
-  <script src="src/sync.js?v=20260912a"></script>
+  <script src="src/sync.js?v=20260920a"></script>
   <!-- The game library files are ~11.5MB each. They used to be synchronous,
        so the browser couldn't finish parsing (or paint the boot screen) until
        all 23MB downloaded serially. defer keeps their execution order
        (games.js then games2.js before app.js below) but lets the page parse
        and paint immediately and downloads all scripts in parallel. -->
-  <script defer src="src/games.js?v=20260910b"></script>
+  <script defer src="src/games.js?v=20260913a"></script>
   <script defer src="src/games2.js?v=20260919l"></script>
   <script src="src/noah-games.js?v=20260918a"></script>
   <script src="src/community-games.js?v=20260905j"></script>
@@ -1935,22 +1963,22 @@
   <script src="src/cloudgames.js?v=20260918c"></script>
   <script src="src/webports.js?v=20260908d"></script>
   <script src="src/sites.js?v=20260905j"></script>
-  <script src="src/proxies.js?v=20260919d"></script>
+  <script src="src/proxies.js?v=20260920a"></script>
   <script src="src/apps.js?v=20260919e"></script>
   <script src="src/music.js?v=20260910d"></script>
-  <script src="src/launcher.js?v=20260919f"></script>
-  <script src="src/browser.js?v=20260919a"></script>
-  <script src="src/cloud.js?v=20260919a"></script>
+  <script src="src/launcher.js?v=20260920b"></script>
+  <script src="src/browser.js?v=20260920b"></script>
+  <script src="src/cloud.js?v=20260920b"></script>
   <script src="src/editor.js?v=20260917a"></script>
   <script src="src/urlauditor.js?v=20260905j"></script>
   <script src="src/pixel.js?v=20260908k"></script>
   <script src="src/domainhub.js?v=20260912a"></script>
-  <script src="src/ai.js?v=20260918d"></script>
+  <script src="src/ai.js?v=20260920a"></script>
   <script src="src/partners.js?v=20260919c"></script>
-  <script src="src/docs.js?v=20260919k"></script>
+  <script src="src/docs.js?v=20260913a"></script>
   <script src="src/bookmarklets.js?v=20260919a"></script>
   <script src="assets/hls.min.js?v=20260905c"></script>
-  <script src="src/livetv.js?v=20260910a"></script>
+  <script src="src/livetv.js?v=20260920a"></script>
   <script src="src/youtube.js?v=20260910a"></script>
   <script src="src/intro.js?v=20260905k"></script>
   <script>
@@ -2005,7 +2033,7 @@
   </script>
   <!-- app.js consumes window.ChalkGames at eval time, so it must run after the
        deferred game scripts above - defer preserves document order, so it does. -->
-  <script defer src="src/app.js?v=20260919g"></script>
-  <script defer src="src/gameplayer.js?v=20260919e"></script>
+  <script defer src="src/app.js?v=20260921a"></script>
+  <script defer src="src/gameplayer.js?v=20260920a"></script>
 </body>
 </html>

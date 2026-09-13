@@ -568,11 +568,17 @@ body[data-view="movies"] .topbar { border-bottom-color: var(--line); }
   .brand-name { font-size: 31px; }
 }
 
-.topbar-clock .clock-gif {
+/* Clock dial: a plain line-art clock face drawn with the shared icon
+   stroke. Static on purpose - the digits are the clock, the dial is a label. */
+.topbar-clock .clock-dial {
   width: 18px;
   height: 18px;
   flex: none;
-  image-rendering: pixelated;
+  fill: none;
+  stroke: var(--text-3);
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .clock-time {
@@ -1425,25 +1431,9 @@ button.home-panel-chip:hover {
 
 /* While a thumbnail is still loading (lazy images), pulse a flat highlight
    over the tile. The img covers it once it arrives, so no JS needed. */
-.card-thumb::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: 3;
-  pointer-events: none;
-  background: rgba(255, 255, 255, 0.05);
-  animation: thumb-pulse 1.4s ease-in-out infinite;
-}
-
-/* Once an image lands, it covers the tile, so drop the sheen. */
-.card-thumb:has(img.thumb-art)::after {
-  display: none;
-}
-
-@keyframes thumb-pulse {
-  0%, 100% { opacity: 0.2; }
-  50% { opacity: 0.9; }
-}
+/* Loading state: the tile's own background shows while artwork loads, and
+   .thumb-fallback covers the empty case. No animated sheen - the old
+   infinite thumb-pulse was constant movement the card never needed. */
 
 .game-card {
   overflow: hidden;
@@ -1805,28 +1795,149 @@ button.home-panel-chip:hover {
   max-width: 100%;
 }
 
+/* Library card meta row: one line under the title - category, credits and
+   honest status. Pushes Ready to the right edge so the row reads as
+   'info ... status' at any card width. */
+.card-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 5px;
+  min-width: 0;
+}
+
+.card-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+  flex: 1 1 auto;
+  min-width: 0;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.card-meta .card-cat {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.card-meta .card-src {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.card-meta .meta-sep {
+  opacity: 0.6;
+}
+
+.game-feature-meta .meta-sep {
+  color: var(--text-muted);
+  opacity: 0.7;
+}
+
+/* Ready status: quiet dot + label, right-aligned in the meta row. The row
+   reserves right padding so the hover-revealed open-with button (bottom-right
+   corner of the card) never lands on top of the label. */
+.card-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex: none;
+  margin-left: auto;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.game-card .card-meta-row {
+  padding-right: 26px;
+}
+
+.card-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex: none;
+}
+
+/* Recently played tag: tiny accent chip so a recent game reads as
+   'pick this up again' without shouting. */
+.card-recent-tag {
+  flex: none;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+/* Play chip: appears over the art on hover/focus. A real element (not a
+   pseudo) so it can carry the play glyph and sit above the scrim. */
 .quick-launch {
   position: absolute;
   left: 10px;
   bottom: 10px;
-  z-index: 4;
-  padding: 5px 9px;
-  border-radius: 7px;
-  background: var(--va);
-  color: var(--va-ink);
-  font-size: 12px;
+  z-index: 5;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 12.5px;
   font-weight: 800;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
   opacity: 0;
   transform: translateY(6px);
-  transition: opacity 140ms ease, transform 140ms ease;
+  transition: opacity 150ms var(--ease, ease), transform 150ms var(--ease, ease);
+}
+
+.quick-launch .icon {
+  width: 13px;
+  height: 13px;
 }
 
 .game-card:hover .quick-launch,
-.game-card:focus-within .quick-launch {
+.game-card:focus-within .quick-launch,
+.cloud-card:hover .quick-launch,
+.cloud-card:focus-within .quick-launch {
   opacity: 1;
   transform: translateY(0);
+}
+
+/* Cloud card: same scrim treatment as the library so Stream/Play reads the
+   same way across sections. */
+.cloud-card .card-thumb::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  background: rgba(8, 10, 12, 0.42);
+  opacity: 0;
+  transition: opacity 150ms var(--ease, ease);
+  pointer-events: none;
+}
+
+.cloud-card:hover .card-thumb::before,
+.cloud-card:focus-within .card-thumb::before {
+  opacity: 1;
+}
+
+.cloud-card:hover .card-thumb img {
+  transform: scale(1.045);
 }
 
 /* Launch feedback: the whole card gives a quick press when clicked. */
@@ -7469,9 +7580,6 @@ body.ed-resizing iframe { pointer-events: none; }
 .cloud-card .fav-btn {
   z-index: 6;
 }
-.cloud-card .card-thumb::after {
-  z-index: 4;
-}
 
 .view-actions .field-search { width: 240px; }
 @media (max-width: 560px) { .view-actions .field-search { width: 100%; } }
@@ -9601,9 +9709,9 @@ input[type="submit"]:not([disabled]), input[type="range"]:not([disabled]) {
 .tool-tile-art .tool-tile-letter {
   z-index: 0;
   border-radius: inherit;
-  background: linear-gradient(145deg, var(--va, #4cc56f), color-mix(in srgb, var(--va, #4cc56f) 55%, #111 45%));
-  color: #fff;
-  text-shadow: 0 2px 5px rgba(0,0,0,.35);
+  background: var(--surface-hover);
+  border: 1px solid var(--border);
+  color: var(--text);
   font-family: var(--display-geo, system-ui);
   font-size: 25px;
   letter-spacing: -.04em;
@@ -11097,28 +11205,29 @@ body.sidebar-collapsed .collapse-btn .icon {
   background: var(--surface);
 }
 
-/* Hover play affordance over the art */
-.game-card .card-thumb::before {
-  content: "\25B6";
+/* Hover scrim over the art, library grid only. The old bare "\25B6" triangle
+   pseudo-element collided with the picks numbering (also .card-thumb::before),
+   so the play affordance is a real .quick-launch chip inside the markup now:
+   scrim here, chip on top. Picks shelves keep their numbering chip instead. */
+.games-grid .game-card .card-thumb::before {
+  content: "";
   position: absolute;
   inset: 0;
   z-index: 4;
-  display: grid;
-  place-items: center;
-  font-size: 15px;
-  color: #fff;
-  background: rgba(8, 10, 12, 0.3);
+  background: rgba(8, 10, 12, 0.42);
   opacity: 0;
-  transition: opacity 150ms ease;
+  transition: opacity 150ms var(--ease, ease);
   pointer-events: none;
 }
 
-.game-card:hover .card-thumb::before {
+.games-grid .game-card:hover .card-thumb::before,
+.games-grid .game-card:focus-within .card-thumb::before {
   opacity: 1;
 }
 
-.game-card:hover .card-thumb img {
-  transform: scale(1.03);
+.games-grid .game-card:hover .card-thumb img,
+.games-grid .game-card:focus-within .card-thumb img {
+  transform: scale(1.045);
 }
 
 .open-with,
@@ -11223,56 +11332,26 @@ body.sidebar-collapsed .collapse-btn .icon {
   pointer-events: none;
 }
 
-/* Edge glow sweep around the search bar - a light beam tracing the border
-   every few seconds. Skipped on reduced-motion and lite devices. */
+/* Home search hint - a quiet border pulse every few seconds. Flat color only,
+   no gradients. Respects reduced-motion and low-memory devices. */
 .home-search-glow {
   position: absolute;
   inset: -1px;
   pointer-events: none;
   z-index: 2;
   border-radius: calc(var(--radius-lg) + 1px);
-  overflow: hidden;
+  border: 1.5px solid var(--accent);
   opacity: 0;
 }
 
-.home-search-glow::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  padding: 1.5px;
-  /* Hard-edged rotating beam: duplicate stops keep every edge sharp. */
-  background: conic-gradient(from var(--glow-angle), transparent 6%, var(--accent) 6%, var(--accent) 18%, transparent 18%);
-  -webkit-mask: linear-gradient(#000 0px 0px) content-box, linear-gradient(#000 0px 0px);
-  -webkit-mask-composite: xor;
-  mask: linear-gradient(#000 0px 0px) content-box, linear-gradient(#000 0px 0px);
-  mask-composite: exclude;
-  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--accent) 60%, transparent));
-}
-
 .home-search.glow-run .home-search-glow {
-  animation: gp-glow-appear 2.7s linear forwards;
-}
-
-.home-search.glow-run .home-search-glow::before {
-  animation: gp-glow-spin 2.7s linear forwards;
-}
-
-@property --glow-angle {
-  syntax: "<angle>";
-  inherits: false;
-  initial-value: 0deg;
-}
-
-@keyframes gp-glow-spin {
-  0% { --glow-angle: 0deg; }
-  100% { --glow-angle: 360deg; }
+  animation: gp-glow-appear 2.2s ease forwards;
 }
 
 @keyframes gp-glow-appear {
   0% { opacity: 0; }
-  12% { opacity: 0.9; }
-  88% { opacity: 0.7; }
+  18% { opacity: 0.55; }
+  75% { opacity: 0.35; }
   100% { opacity: 0; }
 }
 
@@ -11529,6 +11608,12 @@ body.sidebar-collapsed .collapse-btn .icon {
   grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
   gap: var(--space-3);
   padding: 2px 0 10px;
+}
+
+/* Shelves that hold real library cards (picks, popular) reuse the games-grid
+   density so Home and Games read as the same card system. */
+.home-shelf.games-grid {
+  grid-template-columns: repeat(auto-fill, minmax(164px, 1fr));
 }
 
 .home-card {
@@ -12369,14 +12454,15 @@ html.stealth-active #stealth-cover-frame {
   background: var(--surface);
   box-shadow: var(--shadow-1);
   margin: 0 0 var(--space-6);
-  min-height: 260px;
+  /* Big enough to feel featured, small enough that the grid stays visible. */
+  min-height: 230px;
 }
 
 .game-feature-art {
   position: relative;
   background: var(--surface-hover);
   overflow: hidden;
-  min-height: 260px;
+  min-height: 230px;
 }
 
 .game-feature-art img,
@@ -12463,6 +12549,12 @@ html.stealth-active #stealth-cover-frame {
   gap: var(--space-3);
 }
 
+/* Ultrawide / large desktop: let the library breathe wider instead of
+   stretching tiles into slabs. */
+@media (min-width: 1800px) {
+  .games-grid { grid-template-columns: repeat(auto-fill, minmax(178px, 1fr)); }
+}
+
 /* Library card: artwork-first, one meta line under the title. */
 .game-card .card-body {
   display: block;
@@ -12473,42 +12565,6 @@ html.stealth-active #stealth-cover-frame {
 .game-card .card-title {
   display: block;
   font-size: 15px;
-}
-
-.card-meta-row {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 4px 6px;
-  margin-top: 4px;
-  min-width: 0;
-}
-
-.card-meta {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 6px;
-  font-family: var(--mono);
-  font-size: 11px;
-  color: var(--text-muted);
-  min-width: 0;
-}
-
-.card-meta .card-cat {
-  color: var(--accent);
-}
-
-.card-meta .card-src {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.card-meta .meta-sep,
-.game-feature-meta .meta-sep {
-  color: var(--text-muted);
-  opacity: 0.7;
 }
 
 .game-card .card-source-link {
@@ -13119,3 +13175,126 @@ html.stealth-active #stealth-cover-frame {
 .backend-pills { display: flex; flex-wrap: wrap; gap: 6px; }
 .backend-note { margin: 0; font-size: 12.5px; line-height: 1.5; color: var(--text-secondary); }
 .backend-actions { display: flex; gap: 8px; margin-top: auto; }
+
+/* ---------- Structured Docs link-list workspace ---------- */
+.docs-workspace {
+  margin: 0 0 26px;
+  padding: 18px;
+  border: 1px solid var(--docs-line);
+  border-radius: 16px;
+  background: rgba(8, 21, 28, 0.92);
+}
+.docs-workspace-head,
+.docs-workspace-panel-head,
+.docs-workspace-tools {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.docs-workspace-head { margin-bottom: 16px; }
+.docs-workspace-heading { min-width: 0; }
+.docs-workspace-title,
+.docs-provider-title {
+  margin: 0;
+  color: var(--docs-txt);
+  font-family: var(--display-geo);
+  font-size: 21px;
+  line-height: 1.2;
+}
+.docs-workspace-note,
+.docs-provider-note {
+  margin: 4px 0 0;
+  color: var(--docs-txt-soft);
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+.docs-workspace-total,
+.docs-provider-total,
+.docs-workspace-results-meta {
+  color: var(--text-3);
+  font-family: var(--mono);
+  font-size: 11.5px;
+  white-space: nowrap;
+}
+.docs-workspace-layout {
+  display: grid;
+  grid-template-columns: 180px minmax(0, 1fr);
+  gap: 14px;
+}
+.docs-collection-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.16);
+}
+.docs-workspace-label {
+  padding: 4px 8px 7px;
+  color: var(--text-3);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.docs-collection-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 9px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--text-secondary);
+  text-align: left;
+  cursor: pointer;
+}
+.docs-collection-btn:hover { background: rgba(110, 198, 255, .08); color: var(--text); }
+.docs-collection-btn.is-active {
+  border-color: var(--docs-line);
+  background: var(--docs-txt-soft);
+  color: #06151c;
+}
+.docs-collection-btn-title { font-weight: 700; }
+.docs-collection-btn-count { color: var(--text-3); font-family: var(--mono); font-size: 11px; }
+.docs-collection-btn.is-active .docs-collection-btn-count { color: #16404b; }
+.docs-workspace-panel { min-width: 0; padding: 14px; border: 1px solid var(--line); border-radius: 12px; background: rgba(0, 0, 0, .12); }
+.docs-workspace-panel-head { align-items: flex-start; margin-bottom: 13px; }
+.docs-provider-tabs { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 8px; border-bottom: 1px solid var(--line); }
+.docs-provider-tab { display: inline-flex; align-items: center; gap: 7px; flex: 0 0 auto; padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px; background: transparent; color: var(--text-secondary); cursor: pointer; }
+.docs-provider-tab:hover { color: var(--text); border-color: var(--docs-line); }
+.docs-provider-tab.is-active { border-color: var(--docs-line); background: var(--docs-txt-soft); color: #06151c; }
+.docs-provider-tab-count { font-family: var(--mono); font-size: 10.5px; opacity: .75; }
+.docs-workspace-tools { margin: 12px 0 8px; }
+.docs-workspace-search { flex: 1 1 220px; min-width: 150px; }
+.docs-workspace-copy { flex: 0 0 auto; }
+.docs-workspace-results-meta { margin: 3px 0 9px; }
+.docs-workspace-results { display: flex; flex-direction: column; gap: 6px; }
+.docs-variant-row { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 9px 10px; border: 1px solid var(--line); border-radius: 9px; background: rgba(11, 27, 34, .8); }
+.docs-variant-row:hover { border-color: var(--docs-line); background: rgba(110, 198, 255, .07); }
+.docs-variant-row.is-pending { opacity: .65; }
+.docs-variant-index { flex: 0 0 25px; color: var(--text-3); font-family: var(--mono); font-size: 11px; }
+.docs-variant-info { flex: 1 1 auto; min-width: 0; }
+.docs-variant-label, .docs-variant-url { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.docs-variant-label { color: var(--docs-txt); font-size: 13px; font-weight: 700; }
+.docs-variant-url { margin-top: 2px; color: var(--text-3); font-family: var(--mono); font-size: 10.5px; }
+.docs-variant-open, .docs-variant-copy, .docs-variant-status { flex: 0 0 auto; padding: 5px 9px; border-radius: 7px; font-size: 11.5px; font-weight: 700; }
+.docs-variant-open { background: var(--docs-txt-soft); color: #06151c; text-decoration: none; }
+.docs-variant-open:hover { background: var(--docs-txt); }
+.docs-variant-copy { border: 1px solid var(--line); background: transparent; color: var(--text-secondary); cursor: pointer; }
+.docs-variant-copy:hover { border-color: var(--docs-line); color: var(--docs-txt); }
+.docs-variant-status { border: 1px solid var(--line); color: var(--text-3); font-family: var(--mono); }
+.docs-workspace-empty { padding: 24px 10px; color: var(--text-3); text-align: center; }
+.docs-section-divider { display: flex; align-items: center; gap: 10px; margin: 0 0 12px; color: var(--text-3); font-family: var(--mono); font-size: 11px; letter-spacing: .07em; text-transform: uppercase; }
+.docs-section-line { height: 1px; flex: 1; background: var(--line); }
+@media (max-width: 720px) {
+  .docs-workspace { padding: 12px; }
+  .docs-workspace-layout { grid-template-columns: 1fr; }
+  .docs-collection-nav { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .docs-workspace-label { grid-column: 1 / -1; }
+}
