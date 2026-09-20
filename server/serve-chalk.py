@@ -617,6 +617,34 @@ def _yut_remove(self):
     return self._json_out({"ok": True})
 
 
+_SURROGATE_RE = re.compile("[\ud800-\udfff]")
+
+
+def _scrub_surrogates(obj):
+    """Replace lone surrogates with U+FFFD, recursively.
+
+    Shared state is assembled from third-party pages, so a title or thumbnail
+    can arrive half-decoded: JSON like "\\ud800" with no matching low surrogate
+    parses into a lone surrogate character. json.dumps(..., ensure_ascii=False)
+    writes that character back out verbatim, and .encode("utf-8") then raises
+    UnicodeEncodeError. That is worth a helper of its own because of where it
+    used to land: the bare `except` in _sanitize_sync_blob caught the encode
+    error and returned the RAW blob, so one bad character anywhere in the
+    shared state silently disabled the entire library filter and removed titles
+    came back on every device. Scrub before dumping so the encode cannot fail.
+    """
+    if isinstance(obj, str):
+        return _SURROGATE_RE.sub("\ufffd", obj) if _SURROGATE_RE.search(obj) else obj
+    if isinstance(obj, list):
+        return [_scrub_surrogates(v) for v in obj]
+    if isinstance(obj, dict):
+        return {
+            (_scrub_surrogates(k) if isinstance(k, str) else k): _scrub_surrogates(v)
+            for k, v in obj.items()
+        }
+    return obj
+
+
 def _sanitize_sync_blob(raw: bytes) -> bytes:
     """Sync relay sanitizer: the relay used to echo client state verbatim, so
     any visitor's stale library resurrected deleted junk titles (bad 'Examples'
@@ -625,6 +653,11 @@ def _sanitize_sync_blob(raw: bytes) -> bytes:
     so removed entries stay removed no matter what clients send."""
     try:
         d = json.loads(raw.decode("utf-8"))
+    except Exception:
+        # Not JSON we can read at all - hand it back untouched rather than
+        # inventing a payload.
+        return raw
+    try:
         if isinstance(d, dict) and isinstance(d.get("chalkle-gamelib-v4"), str):
             lib = json.loads(d["chalkle-gamelib-v4"])
             if isinstance(lib, list) and lib and isinstance(lib[0], dict):
@@ -633,9 +666,13 @@ def _sanitize_sync_blob(raw: bytes) -> bytes:
                     if isinstance(g, dict) and _lib_entry_ok(g)
                 ]
                 d["chalkle-gamelib-v4"] = json.dumps(kept, separators=(",", ":"), ensure_ascii=False)
-        return json.dumps(d, ensure_ascii=False).encode("utf-8")
     except Exception:
-        return raw
+        # A malformed library must not take the whole relay down. Everything
+        # else in the blob is still scrubbed and re-encoded below, and the
+        # encode itself can no longer fail, so this can never fall through to
+        # serving the filter-bypassing raw bytes.
+        pass
+    return json.dumps(_scrub_surrogates(d), ensure_ascii=False).encode("utf-8", "replace")
 
 
 _BAD_TITLE_BITS = (
@@ -3694,7 +3731,12 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, _Bitc
                     if isinstance(stored, dict) and isinstance(stored.get("chalkle-gamelib-v4"), str):
                         if isinstance(incoming, dict):
                             incoming["chalkle-gamelib-v4"] = stored["chalkle-gamelib-v4"]
-                            data = json.dumps(incoming, ensure_ascii=False).encode("utf-8")
+                            # Same encode hazard as the sanitizer: a lone
+                            # surrogate would raise here, the surrounding
+                            # `except` would swallow it, and `data` would keep
+                            # the library-less payload - wiping the shared
+                            # library for everyone instead of protecting it.
+                            data = json.dumps(_scrub_surrogates(incoming), ensure_ascii=False).encode("utf-8", "replace")
                 except Exception:
                     pass
             with open(db_path, "wb") as f:
