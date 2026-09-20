@@ -5,13 +5,13 @@ on:
     branches: [main]
   workflow_dispatch:
 
-# `contents: read` is all this workflow needs. cloudflare/pages-action
-# authenticates with the API token, not with OIDC, so the `pages: write` and
-# `id-token: write` scopes this file used to request were copied from pages.yml
-# - where they are required to publish to GitHub Pages - and are meaningless
-# here.
+# `contents: read` is for the checkout, `deployments: write` lets wrangler-action
+# attach a GitHub Deployment to the run. No `pages:` or `id-token:` scopes: those
+# belong to pages.yml, which publishes to GitHub Pages over OIDC and has nothing
+# to do with this one.
 permissions:
   contents: read
+  deployments: write
 
 concurrency:
   # Unique group: pages.yml uses the generic "pages" group too, and the two
@@ -22,13 +22,6 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    # No `environment:` here, unlike pages.yml. The run used to declare
-    # `cloudflare-pages` and every job died at "Set up job" - the one step this
-    # job had in common with pages.yml's working `github-pages` environment was
-    # the difference, and an API-token deploy needs no environment at all. If
-    # the token is kept as an environment-scoped secret it will not resolve here
-    # any more; store it as a repository secret and the gate below publishes
-    # deploy-static again.
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -39,10 +32,9 @@ jobs:
       #
       # The gate has to read the secret through `env`, NOT inline in an `if`.
       # `secrets` is not an available context in a step-level `if`, so
-      # `if: ${{ secrets.X != '' }}` makes the whole workflow invalid and every
-      # run dies instantly with zero jobs - a red X on every push, with no
-      # annotation to explain it. Env vars are allowed in `if`, so the check
-      # happens in a shell step and the `if` compares a step output instead.
+      # `if: ${{ secrets.X != '' }}` made the whole workflow invalid and every
+      # run died instantly with zero jobs. Env vars are allowed in `if`, so the
+      # check runs in a shell step and the `if` compares a step output instead.
       - name: Check whether a Cloudflare token is configured
         id: gate
         env:
@@ -59,17 +51,23 @@ jobs:
             echo "on every push to main."
           fi
 
+      # cloudflare/pages-action is gone - the repository 404s and Cloudflare
+      # directs everyone to wrangler-action, which does Pages. It is not a
+      # cosmetic swap: GitHub resolves every `uses:` while setting the job up,
+      # so the dead reference failed the job before the first step ran, which is
+      # why this workflow had never once deployed anything.
       - name: Deploy to Cloudflare Pages
         if: steps.gate.outputs.enabled == 'true'
-        id: deployment
-        uses: cloudflare/pages-action@v1
+        uses: cloudflare/wrangler-action@v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          # Account that owns the Pages projects. Not a secret, and hardcoded
+          # here the way scripts/deploy-all-pages.sh hardcodes it.
           accountId: '24daff7bc56afcdf6dbcb94e94460700'
-          projectName: 'ixl-math-learning'
-          directory: .
-          workingDirectory: ./deploy-static
-          branch: main
+          # Direct upload of the prebuilt tree: deploy-static is the drag-and-drop
+          # publish directory, so no build step runs here.
+          command: pages deploy deploy-static --project-name=ixl-math-learning --branch=main
+          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Purge jsDelivr mirrors
         run: |
