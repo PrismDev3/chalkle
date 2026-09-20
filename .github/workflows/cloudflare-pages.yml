@@ -19,15 +19,45 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    environment:
-      name: cloudflare-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+    # Kept as a plain environment name: the Cloudflare token may be stored as an
+    # environment secret, and a job that does not declare the environment cannot
+    # see one. The page_url output used to be published here, but it is empty on
+    # every run that skips the deploy, and an environment url that resolves to
+    # nothing is worse than no url - Cloudflare's own GitHub integration already
+    # reports the preview URL on its own check.
+    environment: cloudflare-pages
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # The Cloudflare Pages step is optional: Cloudflare's own GitHub
+      # integration publishes chalkle.lootline.xyz on every push to main, so
+      # this workflow must be able to do nothing and still report success.
+      #
+      # The gate has to read the secret through `env`, NOT inline in an `if`.
+      # `secrets` is not an available context in a step-level `if`, so
+      # `if: ${{ secrets.X != '' }}` makes the whole workflow invalid and every
+      # run dies instantly with zero jobs - a red X on every push, with no
+      # annotation to explain it. Env vars are allowed in `if`, so the check
+      # happens in a shell step and the `if` compares a step output instead.
+      - name: Check whether a Cloudflare token is configured
+        id: gate
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          if [ -n "${CLOUDFLARE_API_TOKEN}" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+            echo "CLOUDFLARE_API_TOKEN is set - deploying deploy-static."
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "No CLOUDFLARE_API_TOKEN secret is configured, so this run only"
+            echo "reports status. Cloudflare's connected GitHub integration (the"
+            echo "'Cloudflare Pages' check) still publishes chalkle.lootline.xyz"
+            echo "on every push to main."
+          fi
+
       - name: Deploy to Cloudflare Pages
-        if: ${{ secrets.CLOUDFLARE_API_TOKEN != '' }}
+        if: steps.gate.outputs.enabled == 'true'
         id: deployment
         uses: cloudflare/pages-action@v1
         with:
