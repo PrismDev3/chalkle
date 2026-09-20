@@ -26,6 +26,13 @@ window.ChalkProxyBackends = [
     ready: true
   },
   {
+    id: "auto",
+    name: "Auto (fastest live node)",
+    group: "built-in",
+    kind: "auto",
+    note: "Checks every node on this list and opens the one that answers fastest. Dead nodes are skipped, and the relay takes over when nothing else answers."
+  },
+  {
     id: "direct",
     name: "Direct (no proxy)",
     group: "built-in",
@@ -185,7 +192,7 @@ window.ChalkProxies = [
     try {
       fetch(root + "/api/proxy/backend", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "X-Requested-With": "chalkle" },
         body: JSON.stringify({ id: id })
       })
         .then(function (r) { return r.ok ? r.json() : null; })
@@ -233,6 +240,302 @@ window.ChalkProxies = [
   window.ChalkProxyBackendSet = set;
   window.ChalkProxyBackendProbe = probe;
   window.ChalkProxyBackendRelayRoot = relayRoot;
+  window.ChalkProxyResolve = resolveBackend;
+  window.ChalkProxyHealthOf = healthOf;
+  window.ChalkProxyCheckAll = checkAll;
+  window.ChalkProxyCheckRelay = checkRelay;
+  window.ChalkProxyPingNode = pingNodeById;
+  window.ChalkProxyBestNode = bestNode;
+  window.ChalkProxyCandidates = candidates;
+  window.ChalkProxyReport = report;
+  window.ChalkProxyRelayHealth = relayHealth;
+
+  /* -------------------------------------------------------- node health ---
+     A proxy list that never says what is actually up is a list of guesses.
+     Hosted nodes go stale, work on one network and not the next, and a school
+     filter answers a dead tunnel with its own block page while the card still
+     claims the node is fine. Every entry therefore carries a health record:
+     the Proxies tab renders it, and the launcher reads it before routing.
+
+     The check is one timed opaque request. `mode: "no-cors"` cannot read the
+     answer, but it does settle when the origin answers and rejects when the
+     host is gone, the TLS handshake fails, or a filter blocks the request -
+     the three ways these nodes actually die here. The time it took is the
+     latency the card shows, which is the number that matters when picking
+     between them. */
+
+  var HEALTH_KEY = "chalkle-proxy-health";
+  var HEALTH_STALE_MS = 300000;  /* a five-minute-old reading is not "now" */
+  var PING_TIMEOUT_MS = 4500;
+  var SLOW_MS = 1500;
+  var PING_TRIES = 2;
+  var RELAY_WATCH_MS = 60000;
+
+  var health = {};
+  var healthReady = false;
+  var pinging = {};
+  var relayWatch = null;
+
+  function loadHealth() {
+    if (healthReady) return health;
+    healthReady = true;
+    try {
+      var raw = localStorage.getItem(HEALTH_KEY);
+      var saved = raw ? JSON.parse(raw) : null;
+      if (saved && typeof saved === "object") health = saved;
+    } catch (e) { health = {}; }
+    return health;
+  }
+
+  function saveHealth() {
+    /* Only the newest reading per node is kept, so the record stays a few
+       hundred bytes and can be written on every probe. */
+    try {
+      var out = {};
+      var ids = Object.keys(health);
+      for (var i = 0; i < ids.length; i++) {
+        var h = health[ids[i]];
+        if (h) out[ids[i]] = { state: h.state, ms: h.ms, fails: h.fails, at: h.at };
+      }
+      localStorage.setItem(HEALTH_KEY, JSON.stringify(out));
+    } catch (e) { /* no storage: health still lives for this session */ }
+  }
+
+  function healthOf(id) {
+    loadHealth();
+    var h = health[id];
+    if (!h) return { state: "unknown", ms: null, fails: 0, at: 0 };
+    if (h.state === "live" && h.at && Date.now() - h.at > HEALTH_STALE_MS) {
+      return { state: "unknown", ms: h.ms, fails: h.fails, at: h.at };
+    }
+    return h;
+  }
+
+  function recordState(id, state, ms) {
+    loadHealth();
+    var prev = health[id] || { fails: 0 };
+    var changed = (prev.state || "unknown") !== state;
+    var fails = state === "live" || state === "slow" ? 0 : (prev.fails || 0) + 1;
+    health[id] = { state: state, ms: ms, fails: fails, at: Date.now() };
+    saveHealth();
+    tell({ id: id, state: state, ms: ms, fails: fails, changed: changed });
+    return health[id];
+  }
+
+  function tell(detail) {
+    try {
+      document.dispatchEvent(new CustomEvent("chalkle:proxy-health", { detail: detail }));
+    } catch (e) { /* older browser: the tab simply re-renders on its next open */ }
+  }
+
+  /* A node is pingable when it is something the browser can reach by URL:
+     hosted nodes only. The relay has its own check because it is same-origin
+     and answers with a real status. */
+  function pingable(b) {
+    return !!(b && b.url && (b.kind === "frame" || b.kind === "chain"));
+  }
+
+  function pingNode(b, done) {
+    var id = b && b.id;
+    if (!id || !pingable(b)) { if (done) done(healthOf(id)); return; }
+    if (pinging[id]) return;  /* one probe per node at a time */
+    pinging[id] = true;
+    var tries = 0;
+
+    function finish(state, ms) {
+      pinging[id] = false;
+      var rec = recordState(id, state, ms);
+      if (done) done(rec);
+    }
+
+    function once() {
+      tries++;
+      var started = Date.now();
+      var settled = false;
+      var timer = setTimeout(function () { settle(false); }, PING_TIMEOUT_MS);
+
+      function settle(answered) {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        if (answered) {
+          var ms = Date.now() - started;
+          finish(ms > SLOW_MS ? "slow" : "live", ms);
+          return;
+        }
+        /* One retry with a short backoff, like any client that expects a
+           cold tunnel or a filtering middlebox to be intermittent. */
+        if (tries < PING_TRIES) { setTimeout(once, 400 * tries); return; }
+        finish("dead", null);
+      }
+
+      try {
+        fetch(b.url, { mode: "no-cors", cache: "no-store", credentials: "omit", redirect: "follow" })
+          .then(function () { settle(true); })
+          .catch(function () { settle(false); });
+      } catch (e) { settle(false); }
+    }
+
+    once();
+  }
+
+  function pingNodeById(id, done) {
+    return pingNode(find(id), done);
+  }
+
+  /* The built-in relay lives on this origin, so its check can read the real
+     status code. Same origin means no opaque response and no CORS surprise. */
+  function checkRelay(done) {
+    var root = relayRoot();
+    if (!root) {
+      var none = { ok: false, ms: null, state: "unknown" };
+      if (done) done(none);
+      return;
+    }
+    var started = Date.now();
+    var settled = false;
+    var timer = setTimeout(function () { settle(false); }, PING_TIMEOUT_MS);
+    /* Read the previous reading BEFORE overwriting it: the flip is what the
+       toast fires on, and a first-ever reading (unknown) is not a flip. */
+    var before = healthOf("relay").state;
+
+    function settle(ok) {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      var ms = ok ? Date.now() - started : null;
+      var rec = recordState("relay", ok ? (ms > SLOW_MS ? "slow" : "live") : "dead", ms);
+      try {
+        document.dispatchEvent(new CustomEvent("chalkle:proxy-relay", {
+          detail: { ok: ok, ms: ms, state: rec.state, changed: before !== "unknown" && (before === "dead") !== !ok }
+        }));
+      } catch (e) { /* ignore */ }
+      if (done) done({ ok: ok, ms: ms, state: rec.state });
+    }
+
+    try {
+      fetch(root + "/res/", { cache: "no-store", credentials: "omit" })
+        .then(function (r) { settle(!!r && r.ok); })
+        .catch(function () { settle(false); });
+    } catch (e) { settle(false); }
+  }
+
+  function relayHealth() {
+    var h = healthOf("relay");
+    return { state: h.state, ms: h.ms, at: h.at };
+  }
+
+  /* Every hosted node at once. The tab calls this when it opens and when the
+     user asks for a re-check; the answers land in the health store either
+     way, so the cards are correct even if the user never watches them. */
+  function checkAll(done) {
+    var nodes = list().filter(pingable);
+    var pending = nodes.length;
+    if (!pending) { if (done) done([]); return; }
+    var out = [];
+    nodes.forEach(function (b) {
+      pingNode(b, function (rec) {
+        out.push({ id: b.id, name: b.name, state: rec.state, ms: rec.ms });
+        pending--;
+        if (!pending && done) done(out);
+      });
+    });
+  }
+
+  /* Every hosted node in the order a router should try them: something that
+     answered first, then the untested, and never the ones known dead. `skip`
+     is the list of node ids already tried for the navigation being routed -
+     a retry walks this list so it can never land on the node that just
+     failed. "slow" still beats nothing, and an unchecked node is a guess
+     rather than a failure, so it comes last instead of being written off. */
+  function orderedNodes(skip) {
+    var skipIds = skip || [];
+    var rank = { live: 0, slow: 1, unknown: 2 };
+    var pool = list().filter(function (b) {
+      if (!pingable(b)) return false;
+      for (var i = 0; i < skipIds.length; i++) {
+        if (skipIds[i] && skipIds[i] === b.id) return false;
+      }
+      return healthOf(b.id).state !== "dead";
+    });
+    var rows = pool.map(function (b) { return { b: b, h: healthOf(b.id) }; });
+    rows.sort(function (x, y) {
+      var rx = rank[x.h.state];
+      var ry = rank[y.h.state];
+      if (rx === undefined) rx = 3;
+      if (ry === undefined) ry = 3;
+      if (rx !== ry) return rx - ry;
+      var mx = (x.h.ms === null || x.h.ms === undefined) ? 999999 : x.h.ms;
+      var my = (y.h.ms === null || y.h.ms === undefined) ? 999999 : y.h.ms;
+      return mx - my;
+    });
+    return rows.map(function (r) { return r.b; });
+  }
+
+  function bestNode() {
+    return orderedNodes()[0] || null;
+  }
+
+  /* The retry list for one navigation: every node that has not been tried and
+     is not known dead, best first. The launcher reads this when a route
+     failed and it has to walk somewhere else. */
+  function candidates(skip) {
+    return orderedNodes(skip);
+  }
+
+  /* A verdict from the launcher or the in-app browser: a routed page either
+     answered or it did not. That is stronger evidence than an opaque ping, so
+     it is recorded in the same store - the Proxies tab pill, the auto picker
+     and the next route all read the one reading instead of disagreeing. */
+  function report(id, ok) {
+    if (!id) return null;
+    var b = find(id);
+    if (!b) return null;
+    if (b.kind === "relay") {
+      /* The relay is this origin, so its verdict travels as the relay-check
+         shape: the launcher already follows that event and demotes or
+         restores the built-in route from it. */
+      /* Keep the last measured latency: a page load proves the relay answered,
+         it does not time it, and "Answered in " with no number reads broken. */
+      var lastMs = healthOf("relay").ms;
+      var rec = recordState("relay", ok ? "live" : "dead", ok ? lastMs : null);
+      try {
+        document.dispatchEvent(new CustomEvent("chalkle:proxy-relay", {
+          detail: { ok: !!ok, ms: null, state: rec.state, changed: false }
+        }));
+      } catch (e) { /* older browser: the next timed check still corrects it */ }
+      return rec;
+    }
+    if (!pingable(b)) return null;
+    return recordState(id, ok ? "live" : "dead", null);
+  }
+
+  /* "auto" is answered at the moment of use, never stored as a node: the
+     fastest node today is not the fastest node tomorrow. */
+  function resolveBackend(id) {
+    var b = find(id);
+    if (!b || b.kind !== "auto") return b;
+    return bestNode() || find(DEFAULT_ID) || b;
+  }
+
+  /* Re-check the relay in the background so a tunnel that dies (or comes
+     back) mid-session is noticed without a reload. Paused while the tab is
+     hidden: a background tab should not spend the network on this. */
+  function watchRelay() {
+    if (relayWatch) return;
+    relayWatch = setInterval(function () {
+      try {
+        if (document.hidden) return;
+      } catch (e) { /* keep going */ }
+      checkRelay(null);
+    }, RELAY_WATCH_MS);
+  }
+
+  loadHealth();
+  watchRelay();
+
+  /* First check after the page has painted: it must never compete with boot. */
+  setTimeout(function () { checkRelay(null); checkAll(null); }, 2500);
 
   /* Re-assert the saved backend once the relay is reachable, so a reload (or
      a tunnel that just came back) does not leave the relay on a stale

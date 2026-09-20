@@ -399,7 +399,7 @@
       }
       fetch(apiUrl("/api/ai/convos"), {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "X-Requested-With": "chalkle" },
         body: JSON.stringify({ v: vid, convos: S.convos })
       }).catch(function () {});
     }, 700);
@@ -858,7 +858,7 @@
        universal OpenRouter key. The browser never holds a key. */
     fetch(apiUrl(RELAY_CHAT), {
       method: "POST",
-      headers: { "Content-Type": "application/json", "HTTP-Referer": location.origin, "X-Title": "Chalkle" },
+      headers: { "Content-Type": "application/json", "HTTP-Referer": location.origin, "X-Title": "Chalkle", "X-Requested-With": "chalkle" },
       body: JSON.stringify(payload)
     }).then(function (r) {
       var fb = r.headers.get("x-chalkle-fallback");

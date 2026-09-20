@@ -13,7 +13,7 @@
 
 <html>
   <head>
-    <base href="https://cdn.jsdelivr.net/gh/angrybirds-s4uk/angrybirdschrome-source-html5@main/" />
+    <base href="/assets/angrybirds/" />
     <title>Angry Birds Chrome</title>
     <meta name="Title" content="Angry Birds Chrome">
     <meta name="description" content="Play Angry Birds online in HD with Google Chrome">
@@ -44,16 +44,7 @@
     
       <script type="text/javascript" src="fowl/fowl.nocache.js"></script>
     
-    <script type="text/javascript" src="http://www.google.com/jsapi"></script>
-    <script type="text/javascript">
-      google.load('payments', '1.0', {
-          'packages': [
-          
-            'production_config'
-          
-          ]
-      });
-    </script>
+    
   <style>
 #sidebarad1,
 #sidebarad2 {
@@ -173,7 +164,7 @@
             <div id='gameDiv' style="display: inline-block;">
               <div id='playn-root'>
                 <div id="loading">
-                  <img src="/images/loading_image_bird.png" />
+                  <img src="images/loading_image_bird.png" />
                 </div>
               </div>
               <div id="rovionews"></div>
@@ -213,9 +204,6 @@
               
               
               <div id='social-container'>
-                <a id="twitterButton" href="https://twitter.com/share" class="twitter-share-button">Tweet</a><script>!function(d,s,id){var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}}(document,"script","twitter-wjs");</script>
-                <iframe id="fb-like-iframe" src="http://www.facebook.com/plugins/like.php?app_id=167680559959348&href=http%3A%2F%2Fwww.facebook.com%2Fangrybirds&send=false&layout=button_count&ref=chrome.angrybirds.com&width=100&show_faces=false&action=like&colorscheme=dark&font&height=25"
-                scrolling="no" frameborder="0" style="visibility: hidden; border:none; overflow:hidden; width:160px; height:25px;" allowTransparency="true"></iframe>
                 <a href="https://www.google.com/chrome" id="optimized" onclick="externalLink('Optimized for Chrome'); window.open('https://www.google.com/chrome', '_blank'); return false;"></a>
               </div>
 
@@ -231,35 +219,6 @@
             </td>
             </tr>
           </table>
-
-      
-      
-      
-        
-        <iframe id='appcacheInstaller' style="display: none;"></iframe>
-        <script type="text/javascript">
-          var addIframe = false;
-          if (window.chrome && window.chrome.app && window.chrome.app.isInstalled) {
-            addIframe = true;
-          } else {
-            if (window.applicationCache && window.applicationCache.status == window.applicationCache.IDLE) {
-              
-              var date = new Date();
-              date.setTime(date.getTime() + 60 * 1000);
-              document.cookie = "uninstall=1; expires=" + date.toGMTString() + "; path=/manifest";
-              addIframe = true;
-            }
-          }
-          if (addIframe) {
-            document.getElementById('appcacheInstaller').src = 'http://chrome.angrybirds.com/AppCacheInstaller.html';
-          }
-        </script>
-
-        
-          
-          <iframe style='display: none;' src='http://chrome.angrybirds.com/AppCacheUninstaller.jsp?path=/angrybirds/appcache.nocache.manifest'></iframe>
-          <iframe style='display: none;' src='http://chrome.angrybirds.com/AppCacheUninstaller.jsp?path=/angrybirds111/appcache.nocache.manifest'></iframe>
-          <iframe style='display: none;' src='http://chrome.angrybirds.com/AppCacheUninstaller.jsp?path=/angrybirds112/appcache.nocache.manifest'></iframe>
         
 
       

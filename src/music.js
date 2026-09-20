@@ -14,6 +14,10 @@
   var state = {
     page: "home",
     catalog: [],
+    /* Files kept on this device (src/locallib.js). They are held apart from
+       the relay catalogue because the catalogue is replaced wholesale on every
+       chart refresh, and merged in by allTracks() instead. */
+    local: [],
     queue: [],
     idx: -1,
     playing: false,
@@ -154,8 +158,11 @@
     } catch (e) { return ""; }
   }
   function coverUrl(meta) {
-    if (!meta || !meta.pic_id) return Promise.resolve("");
+    if (!meta) return Promise.resolve("");
+    /* Art that came out of the file itself (a local track) or was attached by
+       the caller needs no cover lookup at all. */
     if (meta._cover) return Promise.resolve(meta._cover);
+    if (!meta.pic_id) return Promise.resolve("");
     if (cov[meta.pic_id]) { meta._cover = cov[meta.pic_id]; return Promise.resolve(meta._cover); }
     /* YouTube's thumbnail is already a public JPEG keyed by the video id.
        Use it immediately; the relay remains the fallback for filtered networks
@@ -176,6 +183,10 @@
   }
   function artHtml(meta, cls) {
     var letter = esc((meta && (meta.name || meta.album || meta.artist && meta.artist[0]) || "?").charAt(0).toUpperCase());
+    /* Embedded cover art (local files) beats the relay's picture lookup. */
+    if (meta && meta._cover) {
+      return '<span class="' + cls + '"><img src="' + esc(meta._cover) + '" alt="" loading="lazy" decoding="async" onerror="this.remove()"><span class="thumb-letter">' + letter + "</span></span>";
+    }
     var direct = directCoverUrl(meta, "mqdefault");
     var relay = relayCoverUrl(meta, "mqdefault");
     if (direct) {
@@ -272,6 +283,139 @@
     return n + " plays";
   }
 
+  /* ---- Your own files ---------------------------------------------------
+     Everything else in this tab is streamed from the relay, so the tab is dead
+     the moment the relay is blocked. Audio you import is read for its tags
+     (src/locallib.js) and kept in IndexedDB, then dressed as an ordinary
+     catalogue entry, which means the queue, album grouping, search, save
+     button and player all handle a local song without knowing it is local. */
+  var LOCAL = window.ChalkleLocalMusic || null;
+
+  function allTracks() { return state.local.concat(state.catalog); }
+
+  function localTracks() {
+    if (!LOCAL) return Promise.resolve([]);
+    return LOCAL.ready().then(function () {
+      state.local = LOCAL.tracks();
+      return state.local;
+    }).catch(function () {
+      state.local = [];
+      return [];
+    });
+  }
+  function localAlbums() { return LOCAL ? LOCAL.albums() : []; }
+  function localCount() { return LOCAL ? LOCAL.count() : 0; }
+
+  function refreshMusic() {
+    if (state.page === "home") renderHomeFromCatalog();
+    else if (state.page === "library") renderLibrary();
+    else if (state.page === "search" && els.q.value.trim()) showSearch(els.q.value.trim());
+  }
+
+  function importFiles(files) {
+    if (!LOCAL) { toast("This build has no local music support."); return; }
+    var list = Array.prototype.slice.call(files || []);
+    if (!list.length) return;
+    toast("Reading " + list.length + (list.length === 1 ? " file…" : " files…"));
+    LOCAL.add(list, function (done, total) {
+      if (total > 4 && done > 0 && done < total) toast("Reading file " + done + " of " + total + "…");
+    }).then(function (res) {
+      return localTracks().then(function () { return res; });
+    }).then(function (res) {
+      var parts = [];
+      if (res.added.length) parts.push(res.added.length + (res.added.length === 1 ? " track added" : " tracks added"));
+      if (res.skipped) parts.push(res.skipped + " already here");
+      if (res.failed) parts.push(res.failed + " could not be read");
+      toast(parts.join(" · ") || "Nothing to import");
+      refreshMusic();
+    }).catch(function () { toast("Could not read those files."); });
+  }
+
+  /* The drop target is the whole panel, so a dropped folder-full of music works
+     from anywhere in the section rather than only on a small dashed box. */
+  function bindLocal(scope) {
+    if (!scope) return;
+    var pick = scope.querySelector("#music-local-pick");
+    var input = scope.querySelector("#music-local-input");
+    if (pick && input) pick.addEventListener("click", function () { input.click(); });
+    if (input) input.addEventListener("change", function () { importFiles(input.files); input.value = ""; });
+    var wipe = scope.querySelector("#music-local-clear");
+    if (wipe) wipe.addEventListener("click", function () {
+      if (!LOCAL) return;
+      LOCAL.clear().then(function () { return localTracks(); }).then(function () {
+        toast("Local music removed from this device");
+        refreshMusic();
+      });
+    });
+    var drop = scope.querySelector("#music-local-drop");
+    if (!drop || drop._dropBound) return;
+    drop._dropBound = true;
+    drop.addEventListener("dragover", function (e) { e.preventDefault(); drop.classList.add("is-drop"); });
+    drop.addEventListener("dragleave", function () { drop.classList.remove("is-drop"); });
+    drop.addEventListener("drop", function (e) {
+      e.preventDefault();
+      drop.classList.remove("is-drop");
+      var dt = e.dataTransfer;
+      if (!dt) return;
+      if (dt.files && dt.files.length) { importFiles(dt.files); return; }
+      /* Dragging a folder gives items, not files; ask the items for their
+         entries and walk them one level so a dropped album folder works. */
+      var items = dt.items;
+      if (!items || !items.length || typeof items[0].webkitGetAsEntry !== "function") return;
+      var found = [];
+      var walk = function (entry, depth) {
+        if (!entry) return Promise.resolve();
+        if (entry.isFile) {
+          return new Promise(function (res) { entry.file(function (f) { found.push(f); res(); }, function () { res(); }); });
+        }
+        if (entry.isDirectory && depth < 3) {
+          var reader = entry.createReader();
+          var all = [];
+          var readBatch = function () {
+            return new Promise(function (res) {
+              reader.readEntries(function (batch) {
+                if (!batch.length) { res(all); return; }
+                all = all.concat(Array.prototype.slice.call(batch));
+                res(readBatch());
+              }, function () { res(all); });
+            });
+          };
+          return readBatch().then(function (entries) {
+            return Promise.all(entries.map(function (child) { return walk(child, depth + 1); }));
+          });
+        }
+        return Promise.resolve();
+      };
+      Promise.all(Array.prototype.map.call(items, function (it) { return walk(it.webkitGetAsEntry(), 0); }))
+        .then(function () { importFiles(found); });
+    });
+  }
+
+  function localSection() {
+    var n = localCount();
+    if (!LOCAL) return "";
+    if (!n) {
+      return '<div class="music-local" id="music-local-drop">' +
+        '<div class="music-local-copy"><span class="music-eyebrow">On this device</span>' +
+        '<h2>Play your own music</h2>' +
+        '<p>Drop audio files (or a folder) here and they become a real library: tags and cover art are read from the files, albums are grouped for you, and playback needs no relay at all.</p>' +
+        '<p class="music-local-note">Files never leave this device.</p></div>' +
+        '<div class="music-local-actions"><button class="music-primary-btn" id="music-local-pick" type="button">Choose files</button></div>' +
+        '<input id="music-local-input" type="file" accept="audio/*,.mp3,.m4a,.m4a,.flac,.ogg,.oga,.opus,.wav" multiple hidden>' +
+        '</div>';
+    }
+    var albums = localAlbums();
+    return section("On this device", trackCountLabel(n) + " kept on this machine",
+      '<div class="music-local" id="music-local-drop">' +
+      '<div class="music-cover-row">' + albums.slice(0, 12).map(function (a) {
+        return albumCard(a.album, a.artist, a.tracks[0], a.tracks);
+      }).join("") + '</div>' +
+      '<div class="music-local-actions"><button class="music-primary-btn" id="music-local-pick" type="button">Add files</button>' +
+      '<button class="music-secondary-btn" id="music-local-clear" type="button">Remove all</button></div>' +
+      '<input id="music-local-input" type="file" accept="audio/*,.mp3,.m4a,.flac,.ogg,.oga,.opus,.wav" multiple hidden>' +
+      '</div>', "music-section-local");
+  }
+
   function setPage(page) {
     state.page = page;
     if (els.home) els.home.hidden = page !== "home";
@@ -308,9 +452,10 @@
     return Object.keys(groups).map(function (k) { return groups[k]; });
   }
   function recentTracks() {
+    var all = allTracks();
     var found = [];
     state.recent.forEach(function (id) {
-      var hit = state.catalog.find(function (m) { return trackId(m) === String(id); });
+      var hit = all.find(function (m) { return trackId(m) === String(id); });
       if (hit) found.push(hit);
     });
     return found;
@@ -392,6 +537,7 @@
     var heroSave = saveButton(heroItem).replace("music-save", "music-hero-save");
     var html = '<div class="music-home-shell">' +
       '<div class="music-home-intro"><div><span class="music-eyebrow">Chalkle Music</span><h1>' + greeting() + '</h1><p>Find something to play, then keep browsing without losing your place.</p></div><span class="music-source-note">Live catalog · relay powered</span></div>' +
+      localSection() +
       '<div class="music-hero"><div class="music-hero-art">' + artHtml(heroItem, "music-art") + '<span class="music-play-overlay" aria-hidden="true">' + playIcon() + '</span></div><div class="music-hero-copy"><span class="music-eyebrow">Featured track</span><h2>' + esc(cleanName(hero.name) || "Untitled") + '</h2><p class="music-hero-artist">' + esc(artistName(hero)) + '</p><p class="music-hero-album">' + esc(albumLabel(hero)) + '</p><div class="music-hero-actions">' + heroPlay + heroSave + '</div></div></div>' +
       section(recentTitle, recent.length ? "Pick up where you left off" : "Popular picks to get you started", '<div class="music-card-row">' + recentDisplay.map(function (m, i) { return trackCard(m, recentDisplay, "recent" + i); }).join("") + '</div>', "music-section-cards") +
       section("Made for you", "Based on what is popular right now", '<div class="music-card-row">' + made.map(function (m, i) { return trackCard(m, made, "made" + i); }).join("") + '</div>', "music-section-cards") +
@@ -401,6 +547,7 @@
       '</div>';
     els.home.innerHTML = html;
     bindInteractive(els.home);
+    bindLocal(els.home);
     watchArts(els.home);
   }
 
@@ -416,25 +563,57 @@
     if (!q) { renderHome(); return; }
     setPage("search");
     els.results.innerHTML = '<div class="music-loading"><span class="music-loading-dot"></span> Searching for “' + esc(q) + '”…</div>';
-    getJSON(api({ path: "search", q: q, limit: 40 })).then(function (reply) {
-      var tracks = sortPopular(reply && reply.items || []);
-      if (!tracks.length) { showEmpty("Nothing found", "Try a shorter title, an artist name, or a different spelling."); return; }
-      metaIndex = {};
+    /* Music on this device is matched locally and shown first: it always works,
+       and it is the half of the library the relay cannot see. */
+    var needle = q.toLowerCase();
+    var mine = state.local.filter(function (m) {
+      return String(m.name || "").toLowerCase().indexOf(needle) !== -1 ||
+        String(m.album || "").toLowerCase().indexOf(needle) !== -1 ||
+        String((m.artist || []).join(" ")).toLowerCase().indexOf(needle) !== -1;
+    });
+    var localBit = function () {
+      return mine.length ? section("On this device", "", '<div class="music-track-list">' + mine.map(function (m, i) { return rowHtml(m, i, mine, "localsearch"); }).join("") + '</div>', "music-section-tracks") : "";
+    };
+    var relayBit = function () {
+      getJSON(api({ path: "search", q: q, limit: 40 })).then(function (reply) {
+        var tracks = sortPopular(reply && reply.items || []);
+        if (!tracks.length) {
+          if (mine.length) { paintSearch(q, tracks, localBit()); return; }
+          showEmpty("Nothing found", "Try a shorter title, an artist name, or a different spelling.");
+          return;
+        }
+        paintSearch(q, tracks, localBit());
+      }).catch(function () {
+        /* The relay is the thing most likely to be blocked; your own files are
+           not, so keep showing them instead of an empty-state screen. */
+        if (mine.length) { paintSearch(q, [], localBit()); return; }
+        showEmpty("Search failed", "The music server did not answer. Try again in a moment.");
+      });
+    };
+    function paintSearch(query, tracks, localHtml) {
       var artistGroups = groupArtists(tracks).slice(0, 8);
       var albumGroups = groupAlbums(tracks).slice(0, 8);
-      els.results.innerHTML = '<div class="music-search-head"><span class="music-eyebrow">Search results</span><h1>Results for “' + esc(q) + '”</h1><p>' + tracks.length + ' tracks from the music relay</p></div>' +
+      var countNote = tracks.length + (tracks.length === 1 ? " track" : " tracks") + " from the music relay";
+      if (!tracks.length) countNote = "Nothing from the relay - showing your own files";
+      els.results.innerHTML = '<div class="music-search-head"><span class="music-eyebrow">Search results</span><h1>Results for “' + esc(query) + '”</h1><p>' + esc(countNote) + '</p></div>' +
+        localHtml +
         (artistGroups.length ? section("Artists", "", '<div class="music-artist-row">' + artistGroups.map(function (a) { return artistCard(a.name, a.meta); }).join("") + '</div>', "music-section-artists") : "") +
         (albumGroups.length ? section("Albums", "", '<div class="music-cover-row">' + albumGroups.map(function (a) { return albumCard(a.album, a.artist, a.meta, a.tracks); }).join("") + '</div>', "music-section-covers") : "") +
-        section("Songs", "", '<div class="music-track-list">' + tracks.map(function (m, i) { return rowHtml(m, i, tracks, "search"); }).join("") + '</div>', "music-section-tracks");
+        (tracks.length ? section("Songs", "", '<div class="music-track-list">' + tracks.map(function (m, i) { return rowHtml(m, i, tracks, "search"); }).join("") + '</div>', "music-section-tracks") : "");
       bindInteractive(els.results);
       watchArts(els.results);
-    }).catch(function () { showEmpty("Search failed", "The music server did not answer. Try again in a moment."); });
+    }
+    metaIndex = {};
+    relayBit();
   }
 
   function collectionFromKey(type, key) {
-    if (type === "artist") return { name: key, tracks: state.catalog.filter(function (m) { return (m.artist || []).indexOf(key) !== -1; }) };
+    /* allTracks, not state.catalog: an album card for music on this device has
+       to open the same way a streamed album does. */
+    var all = allTracks();
+    if (type === "artist") return { name: key, tracks: all.filter(function (m) { return (m.artist || []).indexOf(key) !== -1; }) };
     var split = String(key).replace(/^album:/, "").split("|");
-    return { name: split[0], artist: split.slice(1).join("|"), tracks: state.catalog.filter(function (m) { return String(m.album || "Single") === split[0] && firstArtist(m) === split.slice(1).join("|"); }) };
+    return { name: split[0], artist: split.slice(1).join("|"), tracks: all.filter(function (m) { return String(m.album || "Single") === split[0] && firstArtist(m) === split.slice(1).join("|"); }) };
   }
   function openCollection(type, key) {
     var col = collectionFromKey(type, key);
@@ -483,7 +662,8 @@
     else if (state.page === "library") renderLibrary();
   }
   function renderLibrary() {
-    var tracks = state.library.map(function (id) { return state.catalog.find(function (m) { return trackId(m) === String(id); }); }).filter(Boolean);
+    var pool = allTracks();
+    var tracks = state.library.map(function (id) { return pool.find(function (m) { return trackId(m) === String(id); }); }).filter(Boolean);
     setPage("library");
     metaIndex = {};
     els.results.innerHTML = '<div class="music-search-head"><span class="music-eyebrow">Your Library</span><h1>Saved music</h1><p>' + tracks.length + ' saved tracks on this device</p></div>' + (tracks.length ? '<div class="music-track-list">' + tracks.map(function (m, i) { return rowHtml(m, i, tracks, "library"); }).join("") + '</div>' : '<div class="music-library-empty">Save tracks with the heart button and they will appear here.</div>');
@@ -574,6 +754,18 @@
     fetchLyrics(meta);
     els.seek.value = 0; els.cur.textContent = "0:00"; els.dur.textContent = "0:00";
     highlightRows(); renderQueue();
+
+    /* A file on this device is already playable: the object URL is the stream.
+       Asking the relay for it would fail, because there is no video id behind
+       it, and the failure would look like a broken track. */
+    if (meta._local) {
+      if (!meta._localUrl) { toast('"' + (cleanName(meta.name) || "That file") + '" is no longer on this device'); return; }
+      audio.src = meta._localUrl;
+      audio.load();
+      applyTempo();
+      if (autoplay) audio.play().catch(function () { setPlayingUI(false); });
+      return;
+    }
 
     loadSeq++;
     var seq = loadSeq;
@@ -822,6 +1014,9 @@
     return out.sort(function (a, b) { return a.t - b.t; });
   }
   function fetchLyrics(meta) {
+    /* Local files have no lyric id, and the relay request would 404 for each
+       one as it plays. */
+    if (meta && meta._local) { state.ly = []; fullLyricsView(); return; }
     getJSON(api({ path: "lyric", id: meta.lyric_id != null ? meta.lyric_id : meta.id })).then(function (d) { state.ly = parseLrc(d && d.lyric || ""); fullLyricsView(); }).catch(function () { state.ly = []; fullLyricsView(); });
   }
   function fullLyricsView() {
@@ -907,13 +1102,29 @@
        scripts. render() below (called by setView when the tab is opened)
        runs renderHome() then, so the charts load on first open instead. */
     if (!state.viewHidden) renderHome();
+    /* Files on this device are read before any network call, so the local
+       section is there on the first paint even if the relay never answers. */
+    localTracks().then(function () {
+      if (!state.viewHidden && state.catalog.length && state.page === "home") renderHomeFromCatalog();
+    });
   }
 
   window.ChalkMusic = [];
   /* pause() / isPlaying() let the rest of the app stop playback when the user
      opens something that makes noise itself (YouTube, a movie, a game). */
   window.ChalkleMusic = {
-    render: function () { if (!state.catalog.length) renderHome(); else if (state.page === "home") renderHomeFromCatalog(); highlightRows(); },
+    render: function () {
+      var before = localCount();
+      if (!state.catalog.length) renderHome(); else if (state.page === "home") renderHomeFromCatalog();
+      highlightRows();
+      /* Re-read the device library only when it actually changed (a file added
+         or removed in another tab), so opening the tab never repaints twice. */
+      localTracks().then(function () {
+        if (state.viewHidden || localCount() === before) return;
+        if (state.page === "home" && state.catalog.length) renderHomeFromCatalog();
+        else if (state.page === "library") renderLibrary();
+      });
+    },
     play: playList,
     pause: function () { if (audio) { try { audio.pause(); } catch (e) {} } },
     isPlaying: function () { return !!state.playing; },

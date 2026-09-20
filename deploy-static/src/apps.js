@@ -5,6 +5,16 @@
 
 window.ChalkApps = [
   {
+    /* The Unsent Project archive rebuilt as one offline page (unsent.html).
+       Local path, so there is no external host to block and nothing leaves
+       the device: the posts are bundled, search runs in the page. */
+    title: "Unsent Project",
+    url: "/unsent.html",
+    category: "Archive",
+    note: "Offline copy",
+    thumb: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23f4f4f5'/%3E%3Crect x='7' y='9' width='50' height='46' rx='4' fill='%23ffffff' stroke='%230c1210' stroke-width='2.4'/%3E%3Crect x='11' y='27' width='42' height='23' rx='2' fill='%23f97724'/%3E%3Crect x='11' y='15' width='24' height='6' rx='3' fill='%230c1210'/%3E%3Crect x='17' y='33' width='30' height='3' rx='1.5' fill='%23ffffff'/%3E%3Crect x='17' y='39' width='24' height='3' rx='1.5' fill='%23ffffff'/%3E%3Crect x='17' y='44' width='28' height='3' rx='1.5' fill='%23ffffff'/%3E%3C/svg%3E"
+  },
+  {
     title: "Cobalt",
     url: "https://cobalt.tools/",
     category: "Downloader",

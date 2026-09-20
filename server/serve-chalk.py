@@ -51,6 +51,51 @@ except Exception:
 
 HOST = "127.0.0.1"
 WEB_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+# Paths the static handler and /_fetch must never serve. Tokens in the first
+# group are matched anywhere, because a .git or .env inside a subfolder is
+# still a leak. Tokens in the second group are ROOT directories and are
+# anchored: matching "/build/" anywhere used to 404 /game-builds/<game>/Build/
+# as well, which is where every Unity WebGL build keeps its loader, framework,
+# wasm and data files, so those games all failed to boot with the loader 404.
+_PRIVATE_ANYWHERE = ("/.git/", "/.env", "/.freebuff/")
+_PRIVATE_ROOT_DIRS = ("/build/", "/server/", "/bitcord-backend/")
+
+
+def denied_local_path(low):
+    """True when a lowercased webroot path must stay unserved."""
+    for token in _PRIVATE_ANYWHERE:
+        if token in low:
+            return True
+    for token in _PRIVATE_ROOT_DIRS:
+        if low.startswith(token) or low == token.rstrip("/"):
+            return True
+    return False
+# lootline.xyz (apex) serves the Jexel tools hub from jexel/; the chalkle.
+# subdomain and every other host (localhost, LAN, mirrors) keep serving the
+# main site from the repo root. Requests to /jexel/... still resolve to the
+# same folder on any host, so the hub also works at /jexel/ on the subdomain.
+JEXEL_HOST = "lootline.xyz"
+JEXEL_DIR = os.path.join(WEB_ROOT, "jexel")
+# yut.lootline.xyz: yut's own upload site (yut/ folder). Pages and link lists
+# are uploaded through /yut/api/* with a shared code, then stored on disk and
+# served to everyone. The host split below serves the yut/ folder on that
+# subdomain exactly like the Jexel hub split.
+YUT_HOST = "yut.lootline.xyz"
+YUT_DIR = os.path.join(WEB_ROOT, "yut")
+YUT_API_PATH = "/yut/api/"
+YUT_STORE_DIR = os.path.join(WEB_ROOT, "yut", "store")
+YUT_REGISTRY = os.path.join(YUT_STORE_DIR, "registry.json")
+YUT_CODE = "yutforyut25"
+YUT_MAX_FILE = 64 * 1024 * 1024       # bytes per uploaded file
+YUT_MAX_BATCH = 96 * 1024 * 1024      # bytes per small-batch upload request
+# Chunked upload (for big single-file games). Cloudflare caps one request at
+# 100 MB, so clients send large files as base64 parts of YUT_CHUNK bytes each;
+# 16 MB of raw text is ~21.8 MB once base64-encoded, well under the cap.
+YUT_CHUNK = 16 * 1024 * 1024
+YUT_CHUNK_B64 = int(YUT_CHUNK * 4 / 3) + 1024
+YUT_MAX_TOTAL = 512 * 1024 * 1024     # bytes across everything in the gallery
+YUT_MAX_ITEMS = 200                   # files kept in the gallery
 PORT = int(os.environ.get("CHALKLE_PORT", "4173"))
 ACTIVE_TTL = 20          # seconds a visitor stays "online" after their last ping
 PRUNE_EVERY = 4          # seconds between pruning expired visitors
@@ -67,6 +112,509 @@ LOCK = threading.Lock()
 # different, too-low count. A tiny JSON file on disk fixes that, and also
 # survives restarts (stale rows prune by timestamp naturally).
 ACTIVE_PATH = os.path.join(WEB_ROOT, "active-visitors.json")
+
+# Launch counts per catalog key. One small JSON file next to the viewer
+# registry, written with the same atomic replace, so every server process and
+# every restart share one view of what people actually play.
+PLAYS_PATH = os.path.join(WEB_ROOT, "play-counts.json")
+PLAYS_LOCK = threading.Lock()
+PLAYS_MAX_KEYS = 5000      # top N keys by total survive a save; the tail drops
+PLAYS_TREND_DAYS = 7       # "trending" sums this many daily buckets
+PLAYS_KEY_MAX = 120
+PLAYS_BODY_MAX = 2048      # POST bodies are one tiny key; never read more
+
+
+# ---------------------------------------------------------------- yut uploads
+# yut.lootline.xyz backing API. yut uploads HTML pages and .txt link lists with
+# the shared code; everyone else just reads. Registry is one JSON file, files
+# are stored beside it named by id. Everything here is safe to call from any
+# origin on GET (it is a public gallery) while writes need the code.
+
+def _yut_clean_cat(v):
+    """Category labels are free text from yut: trim, collapse spaces, drop
+    control chars and angle brackets, cap the length."""
+    s = re.sub(r"\s+", " ", str(v or "")).strip()
+    s = "".join(ch for ch in s if ord(ch) >= 32 and ch not in "<>")
+    return s[:24]
+
+
+def _yut_registry_read():
+    try:
+        with open(YUT_REGISTRY, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        if isinstance(data, list):
+            return [it for it in data if isinstance(it, dict) and it.get("id")]
+    except Exception:
+        pass
+    return []
+
+
+def _yut_registry_write(items):
+    os.makedirs(YUT_STORE_DIR, exist_ok=True)
+    tmp = YUT_REGISTRY + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(items, f, ensure_ascii=False)
+    try:
+        os.replace(tmp, YUT_REGISTRY)
+    except OSError:
+        # Windows os.replace can race with a reader; fall back to a plain write
+        # rather than dropping the upload.
+        with open(YUT_REGISTRY, "w", encoding="utf-8") as f:
+            json.dump(items, f, ensure_ascii=False)
+
+
+def _yut_serve_file(self, item, download=False):
+    path = os.path.join(YUT_STORE_DIR, item["id"])
+    try:
+        with open(path, "rb") as f:
+            raw = f.read()
+    except Exception:
+        self.send_response(404)
+        self.send_header("Content-Type", "text/plain")
+        self.end_headers()
+        try:
+            self.wfile.write(b"not found")
+        except Exception:
+            pass
+        return
+    if item.get("kind") == "html":
+        mime = "text/html; charset=utf-8"
+    else:
+        mime = "text/plain; charset=utf-8"
+    self.send_response(200)
+    self.send_header("Content-Type", mime)
+    self.send_header("Access-Control-Allow-Origin", "*")
+    if download:
+        safe = "".join(c for c in str(item.get("name", "file")) if c not in '\"/:*?<>|\\\\') or "file"
+        self.send_header("Content-Disposition", 'attachment; filename="%s.%s"' % (safe, "html" if item.get("kind") == "html" else "txt"))
+    self.send_header("Content-Length", str(len(raw)))
+    self.end_headers()
+    self.wfile.write(raw)
+
+
+def _yut_api(self, route):
+    """Router for /yut/api/*. Returns True when the route was handled."""
+    rest = route[len(YUT_API_PATH):]
+    if not rest or rest == "list":
+        items = _yut_registry_read()
+        # ids only go out with names/kinds; no file content ships in the list
+        self._json_out({"ok": True, "items": items})
+        return True
+    if rest.startswith("list-preview/"):
+        fid = rest[len("list-preview/"):]
+        if not re.fullmatch(r"[a-f0-9]{16}", fid or ""):
+            self._json_out({"ok": False, "error": "bad-id"}, 400)
+            return True
+        # The list viewer asks for a small first page instead of downloading a
+        # multi-megabyte .txt before it can paint the modal.
+        query = {}
+        if "?" in self.path:
+            query = urllib.parse.parse_qs(self.path.split("?", 1)[1])
+        try:
+            limit = max(1, min(100, int((query.get("limit") or ["100"])[0])))
+        except Exception:
+            limit = 100
+        for it in _yut_registry_read():
+            if it.get("id") == fid:
+                return _yut_list_preview(self, it, limit)
+        self._json_out({"ok": False, "error": "not-found"}, 404)
+        return True
+    if rest.startswith("file/"):
+        fid = rest[len("file/"):]
+        if not re.fullmatch(r"[a-f0-9]{16}", fid or ""):
+            self._json_out({"ok": False, "error": "bad-id"}, 400)
+            return True
+        for it in _yut_registry_read():
+            if it.get("id") == fid:
+                _yut_serve_file(self, it)
+                return True
+        self._json_out({"ok": False, "error": "not-found"}, 404)
+        return True
+    if rest.startswith("download/"):
+        fid = rest[len("download/"):]
+        if not re.fullmatch(r"[a-f0-9]{16}", fid or ""):
+            self._json_out({"ok": False, "error": "bad-id"}, 400)
+            return True
+        for it in _yut_registry_read():
+            if it.get("id") == fid:
+                _yut_serve_file(self, it, download=True)
+                return True
+        self._json_out({"ok": False, "error": "not-found"}, 404)
+        return True
+    if rest == "upload":
+        return _yut_upload(self)
+    if rest.startswith("chunk/"):
+        sub, _, sid = rest[len("chunk/"):].partition("/")
+        if sub == "start":
+            return _yut_chunk_start(self)
+        if sub == "part" and sid:
+            return _yut_chunk_put(self, sid)
+        if sub == "done" and sid:
+            return _yut_chunk_complete(self, sid)
+        return self._json_out({"ok": False, "error": "bad-route"}, 404)
+    if rest == "recat":
+        return _yut_recat(self)
+    if rest == "remove":
+        return _yut_remove(self)
+    self._json_out({"ok": False, "error": "bad-route"}, 404)
+    return True
+
+
+def _yut_read_json_body(self):
+    length = int(self.headers.get("Content-Length", 0) or 0)
+    if length <= 0 or length > YUT_MAX_BATCH + 4096:
+        return None
+    try:
+        return json.loads(self.rfile.read(length).decode("utf-8", "replace"))
+    except Exception:
+        return None
+
+
+def _yut_upload(self):
+    import secrets
+    body = _yut_read_json_body(self)
+    if not isinstance(body, dict):
+        return self._json_out({"ok": False, "error": "bad-body"}, 400)
+    if str(body.get("code", "")) != YUT_CODE:
+        return self._json_out({"ok": False, "error": "bad-code"}, 403)
+    raw_items = body.get("items")
+    if not isinstance(raw_items, list) or not raw_items:
+        return self._json_out({"ok": False, "error": "no-items"}, 400)
+    if len(raw_items) > 10:
+        return self._json_out({"ok": False, "error": "too-many-files"}, 400)
+    items = _yut_registry_read()
+    total = 0
+    added = []
+    cat = _yut_clean_cat(body.get("cat"))
+    with LOCK:
+        try:
+            os.makedirs(YUT_STORE_DIR, exist_ok=True)
+        except Exception:
+            return self._json_out({"ok": False, "error": "store-unavailable"}, 500)
+        for raw in raw_items:
+            if not isinstance(raw, dict) or total > YUT_MAX_BATCH:
+                continue
+            name = str(raw.get("name", "")).strip()[:60]
+            kind = raw.get("kind")
+            text = raw.get("text")
+            if not name or kind not in ("html", "list") or not isinstance(text, str) or not text:
+                continue
+            if len(text.encode("utf-8")) > YUT_MAX_FILE:
+                continue
+            fid = secrets.token_hex(8)
+            entry = {
+                "id": fid,
+                "name": name,
+                "kind": kind,
+                "ts": int(time.time() * 1000),
+                "size": len(text.encode("utf-8")),
+                "links": 0,
+            }
+            # Per-item category first (how the uploader sends it), then the
+            # batch-level field for older clients.
+            item_cat = _yut_clean_cat(raw.get("cat")) or cat
+            if item_cat:
+                entry["cat"] = item_cat
+            if kind == "list":
+                # count unique http(s) links the same way the viewer will show them
+                seen = set()
+                for line in text.splitlines():
+                    s = line.strip()
+                    if not s or s.startswith("#"):
+                        continue
+                    if not re.match(r"^https?://", s, re.I):
+                        s = "https://" + s
+                    if re.match(r"^https?://[^\s/$.?#].\S*$", s, re.I):
+                        seen.add(s)
+                entry["links"] = len(seen)
+            try:
+                with open(os.path.join(YUT_STORE_DIR, fid), "w", encoding="utf-8") as f:
+                    f.write(text)
+            except Exception:
+                continue
+            added.append(entry)
+            total += entry["size"]
+        if added:
+            items = added + items
+            # cap the gallery: oldest dropped entries lose their files too
+            while len(items) > YUT_MAX_ITEMS:
+                old = items.pop()
+                try:
+                    os.remove(os.path.join(YUT_STORE_DIR, old.get("id", "")))
+                except Exception:
+                    pass
+            _yut_registry_write(items)
+    return self._json_out({"ok": True, "added": len(added), "total": len(items)})
+
+
+def _yut_chunk_body(self, limit):
+    """Read a JSON body up to `limit` bytes (larger than _yut_read_json_body
+    allows). Returns the parsed dict or None."""
+    length = int(self.headers.get("Content-Length", 0) or 0)
+    if length <= 0 or length > limit:
+        return None
+    try:
+        return json.loads(self.rfile.read(length).decode("utf-8", "replace"))
+    except Exception:
+        return None
+
+
+def _yut_enforce_quota(self, incoming):
+    """Keep the whole store under YUT_MAX_TOTAL. Evicts oldest entries until
+    the new bytes fit. Returns False (after answering) when one file alone
+    can never fit."""
+    if incoming > YUT_MAX_TOTAL:
+        self._json_out({"ok": False, "error": "too-large"}, 413)
+        return False
+    with LOCK:
+        items = _yut_registry_read()
+        used = sum(int(it.get("size", 0)) for it in items)
+        while items and used + incoming > YUT_MAX_TOTAL:
+            old = items.pop()
+            used -= int(old.get("size", 0))
+            try:
+                os.remove(os.path.join(YUT_STORE_DIR, old.get("id", "")))
+            except Exception:
+                pass
+        if items:
+            _yut_registry_write(items)
+    return True
+
+
+def _yut_chunk_start(self):
+    """Begin a chunked upload: {code, name, kind, size, total?, cat?} ->
+    {ok, sid, chunk}. The session lives in tmp/ until complete or abandoned."""
+    import secrets
+    body = _yut_chunk_body(self, 64 * 1024)
+    if not isinstance(body, dict):
+        return self._json_out({"ok": False, "error": "bad-body"}, 400)
+    if str(body.get("code", "")) != YUT_CODE:
+        return self._json_out({"ok": False, "error": "bad-code"}, 403)
+    name = str(body.get("name", "")).strip()[:60]
+    kind = body.get("kind")
+    size = int(body.get("size", 0) or 0)
+    if not name or kind not in ("html", "list") or size <= 0:
+        return self._json_out({"ok": False, "error": "bad-meta"}, 400)
+    if size > YUT_MAX_FILE:
+        return self._json_out({"ok": False, "error": "too-large"}, 413)
+    if not _yut_enforce_quota(self, size):
+        return True
+    sid = secrets.token_hex(8)
+    meta = {
+        "name": name,
+        "kind": kind,
+        "size": size,
+        "cat": _yut_clean_cat(body.get("cat")),
+        "received": 0,
+    }
+    try:
+        os.makedirs(YUT_STORE_DIR, exist_ok=True)
+        with open(os.path.join(YUT_STORE_DIR, sid + ".part"), "wb") as f:
+            pass
+        with open(os.path.join(YUT_STORE_DIR, sid + ".meta"), "w", encoding="utf-8") as f:
+            json.dump(meta, f)
+    except Exception:
+        return self._json_out({"ok": False, "error": "store-unavailable"}, 500)
+    return self._json_out({"ok": True, "sid": sid, "chunk": YUT_CHUNK})
+
+
+def _yut_chunk_put(self, sid):
+    """Append one base64 chunk: {code, index, data}. data decodes to at most
+    YUT_CHUNK raw bytes."""
+    body = _yut_chunk_body(self, YUT_CHUNK_B64 + 4096)
+    if not isinstance(body, dict):
+        return self._json_out({"ok": False, "error": "bad-body"}, 400)
+    if str(body.get("code", "")) != YUT_CODE:
+        return self._json_out({"ok": False, "error": "bad-code"}, 403)
+    if not re.fullmatch(r"[a-f0-9]{16}", sid or ""):
+        return self._json_out({"ok": False, "error": "bad-id"}, 400)
+    meta_path = os.path.join(YUT_STORE_DIR, sid + ".meta")
+    part_path = os.path.join(YUT_STORE_DIR, sid + ".part")
+    try:
+        with open(meta_path, "r", encoding="utf-8") as f:
+            meta = json.load(f)
+    except Exception:
+        return self._json_out({"ok": False, "error": "not-found"}, 404)
+    try:
+        data = base64.b64decode(str(body.get("data", "")), validate=True)
+    except Exception:
+        return self._json_out({"ok": False, "error": "bad-data"}, 400)
+    if not data or len(data) > YUT_CHUNK:
+        return self._json_out({"ok": False, "error": "bad-data"}, 400)
+    if meta.get("received", 0) + len(data) > meta.get("size", 0):
+        return self._json_out({"ok": False, "error": "too-much-data"}, 400)
+    try:
+        with open(part_path, "ab") as f:
+            f.write(data)
+        meta["received"] = meta.get("received", 0) + len(data)
+        with open(meta_path, "w", encoding="utf-8") as f:
+            json.dump(meta, f)
+    except Exception:
+        return self._json_out({"ok": False, "error": "store-unavailable"}, 500)
+    return self._json_out({"ok": True, "received": meta["received"], "size": meta.get("size", 0)})
+
+
+def _yut_chunk_complete(self, sid):
+    """Finish a chunked upload: verify every byte arrived, register the item
+    and serve it like any other file."""
+    body = _yut_chunk_body(self, 4096)
+    if not isinstance(body, dict) or str(body.get("code", "")) != YUT_CODE:
+        return self._json_out({"ok": False, "error": "bad-code"}, 403)
+    if not re.fullmatch(r"[a-f0-9]{16}", sid or ""):
+        return self._json_out({"ok": False, "error": "bad-id"}, 400)
+    meta_path = os.path.join(YUT_STORE_DIR, sid + ".meta")
+    part_path = os.path.join(YUT_STORE_DIR, sid + ".part")
+    try:
+        with open(meta_path, "r", encoding="utf-8") as f:
+            meta = json.load(f)
+    except Exception:
+        return self._json_out({"ok": False, "error": "not-found"}, 404)
+    try:
+        actual = os.path.getsize(part_path)
+    except Exception:
+        actual = -1
+    if actual != int(meta.get("size", -1)):
+        # missing or corrupt transfer: drop the parts so the client can retry
+        for p in (part_path, meta_path):
+            try:
+                os.remove(p)
+            except Exception:
+                pass
+        return self._json_out({"ok": False, "error": "incomplete", "received": max(actual, 0)}, 409)
+    fid = sid  # the session id doubles as the file id
+    try:
+        os.replace(part_path, os.path.join(YUT_STORE_DIR, fid))
+        os.remove(meta_path)
+    except Exception:
+        return self._json_out({"ok": False, "error": "store-unavailable"}, 500)
+    entry = {
+        "id": fid,
+        "name": meta.get("name", "file"),
+        "kind": meta.get("kind", "html"),
+        "ts": int(time.time() * 1000),
+        "size": int(meta.get("size", 0)),
+        "links": 0,
+    }
+    if meta.get("cat"):
+        entry["cat"] = meta["cat"]
+    with LOCK:
+        items = [entry] + _yut_registry_read()
+        while len(items) > YUT_MAX_ITEMS:
+            old = items.pop()
+            try:
+                os.remove(os.path.join(YUT_STORE_DIR, old.get("id", "")))
+            except Exception:
+                pass
+        _yut_registry_write(items)
+    return self._json_out({"ok": True, "id": fid, "total": len(items)})
+
+
+def _yut_list_preview(self, item, limit=100):
+    """Return only the first `limit` normalized unique links from a list file.
+    This keeps the list modal responsive even for 10+ MB uploads. The full
+    file remains available through /file and is fetched only for Copy all."""
+    path = os.path.join(YUT_STORE_DIR, item["id"])
+    links = []
+    seen = set()
+    has_more = False
+    try:
+        with open(path, "r", encoding="utf-8", errors="replace") as f:
+            for line in f:
+                s = line.strip()
+                if not s or s.startswith("#"):
+                    continue
+                if not re.match(r"^https?://", s, re.I):
+                    s = "https://" + s
+                if not re.match(r"^https?://[^\s/$.?#].\S*$", s, re.I):
+                    continue
+                if s in seen:
+                    continue
+                seen.add(s)
+                if len(links) < limit:
+                    links.append(s)
+                else:
+                    has_more = True
+                    break
+    except Exception:
+        self._json_out({"ok": False, "error": "not-found"}, 404)
+        return True
+    stored_total = int(item.get("links", 0) or 0)
+    total_known = stored_total > len(links) or not has_more
+    total = stored_total if total_known else len(links)
+    self._json_out({
+        "ok": True,
+        "name": item.get("name", "List"),
+        "links": links,
+        "total": total,
+        "totalKnown": total_known,
+        "hasMore": has_more or stored_total > len(links)
+    })
+    return True
+
+
+def _yut_recat(self):
+    """Change the category on one item. Same code gate as remove."""
+    body = _yut_read_json_body(self)
+    if not isinstance(body, dict):
+        return self._json_out({"ok": False, "error": "bad-body"}, 400)
+    if str(body.get("code", "")) != YUT_CODE:
+        return self._json_out({"ok": False, "error": "bad-code"}, 403)
+    fid = str(body.get("id", ""))
+    if not re.fullmatch(r"[a-f0-9]{16}", fid):
+        return self._json_out({"ok": False, "error": "bad-id"}, 400)
+    cat = _yut_clean_cat(body.get("cat"))
+    with LOCK:
+        items = _yut_registry_read()
+        hit = None
+        for it in items:
+            if it.get("id") == fid:
+                hit = it
+                break
+        if hit is None:
+            return self._json_out({"ok": False, "error": "not-found"}, 404)
+        if cat:
+            hit["cat"] = cat
+        else:
+            hit.pop("cat", None)
+        _yut_registry_write(items)
+    return self._json_out({"ok": True, "cat": cat})
+
+
+def _yut_startup_purge():
+    """Drop registry entries whose file is missing. Two server processes can
+    legitimately run at once on Windows (double-bound port), and a lost
+    read-modify-write race could otherwise resurrect cards whose files were
+    deleted, leaving visitors staring at not-found errors."""
+    try:
+        items = _yut_registry_read()
+        kept = [it for it in items
+                if os.path.isfile(os.path.join(YUT_STORE_DIR, str(it.get("id", ""))))]
+        if len(kept) != len(items):
+            _yut_registry_write(kept)
+    except Exception:
+        pass
+
+
+def _yut_remove(self):
+    body = _yut_read_json_body(self)
+    if not isinstance(body, dict):
+        return self._json_out({"ok": False, "error": "bad-body"}, 400)
+    if str(body.get("code", "")) != YUT_CODE:
+        return self._json_out({"ok": False, "error": "bad-code"}, 403)
+    fid = str(body.get("id", ""))
+    if not re.fullmatch(r"[a-f0-9]{16}", fid):
+        return self._json_out({"ok": False, "error": "bad-id"}, 400)
+    with LOCK:
+        items = _yut_registry_read()
+        kept = [it for it in items if it.get("id") != fid]
+        if len(kept) == len(items):
+            return self._json_out({"ok": False, "error": "not-found"}, 404)
+        try:
+            os.remove(os.path.join(YUT_STORE_DIR, fid))
+        except Exception:
+            pass
+        _yut_registry_write(kept)
+    return self._json_out({"ok": True})
 
 
 def _sanitize_sync_blob(raw: bytes) -> bytes:
@@ -193,6 +741,171 @@ def _active_count():
         return len(seen)
 
 
+def _plays_today():
+    return time.strftime("%Y-%m-%d", time.gmtime())
+
+
+def _plays_clean_key(key):
+    """Catalog keys are slugs and URLs from our own library. Trim control
+    characters and cap the length so a hand-written POST cannot stuff junk
+    into the store or the JSON file."""
+    if not isinstance(key, str):
+        return ""
+    s = "".join(ch for ch in key if ord(ch) >= 32).strip()
+    return s[:PLAYS_KEY_MAX]
+
+
+def _plays_load():
+    """{v, total: {key: n}, days: {"YYYY-MM-DD": {key: n}}}, normalized.
+
+    Anything malformed in the file (hand edited, half written by an old
+    version) is dropped rather than trusted, so one bad row cannot break the
+    games grid.
+    """
+    blank = {"v": 1, "total": {}, "days": {}}
+    try:
+        with open(PLAYS_PATH, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except Exception:
+        return blank
+    if not isinstance(data, dict):
+        return blank
+    out = {"v": 1, "total": {}, "days": {}}
+    total = data.get("total")
+    if isinstance(total, dict):
+        for k, v in total.items():
+            k = _plays_clean_key(k)
+            if k and isinstance(v, int) and v > 0:
+                out["total"][k] = v
+    days = data.get("days")
+    if isinstance(days, dict):
+        for day, bucket in days.items():
+            if not isinstance(bucket, dict) or not re.match(r"^\d{4}-\d{2}-\d{2}$", str(day)):
+                continue
+            clean = {}
+            for k, v in bucket.items():
+                k = _plays_clean_key(k)
+                if k and isinstance(v, int) and v > 0:
+                    clean[k] = v
+            if clean:
+                out["days"][str(day)] = clean
+    return out
+
+
+def _plays_save(state):
+    # Bound the file: newest PLAYS_TREND_DAYS buckets, then the most played
+    # keys. A save is the only place this trims, so reads stay cheap.
+    days = state.get("days") or {}
+    keep = sorted(days.keys())[-PLAYS_TREND_DAYS:]
+    state["days"] = {d: days[d] for d in keep}
+    total = state.get("total") or {}
+    if len(total) > PLAYS_MAX_KEYS:
+        state["total"] = dict(sorted(total.items(), key=lambda kv: (-kv[1], kv[0]))[:PLAYS_MAX_KEYS])
+    tmp = PLAYS_PATH + ".tmp-" + str(os.getpid())
+    try:
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(state, f)
+        os.replace(tmp, PLAYS_PATH)
+    except Exception:
+        try:
+            os.unlink(tmp)
+        except Exception:
+            pass
+
+
+def _plays_trending(state):
+    """Plays per key across the retained day buckets."""
+    out = {}
+    for bucket in (state.get("days") or {}).values():
+        for k, v in bucket.items():
+            out[k] = out.get(k, 0) + v
+    return out
+
+
+def _plays_payload(state=None):
+    state = state if state is not None else _plays_load()
+    return {
+        "ok": True,
+        "plays": state.get("total") or {},
+        "trending": _plays_trending(state),
+        "days": PLAYS_TREND_DAYS,
+        "updated": int(time.time()),
+    }
+
+
+def _plays_report(key):
+    """Count one launch and answer with the fresh totals for that key."""
+    key = _plays_clean_key(key)
+    if not key:
+        return {"ok": False, "error": "bad-key"}
+    with PLAYS_LOCK:
+        state = _plays_load()
+        total = state.setdefault("total", {})
+        total[key] = int(total.get(key, 0)) + 1
+        days = state.setdefault("days", {})
+        today = days.setdefault(_plays_today(), {})
+        today[key] = int(today.get(key, 0)) + 1
+        _plays_save(state)
+        return {
+            "ok": True,
+            "key": key,
+            "count": total[key],
+            "trending": _plays_trending(state).get(key, 0),
+        }
+
+
+# ------------------------------------------------- same-origin write guard
+# Static mirrors (jsDelivr, github.io, ...) are supposed to POST here for
+# /_sync, the ad-free state sync and the admin saves, so their origins count
+# as first-party. Same list runtime-config.js uses to detect a mirror.
+_MIRROR_HOST_RE = re.compile(
+    r"(?:^|\.)(?:jsdelivr\.net|githack\.com|staticdelivr\.com|unpkg\.com|esm\.sh"
+    r"|github\.io|pages\.dev|gitlab\.io|githubusercontent\.com|vercel\.app"
+    r"|netlify\.app|esm\.lootline\.xyz)$", re.I)
+
+
+def _host_only(value):
+    """The bare hostname out of a Host header or an origin string.
+
+    urlsplit handles the shapes a header can take ("host:port", "[::1]:port",
+    a full origin URL), and .hostname lowercases it and drops the port and the
+    IPv6 brackets - which is exactly what makes "[::1]:4199" comparable to
+    "[::1]:4199".
+    """
+    raw = str(value or "").strip()
+    if not raw:
+        return ""
+    try:
+        if "//" not in raw:
+            raw = "//" + raw
+        return urllib.parse.urlsplit(raw).hostname or ""
+    except Exception:
+        return ""
+
+
+def state_post_allowed(origin, host_header, xrw):
+    """May this POST change server state?
+
+    A browser attaches Origin to every same-origin POST, so the old host
+    comparison was the whole guard instead of a formality. It read
+    urlsplit(origin).host, which does not exist (the attribute is .hostname),
+    so the comparison always failed and refused every legitimate browser write
+    to /_sync, /api/ai/chat, /api/proxy/backend and friends with a 403. This
+    version uses a real hostname and pins both halves in
+    tools/state-post-test.py.
+    """
+    origin = str(origin or "").strip()
+    marker = bool(str(xrw or "").strip())
+    if not origin or origin == "null":
+        # No Origin (curl, older tooling) or an opaque origin (file://, a
+        # sandboxed iframe): only the marker header proves a first-party call.
+        return marker
+    ohost = _host_only(origin)
+    if not ohost:
+        return False
+    return ohost == _host_only(host_header) or bool(_MIRROR_HOST_RE.search(ohost))
+
+
 def _pruner():
     while True:
         time.sleep(PRUNE_EVERY)
@@ -208,6 +921,7 @@ def _pruner():
 # is injected here (never visible to the page) unless the client sends its own.
 
 CLOUD_BACKEND_DEFAULT = "http://127.0.0.1:3001"
+START_TIME = time.time()
 # Chalkle VM: static Firefox-WASM build in vm/ + wisp relay on 3002.
 VM_ROOT = os.path.join(WEB_ROOT, "vm")
 VM_WISP_BACKEND = "http://127.0.0.1:3002"
@@ -327,6 +1041,25 @@ class _CloudRelay:
             ok = False
         self._cloud_json({"ok": ok}, 200 if ok else 503)
         return True
+
+    def _app_health(self):
+        """Aggregate health for the Settings diagnostics panel. Only checks
+        things that are cheap and local (storage, gitignored service dirs,
+        uptime); it never hammers upstream services. 404 answers mean the
+        service's backing files are simply not deployed here."""
+        import platform as _platform
+        services = {
+            "cloud": os.path.isdir(os.path.join(WEB_ROOT, "server", "stratus")) or bool(os.environ.get("STRATUS_BACKEND")),
+            "vm": os.path.isdir(VM_ROOT),
+            "chatUpload": True,
+        }
+        self._cloud_json({
+            "ok": True,
+            "version": "1.1",
+            "python": _platform.python_version(),
+            "uptime_s": int(time.time() - START_TIME),
+            "services": services,
+        })
 
     def _cloud_health(self):
         import socket
@@ -2453,6 +3186,18 @@ class _ChatUpload:
 
 
 class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, _BitcordRelay, _ChatUpload, SimpleHTTPRequestHandler):
+    # HTTP/1.1 keep-alive: the old HTTP/1.0 default made the browser tear down
+    # and re-handshake TLS for every single request (games open dozens of
+    # assets at once). With 1.1, BaseHTTPRequestHandler only reuses the socket
+    # when the response is self-contained, so any code path that must stay
+    # lengthless streams calls _stabilize() to force a safe close.
+    protocol_version = "HTTP/1.1"
+
+    def _stabilize(self):
+        """Force connection close for responses that stream without a
+        Content-Length (proxy pipes, chunked relays)."""
+        self.close_connection = True
+
     def log_message(self, *a):  # quieter than the default per-request logger
         pass
 
@@ -2474,9 +3219,14 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, _Bitc
         # armed so any relay handler that sends the header again is skipped.
         super().send_header("Access-Control-Allow-Origin", "*")
         self._cors_sent = True
-        # Basic hardening: never sniff content types, and don't leak the
-        # referrer to mirror sites the launcher opens.
-        self.send_header("X-Content-Type-Options", "nosniff")
+        # Don't leak the referrer to mirror sites the launcher opens. nosniff
+        # applies everywhere EXCEPT the built-in proxy: it re-serves third-party
+        # pages whose MIME labels lie (JSONP labeled text/html, JS labeled
+        # text/plain), and strict sniffing refusal turns every one of those into
+        # a hard block instead of a working page. The proxy sets an explicit
+        # Content-Type per branch, so there is nothing to sniff there anyway.
+        if not self.path.split("?", 1)[0].lower().startswith(_UV_PFX):
+            self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("Referrer-Policy", "same-origin")
         # Images and versioned (?v=...) js/css are safe to cache hard: a
         # version bump changes the URL, so a stale copy can never be served.
@@ -2519,11 +3269,65 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, _Bitc
         # 200 with the fresh bytes is always correct.
         import gzip, io
         route = self.path.split("?", 1)[0]
+        # Never serve server-local files over the static handler: API keys,
+        # the git directory, env files, runtime JSON state and the 146 MB
+        # single-file build artifacts are local-only by design.
+        low = route.lower()
+        if (denied_local_path(low)
+                or low.endswith("/.env")
+                or low.startswith("/yut/store/")
+                or low.endswith("/sync.json") or low.endswith("/cloud-relay.json")
+                or low.endswith("/active-visitors.json")
+                or low.endswith("/play-counts.json")
+                or low.endswith("/livetv.json") or low.endswith("/ai_convos.json")):
+            self.send_response(404)
+            self.send_header("Content-Type", "text/plain")
+            self.send_header("Content-Length", "9")
+            self.end_headers()
+            return io.BytesIO(b"not found")
+        # Host split: the apex domain shows the Jexel tools hub, the chalkle
+        # subdomain keeps the full site, and yut.lootline.xyz serves yut's own
+        # upload site. Everything else (localhost, LAN IPs, mirror hosts) is
+        # unchanged. Matches subdomains of the apex too, so a future
+        # tools.lootline.xyz would also resolve into jexel/ unless it is the
+        # chalkle or yut sub itself.
+        try:
+            req_host = (self.headers.get("Host") or "").split(":", 1)[0].strip().lower()
+        except Exception:
+            req_host = ""
+        is_jexel_host = bool(req_host) and req_host == JEXEL_HOST or (
+            req_host.endswith("." + JEXEL_HOST)
+            and req_host != "chalkle." + JEXEL_HOST
+            and req_host != "yut." + JEXEL_HOST
+        )
+        is_yut_host = req_host == YUT_HOST
+        if (is_yut_host and route not in ("/_active", "/_health")
+                and not route.startswith("/yut")):
+            # Same trick as the jexel rewrite below: change the request path
+            # itself so the default send_head() translates it to the yut/ dir.
+            self.path = "/yut" + self.path
+        if (is_jexel_host and route not in ("/_active", "/_health")
+                and not route.startswith("/jexel")):
+            # Rewrite the request path itself, not a local copy: the default
+            # send_head() re-translates self.path, so a local variable would
+            # only affect the directory/gzip checks below and never the file
+            # actually served (the taiko shim above uses the same trick).
+            self.path = "/jexel" + self.path
+        route = self.path.split("?", 1)[0]
         path = self.translate_path(route)
         if os.path.isdir(path):
             candidate = os.path.join(path, "index.html")
             if os.path.isfile(candidate):
                 path = candidate
+            else:
+                # No index here: 404 instead of falling through to the default
+                # handler, which renders a full directory listing (GET /src/ or
+                # /assets/ would expose the entire file tree to visitors).
+                self.send_response(404)
+                self.send_header("Content-Type", "text/plain")
+                self.send_header("Content-Length", "9")
+                self.end_headers()
+                return io.BytesIO(b"not found")
         if os.path.isfile(path) and "gzip" in (self.headers.get("Accept-Encoding") or ""):
             ctype = self.guess_type(path)
             if ctype and ctype.split(";")[0] in (
@@ -2549,8 +3353,43 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, _Bitc
 
     def do_GET(self):
         route = self.path.split("?", 1)[0]
+        # yut.lootline.xyz serves the yut/ folder. Rewrite before anything else
+        # so the API router and the static fallback both see the /yut prefix
+        # (send_head rewrites too, but only after do_GET picked a branch).
+        if route not in ("/_active", "/_health") and not route.startswith("/yut"):
+            try:
+                _yhost = (self.headers.get("Host") or "").split(":", 1)[0].strip().lower()
+            except Exception:
+                _yhost = ""
+            if _yhost == YUT_HOST:
+                self.path = "/yut" + self.path
+                route = self.path.split("?", 1)[0]
+        if route.startswith(YUT_API_PATH):
+            return _yut_api(self, route)
         if route == "/_active":
             return self._active()
+        # Angry Birds Chrome (gn/316) phones home to chrome.angrybirds.com
+        # endpoints that died with the Chrome Web Store. Stub them as
+        # "offline mode" responses so the game boots without stalling.
+        if route == "/cors/online-check":
+            body = b"{}"
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
+        if route == "/fowl/metrics" or route.startswith("/fowl/google-login") or route == "/gwt-log":
+            body = b"{}"
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
         if route == "/_fetch":
             return self._fetch()
         if route == "/_sync":
@@ -2565,6 +3404,8 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, _Bitc
             return self._dh_geo()
         if route.startswith("/chat-image/"):
             return self.handle_chat_image_get(route[len("/chat-image/"):])
+        if route == "/api/plays":
+            return self._plays_get()
         if route == "/api/proxy/backends" or route == "/api/proxy/backend":
             return self._proxy_backends_get()
         if route == "/api/ai/models":
@@ -2589,6 +3430,8 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, _Bitc
             return self._uv_route(route[len(_UV_PFX):])
         if route == "/cloud/health":
             return self._cloud_health()
+        if route == "/_health":
+            return self._app_health()
         if route.startswith("/cloud/v1/signal/"):
             if (self.headers.get("Upgrade") or "").lower() == "websocket":
                 return self._cloud_ws(route)
@@ -2669,12 +3512,64 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, _Bitc
         route = self.path.split("?", 1)[0]
         if route.startswith("/taiko/api/"):
             self.path = route + ".json" + self.path[len(route):]
+        # Angry Birds Chrome offline-mode stubs (HEAD probes).
+        if route == "/cors/online-check" or route == "/fowl/metrics" or route.startswith("/fowl/google-login"):
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", "2")
+            self.end_headers()
+            return
         return super().do_HEAD()
 
     def do_POST(self):
         route = self.path.split("?", 1)[0]
+        # Angry Birds Chrome offline-mode stubs (see do_GET note).
+        if route == "/cors/online-check" or route == "/fowl/metrics" or route.startswith("/fowl/google-login") or route == "/gwt-log":
+            body = b"{}"
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            try:
+                self.wfile.write(body)
+            except Exception:
+                pass
+            return
+        # Same-origin guard for the server's own state-changing routes.
+        # Cross-site pages can submit no-preflight POSTs with this server's
+        # CORS ("*") replies; requiring a same-host Origin (or the X-Requested-
+        # With marker the front-end already sends) closes that. The proxy,
+        # Bitcord and cloud forwarding routes are exempt: those carry third-
+        # party traffic and have their own rules. The decision lives in
+        # state_post_allowed() so tools/state-post-test.py can pin it.
+        STATE_POSTS = ("/_sync", "/api/proxy/backend", "/api/ai/chat", "/api/ai/convos",
+                       "/cloud/config", "/chat-upload-image", "/api/live-tv/admin",
+                       "/api/plays")
+        if route in STATE_POSTS:
+            allowed = state_post_allowed(self.headers.get("Origin"),
+                                         self.headers.get("Host"),
+                                         self.headers.get("X-Requested-With"))
+            if not allowed:
+                self.send_response(403)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.end_headers()
+                try:
+                    self.wfile.write(b'{"ok":false,"error":"cross-origin write refused"}')
+                except Exception:
+                    pass
+                return
         if route == "/_sync":
             return self._sync_post()
+        if route.startswith(YUT_API_PATH):
+            # Writes are gated by the upload code inside the payload, so the
+            # same-origin guard is not needed here (and would break the one
+            # about:blank reader case). Body size is capped in the reader.
+            return _yut_api(self, route)
+        if route == "/api/plays":
+            return self._plays_post()
         if route == "/api/proxy/backend":
             return self._proxy_backend_post()
         if route == "/api/ai/chat":
@@ -2757,7 +3652,7 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, _Bitc
         # CORS preflight (needed by embeds on mirror hosts).
         self.send_response(204)
         self.send_header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, X-Chalkle-Version")
         self.send_header("Access-Control-Max-Age", "86400")
         self.end_headers()
 
@@ -2879,12 +3774,23 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, _Bitc
         # Encode and append query string
         if params:
             target += "?" + urllib.parse.urlencode(params)
+        auth = (self.headers.get("Authorization") or "").strip()
+        if not auth:
+            auth = "Bearer " + _TMDB_BEARER
+        # Once this exact header has been refused, the fallback answers without
+        # the failed upstream call in front of it. Only routes the fallback can
+        # actually cover skip; anything else still asks the upstream, so a
+        # working key stays in play for routes Cinemeta cannot build.
+        if _tmdb_token_dead(auth):
+            fb = _cinemeta_serve(path, qs)
+            if fb is not None:
+                return _cinemeta_respond(self, fb)
         req = urllib.request.Request(
             target,
             headers={
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) ChalkleMovies/1.0",
                 "Accept": "application/json",
-                "Authorization": (self.headers.get("Authorization") or "").strip() or ("Bearer " + _TMDB_BEARER),
+                "Authorization": auth,
             },
         )
         try:
@@ -2897,6 +3803,7 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, _Bitc
         except Exception as e:
             return self._json_out({"error": type(e).__name__}, 502)
         if code in (401, 403):
+            _TMDB_DEAD_TOKENS.add(auth)
             fb = _cinemeta_serve(path, qs)
             if fb is not None:
                 return _cinemeta_respond(self, fb)
@@ -2921,7 +3828,9 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, _Bitc
     def _fetch(self):
         """Byte proxy. Returns {ok, code, body, bodyMime, error} where body is
         the fetched file base64-encoded. Server-local paths (/...) are read from
-        disk; absolute http(s) URLs are fetched server-side. This lets the Ruffle
+        disk; absolute http(s) URLs are fetched server-side. Secrets and runtime
+        state are denied here too, so this endpoint can never become a reader
+        for them. This lets the Ruffle
         SWF wrapper hand raw bytes to Ruffle with zero cross-origin requests which
         works from an opaque (blob:null) about:blank tab."""
         import base64
@@ -2929,10 +3838,31 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, _Bitc
         q = parse_qs(urlparse(self.path).query)
         target = unquote((q.get("url") or [""])[0].strip())
         out = {"ok": False, "code": 0, "error": "bad-url"}
-        if target.startswith("/"):
+        # Deny list BEFORE the local branch: /_fetch's local path must never
+        # become a reader for server secrets, git metadata, runtime state or
+        # the huge local-only build artifacts. (The static handler refuses the
+        # same list by URL path; here the target rides in the query string, so
+        # the check runs on the decoded target.)
+        low = target.lower()
+        if (denied_local_path(low)
+                or low.startswith("/yut/store/")
+                or low.endswith("/sync.json") or low.endswith("/cloud-relay.json")
+                or low.endswith("/active-visitors.json")
+                or low.endswith("/play-counts.json")
+                or low.endswith("/livetv.json") or low.endswith("/ai_convos.json")
+                or low == "server/ai_key.txt" or low == "ai_key.txt"):
+            out = {"ok": False, "code": 404, "error": "not-found"}
+        elif target.startswith("/"):
             rel = target.lstrip("/")
+            # realpath resolves symlinks and .. segments; the commonpath check
+            # refuses sibling directories that a bare startswith would let
+            # through (C:\site vs C:\site-evil).
             p = os.path.normpath(os.path.join(WEB_ROOT, rel))
-            if not p.startswith(WEB_ROOT) or not os.path.isfile(p):
+            try:
+                inside = os.path.commonpath([os.path.realpath(p), os.path.realpath(WEB_ROOT)]) == os.path.realpath(WEB_ROOT)
+            except ValueError:
+                inside = False
+            if not inside or not os.path.isfile(p):
                 out = {"ok": False, "code": 404, "error": "not-found"}
             else:
                 try:
@@ -2949,12 +3879,18 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, _Bitc
                     out = {"ok": True, "code": 200, "body": base64.b64encode(raw).decode("ascii"), "mime": mime}
                 except Exception as e:
                     out = {"ok": False, "code": 0, "error": type(e).__name__}
-        elif target.lower().startswith(("http://", "https://")):
-            raw, mime, code, err = _http_get(target)
-            if raw is not None:
-                out = {"ok": True, "code": code, "body": base64.b64encode(raw).decode("ascii"), "mime": mime}
+        elif low.startswith(("http://", "https://")):
+            # Remote targets must not smuggle a denied path either: a URL that
+            # points anywhere on THIS server (mirrors do) is rejected the same
+            # as a local path would be.
+            if denied_local_path(low):
+                out = {"ok": False, "code": 404, "error": "not-found"}
             else:
-                out = {"ok": False, "code": code, "error": err}
+                raw, mime, code, err = _http_get(target)
+                if raw is not None:
+                    out = {"ok": True, "code": code, "body": base64.b64encode(raw).decode("ascii"), "mime": mime}
+                else:
+                    out = {"ok": False, "code": code, "error": err}
         data = json.dumps(out).encode()
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
@@ -3631,6 +4567,19 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, _Bitc
             return self._uv_local(target, post_body)
         if not re.match(r"^https?://", target, re.I):
             return self._uv_error(400, "bad target")
+        # Rewritten-page cache: re-fetching AND re-rewriting the same HTML/CSS/
+        # JS on every SPA navigation is the slowest thing this proxy does. GETs
+        # replay the last rewritten response from memory (short TTLs below). No
+        # cookies or auth headers are ever forwarded upstream, so responses are
+        # the anonymous version and safe to reuse. POSTs bypass the cache.
+        cache_key = None
+        if post_body is None:
+            _chain = _chain_effective()
+            cache_key = target + "|" + ((_chain[0] + ":" + str(_chain[1])) if _chain else "direct")
+            hit = _uv_cache_get(cache_key)
+            if hit is not None:
+                self._uv_send(hit[0], hit[1], hit[2], hit[3], cache=hit[4])
+                return
         # Binary assets (Unity .data/.wasm, images, fonts) are streamed without
         # buffering (they can be hundreds of MB). One upstream fetch per asset:
         # a tiny peek decides whether to rewrite (HTML/CSS/JS/SVG) or stream,
@@ -3644,6 +4593,24 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, _Bitc
         except Exception as e:
             return self._uv_error(502, type(e).__name__)
         ctype = (probe.headers.get("Content-Type", "").split(";")[0].strip().lower())
+        # Some CDNs label web assets with junk MIME (text/plain, octet-stream,
+        # empty). Correct the obvious ones by extension so script/style/module
+        # loading keeps working regardless of how sloppy the upstream is.
+        _last = target.split("?", 1)[0].split("#", 1)[0].rsplit("/", 1)[-1].lower()
+        _ext = _last.rsplit(".", 1)[-1] if "." in _last else ""
+        if ctype in ("", "text/plain", "application/octet-stream"):
+            if _ext in ("js", "mjs", "cjs"):
+                ctype = "text/javascript"
+            elif _ext == "css":
+                ctype = "text/css"
+            elif _ext == "json":
+                ctype = "application/json"
+            elif _ext == "wasm":
+                ctype = "application/wasm"
+            elif _ext in ("html", "htm"):
+                ctype = "text/html"
+            elif _ext == "svg":
+                ctype = "image/svg+xml"
         is_html = "text/html" in ctype
         is_css = ctype == "text/css"
         # SVG wrapper pages (the gnmath / arctic / cloudmoon mirror links) are
@@ -3658,9 +4625,15 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, _Bitc
             # MIME type. Keep reading from this same response afterwards.
             prefix = probe.read(512)
             looks_html = prefix.lstrip().lower().startswith((b"<!doctype", b"<html", b"<head"))
+            # JSONP endpoints answer with the callback wrapper but often label
+            # it text/plain or application/json; a <script> needs a JS MIME.
+            if (ctype in ("application/json", "text/plain")
+                    and "callback=" in target.lower()
+                    and re.match(rb"[\w$.]+\s*\(", prefix.lstrip()[:64])):
+                ctype = "text/javascript"
             is_js = ("javascript" in ctype or ctype == "module"
                      or ctype.endswith("ecmascript")
-                     or target.lower().endswith((".js", ".mjs")))
+                     or _ext in ("js", "mjs", "cjs"))
             if looks_html:
                 is_html = True
             elif is_js:
@@ -3678,7 +4651,9 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, _Bitc
                     "X-Frame-Options": "",
                     "Content-Security-Policy-Report-Only": "",
                 }
-                self._uv_send(200, "text/javascript", text.encode("utf-8", "replace"), extra,
+                out = text.encode("utf-8", "replace")
+                _uv_cache_put(cache_key, 200, "text/javascript", out, extra, "public, max-age=300")
+                self._uv_send(200, "text/javascript", out, extra,
                               cache="public, max-age=300")
                 return
             else:
@@ -3715,8 +4690,9 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, _Bitc
                 "X-Frame-Options": "",
                 "Content-Security-Policy-Report-Only": "",
             }
-            self._uv_send(code, ctype, raw, extra,
-                          cache="public, max-age=300" if (is_css or is_svg) else "no-store, max-age=0")
+            cch = "public, max-age=300" if (is_css or is_svg) else "no-store, max-age=0"
+            _uv_cache_put(cache_key, code, ctype, raw, extra, cch)
+            self._uv_send(code, ctype, raw, extra, cache=cch)
             return
 
     def _uv_stream_resp(self, resp, prefix=b"", cacheable=0):
@@ -3726,6 +4702,7 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, _Bitc
         browser a public cache lifetime for deterministic static assets."""
         try:
             ctype = resp.headers.get("Content-Type", "").split(";")[0].strip().lower()
+            self._stabilize()  # lengthless stream: no keep-alive reuse
             self.send_response(resp.getcode() or 200)
             self.send_header("Content-Type", ctype or "application/octet-stream")
             self.send_header("Cache-Control", ("public, max-age=%d" % cacheable) if cacheable else "no-store, max-age=0")
@@ -3762,6 +4739,7 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, _Bitc
             return self._uv_error(502, type(e).__name__)
         try:
             ctype = resp.headers.get("Content-Type", "").split(";")[0].strip().lower()
+            self._stabilize()  # lengthless stream: no keep-alive reuse
             self.send_response(resp.getcode() or 200)
             self.send_header("Content-Type", ctype or "application/octet-stream")
             self.send_header("Cache-Control", "no-store, max-age=0")
@@ -3839,14 +4817,33 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, _Bitc
         # Unity .data / .wasm / game assets never get buffered or capped.
         try:
             size = os.path.getsize(safe)
+            mtime = int(os.path.getmtime(safe))
             f = open(safe, "rb")
         except Exception as e:
             return self._uv_error(500, type(e).__name__)
+        # 304 support: a revisit of a 300 MB Unity build re-validates with
+        # If-Modified-Since instead of re-streaming the whole file.
+        ims = self.headers.get("If-Modified-Since")
+        if ims:
+            try:
+                import email.utils
+                since = email.utils.parsedate_to_datetime(ims).timestamp()
+                if mtime <= since:
+                    f.close()
+                    self.send_response(304)
+                    self.send_header("Cache-Control", "public, max-age=86400")
+                    self.send_header("Last-Modified", self.date_time_string(mtime))
+                    self.end_headers()
+                    return
+            except Exception:
+                pass
         try:
+            self._stabilize()  # lengthless stream: no keep-alive reuse
             self.send_response(200)
             self.send_header("Content-Type", ctype)
             self.send_header("Content-Length", str(size))
-            self.send_header("Cache-Control", "no-store, max-age=0")
+            self.send_header("Cache-Control", "public, max-age=86400")
+            self.send_header("Last-Modified", self.date_time_string(mtime))
             self.send_header("Access-Control-Allow-Origin", "*")
             self.end_headers()
             while True:
@@ -3961,6 +4958,23 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, _Bitc
         self.end_headers()
         self.wfile.write(body)
 
+    def _plays_get(self):
+        """All-time launch counts plus the last week's, for the Games tab's
+        Most played sort and the Home trending shelf. Public on purpose: it
+        is anonymous totals, never per-visitor data."""
+        self._json_out(_plays_payload())
+
+    def _plays_post(self):
+        """Count one launch. Body: {"key": "<catalog key>"}."""
+        length = int(self.headers.get("Content-Length", 0) or 0)
+        raw = self.rfile.read(min(length, PLAYS_BODY_MAX)) if length > 0 else b"{}"
+        try:
+            key = (json.loads(raw.decode("utf-8", "replace")) or {}).get("key")
+        except Exception:
+            key = ""
+        result = _plays_report(key)
+        self._json_out(result, 200 if result.get("ok") else 400)
+
 
 FETCH_TIMEOUT = 9       # seconds before a target is considered unreachable
 
@@ -3969,6 +4983,22 @@ FETCH_TIMEOUT = 9       # seconds before a target is considered unreachable
 _TMDB_BEARER = os.environ.get("TMDB_BEARER") or (
     "eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiI5NDc2MWZmMmViNWRiYTM4MDJlZDJlNGJkOTE0ZGZlOCIsIm5iZiI6MTc3NzU2MDc0My45NzMsInN1YiI6IjY5ZjM2Y2E3ZDZhZjA3Yjg2Zjg0MzA3MSIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.pNYedccUMayuOtMmH_vMWVVYjfAal3r2V1WWv433u4g"
 )
+# Authorization headers the upstream has already refused. TMDB answers a bad
+# token with 401 on every call and the vendored default above is dead, so
+# every read used to spend a doomed round trip to api.themoviedb.org before
+# the keyless Cinemeta fallback answered. Remembering the refusal lets later
+# reads go straight to the fallback. Keyed by the full header value, so a
+# caller's own working token is never skipped: only the exact header the
+# upstream rejected is. Set members are only added, and only from a response
+# that carried a 401 or 403, so this can never guess.
+_TMDB_DEAD_TOKENS = set()
+
+
+def _tmdb_token_dead(token):
+    """True when this exact authorization header has already been refused by
+    the upstream. An empty token is never dead: a caller with no header of its
+    own asks once with the vendored default before anything is remembered."""
+    return bool(token) and token in _TMDB_DEAD_TOKENS
 FETCH_MAX_REDIRECTS = 5
 # --- Cinemeta fallback for the TMDB proxy (keyless catalog when the token is
 # rejected). Persists a tmdb_id -> imdb_id map harvested from every served
@@ -4572,6 +5602,18 @@ def _cinemeta_serve(path_tail, qs):
                 else:
                     rows = _cinemeta_rows("/catalog/%s/top.json" % ("series" if mtype == "tv" else "movie"), mtype)
                     results = {"page": page, "results": rows, "total_pages": 1, "total_results": len(rows)}
+        elif re.match(r"^(movie|tv)/popular$", path_tail):
+            # TMDB /movie/popular and /tv/popular (home widgets + rail
+            # prefetches). Cinemeta exposes the same shape under catalog/
+            # {movie|series}/popular.json, so the keyless fallback now
+            # covers these too (the dead bearer token 401'd them, seen in
+            # the 09/14 view sweep).
+            mtype = "movie" if path_tail.startswith("movie/") else "tv"
+            page = int(params.get("page") or 1)
+            skip = max(0, (page - 1) * 50)
+            ctype = "movie" if mtype == "movie" else "series"
+            rows = _cinemeta_rows("/catalog/%s/popular.json?skip=%d" % (ctype, skip), mtype)
+            results = {"page": page, "results": rows, "total_pages": 500, "total_results": 25000}
         elif path_tail.startswith("find/"):
             imdb = path_tail.split("find/", 1)[1].split("?")[0].split("/")[0]
             payload = {"movie_results": [], "tv_results": [], "person_results": [], "tv_episode_results": [], "tv_season_results": []}
@@ -4642,10 +5684,27 @@ def _cinemeta_serve(path_tail, qs):
                     rec = _cinemap_map_load().get(str(ident))
                     imdb = rec["i"] if rec else None
             if imdb:
+                # The id map knows the real media type: widgets sometimes ask
+                # for a movie id under tv/ (or the reverse), and Cinemeta
+                # answers a wrong-type lookup with null, which used to fall
+                # through to the raw 401 (seen in the 09/14 view sweep for
+                # tv/278, tv/6435 and friends). Mapped type wins when known;
+                # otherwise try the opposite type once before giving up.
                 ctype = "series" if mtype == "tv" else "movie"
-                m = (_cinemeta_get("/meta/%s/%s.json" % (ctype, imdb)).get("meta") or {})
+                rec = None if ident.startswith("tt") else _cinemap_map_load().get(str(ident))
+                if rec and rec.get("t") in ("movie", "tv"):
+                    ctype = "series" if rec["t"] == "tv" else "movie"
+                m = {}
+                for ct in (ctype, "series" if ctype == "movie" else "movie"):
+                    try:
+                        m = (_cinemeta_get("/meta/%s/%s.json" % (ct, imdb)).get("meta") or {})
+                    except Exception:
+                        m = {}
+                    if m.get("id"):
+                        ctype = ct
+                        break
                 if m.get("id"):
-                    results = _cinemeta_detail(m, mtype, int(ident) if ident.isdigit() else ident)
+                    results = _cinemeta_detail(m, "tv" if ctype == "series" else "movie", int(ident) if ident.isdigit() else ident)
         elif path_tail.startswith("configuration"):
             results = {
                 "images": {"secure_base_url": "https://image.tmdb.org/t/p/", "poster_sizes": ["w500"], "backdrop_sizes": ["w1920"], "logo_sizes": ["w780"]},
@@ -4710,25 +5769,83 @@ def _is_private_ip(ip):
         return True
 
 
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    """Opener that surfaces 3xx responses as HTTPError instead of following
+    them, so _http_get can re-validate every redirect hop against the
+    private-host guard."""
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+def _is_private_host(host):
+    """True when a hostname or IP points at private, loopback, link-local,
+    CGNAT, reserved or multicast space. Names are resolved first so a DNS
+    name that answers with an internal address is caught too (the SSRF
+    classic). Unresolvable names are treated as private - fail closed."""
+    import ipaddress
+    h = str(host or "").strip().strip("[]").lower()
+    if not h:
+        return True
+    if h in ("localhost", "localhost.localdomain") or h.endswith(".local") or h.endswith(".internal"):
+        return True
+    try:
+        ipaddress.ip_address(h)
+        return _is_private_ip(h)
+    except ValueError:
+        pass
+    try:
+        infos = socket.getaddrinfo(h, None)
+    except Exception:
+        return True
+    for info in infos:
+        ip = info[4][0]
+        if _is_private_ip(ip):
+            return True
+    return False
+
+
 def _http_get(url):
     """Return (raw_bytes_or_None, mime_str, code, error_or_None)."""
     import urllib.request
-    req = urllib.request.Request(
-        url,
-        headers={
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) ChalkleAuditor/1.0",
-            "Accept": "*/*",
-        },
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=FETCH_TIMEOUT) as resp:
-            data = resp.read()
-            ctype = resp.headers.get("Content-Type", "").split(";")[0].strip().lower()
-            return data, ctype or "application/octet-stream", resp.getcode(), None
-    except urllib.error.HTTPError as e:
-        return None, "", e.code, None
-    except Exception as e:
-        return None, "", 0, type(e).__name__
+    u = urllib.parse.urlsplit(str(url or ""))
+    if u.scheme not in ("http", "https") or not u.hostname:
+        return None, "", 0, "blocked-scheme"
+    if _is_private_host(u.hostname):
+        return None, "", 0, "blocked-host"
+    # Redirects are followed manually so every hop is re-checked: without
+    # this a public URL that 302s to an internal address would bypass the
+    # guard above (the other proxies in this file have the same rule).
+    for _hop in range(5):
+        req = urllib.request.Request(
+            url,
+            headers={
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) ChalkleAuditor/1.0",
+                "Accept": "*/*",
+            },
+        )
+        opener = urllib.request.build_opener(_NoRedirect())
+        try:
+            with opener.open(req, timeout=FETCH_TIMEOUT) as resp:
+                data = resp.read()
+                ctype = resp.headers.get("Content-Type", "").split(";")[0].strip().lower()
+                return data, ctype or "application/octet-stream", resp.getcode(), None
+        except urllib.error.HTTPError as e:
+            if e.code in (301, 302, 303, 307, 308):
+                loc = e.headers.get("Location") or ""
+                if not loc:
+                    return None, "", e.code, None
+                nxt = urllib.parse.urljoin(url, loc)
+                nu = urllib.parse.urlsplit(nxt)
+                if nu.scheme not in ("http", "https") or not nu.hostname:
+                    return None, "", e.code, "blocked-scheme"
+                if _is_private_host(nu.hostname):
+                    return None, "", 0, "blocked-host"
+                url = nxt
+                continue
+            return None, "", e.code, None
+        except Exception as e:
+            return None, "", 0, type(e).__name__
+    return None, "", 0, "too-many-redirects"
 
 
 
@@ -4888,7 +6005,50 @@ def _uv_decode(raw):
 _uv_pool_lock = threading.Lock()
 _uv_pool = {}                 # "scheme|host|port" -> [idle _UVPoolConn]
 _UV_POOL_IDLE_MAX = 8         # idle keep-alive conns kept per host
-_UV_POOL_IDLE_TTL = 20.0      # seconds before an idle conn is discarded
+_UV_POOL_IDLE_TTL = 45.0      # seconds before an idle conn is discarded
+
+
+# Rewritten-response cache. Speed: an SPA navigation refetches the same shell
+# HTML/CSS/JS over and over, and every miss pays a full upstream round-trip
+# plus the rewrite pass. Rewritten GET responses replay from memory with short
+# TTLs. No cookies or auth headers are ever forwarded upstream, so responses
+# are the anonymous version and safe to reuse; POSTs bypass the cache.
+_UV_CACHE_TTL = {"text/html": 20.0, "text/css": 120.0,
+                 "text/javascript": 120.0, "image/svg+xml": 120.0}
+_UV_CACHE_MAX_BYTES = 3 * 1024 * 1024
+_UV_CACHE_MAX_ENTRIES = 96
+_uv_cache = {}
+_uv_cache_lock = threading.Lock()
+
+
+def _uv_cache_get(key):
+    if not key:
+        return None
+    now = time.time()
+    with _uv_cache_lock:
+        e = _uv_cache.get(key)
+        if not e:
+            return None
+        if now >= e[4]:
+            del _uv_cache[key]
+            return None
+        # Copy `extra` so a later handler mutating its own dict can't touch
+        # what a cached entry hands out.
+        return (e[0], e[1], e[2], dict(e[3]), e[4])
+
+
+def _uv_cache_put(key, code, ctype, raw, extra, cache_ctl):
+    if not key:
+        return
+    ttl = _UV_CACHE_TTL.get((ctype or "").split(";")[0].strip().lower())
+    if not ttl or not raw or len(raw) > _UV_CACHE_MAX_BYTES:
+        return
+    now = time.time()
+    with _uv_cache_lock:
+        if len(_uv_cache) >= _UV_CACHE_MAX_ENTRIES:
+            for k in list(_uv_cache)[:16]:
+                del _uv_cache[k]
+        _uv_cache[key] = (code, ctype, raw, dict(extra or {}), now + ttl)
 
 
 class _UVPoolConn:
@@ -5447,7 +6607,15 @@ def _uv_wrap_url(value, base_url):
     # before encoding the route. Only http(s)/relative values reach here, so
     # data:/blob: URLs keep their bytes untouched.
     if "&" in v:
-        v = v.replace("&amp;", "&").replace("&#38;", "&").replace("&AMP;", "&")
+        # Full entity decode, not just &amp;: Twitch ships query strings like
+        # "sdkName&#x3D;js-sdk-client&amp;sdkVersion&#x3D;3.1.2" inside normal
+        # attributes. Decoding only &amp; left the numeric refs in the encoded
+        # route, the upstream got a corrupt query string, answered with an HTML
+        # error page, and the <script> expecting JS hit a MIME mismatch.
+        # html.unescape follows the attribute rules ("&copy" without a
+        # semicolon stays untouched), so legitimate URLs pass through intact.
+        import html as _html
+        v = _html.unescape(v)
     if v.startswith("//"):
         v = "https:" + v
     if not re.match(r"^https?://", v, re.I):
@@ -5768,6 +6936,20 @@ def _uv_inject_patch(html, target):
     return inject + html
 
 
+class QuietServer(ThreadingHTTPServer):
+    # Clients close connections mid-response all the time (tab refresh,
+    # game frames navigating away, proxies timing out). Those land as
+    # ConnectionResetError / ConnectionAbortedError / BrokenPipeError and
+    # every one used to print a full traceback to stderr, drowning the real
+    # errors in chalkle-*-err.log. Any other exception still prints.
+    def handle_error(self, request, client_address):
+        import sys
+        exc = sys.exc_info()[1]
+        if isinstance(exc, (ConnectionError, TimeoutError, socket.timeout)):
+            return
+        super().handle_error(request, client_address)
+
+
 def main():
     threading.Thread(target=_pruner, daemon=True).start()
     threading.Thread(target=_wp_warm_all, daemon=True).start()
@@ -5777,7 +6959,8 @@ def main():
     # keyword through the handler call the server module makes).
     import functools
     handler = functools.partial(Handler, directory=WEB_ROOT)
-    httpd = ThreadingHTTPServer((HOST, PORT), handler)
+    _yut_startup_purge()
+    httpd = QuietServer((HOST, PORT), handler)
     print(f"Chalkle server on http://{HOST}:{PORT}  (/_active viewers, /_fetch proxy)")
     httpd.serve_forever()
 

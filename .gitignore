@@ -28,50 +28,41 @@ Thumbs.db
 ai_convos.json
 cloud-relay.json
 music-relay.json
-
 # dev tooling / preview session artifacts
 .freebuff/
 tools/edu-tunnel*.log
 tools/edu-tunnel-run.out
-
 # local dev artifacts / temp profiles (never part of the site)
 /_*
 **/_*
 !/assets/
 random-gaming-websites-full.txt
 arctic-1m-links-full.txt
-
 # local-only heavy dirs: flare/ is a 5GB local ruffle/flash experiment
 # (nothing in the shipped site links into it), screenshots/ is audit output
 flare/
 screenshots/
-
 # mc/ (2.8GB offline minecraft builds) stays local-only; ugs/ (241MB html
 # stash) is committed so static hosts (GitHub Pages) can serve game pages.
 mc/
-
 # local research dumps (1.2GB, not part of the shipped site)
 research/
-
 # static-hosting deploy artifact for Vercel/Netlify drag-and-drop
 # (regenerable from the single-file build; not part of the GitHub site)
-
 # 746MB PS1 disc image - served locally, never pushed (cloudflare tunnel)
 assets/games/psx/
-
 # local runtime / audit artifacts
 active-visitors.json
+play-counts.json
 shots/
 svgbulk-links-embedded.txt
 linkduper-links.txt
 chalkle-links*.txt
 server/tmdb-imdb-map.json
 tmp_patch_*.py
-
 # full single-file build exceeds GitHub 100MB limit; regenerate locally:
 #   node scripts/build-single-chalkle.mjs
 /build/chalkle-single.html
-
 # runtime cache of provider pools (regenerated)
 server/cinemeta-pools.json
 server/ai_key.txt
@@ -79,3 +70,12 @@ server/ai_key.txt
 /vm/gecko.wasm.zst
 /vm/chrome-assets.tar.zst
 chalkle-vm-relay/node_modules/
+/build/chalkle-single-cdn.html
+
+# yut upload site runtime data (registry + uploaded files live on the server disk)
+yut/store/
+# local runtime leftovers: pid files, the quarantined sync snapshot, single-file build
+chalkle-pids/
+sync.json.aside
+_sync.json.aside
+/unsent.html

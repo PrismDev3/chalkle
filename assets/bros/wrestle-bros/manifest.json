@@ -1,0 +1,71 @@
+{
+    "name": "Wrestle Bros",
+    "short_name": "Wrestle Bros",
+    "start_url": "https://wrestlebros.io",
+    "id": "com.bluewizard.wrestlebros",
+    "description": "Body slam your bros in this free pro wrestling browser game from Blue Wizard! Play games against your friends online or wrestle the CPU to unlock new wrestlers and gear. Let's get ready to rumble in the ultimate cage match! Fly off the top rope, smash your opponent into the canvas, or even bounce off the ropes! Best of all, you can play online vs your friends, bro! The controls are very simple: Use either the arrow keys or wasd to control your wrestle br.  Jump by pressing the up arrow, and double jump to pin.  Enter/Space will attack in different ways, depending on what the situation is. Be sure to sign up for our newsletter to know alt links and new updates to Wrestle Bros!",
+    "background": {
+      "service_worker": "sw.js"
+    },
+    "scope": "./",
+    "icons": [
+      {
+        "src": "icon.png",
+        "sizes": "512x512",
+        "type": "image/png",
+        "purpose": "any"
+      },
+      {
+        "src": "splash.png",
+        "sizes": "1920x1080",
+        "type": "image/png",
+        "purpose": "any"
+      }
+    ],
+    "images": [
+      {
+        "src": "splash.png",
+        "sizes": "1920x1080",
+        "type": "image/png",
+        "purpose": "any"
+      }
+    ],
+    "theme_color": "#BBBB33",
+    "background_color": "#686868",
+    "display": "standalone",
+    "ms_start_compatible": true,
+    "screenshots": [
+      {
+        "src": "/ss1.png",
+        "type": "image/png",
+        "sizes": "1920x1080",
+        "form_factor": "wide"
+      },
+      {
+        "src": "/ss2.png",
+        "type": "image/png",
+        "sizes": "1920x1080",
+        "form_factor": "wide"
+      }
+    ],
+    "display_override": [
+      "standalone",
+      "fullscreen",
+      "browser",
+      "minimal-ui",
+      "window-controls-overlay"
+    ],
+    "categories": [
+      "games"
+    ],
+    "lang": "en",
+    "dir": "auto",
+    "orientation": "landscape",
+    "edge_side_panel": {
+      "preferred_width": 0
+    },
+    "handle_links": "preferred",
+    "launch_handler": {
+      "client_mode": ["focus-existing", "auto"]
+    }
+  }

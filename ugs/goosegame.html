@@ -107,13 +107,13 @@
                 }
                 async function init() {
                         try {
-                                const dataBlob = await mergeFiles('https://quantil.jsdelivr.net/gh/matheveryday25/math@main/goosegame/Build/Untitled Goose Game.data', 4);
-                                const wasmBlob = await mergeFiles('https://quantil.jsdelivr.net/gh/matheveryday25/math@main/goosegame/Build/Untitled Goose Game.wasm', 2);
+                                const dataBlob = await mergeFiles('https://cdn.jsdelivr.net/gh/matheveryday25/math@main/goosegame/Build/Untitled Goose Game.data', 4);
+                                const wasmBlob = await mergeFiles('https://cdn.jsdelivr.net/gh/matheveryday25/math@main/goosegame/Build/Untitled Goose Game.wasm', 2);
                                 const dataUrl = URL.createObjectURL(dataBlob);
                                 const wasmUrl = URL.createObjectURL(new Blob([wasmBlob], { type: 'application/wasm' }));
                                 createUnityInstance(document.querySelector("#unity-canvas"), {
                                         dataUrl: dataUrl,
-                                        frameworkUrl: "https://quantil.jsdelivr.net/gh/matheveryday25/math@main/goosegame/Build/Untitled Goose Game.framework.js",
+                                        frameworkUrl: "https://cdn.jsdelivr.net/gh/matheveryday25/math@main/goosegame/Build/Untitled Goose Game.framework.js",
                                         codeUrl: wasmUrl,
                                         streamingAssetsUrl: "StreamingAssets",
                                         companyName: "House House _ Bog",

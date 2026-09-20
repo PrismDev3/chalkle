@@ -55,6 +55,15 @@
     return false;
   }
 
+  /* A hosted Scramjet-style page is a dashboard, not necessarily a URL
+     router. Never send a requested destination to its hash unless the backend
+     is the verified built-in relay; otherwise the user sees the dashboard's
+     welcome page instead of the search or site they requested. */
+  function isTargetRoutingProxy(proxy) {
+    if (!proxy || !proxy.url) return false;
+    return !!(proxy.builtin || proxy.mode === "path" || isBuiltinProxyUrl(proxy.url));
+  }
+
   /* A usable same-origin base for the built-in proxy. The single-file
      build runs from file:// or an opaque origin, where location.origin is the
      literal string "null" - the builtin /res/ route cannot exist there. */
@@ -97,22 +106,53 @@
     if (!origin) { uvStatus = false; return; }
     if (uvStatus !== true && uvSeenGet()) uvStatus = true; /* trust this session */
     uvAttempts++;
+    /* The relay probe is shared with the Proxies tab: proxies.js records every
+       answer (latency, failures, timestamp) so the status the tab shows and
+       the status this launcher routes on are the same reading, not two
+       opinions that disagree. Falls back to a plain fetch when the proxy
+       registry is not on the page (single-file builds, older caches). */
+    function answer(ok) {
+      if (ok) { uvStatus = true; uvSeenSet(true); return; }
+      /* Not the proxy we know (404 on static hosts). Downgrade fast so a
+         mirror never keeps sending tabs into a dead /res, then two more
+         tries in case the server is mid-restart. */
+      uvStatus = false;
+      if (uvAttempts < 3) { setTimeout(probeBuiltinProxy, 900 * uvAttempts); return; }
+      uvSeenSet(false);
+    }
+    if (typeof window.ChalkProxyCheckRelay === "function") {
+      window.ChalkProxyCheckRelay(function (r) { answer(!!(r && r.ok)); });
+      return;
+    }
     fetch(origin + "/res/", { method: "GET", cache: "no-store" })
-      .then(function (r) {
-        if (r.ok) { uvStatus = true; uvSeenSet(true); return; }
-        /* Not the proxy we know (404 on static hosts). Downgrade fast so a
-           mirror never keeps sending tabs into a dead /uv, then two more
-           tries in case the server is mid-restart. */
-        uvStatus = false;
-        if (uvAttempts < 3) { setTimeout(probeBuiltinProxy, 900 * uvAttempts); return; }
-        uvSeenSet(false);
-      })
-      .catch(function () {
-        uvStatus = false;
-        if (uvAttempts < 3) { setTimeout(probeBuiltinProxy, 900 * uvAttempts); return; }
-        uvSeenSet(false);
-      });
+      .then(function (r) { answer(!!(r && r.ok)); })
+      .catch(function () { answer(false); });
   }
+
+  /* proxies.js re-checks the relay on a timer while the tab is visible, so a
+     tunnel that dies (or comes back) mid-session is noticed without a reload.
+     This is the launcher's end of that: follow the reading, and say so once
+     when it flips, instead of quietly sending the next tab into a dead relay.
+     Changes during the first check are boot noise (mirrors have no /res at
+     all) - only a flip after the first settled answer is worth a toast. */
+  var relaySettled = false;
+  document.addEventListener("chalkle:proxy-relay", function (e) {
+    var d = (e && e.detail) || {};
+    var was = uvStatus === true;
+    uvAttempts = 3;
+    if (d.ok) { uvStatus = true; uvSeenSet(true); } else { uvStatus = false; uvSeenSet(false); }
+    var first = !relaySettled;
+    relaySettled = true;
+    if (first || d.ok === was) return;
+    try {
+      if (window.ChalkleToast && window.ChalkleToast.show) {
+        window.ChalkleToast.show(d.ok
+          ? "Proxy relay answered again, pages route through it."
+          : "Proxy relay is not answering, pages open direct until it returns.");
+      }
+    } catch (err) { /* toasts are optional */ }
+    try { if (typeof window.ChalkleProxyRefresh === "function") window.ChalkleProxyRefresh(); } catch (err) { /* ignore */ }
+  });
   /* Optimistic start on real http(s) origins: the built-in /res route
      exists on the hosted site, so browser tabs can route through it
      immediately instead of waiting for the async probe - a search sent out
@@ -139,7 +179,7 @@
     var origin = usableOrigin();
     if (!origin) return null;
     if (uvStatus !== true) return null;
-    return { name: "Built-in", url: origin + "/res", mode: "path", builtin: true };
+    return { id: "relay", name: "Built-in", url: origin + "/res", mode: "path", builtin: true };
   }
 
   /* The backend the user picked in the Proxies tab. proxies.js owns the
@@ -147,6 +187,12 @@
      to know about the selector UI. */
   function chosenBackend() {
     try {
+      /* Resolve through proxies.js so "Auto" becomes a real node here: the
+         fastest one that answered, or the relay when nothing did. */
+      if (typeof window.ChalkProxyResolve === "function" &&
+          typeof window.ChalkProxyBackendGet === "function") {
+        return window.ChalkProxyResolve(window.ChalkProxyBackendGet());
+      }
       if (typeof window.ChalkProxyBackendFind === "function" &&
           typeof window.ChalkProxyBackendGet === "function") {
         return window.ChalkProxyBackendFind(window.ChalkProxyBackendGet());
@@ -171,6 +217,12 @@
   function liveProxy() {
     var chosen = chosenBackend();
     if (chosen && chosen.kind === "direct") return null;
+    if (chosen && chosen.kind === "auto") {
+      /* Auto with no health data yet (or every node dead): the built-in relay
+         is same-origin, keyless, and the one route that never depends on a
+         third party answering. */
+      return builtinProxy();
+    }
     if (chosen && chosen.kind === "frame") {
       /* The listed hosted pages are dashboards, not target routers. A hash
          containing a search URL only reopens their welcome page. Prefer the
@@ -211,7 +263,7 @@
     var emb = singleFileEmbed(target);
     if (emb) target = emb;
     var p = liveProxy();
-    if (p && /^https?:/i.test(target) && !shouldOpenDirect(target)) {
+    if (p && isTargetRoutingProxy(p) && /^https?:/i.test(target) && !shouldOpenDirect(target)) {
       target = routeProxy(target, p.url, p.mode === "frame" || !!p.hashRoute);
     }
     return target;
@@ -226,7 +278,10 @@
     var target = playTarget(url);
     window.ChalkleLaunch.lastOpenUrl = target;
     if (window.ChalkleBrowser && window.ChalkleBrowser.open) {
-      return window.ChalkleBrowser.open(target, title || "Playing");
+      /* `source` is the URL the user actually asked for, before routing. The
+         browser keeps it as the retry target: if the routed page fails, that
+         is the address it has to load again through a different route. */
+      return window.ChalkleBrowser.open(target, title || "Playing", { raw: true, source: url });
     }
     return false;
   }
@@ -268,7 +323,7 @@
        OS tab. The overlay's own pop-out button covers the rare full-tab
        case. */
     if (window.ChalkleBrowser && window.ChalkleBrowser.open) {
-      window.ChalkleBrowser.open(shell, title || target || "", { raw: true });
+      window.ChalkleBrowser.open(shell, title || target || "", { raw: true, source: target || shell });
       window.ChalkleLaunch.lastOpenUrl = shell;
       return true;
     }
@@ -466,6 +521,33 @@
     return liveProxy();
   }
 
+  /* Route a target and say WHICH node did it. The in-app browser needs the
+     node, not just the URL: when a routed page fails, that failure is
+     evidence about one node, and the retry has to skip it. `skip` is the list
+     of node ids already tried for this navigation.
+
+     Returns { url, node } - node is null when the target opens directly
+     (local builds, single-file embeds, Unity, nothing routable left). */
+  function routeFor(target, skip) {
+    var t = String(target || "").trim();
+    if (!t) return { url: t, node: null };
+    var emb = singleFileEmbed(t);
+    if (emb) return { url: emb, node: null };
+    if (!/^https?:/i.test(t) || shouldOpenDirect(t)) return { url: t, node: null };
+    var tried = skip || [];
+    var p = liveProxy();
+    if (p && p.id && tried.indexOf(p.id) !== -1) p = null;
+    if (!p && typeof window.ChalkProxyCandidates === "function") {
+      /* The preferred route already failed this navigation: walk to the first
+         node that has not been tried and is not known dead. */
+      var rest = window.ChalkProxyCandidates(tried) || [];
+      if (rest.length) p = rest[0];
+    }
+    if (!p) return { url: t, node: null };
+    if (!isTargetRoutingProxy(p)) return { url: t, node: null };
+    return { url: routeProxy(t, p.url, p.mode === "frame" || !!p.hashRoute), node: p };
+  }
+
   /* Route a site through the first configured proxy and open it as a plain
      new tab. With no live proxy we fall back to the normal direct open. */
   function openSiteProxied(target, title) {
@@ -478,11 +560,13 @@
       ChalkleLaunch.open(target || "", title || target || "");
       return (target || "");
     }
-    var url = routeProxy(target, p.url, p.mode === "frame" || !!p.hashRoute);
+    var url = isTargetRoutingProxy(p)
+      ? routeProxy(target, p.url, false)
+      : target;
     /* Same rule as openProxyApp: proxied sites load in the in-app browser,
        never as raw new tabs. */
     if (window.ChalkleBrowser && window.ChalkleBrowser.open) {
-      window.ChalkleBrowser.open(url, title || target || "", { raw: true });
+      window.ChalkleBrowser.open(url, title || target || "", { raw: true, source: target });
       window.ChalkleLaunch.lastOpenUrl = url;
       return url;
     }
@@ -503,13 +587,15 @@
     }
     var live = liveProxy();
     if (!live) { ChalkleLaunch.open(target || "", title || target || ""); return target || ""; }
-    var url = routeProxy(target, live.url, live.mode === "frame" || !!live.hashRoute);
+    var url = isTargetRoutingProxy(live)
+      ? routeProxy(target, live.url, false)
+      : target;
     /* Load inside Chalkle's own browser overlay: the whole point of the
        built-in /res/ proxy is that the site never leaves the app as a raw
        tab. The overlay keeps tabs, back/forward and a pop-out button, and
        its frames route through /res/ (raw: the URL is already routed). */
     if (window.ChalkleBrowser && window.ChalkleBrowser.open) {
-      window.ChalkleBrowser.open(url, title || target || "", { raw: true });
+      window.ChalkleBrowser.open(url, title || target || "", { raw: true, source: target });
       window.ChalkleLaunch.lastOpenUrl = url;
       return url;
     }
@@ -549,6 +635,15 @@
     return String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   }
 
+  /* Pop-up policy (Settings > Behavior). The in-app player patches window.open
+     inside the frame it controls; this is the same promise for the cloaked
+     about:blank window, where the frame is built from a data: URL we can only
+     configure up front. Behind the sandbox, dropping allow-popups means a
+     game's window.open call resolves to null and no ad tab appears. */
+  function blockPopups() {
+    try { return localStorage.getItem("chalkle-block-popups") !== "0"; } catch (e) { return true; }
+  }
+
   /* Open an external URL inside a fresh about:blank window. about:blank is
      treated as a system page, so tab-watching and screenshot monitoring can't
      capture what runs here. The blank document sets the cloak title/icon and
@@ -563,7 +658,7 @@
     /* A cloaked tab that loads a blocked URL is still a blocked tab - when
        the built-in proxy is live, route the framed page through it too. */
     var p = liveProxy();
-    if (p && /^https?:/i.test(target) && !shouldOpenDirect(target)) {
+    if (p && isTargetRoutingProxy(p) && /^https?:/i.test(target) && !shouldOpenDirect(target)) {
       target = routeProxy(target, p.url, p.mode === "frame" || !!p.hashRoute);
     }
     /* file: can never load inside a data: page (Chrome logs "Content at … may
@@ -573,76 +668,66 @@
     var ident = cloakIdentity();
     
     /* Build a self-contained cloaked page as a data URL. This avoids any
-       timing issues with document.write and ensures the guard is in place
-       before the iframe even loads. The page immediately intercepts any
-       attempt to steer the top window. */
+       timing issues with document.write. The iframe loads the game directly:
+       no meta refresh, no guard script. An earlier revision injected a
+       "refresh to about:blank" meta tag plus a location watchdog here, but
+       the refresh fired first and navigated the cloak page ITSELF to
+       about:blank, leaving the user a dead white tab; the watchdog could
+       never help because the sandbox below simply omits
+       allow-top-navigation, so the framed page cannot steer this tab in the
+       first place (cross-origin top.location is unreadable to it too). */
     var cloakPage = '' +
       '<!doctype html><html><head><meta charset="utf-8">' +
       '<title>' + escHtml(ident.title) + '</title>' +
       '<link rel="icon" href="' + escHtml(ident.icon) + '">' +
-      '<meta http-equiv="refresh" content="0;url=about:blank" id="navGuard">' +
       '<style>' +
       'html,body{margin:0;height:100%;overflow:hidden;background:#fff}' +
       'iframe{position:fixed;inset:0;width:100vw;height:100vh;border:0;background:#fff}' +
       '</style>' +
       '</head><body>' +
-      '<iframe id="gameFrame" src="about:blank" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-orientation-lock allow-pointer-lock allow-presentation" allow="' + ((window.ChalkleApi && ChalkleApi.iframeAllow) ? ChalkleApi.iframeAllow() + "; gamepad" : "fullscreen; picture-in-picture; gamepad") + '" allowfullscreen></iframe>' +
-      '<script>' +
-      '(function(){' +
-      '  var locked = false;' +
-      '  var frame = document.getElementById("gameFrame");' +
-      '  ' +
-      '  // Lock the top location immediately' +
-      '  try {' +
-      '    if (top.location !== self.location) {' +
-      '      top.location.replace("about:blank");' +
-      '    }' +
-      '  } catch(e) {}' +
-      '  ' +
-      '  // Monitor every 50ms for top-level navigation attempts' +
-      '  setInterval(function(){' +
-      '    try {' +
-      '      if (top.location.href !== "about:blank" && top.location.href !== self.location.href) {' +
-      '        top.location.replace("about:blank");' +
-      '      }' +
-      '    } catch(e) {}' +
-      '  }, 50);' +
-      '  ' +
-      '  // Load the actual game into the iframe' +
-      '  try {' +
-      '    frame.src = "' + target + '";' +
-      '  } catch(e) {' +
-      '    frame.src = target;' +
-      '  }' +
-      '  ' +
-      '  // If the iframe tries to navigate, catch it' +
-      '  frame.onload = function(){' +
-      '    try {' +
-      '      if (frame.contentWindow && frame.contentWindow.top && frame.contentWindow.top !== frame.contentWindow) {' +
-      '        frame.contentWindow.top.location.replace("about:blank");' +
-      '      }' +
-      '    } catch(e) {}' +
-      '  };' +
-      '})();' +
-      '</script>' +
+      '<iframe id="gameFrame" src="' + escHtml(target) + '" sandbox="allow-scripts allow-same-origin allow-forms' + (blockPopups() ? "" : " allow-popups") + ' allow-modals allow-orientation-lock allow-pointer-lock allow-presentation" allow="' + ((window.ChalkleApi && ChalkleApi.iframeAllow) ? ChalkleApi.iframeAllow() + "; gamepad" : "fullscreen; picture-in-picture; gamepad") + '" allowfullscreen></iframe>' +
       '</body></html>';
     
+    var win = null;
     try {
-      var win = window.open("data:text/html;charset=utf-8," + encodeURIComponent(cloakPage), "_blank");
+      win = window.open("data:text/html;charset=utf-8," + encodeURIComponent(cloakPage), "_blank");
       if (!win) {
-        // data URL blocked - fall back to about:blank with document.write
+        /* Data URL blocked - fall back to a real blank tab and build the same
+           page through DOM APIs. No document.write here: some browsers and
+           extensions silently refuse writes into about:blank popups, while
+           same-process DOM construction on the fresh WindowProxy keeps
+           working. Opener is cut only after the shell exists. */
         win = window.open("about:blank", "_blank");
         if (!win) return inAppFrame(url, title || url);
-        try { win.opener = null; } catch(e) { /* ignore */ }
-        var doc = win.document;
-        doc.open();
-        doc.write(cloakPage);
-        doc.close();
+        try {
+          var d = win.document;
+          var h = d.createElement("html");
+          var head = d.createElement("head");
+          var body = d.createElement("body");
+          var m = d.createElement("meta"); m.charset = "utf-8";
+          var ti = d.createElement("title"); ti.textContent = ident.title;
+          var ic = d.createElement("link"); ic.rel = "icon"; ic.href = ident.icon;
+          var st = d.createElement("style");
+          st.textContent = "html,body{margin:0;height:100%;overflow:hidden;background:#fff}iframe{position:fixed;inset:0;width:100vw;height:100vh;border:0;background:#fff}";
+          var tmp = d.createElement("div");
+          tmp.innerHTML = cloakPage;
+          var frame = tmp.querySelector("iframe");
+          head.appendChild(m); head.appendChild(ti); head.appendChild(ic); head.appendChild(st);
+          if (frame) body.appendChild(frame);
+          h.appendChild(head); h.appendChild(body);
+          d.replaceChild(h, d.documentElement);
+          if (!win.document.body || !win.document.body.firstElementChild) {
+            throw new Error("about:blank shell was not created");
+          }
+        } catch (e3) {
+          try { win.close(); } catch(e4) { /* ignore */ }
+          return inAppFrame(url, title || url);
+        }
       }
       try { win.opener = null; } catch(e) { /* ignore */ }
       window.ChalkleLaunch.lastOpenUrl = target;
     } catch (e) {
-      try { win.close(); } catch(e2) { /* ignore */ }
+      try { if (win && win.close) win.close(); } catch(e2) { /* ignore */ }
       return inAppFrame(url, title || url);
     }
     return true;
@@ -687,6 +772,10 @@
   function launchByMethod(method, url, title) {
     var target = String(url || "").trim();
     if (!target) return false;
+    /* One audio source at a time: whatever is being launched here can make
+       its own sound, so stop Chalkle Music before it starts. */
+    pauseMusicForTarget(target);
+    try { if (window.ChalkleMusic && window.ChalkleMusic.pause) window.ChalkleMusic.pause(); } catch (e) { /* no music module */ }
     if (method === "blank" && /^https?:/i.test(target)) return openBlankEmbed(target, title || target);
     if (method === "proxy") return openProxyApp(target, title || target);
     if (method === "frame") return inAppFrame(target, title || target);
@@ -776,7 +865,9 @@
     shellUrl: shellUrl,
     openSiteProxied: openSiteProxied,
     firstProxy: firstProxy,
+    routeFor: routeFor,
     routeProxy: routeProxy,
+    isTargetRoutingProxy: isTargetRoutingProxy,
     b64url: b64url,
     htmlUrl: htmlUrl,
     isLocalPlayUrl: isLocalPlayUrl,

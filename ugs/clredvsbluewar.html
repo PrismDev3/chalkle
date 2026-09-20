@@ -10,7 +10,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"/>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/tty67hlt6jf6/ghj@main/style.css"/>
 <!-- Yandex Games SDK -->
-<script src="https://cdn.jsdelivr.net/gh/tty67hlt6jf6/ghj@main/v2.272eb20751e2dc6fe4e6.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/tty67hlt6jf6/ghj@main/v2.02c5b63d689c6bc2f83c.js"></script>
 <style>
         /* Убираем выделение по нажатию клавиш */
         canvas:focus {
@@ -71,7 +71,7 @@
 <!-- Additional body modules -->
 <script>
         const hideFullScreenButton = "";
-        const buildUrl = "https://cdn.jsdelivr.net/gh/tty67hlt6jf6/ghj@main/Build/";
+        var buildUrl = "https://cdn.statically.io/gh/tty67hlt6jf6/ghj/main/Build/";
         const loaderUrl = buildUrl + "/BlueVSRed1.loader.js";
         const config = {
             dataUrl: buildUrl + "/a36b9f5940448d36a8d5682bc38478ea.data.unityweb",
@@ -172,7 +172,7 @@
             else return false;
         }
 
-        setTimeout(StartUnityInstance_IfUnloaded, 5000);
+        setTimeout(function () { if (typeof StartUnityInstance === "function") StartUnityInstance_IfUnloaded(); }, 5000);
 
         InitYSDK();
         async function InitYSDK() {

@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Membership</title>
+<style>
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #1b2b26;
+    color: #f4ecd8;
+    font: 16px/1.55 "Ubuntu", "Segoe UI", Arial, sans-serif;
+    text-align: center;
+  }
+  main { max-width: 30rem; padding: 2rem; }
+  h1 { margin: 0 0 0.75rem; font-size: 1.35rem; color: #7fd1bd; }
+  p { margin: 0 0 1.25rem; color: #cfc7b4; }
+  button {
+    font: inherit;
+    font-weight: 700;
+    padding: 0.6rem 1.4rem;
+    color: #10231e;
+    background: #7fd1bd;
+    border: 0;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  button:hover { background: #9ce2d1; }
+</style>
+</head>
+<body>
+  <main>
+    <h1>Memberships are off in this copy</h1>
+    <p>This build of the game runs offline, so the checkout page the live site opened is not here. Everything outside of memberships plays the same.</p>
+    <button id="membership-back" type="button">Back to the game</button>
+  </main>
+  <script>
+    document.getElementById("membership-back").addEventListener("click", function () {
+      try { parent.prodigyWeb.membershipFlow.close(false); return; } catch (e) { /* served on its own */ }
+      window.history.back();
+    });
+  </script>
+</body>
+</html>

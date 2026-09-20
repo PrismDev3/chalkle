@@ -1,4 +1,4 @@
-<html lang="en"><head><script src="//www.google.com/jsapi"></script><script>window.parent.maeExportApis_();</script>
+<html lang="en"><head><script src="//www.google.com/jsapi"></script><script>if (window.parent && window.parent.maeExportApis_) /* chalkle: removed CodePen parent-API call */</script>
 
 
   <meta charset="UTF-8">
@@ -11,17 +11,24 @@
 
 body {
 	margin: 0; padding: 0;
-  background-color: #000;
+  background-color: #e4d9cd;
   overflow: hidden;
 	font-family: 'Gloria Hallelujah', cursive;
+	height: 100vh;
+	display: flex;
+	align-items: center;
+	justify-content: center;
 }
 
 .container {
 	height: 552px;
 	width: 422px;
 	position: relative;
-	margin: 0px auto 0; 
+	margin: 0px auto 0;
 	overflow: hidden;
+	flex: none;
+	transform: scale(var(--dj-scale, 1));
+	transform-origin: center center;
 }
 
 canvas {
@@ -794,4 +801,17 @@ menuLoop();
 
 </script>
 
+<script>
+/* Chalkle framing fix: the board is a fixed 422x552 canvas. Scale it to fit
+   the window (uniform transform: physics and hit targets scale together)
+   and let flex centering letterbox it on the paper tone. */
+(function () {
+  function fit() {
+    var s = Math.min(window.innerWidth / 422, window.innerHeight / 552);
+    document.documentElement.style.setProperty("--dj-scale", s);
+  }
+  window.addEventListener("resize", fit);
+  fit();
+})();
+</script>
 </body></html>

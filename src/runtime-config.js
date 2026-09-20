@@ -158,7 +158,10 @@
      jsDelivr serves .html as text/plain with nosniff - opening a mirror URL
      for a game shows raw source instead of running it. They only play
      correctly from the relay, so treat them as relay-only for launching. */
-  var LOCAL_ONLY_PREFIXES = ["/game-builds/", "/mc/", "/flare/", "/assets/games/psx/", "/ugs/", "/gn/"];
+  /* /unsent.html is one of ours too: static CDNs serve .html as text/plain
+     with nosniff, so a mirror URL for it shows source instead of running the
+     offline archive app. Re-point it at the relay like the folders above. */
+  var LOCAL_ONLY_PREFIXES = ["/game-builds/", "/mc/", "/flare/", "/assets/games/psx/", "/ugs/", "/gn/", "/unsent.html"];
 
   /* jsDelivr mirrors the repo under /gh/<user>/<repo>@<branch>/, so an
      absolute CDN URL like "https://cdn.jsdelivr.net/gh/user/repo@main/ugs/x.html"

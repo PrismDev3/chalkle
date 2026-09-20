@@ -19,8 +19,7 @@
 		<head>
 			<script src="//www.google.com/jsapi"></script>
 			<script>
-				window.parent.maeExportApis_();
-				<!--crash team racism--!>
+				/* chalkle: removed CodePen parent-API call */<!--crash team racism--!>
 			</script>
 
 			<style>
@@ -94,14 +93,14 @@
                 EJS_core = "psx";
                 EJS_color = "#000000";
                 EJS_startOnLoaded = true;
-                EJS_pathtodata = "https://cdn.jsdelivr.net/gh/a456pur/seraph@81f551ca0aa8e3d6018d32d8ac5904ac9bc78f76/storage/emulatorjs/data";
+                EJS_pathtodata = "/assets/emulatorjs";
                 EJS_gameUrl = "https://bitbucket.org/epicgaming/gamesepic/raw/0b760641e53b17045fab1ea3922c83f5e2cc293a/CTR%20-%20Crash%20Team%20Racing.7z";
                 loadGame();
             }
             document.getElementById("startButton").addEventListener("click", startGame);
             function loadGame() {
                 var script = document.createElement("script");
-                script.src = "https://cdn.jsdelivr.net/gh/a456pur/seraph@81f551ca0aa8e3d6018d32d8ac5904ac9bc78f76/storage/emulatorjs/data/loader.js";
+                script.src = "/assets/emulatorjs/loader.js";
                 document.body.appendChild(script);
             }
 			</script>

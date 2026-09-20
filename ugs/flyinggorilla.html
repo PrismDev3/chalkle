@@ -95,8 +95,8 @@
 
       (async () => {
         const [dataUrl, wasmUrl] = await Promise.all([
-          mergeFiles(getParts("https://quantil.jsdelivr.net/gh/matheveryday25/math@main/gorilla/Build/vb.data", 1, 2)),
-          mergeFiles(getParts("https://quantil.jsdelivr.net/gh/matheveryday25/math@main/gorilla/Build/vb.wasm", 1, 2)),
+          mergeFiles(getParts("https://cdn.jsdelivr.net/gh/matheveryday25/math@main/gorilla/Build/vb.data", 1, 2)),
+          mergeFiles(getParts("https://cdn.jsdelivr.net/gh/matheveryday25/math@main/gorilla/Build/vb.wasm", 1, 2)),
         ]);
 
         const canvas = document.querySelector("#unity-canvas");

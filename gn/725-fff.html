@@ -80,9 +80,9 @@
 
         if (urlString.includes("get_latest_news.php")) {
           if (input instanceof Request) {
-              input = new Request("https://cdn.jsdelivr.net/gh/genizy/awesome@tree/main", input);
+              input = new Request("https://rawcdn.githack.com/genizy/awesome/tree/main", input);
           } else {
-              input = "https://cdn.jsdelivr.net/gh/genizy/awesome@tree/main";
+              input = "https://rawcdn.githack.com/genizy/awesome/tree/main";
           }
         }
 

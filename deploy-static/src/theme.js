@@ -265,10 +265,180 @@
     document.documentElement.style.setProperty("--custom-cursor-pointer", pointerCss);
   }
 
+  /* --------------------------------------------------------- theme codes ---
+     A whole look is four values, so it travels as one line of text: the
+     values, JSON-encoded and base64url'd behind a short prefix. Paste a code
+     (or an exported JSON blob) to install it. Pyrus ships a theme marketplace
+     with a catalogue and an install flow; the same thing works without a
+     server at all when the "package" is a string anyone can send.
+
+     Codes are untrusted input, so nothing is applied before every field is
+     checked: colors must be #rrggbb, the wallpaper must be one of ours or a
+     renderable http(s)/data/blob URL, and the cursor must exist locally. A
+     bad field is dropped rather than allowed to reach the CSS custom
+     properties, where an arbitrary string would be a style injection. */
+
+  var CODE_PREFIX = "CHK1.";
+
+  function b64urlEncode(text) {
+    var bytes = new TextEncoder().encode(text);
+    var bin = "";
+    for (var i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+    return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  }
+
+  function b64urlDecode(text) {
+    var b = String(text || "").replace(/-/g, "+").replace(/_/g, "/");
+    while (b.length % 4) b += "=";
+    var bin = atob(b);
+    var bytes = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return new TextDecoder().decode(bytes);
+  }
+
+  function isHex(v) {
+    return /^#[0-9a-f]{6}$/i.test(String(v || "").trim());
+  }
+
+  function cleanWallpaper(v) {
+    var wp = String(v == null ? "" : v).trim();
+    if (!wp) return "chalk";
+    if (wp === "none") return "none";
+    if (WALLPAPERS[wp]) return wp;
+    if (wp.indexOf("custom:") === 0 && /^(https?:|data:|blob:)/i.test(wp.slice(7))) return wp;
+    return "chalk";
+  }
+
+  /* ------------------------------------------------- VS Code themes ---
+     A VS Code colour theme is just JSON with a colors map, and there are
+     thousands of them. Reading one turns that whole catalogue into Chalkle
+     themes: the editor background becomes the canvas, and the first
+     trustworthy accent key becomes the accent. Ordering matters more than
+     completeness here - button.background is a deliberate brand colour, while
+     foreground/text keys are often near-white and make a useless accent. */
+
+  var VS_BG_KEYS = [
+    "editor.background", "sideBar.background", "activityBar.background",
+    "terminal.background", "panel.background", "titleBar.activeBackground"
+  ];
+  var VS_ACCENT_KEYS = [
+    "button.background", "button.primaryBackground", "activityBarBadge.background",
+    "progressBar.background", "focusBorder", "activityBar.activeBorder",
+    "textLink.foreground", "textLink.activeForeground", "editorCursor.foreground",
+    "terminal.ansiBlue", "terminal.ansiCyan", "terminal.ansiMagenta", "charts.blue"
+  ];
+
+  /* VS Code allows #rgb, #rrggbb and #rrggbbaa; the CSS variables want #rrggbb. */
+  function vsHex(value) {
+    var s = String(value == null ? "" : value).trim();
+    if (!/^#([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(s)) return "";
+    if (s.length === 4) s = "#" + s[1] + s[1] + s[2] + s[2] + s[3] + s[3];
+    if (s.length === 9) s = s.slice(0, 7);
+    return s.toLowerCase();
+  }
+
+  function fromVsCode(raw) {
+    if (!raw || typeof raw !== "object") return null;
+    var colors = (raw.colors && typeof raw.colors === "object") ? raw.colors
+      : ((raw.workbench && raw.workbench.colorCustomizations) || null);
+    if (!colors) return null;
+    var bg = "", i, accent = "";
+    for (i = 0; i < VS_BG_KEYS.length && !bg; i++) bg = vsHex(colors[VS_BG_KEYS[i]]);
+    if (!bg) return null;
+    for (i = 0; i < VS_ACCENT_KEYS.length && !accent; i++) accent = vsHex(colors[VS_ACCENT_KEYS[i]]);
+    /* Plenty of themes define no button or link colour at all. Deriving one
+       from the background is better than refusing the import. */
+    if (!accent) accent = luminance(bg) < 0.5 ? lighten(bg, 55) : darken(bg, 45);
+    var name = String(raw.name || "VS Code theme").replace(/\s+/g, " ").trim().slice(0, 40);
+    return { bg: bg, accent: accent, name: name || "VS Code theme" };
+  }
+
+  /* Accepts our objects, an exported JSON string, a CHK1. code, or a VS Code
+     theme. Returns a fully validated theme or null. */
+  function readTheme(text) {
+    var raw = null;
+    if (text && typeof text === "object") raw = text;
+    else {
+      var s = String(text == null ? "" : text).trim();
+      if (!s) return null;
+      try {
+        if (s.indexOf(CODE_PREFIX) === 0) raw = JSON.parse(b64urlDecode(s.slice(CODE_PREFIX.length)));
+        else if (s.charAt(0) === "{") raw = JSON.parse(s);
+      } catch (e) { return null; }
+    }
+    if (!raw || typeof raw !== "object") return null;
+    var fromVs = false;
+    if (!isHex(raw.bg) || !isHex(raw.accent)) {
+      var vs = fromVsCode(raw);
+      if (!vs) return null;
+      fromVs = true;
+      /* A VS Code theme has no opinion about wallpaper or cursor, so keep the
+         one already in use instead of resetting the room around the colours. */
+      raw = {
+        bg: vs.bg, accent: vs.accent, name: vs.name,
+        wallpaper: raw.wallpaper || ChalkleTheme.getWallpaper(),
+        cursor: raw.cursor || ChalkleTheme.getCursor()
+      };
+    }
+    /* Anything the sender did not specify keeps this device's current choice:
+       a two-colour theme should not silently reset your wallpaper. */
+    if (!raw.wallpaper) raw.wallpaper = ChalkleTheme.getWallpaper();
+    if (!raw.cursor) raw.cursor = ChalkleTheme.getCursor();
+    var cursor = String(raw.cursor || "").trim();
+    if (!cursor || !CURSORS[cursor]) cursor = "none";
+    var name = String(raw.name == null ? "" : raw.name).replace(/\s+/g, " ").trim().slice(0, 40) || "Shared theme";
+    var theme = { app: "chalkle-theme", v: 1, name: name, bg: raw.bg.trim(), accent: raw.accent.trim(), wallpaper: cleanWallpaper(raw.wallpaper), cursor: cursor };
+    if (fromVs) theme.vscode = true;
+    return theme;
+  }
+
+  function snapshot() {
+    var custom = ChalkleTheme.getCustom() || {};
+    var presetId = ChalkleTheme.getPreset();
+    var p = PRESETS[presetId];
+    return {
+      app: "chalkle-theme",
+      v: 1,
+      name: (custom.name || (p && p.label) || "Custom"),
+      bg: custom.bg || "",
+      accent: custom.accent || "",
+      wallpaper: ChalkleTheme.getWallpaper(),
+      cursor: ChalkleTheme.getCursor()
+    };
+  }
+
+  function installTheme(text) {
+    var theme = readTheme(text);
+    if (!theme) return { ok: false, error: "That does not look like a Chalkle theme code." };
+    try {
+      localStorage.setItem(CUSTOM_KEY, JSON.stringify({ bg: theme.bg, accent: theme.accent, name: theme.name }));
+      if (theme.wallpaper && theme.wallpaper !== "none") localStorage.setItem(WALLPAPER_KEY, theme.wallpaper);
+      else localStorage.removeItem(WALLPAPER_KEY);
+      localStorage.setItem(CURSOR_KEY, theme.cursor);
+      localStorage.removeItem(PRESET_KEY);
+    } catch (e) { /* no storage: still applies for this session */ }
+    applyPalette(buildPalette(theme.bg, theme.accent));
+    applyWallpaper(theme.wallpaper);
+    applyCursor(theme.cursor);
+    return { ok: true, theme: theme };
+  }
+
   var ChalkleTheme = {
     presets: PRESETS,
     wallpapers: WALLPAPERS,
     cursors: CURSORS,
+    /* Sharing API: snapshot() for the current look, shareCode() for the one-line
+       code, exportTheme() for a readable JSON blob, install() to take one. */
+    snapshot: snapshot,
+    shareCode: function () {
+      return CODE_PREFIX + b64urlEncode(JSON.stringify(snapshot()));
+    },
+    exportTheme: function () {
+      return JSON.stringify(snapshot(), null, 2);
+    },
+    install: installTheme,
+    read: readTheme,
+    codePrefix: CODE_PREFIX,
     getCursor: function () {
       return localStorage.getItem(CURSOR_KEY) || "none";
     },

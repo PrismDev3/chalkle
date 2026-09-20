@@ -100,7 +100,7 @@
     setStatus("saving channels", "busy");
     return fetch(apiUrl("/api/live-tv/admin"), {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "X-Requested-With": "chalkle" },
       body: JSON.stringify({ channels: state.admin })
     })
       .then(function (r) { return r.json(); })

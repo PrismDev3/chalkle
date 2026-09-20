@@ -6,7 +6,9 @@
 <meta name="referrer" content="no-referrer">
 <title>Chalkle Browser</title>
 <script src="src/theme.js"></script>
-<link rel="icon" href="favicon.svg">
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <style>
   :root {
     color-scheme: dark;
@@ -620,7 +622,7 @@
       addr.value = cur;
       addrIco.classList.toggle("is-editing", false);
     }
-    document.title = (s && s.title ? s.title + " \u2014 " : "") + "Chalkle Browser";
+    document.title = (s && s.title ? s.title + " | " : "") + "Chalkle Browser";
     if (!s) return;
     /* keep the active tab visible in the strip */
     var el = tabsEl.querySelector('[data-bk-tab="' + s.id + '"]');
@@ -970,4 +972,4 @@
 })();
 </script>
 </body>
-</html>
+</html>

@@ -1,0 +1,81 @@
+{
+  "background_color": "#ffffff",
+  "description": "Kart Bros is a free kart racing game that's packed with wild antics! Whether you're hugging the turns, drifting around tracks or hurling powerups with friends, Kart Bros is an io racing game that delivers non-stop thrills in every race.",
+  "dir": "auto",
+  "display": "standalone",
+  "ms_start_compatible": true,
+  "name": "Kart Bros!",
+  "orientation": "landscape",
+  "scope": "./",
+  "short_name": "Kart Bros!",
+  "start_url": "index.html?ms=1",
+  "id": "com.bluewizard.kartbros",
+  "theme_color": "#ffffff",
+  "background": {
+    "service_worker": "TemplateData/sw.js"
+  },
+  "display_override": [
+    "standalone",
+    "fullscreen",
+    "browser",
+    "minimal-ui",
+    "window-controls-overlay"
+  ],
+  "categories": [
+    "games"
+  ],
+  "lang": "en",
+  "edge_side_panel": {
+    "preferred_width": 0
+  },
+  "handle_links": "preferred",
+  "launch_handler": {
+    "client_mode": [
+      "focus-existing",
+      "auto"
+    ]
+  },
+  "icons": [
+    {
+      "src": "https://kartbros.io/kartbro_512x512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "isSquare": true,
+      "isPng": true,
+      "isWebp": false,
+      "isJpg": false,
+      "width": 512,
+      "is512x512": true,
+      "is256x256": false,
+      "is192x192": false
+    },
+    {
+      "src": "TemplateData/splash.jpg",
+      "sizes": "1920x1080",
+      "type": "image/jpeg",
+      "purpose": "any"
+    }
+  ],
+  "images": [
+    {
+      "src": "TemplateData/splash.jpg",
+      "sizes": "1920x1080",
+      "type": "image/jpeg",
+      "purpose": "any"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "TemplateData/kb-ss1.jpg",
+      "type": "image/jpeg",
+      "sizes": "1920x1080",
+      "form_factor": "wide"
+    },
+    {
+      "src": "TemplateData/kb-ss2.jpg",
+      "type": "image/jpeg",
+      "sizes": "1920x1080",
+      "form_factor": "wide"
+    }
+  ]
+}

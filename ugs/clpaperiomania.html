@@ -45,15 +45,16 @@
 				src="https://cdn.jsdelivr.net/gh/bessiegasbarro/papman@01527b751e7c26a0579a01fb2fe1d303703a4d7f/papers.js">
 			</script>
 			<script>
-				document.addEventListener("deviceready", function () { document.addEventListener("backbutton", function () { // quit // lost progress if (grpSceneInfoDialog.visible) { SceneInfoDialog.instance.OnPressedNo(); } else // pause if (grpScenePause.visible) { ScenePause.instance.OnPressedCloseDialog(); } else // game if (grpSceneCamera.visible) { SceneCamera.instance.OnPressedPause(); } else // settings if (grpSceneSettings.visible) { SceneSettings.instance.OnPressedCloseDialog(); } else // instructions if (grpSceneInstruction.visible) { SceneInstruction.instance.cancelInstruction(); } else // about if (grpSceneAbout.visible) { SceneAbout.instance.cancelAbout(); } else // menu // result if (grpSceneBasic.visible && !gameRunning) { quitAppDialog(); } }, false); }, false); 
+				document.addEventListener("deviceready", function () {
+				document.addEventListener("backbutton", function () {
+				// hardware back is handled inside the engine
+				}, false);
+			}, false); 
 			</script>
 		</div>
 		<div class="font_preload" style="opacity: 0"> <span style="font-family: 'gameFont', Arial, normal;"></span>
 		</div>
 		<div id="ads"></div>
-		<script
-			src="https://s3.amazonaws.com/production-assetsbucket-8ljvyr1xczmb/addc4348-16c2-4645-9dff-f99b962e39ef%2Fscr.js">
-		</script>
 </body>
 
 </html>

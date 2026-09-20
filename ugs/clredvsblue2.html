@@ -1,4 +1,4 @@
-
+<script>/* chalkle: scr.js replacement v2 (dead S3 gadgets container shim) */(function(){var g=window.gadgets=window.gadgets||{};g.rpc=g.rpc||{setRelayUrl:function(){},setAuthToken:function(){},setupReceiver:function(){},getAuthToken:function(){return '';},setRelayIframeUrl:function(){},setAnchorUrl:function(){},call:function(){},callRpc:function(){},register:function(){},getReceiverOrigin:function(){return null;},receive:function(){},init:function(){},RpcService:function(){this.register=function(){};this.getRelayUrl=function(){return null;};this.getAuthToken=function(){return '';};}};g.rpc.config=g.rpc.config||{};g.util=g.util||{getUrlParameters:function(){var o={};var q=location.search.substring(1);var re=/([^&=]+)=([^&]*)/g,m;while((m=re.exec(q))){o[decodeURIComponent(m[1])]=decodeURIComponent(m[2].replace(/\x2b/g,' ').replace(/%2B/g,' '));}return o;},registerOnLoadHandler:function(f){(window.__gLoaders=window.__gLoaders||[]).push(f);},runOnLoadHandlers:function(){(window.__gLoaders||[]).forEach(function(f){try{f();}catch(e){}});},attachBrowserEvent:function(){},removeBrowserEvent:function(){},createElement:function(t){return document.createElement(t);},escapeString:function(s){return String(s);},escape:function(s){return String(s);},makeClosure:function(f,o){return f.bind(o);},makeEnum:function(){return {};},getFeatureParameters:function(){return {};},hasFeature:function(){return false;},getInnerText:function(e){return e?e.innerText:'';},getBodyElement:function(){return document.body;},getServices:function(){return {};},unescapeString:function(s){return s;}};g.Prefs=g.Prefs||function(){return {getString:function(){return '';},getInt:function(){return 0;},getBool:function(){return false;},getFloat:function(){return 0;},getArray:function(){return [];},getMsg:function(){return '';},getLang:function(){return 'en';},getCountry:function(){return 'US';},getModuleId:function(){return 0;},set:function(){},setArray:function(){}};};g.Prefs.setMessages_=g.Prefs.setMessages_||function(){};g.Prefs.setDefaultPrefs_=g.Prefs.setDefaultPrefs_||function(){};g.Prefs.setInternal_=g.Prefs.setInternal_||function(){};g.Prefs.parseUrl=g.Prefs.parseUrl||function(){};g.io=g.io||{makeRequest:function(u,cb){cb&&cb({});},makeNonProxiedRequest:function(u,cb){cb&&cb({});},getProxyUrl:function(u){return u;},encodeValues:function(){return '';},preloaded_:[],RequestParameters:{METHOD:'METHOD',CONTENT_TYPE:'CONTENT_TYPE',POST_DATA:'POST_DATA',HEADERS:'HEADERS',AUTHORIZATION:'AUTHORIZATION',REFRESH_INTERVAL:'REFRESH_INTERVAL',GET_SUMMARIES:'GET_SUMMARIES'},MethodType:{GET:'GET',POST:'POST',PUT:'PUT',DELETE:'DELETE'},ContentType:{TEXT:'TEXT',JSON:'JSON',DOM:'DOM',FRAGMENT:'FRAGMENT'},AuthorizationType:{NONE:'NONE',SIGNED:'SIGNED',OAUTH:'OAUTH'}};g.json=g.json||{parse:function(s){try{return JSON.parse(s);}catch(e){return null;}},stringify:function(o){try{return JSON.stringify(o);}catch(e){return undefined;}},flatten:function(){return {};}};g.config=g.config||{init:function(){},update:function(){},register:function(){},get:function(){return {};},BooleanValidator:function(){},EnumValidator:function(){},ExistsValidator:function(){},LikeValidator:function(){},NonEmptyStringValidator:function(){},RegExValidator:function(){}};g.log=function(){};g.warn=function(){};g.error=function(){};g.debug=function(){};g.setLogLevel=function(){};window._IG_RegisterOnloadHandler=g.util.registerOnLoadHandler;})();</script>
 
 <!-- Ultimate Game Stash file--> 
 <!-- For the regularly updating doc go to https://docs.google.com/document/d/1_FmH3BlSBQI7FGgAQL59-ZPe8eCxs35wel6JUyVaG8Q/ -->
@@ -839,7 +839,7 @@ if (_params['exp_rpc_js'] != 1) {
 </head>
 
 <body class="dark" dir="ltr">
-	<script src="https://cdn.jsdelivr.net/gh/meymenet645x/g@main/v2.05d2ba7fadb5ca96a381.js"></script>
+	<script src="https://cdn.jsdelivr.net/gh/tty67hlt6jf6/ghj@main/v2.02c5b63d689c6bc2f83c.js"></script>
 	<div class="unity-desktop" id="unity-container">
 		<canvas id="unity-canvas" tabindex="-1" style="cursor: default;" width="1322" height="926"></canvas>
 	</div>
@@ -854,72 +854,14 @@ if (_params['exp_rpc_js'] != 1) {
 
 	<script>
 		const hideFullScreenButton = "";
-    const buildUrl = "https://cdn.jsdelivr.net/gh/meymenet645x/g@main/Build";
-    const loaderUrl = buildUrl + "/Final.loader.js";
-    const config = {
-        dataUrl: buildUrl + "/Final.data.unityweb",
-        frameworkUrl: buildUrl + "/Final.framework.js.unityweb",
-        codeUrl: buildUrl + "/Final.wasm.unityweb",
-        streamingAssetsUrl: "StreamingAssets",
-        companyName: "SteelRaven7",
-        productName: "Ravenfield",
-        productVersion: "1.0"
-    };
-
-    // Patch UnityLoader to support multiple data files
-    const originalUnityLoaderFetch = fetch;
-    fetch = async function (url, ...args) {
-        if (url.endsWith("/Final.data.unityweb")) {
-            const part1 = await originalUnityLoaderFetch(buildUrl + "/Final_part1.data.unityweb");
-            const part2 = await originalUnityLoaderFetch(buildUrl + "/Final_part2.data.unityweb");
-            
-            const part1Buffer = await part1.arrayBuffer();
-            const part2Buffer = await part2.arrayBuffer();
-
-            const combinedBuffer = new Uint8Array(part1Buffer.byteLength + part2Buffer.byteLength);
-            combinedBuffer.set(new Uint8Array(part1Buffer), 0);
-            combinedBuffer.set(new Uint8Array(part2Buffer), part1Buffer.byteLength);
-
-            return new Response(combinedBuffer.buffer);
-        }
-        return originalUnityLoaderFetch(url, ...args);
-    };
-
-    const container = document.querySelector("#unity-container");
-    const canvas = document.querySelector("#unity-canvas");
-    const loadingCover = document.querySelector("#loading-cover");
-    const progressBarEmpty = document.querySelector("#unity-progress-bar-empty");
-    const progressBarFull = document.querySelector("#unity-progress-bar-full");
-    const spinner = document.querySelector('.spinner');
-
-    const script = document.createElement("script");
-    script.src = loaderUrl;
-    script.onload = () => {
-        createUnityInstance(canvas, config, (progress) => {
-            spinner.style.display = "none";
-            loadingCover.style.display = "block";
-            progressBarEmpty.style.display = "block";
-            progressBarFull.style.width = `${100 * progress}%`;
-        }).then((unityInstance) => {
-            loadingCover.style.display = "none";
-        }).catch((message) => {
-            console.error(message);
-        });
-    };
-
-
-
-    document.body.appendChild(script);
 	</script>
-	<script src="https://cdn.jsdelivr.net/gh/meymenet645x/g@main/Build/Final.loader.js"></script>
-
 	<script>
-		const buildUrl = "https://cdn.jsdelivr.net/gh/meymenet645x/g@main/Build";
-        const loaderUrl = buildUrl + "/Final.loader.js";
+		var buildUrl = "https://cdn.statically.io/gh/tty67hlt6jf6/ghj/main/Build";
+        var loaderUrl = buildUrl + "/BlueVSRed1.loader.js";
         const config = {
-            dataUrl: buildUrl + "/Final.data.unityweb",
-            frameworkUrl: buildUrl + "/Final.framework.js.unityweb",
-            codeUrl: buildUrl + "/Final.wasm.unityweb",
+            dataUrl: buildUrl + "/a36b9f5940448d36a8d5682bc38478ea.data.unityweb",
+            frameworkUrl: buildUrl + "/bc3e88a086fb03a73daece7610914c2f.js.unityweb",
+            codeUrl: buildUrl + "/b8e5b3dfc39c219988e9b794d0e2b865.wasm.unityweb",
         streamingAssetsUrl: "StreamingAssets",
             companyName: "SteelRaven7",
             productName: "Ravenfield",

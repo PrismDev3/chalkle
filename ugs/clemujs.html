@@ -280,7 +280,7 @@
                 addOptions(version_select, versions.versions, versions.default);
                 version_select.addEventListener("change", () => {
                     localStorage.setItem("version", version_select[version_select.selectedIndex].textContent);
-                    window.cdn = "https://cdn.jsdelivr.net/gh/genizy/emu@7bf5cbb0b94866568d2aaa1fd42ebb5acd517e0d/";
+                    window.cdn = "/assets/emulatorjs/";
                 });
             }
             input.addEventListener("change", async () => {
@@ -379,7 +379,7 @@
                 div.appendChild(sub)
                 document.body.appendChild(div)
 
-                const cdn = window.cdn || "https://cdn.jsdelivr.net/gh/genizy/emu@7bf5cbb0b94866568d2aaa1fd42ebb5acd517e0d/"
+                const cdn = window.cdn || "/assets/emulatorjs/"
 
                 window.EJS_player = "#game";
                 window.EJS_gameName = parts.shift();
@@ -450,7 +450,7 @@
                         option.textContent = version;
                     }
                     option.selected = true;
-                    window.cdn = "https://cdn.jsdelivr.net/gh/genizy/emu@7bf5cbb0b94866568d2aaa1fd42ebb5acd517e0d/";
+                    window.cdn = "/assets/emulatorjs/";
                     select.appendChild(option);
                 }
             }

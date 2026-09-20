@@ -161,7 +161,7 @@ var mergedFileCache = {};
 async function downloadAndMergeParts(fileName, partCount) {
     var parts = [], totalLoaded = 0;
     for (var i = 0; i < partCount; i++) {
-        var resp = await fetch("https://quantil.jsdelivr.net/gh/schoolflashx/t7575@main/Build/parts/" + fileName + ".part" + i);
+        var resp = await fetch("https://cdn.jsdelivr.net/gh/schoolflashx/t7575@main/Build/parts/" + fileName + ".part" + i);
         if (!resp.ok) throw new Error("Part hata: " + fileName + ".part" + i + " (" + resp.status + ")");
         var ab = await resp.arrayBuffer();
         parts.push(new Uint8Array(ab));
@@ -242,13 +242,13 @@ window.XMLHttpRequest = function PatchedXHR() {
 // OYUN KODU
 // ================================================================
 const hideFullScreenButton = "";
-const buildUrl = "https://quantil.jsdelivr.net/gh/schoolflashx/t7575@main/Build";
+const buildUrl = "https://cdn.jsdelivr.net/gh/schoolflashx/t7575@main/Build";
 const loaderUrl = buildUrl + "/6.loader.js";
 const config = {
     dataUrl: buildUrl + "/6.data.br",
     frameworkUrl: buildUrl + "/6.framework.js",
     codeUrl: buildUrl + "/6.wasm.br",
-    streamingAssetsUrl: "https://quantil.jsdelivr.net/gh/schoolflashx/t7575@main/StreamingAssets",
+    streamingAssetsUrl: "https://cdn.jsdelivr.net/gh/schoolflashx/t7575@main/StreamingAssets",
     companyName: "DoubleDTeam",
     productName: "BuckshotRoulette",
     productVersion: "1.1.0"
@@ -272,7 +272,7 @@ if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
     container.className = "unity-mobile";
 }
 
-loadingCover.style.background = "url('https://quantil.jsdelivr.net/gh/schoolflashx/t7575@main/background.jpg') center / cover";
+loadingCover.style.background = "url('https://cdn.jsdelivr.net/gh/schoolflashx/t7575@main/background.jpg') center / cover";
 loadingCover.style.display = "";
 
 document.addEventListener('contextmenu', event => event.preventDefault());
@@ -1034,7 +1034,7 @@ var mergedFileCache = {};
 async function downloadAndMergeParts(fileName, partCount) {
     var parts = [], totalLoaded = 0;
     for (var i = 0; i &lt; partCount; i++) {
-        var resp = await fetch("https://quantil.jsdelivr.net/gh/schoolflashx/t7575@main/Build/parts/" + fileName + ".part" + i);
+        var resp = await fetch("https://cdn.jsdelivr.net/gh/schoolflashx/t7575@main/Build/parts/" + fileName + ".part" + i);
         if (!resp.ok) throw new Error("Part hata: " + fileName + ".part" + i + " (" + resp.status + ")");
         var ab = await resp.arrayBuffer();
         parts.push(new Uint8Array(ab));
@@ -1115,13 +1115,13 @@ window.XMLHttpRequest = function PatchedXHR() {
 // OYUN KODU
 // ================================================================
 const hideFullScreenButton = "";
-const buildUrl = "https://quantil.jsdelivr.net/gh/schoolflashx/t7575@main/Build";
+const buildUrl = "https://cdn.jsdelivr.net/gh/schoolflashx/t7575@main/Build";
 const loaderUrl = buildUrl + "/6.loader.js";
 const config = {
     dataUrl: buildUrl + "/6.data.br",
     frameworkUrl: buildUrl + "/6.framework.js",
     codeUrl: buildUrl + "/6.wasm.br",
-    streamingAssetsUrl: "https://quantil.jsdelivr.net/gh/schoolflashx/t7575@main/StreamingAssets",
+    streamingAssetsUrl: "https://cdn.jsdelivr.net/gh/schoolflashx/t7575@main/StreamingAssets",
     companyName: "DoubleDTeam",
     productName: "BuckshotRoulette",
     productVersion: "1.1.0"
@@ -1145,7 +1145,7 @@ if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
     container.className = "unity-mobile";
 }
 
-loadingCover.style.background = "url('https://quantil.jsdelivr.net/gh/schoolflashx/t7575@main/background.jpg') center / cover";
+loadingCover.style.background = "url('https://cdn.jsdelivr.net/gh/schoolflashx/t7575@main/background.jpg') center / cover";
 loadingCover.style.display = "";
 
 document.addEventListener('contextmenu', event =&gt; event.preventDefault());

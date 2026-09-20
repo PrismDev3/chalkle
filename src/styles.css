@@ -45,7 +45,7 @@
   /* ---- Text ---- */
   --text: #ece9e1;               /* warm off-white */
   --text-secondary: #a7a196;     /* secondary */
-  --text-muted: #7b7568;         /* muted, WCAG AA on --surface */
+  --text-muted: #8a8477;         /* muted: 4.6:1 on --surface (AA small text) */
 
   /* ---- Accent (one primary: chalk green from the logo) ---- */
   --accent: #4cc56f;
@@ -292,6 +292,34 @@ button {
   height: 100vh;
   position: relative;
   z-index: 1;
+}
+
+/* ---------- Skip link (items 690/697) ----------
+   First tab stop on every view: jumps keyboard users past the topbar
+   straight to #main. Hidden until focused, same yellow as the cloak
+   workaround buttons. */
+.skip-link {
+  position: fixed;
+  top: 8px;
+  left: 8px;
+  z-index: 60;
+  padding: 10px 16px;
+  border-radius: 10px;
+  background: var(--yellow);
+  color: #241a00;
+  font-weight: 700;
+  text-decoration: none;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
+  transform: translateY(-200%);
+  transition: transform 120ms ease;
+}
+
+.skip-link:focus-visible {
+  transform: translateY(0);
+}
+
+.skip-link:focus {
+  transform: translateY(0);
 }
 
 /* ---------- Top bar ---------- */
@@ -1388,6 +1416,16 @@ button.home-panel-chip:hover {
   gap: 10px;
 }
 
+/* Chromebook perf: off-screen cards skip layout and paint entirely, so a
+   480-card grid only pays for the rows actually near the viewport. The
+   intrinsic-size hint keeps the scrollbar stable while cards are skipped
+   (auto remembers each card's real height after first render). Pure CSS:
+   no JS observer, no cost on the cards that are visible. */
+.grid > * {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 240px;
+}
+
 .grid-more {
   grid-column: 1 / -1;
   display: grid;
@@ -1827,6 +1865,14 @@ button.home-panel-chip:hover {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* Your own clock: the one figure on a card that only this device can know, so
+   it reads a step stronger than the source and credit labels beside it. */
+.card-meta .card-time {
+  color: var(--text-secondary);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 
 .card-meta .meta-sep {
@@ -2683,6 +2729,19 @@ button.home-panel-chip:hover {
 }
 
 .theme-custom-row .field { flex: 1 1 220px; min-width: 0; }
+
+/* The file picker is a hidden input behind a label styled as a button, so the
+   row stays one consistent set of controls. */
+.theme-file-btn {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  cursor: pointer;
+}
+.theme-file-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
 
 .cursor-grid {
   display: grid;
@@ -3934,6 +3993,67 @@ button.home-panel-chip:hover {
   caret-color: var(--accent);
 }
 .browser-addr::placeholder { color: var(--text-muted); font-family: var(--font); }
+/* Address bar + omnibox. The wrapper exists only so the suggestion panel can
+   hang off the field's own box - the toolbar itself is not positioned, and
+   anchoring the panel to the overlay would drift on the small-screen layouts
+   where the toolbar wraps. */
+.browser-address-wrap {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+.browser-suggest {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 90;
+  max-height: min(52vh, 360px);
+  overflow-y: auto;
+  padding: 5px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  box-shadow: 0 20px 46px rgba(0, 0, 0, 0.45);
+  overscroll-behavior: contain;
+}
+.browser-sg-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 9px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+.browser-sg-row:hover,
+.browser-sg-row.is-active { background: var(--surface-hover); }
+.browser-sg-badge {
+  flex: none;
+  min-width: 62px;
+  padding: 2px 7px;
+  border-radius: 5px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-family: var(--display);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  text-align: center;
+}
+.browser-sg-txt { display: flex; flex-direction: column; min-width: 0; gap: 1px; }
+.browser-sg-label,
+.browser-sg-sub {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.browser-sg-label { font-size: 13px; }
+.browser-sg-sub { font-size: 11.5px; color: var(--text-3); font-family: var(--mono); }
 .browser-go {
   flex: none;
   height: 26px;
@@ -4217,11 +4337,28 @@ button.home-panel-chip:hover {
   font-weight: 600;
 }
 .browser-blocked-msg {
-  margin: 0 0 18px;
+  margin: 0 0 10px;
   color: var(--text-secondary);
   font-size: 13.5px;
   line-height: 1.5;
 }
+/* What to do next, then which route actually failed - the two lines that turn
+   "page unavailable" into something the user can act on. */
+.browser-blocked-hint {
+  margin: 0 0 12px;
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.45;
+}
+.browser-blocked-hint:empty { display: none; }
+.browser-blocked-detail {
+  margin: 0 0 18px;
+  color: var(--text-muted);
+  font-family: var(--mono);
+  font-size: 11.5px;
+  letter-spacing: 0.02em;
+}
+.browser-blocked-detail:empty { display: none; }
 .browser-blocked-actions {
   display: flex;
   justify-content: center;
@@ -4849,6 +4986,12 @@ html.motion-off *::after {
   animation: none !important;
   transition: none !important;
 }
+
+/* Low-power default: index.html's early boot script adds motion-off before
+   first paint on small-memory Chromebooks and phones. app.js seeds the
+   same default into state.motion, so the Settings checkbox reflects it and
+   an explicit user choice always wins from then on. No CSS needed here
+   beyond the existing class rules above. */
 
 /* ---------- Mobile (phones and small screens; Chromebooks stay laptop) ---------- */
 
@@ -7729,6 +7872,36 @@ body.sidebar-collapsed .music-player { left: var(--side-w-collapsed); }
   transform: translateY(4px);
 }
 
+/* Sticky toast: the update prompt. It waits for an answer, so it takes a
+   button, and the box above it needs pointer-events back to be clickable. */
+.toast-box .toast.is-sticky {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px 8px 16px;
+  border-radius: 14px;
+  pointer-events: auto;
+}
+
+.toast-action {
+  flex: none;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 700;
+  padding: 6px 12px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  cursor: pointer;
+  transition: filter var(--dur-fast) var(--ease);
+}
+.toast-action:hover { filter: brightness(1.08); }
+.toast-action:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+}
+
 /* Custom cursor pointer state: interactive elements reuse the same cursor
    image as the base but a brightened copy of it, so hovering lightens the
    cursor instead of swapping to a different shape. Text inputs/areas keep
@@ -10227,6 +10400,28 @@ button.side-foot:hover { color: var(--text-2); }
 .music-primary-btn .music-play-icon { position: static; opacity: 1; width: 17px; height: 17px; background: transparent; }
 .music-secondary-btn { background: transparent; color: var(--text); border-color: var(--line-strong); }
 .music-secondary-btn:hover { border-color: var(--magenta); color: var(--magenta); }
+/* Music on this device. The empty state doubles as the drop target, and the
+   filled state is the same panel holding one row of album covers. */
+.music-local {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+  margin: 0 0 24px;
+  padding: 18px 20px;
+  border: 1px dashed var(--line-strong);
+  border-radius: 12px;
+  background: rgba(230, 0, 115, .06);
+  transition: border-color 140ms ease, background 140ms ease;
+}
+.music-local.is-drop { border-color: var(--magenta); background: rgba(230, 0, 115, .12); }
+.music-local-copy { flex: 1 1 320px; min-width: 0; }
+.music-local-copy h2 { margin: 5px 0 7px; color: var(--text); font-family: var(--display-geo); font-size: 22px; letter-spacing: -.02em; }
+.music-local-copy p { margin: 0 0 5px; max-width: 62ch; color: var(--text-2); font-size: 13px; line-height: 1.55; }
+.music-local-note { color: var(--text-3) !important; font-size: 12px !important; }
+.music-local-actions { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
+.music-local .music-cover-row { flex: 1 1 320px; min-width: 0; padding-bottom: 2px; }
+.music-section-local .music-local { border-style: solid; }
 .music-hero-save { position: static; width: 38px; height: 38px; border: 1px solid var(--line-strong); background: transparent; color: var(--text-2); font-size: 21px; cursor: pointer; }
 .music-hero-save.is-saved { color: var(--magenta); }
 .music-section { margin: 0 0 30px; min-width: 0; }
@@ -10490,12 +10685,165 @@ button.side-foot:hover { color: var(--text-2); }
   box-shadow: none;
 }
 
+
 /* ============================================================================
    CHALKLE DESIGN SYSTEM - AUTHORITATIVE LAYER
    One style per component, declared once, at the end of the cascade so it
    wins. Earlier per-tab color washes, glow passes and one-off "polish"
    sections have been removed; anything that remains is neutralized here.
    ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   Links + Movies layout corrections
+   Keep proxy/backend content in predictable card rows and make the movie
+   surface a real viewport rather than inheriting a square media ratio. */
+.view[data-view="proxies"] {
+  min-width: 0;
+}
+.view[data-view="proxies"] .backend-bar {
+  margin-bottom: 20px;
+}
+.view[data-view="proxies"] #proxy-backends-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  min-width: 0;
+}
+.view[data-view="proxies"] .backend-group {
+  margin: 0;
+  min-width: 0;
+}
+.view[data-view="proxies"] .backend-group-title {
+  min-height: 28px;
+  margin: 0 0 10px;
+  padding: 0 2px;
+}
+.view[data-view="proxies"] .backend-group-hint {
+  max-width: 100%;
+}
+.view[data-view="proxies"] .backend-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 270px), 1fr));
+  align-items: stretch;
+  gap: 12px;
+}
+.view[data-view="proxies"] .backend-card {
+  min-width: 0;
+  min-height: 172px;
+  box-sizing: border-box;
+  padding: 16px;
+  border-radius: 12px;
+}
+.view[data-view="proxies"] .backend-head {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 10px;
+}
+.view[data-view="proxies"] .backend-name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.view[data-view="proxies"] .backend-head .proxy-pill {
+  max-width: 100%;
+  white-space: normal;
+  text-align: right;
+}
+.view[data-view="proxies"] .backend-pills {
+  min-height: 26px;
+}
+.view[data-view="proxies"] .backend-note {
+  min-height: 38px;
+  overflow-wrap: anywhere;
+}
+.view[data-view="proxies"] .backend-actions {
+  flex-wrap: wrap;
+  align-items: center;
+}
+.view[data-view="proxies"] .backend-actions .btn-ghost,
+.view[data-view="proxies"] .proxy-actions .btn-ghost {
+  min-width: 72px;
+}
+.view[data-view="proxies"] .proxy-form {
+  margin-top: 22px;
+  margin-bottom: 22px;
+}
+.view[data-view="proxies"] .proxy-form .form-row {
+  display: grid;
+  grid-template-columns: minmax(150px, .7fr) minmax(240px, 1.7fr) minmax(150px, .7fr) auto;
+  align-items: stretch;
+  gap: 10px;
+}
+.view[data-view="proxies"] .proxy-form .form-row > * {
+  min-width: 0;
+}
+.view[data-view="proxies"] .proxy-grid {
+  align-items: stretch;
+  gap: 12px;
+}
+.view[data-view="proxies"] .proxy-card {
+  min-width: 0;
+  min-height: 176px;
+  box-sizing: border-box;
+}
+.view[data-view="proxies"] .proxy-copy,
+.view[data-view="proxies"] .proxy-url {
+  min-width: 0;
+}
+.view[data-view="proxies"] .proxy-meta-line {
+  min-height: 26px;
+}
+.view[data-view="proxies"] .proxy-actions {
+  align-items: center;
+}
+
+/* Movies is a viewport, never a poster/card. Reset width, height and ratio
+   explicitly because generic media rules can otherwise make the iframe square. */
+.view[data-view="movies"],
+.view[data-view="movies"].is-visible {
+  min-width: 0;
+  min-height: 0;
+  height: calc(100dvh - var(--topbar-h));
+  aspect-ratio: auto;
+  overflow: hidden;
+}
+.view[data-view="movies"] .movies-frame,
+.view[data-view="movies"] iframe#movies-frame {
+  display: block;
+  flex: 1 1 0;
+  width: 100%;
+  height: 0;
+  min-width: 0;
+  min-height: 0;
+  max-width: none;
+  max-height: none;
+  aspect-ratio: auto;
+  align-self: stretch;
+  box-sizing: border-box;
+}
+.view[data-view="movies"] .view-head {
+  flex: 0 0 auto;
+}
+.view.fx-full[data-view="movies"],
+.view.fx-full[data-view="movies"] .movies-frame,
+.view.fx-full[data-view="movies"] iframe#movies-frame {
+  height: 100%;
+  min-height: 0;
+  aspect-ratio: auto;
+}
+@media (max-width: 760px) {
+  .view[data-view="proxies"] .proxy-form .form-row {
+    grid-template-columns: 1fr;
+  }
+  .view[data-view="proxies"] .backend-grid {
+    grid-template-columns: 1fr;
+  }
+  .view[data-view="movies"],
+  .view[data-view="movies"].is-visible {
+    height: calc(100dvh - var(--topbar-h));
+  }
+}
 
 /* ---------- Base ---------- */
 
@@ -10673,6 +11021,17 @@ progress {
   border-radius: 5px;
   border: 1px solid var(--border);
   background: var(--surface);
+  color: var(--text-muted);
+}
+
+/* Home launcher field only: one quiet line separating its two jobs, because
+   that field both opens catalog matches and searches the web. */
+.search-hint {
+  margin-top: 4px;
+  padding: 7px 12px 9px;
+  border-top: 1px solid var(--border);
+  font-family: var(--mono);
+  font-size: 10.5px;
   color: var(--text-muted);
 }
 
@@ -12739,6 +13098,282 @@ html.stealth-active #stealth-cover-frame {
   transition: opacity 180ms ease;
 }
 
+/* ---------- Auto clicker panel ----------
+   A narrow vertical console pinned to the frame's right edge on clicker
+   games. Same language as the player chrome: elevated surface, 1px chalk
+   borders, one accent, square-ish radii. No fade gradients, no glow. */
+.gp-ac {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 6;
+  width: 188px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+  user-select: none;
+}
+
+.gp-ac-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border-soft);
+  background: var(--surface);
+}
+
+.gp-ac-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  background: var(--text-muted);
+  flex: none;
+}
+
+.gp-ac.live .gp-ac-dot {
+  background: var(--accent);
+}
+
+.gp-ac-name {
+  flex: 1;
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.gp-ac-min {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text-secondary);
+  cursor: pointer;
+  flex: none;
+}
+
+.gp-ac-min svg {
+  width: 12px;
+  height: 12px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  transition: transform 0.15s ease;
+}
+
+.gp-ac.min .gp-ac-min svg {
+  transform: rotate(180deg);
+}
+
+.gp-ac.min .gp-ac-body {
+  display: none;
+}
+
+.gp-ac-body {
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.gp-ac-block {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.gp-ac-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.gp-ac-label b {
+  color: var(--text-secondary);
+  font-weight: 700;
+}
+
+.gp-ac-row {
+  display: flex;
+  gap: 6px;
+  align-items: stretch;
+}
+
+.gp-ac-num {
+  width: 52px;
+  padding: 5px 7px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.gp-ac-num:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.gp-ac-unit {
+  flex: 1;
+  min-width: 0;
+  padding: 5px 6px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.gp-ac-unit:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.gp-ac-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.gp-ac-chip {
+  padding: 4px 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text-secondary);
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.gp-ac-chip:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.gp-ac-chip.on {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.gp-ac-rand,
+.gp-ac-duty {
+  width: 100%;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.gp-ac-key {
+  padding: 5px 10px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.gp-ac-key.wait {
+  border-color: var(--yellow);
+  color: var(--yellow);
+  border-style: solid;
+}
+
+.gp-ac-go {
+  padding: 7px 10px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.gp-ac-go:hover {
+  filter: brightness(1.08);
+}
+
+.gp-ac.live .gp-ac-go {
+  background: var(--surface-active);
+  border-color: var(--red);
+  color: var(--red-ink);
+}
+
+.gp-ac-foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 10.5px;
+  color: var(--text-muted);
+}
+
+.gp-ac.live .gp-ac-rate {
+  color: var(--accent);
+}
+
+.gp-ac-pick {
+  padding: 5px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+  text-align: center;
+}
+
+.gp-ac-pick:hover {
+  border-color: var(--accent);
+}
+
+.gp-ac-pick.wait {
+  border-color: var(--yellow);
+  color: var(--yellow);
+}
+
+.gp-ac-pick.on {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.gp-ac-picked {
+  font-size: 10.5px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* Loading: artwork, title, quiet spinner. */
 .gp-splash {
   position: absolute;
@@ -13370,3 +14005,201 @@ html.stealth-active #stealth-cover-frame {
   .docs-collection-nav { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .docs-workspace-label { grid-column: 1 / -1; }
 }
+
+/* --- Gamepad cursor and connected chip -----------------------------------
+   The cursor reuses the app focus ring so a controller user and a keyboard
+   user see the same thing. The chip sits under the top bar (the bottom of
+   the screen belongs to the toast host) and never eats a click. */
+.gp-cursor,
+.gp-cursor:focus {
+  outline: 3px solid var(--va, var(--accent));
+  outline-offset: 3px;
+  border-radius: var(--radius);
+}
+
+.gp-hint {
+  position: fixed;
+  left: 50%;
+  top: 66px;
+  z-index: 210;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  max-width: min(92vw, 620px);
+  padding: 9px 16px;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
+  font-family: var(--display-geo);
+  font-size: 13px;
+  font-weight: 600;
+  pointer-events: none;
+  opacity: 0;
+  transform: translate(-50%, -8px);
+  transition: opacity 240ms ease, transform 240ms ease;
+}
+
+.gp-hint.is-up {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+.gp-hint-dot {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.gp-hint-keys {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+@media (max-width: 620px) {
+  .gp-hint-keys { display: none; }
+}
+
+/* ============================================================================
+   PERFORMANCE OVERLAY (perf.js)
+   A developer readout, off by default. Flat like everything else: one accent
+   stroke per chart, no fills, no gradients.
+   ========================================================================== */
+.perf-overlay {
+  position: fixed;
+  right: 14px;
+  bottom: 14px;
+  z-index: 60;
+  width: 216px;
+  padding: 10px 12px 8px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-2);
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-secondary);
+  user-select: none;
+}
+
+.perf-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.perf-title {
+  color: var(--text);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.perf-close {
+  padding: 0 2px;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+}
+.perf-close:hover { color: var(--text); }
+
+.perf-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+.perf-row-plain { justify-content: space-between; }
+.perf-label {
+  flex: 0 0 auto;
+  width: 48px;
+  color: var(--text-muted);
+}
+.perf-graph {
+  flex: 1 1 auto;
+  height: 26px;
+}
+.perf-graph canvas {
+  display: block;
+  width: 100%;
+  height: 26px;
+}
+.perf-value {
+  flex: 0 0 auto;
+  min-width: 56px;
+  text-align: right;
+  color: var(--text);
+}
+.perf-foot {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border-soft);
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+@media (max-width: 620px) {
+  .perf-overlay {
+    left: 12px;
+    right: 12px;
+    width: auto;
+  }
+}
+
+/* ============================================================================
+   HOME SEARCH ENGINE PICKER (search.js)
+   One quiet line under the launcher field: which engine answers, and why.
+   ========================================================================== */
+.home-engine-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: var(--space-3);
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.home-engine-label { flex: 0 0 auto; }
+
+.home-engine-select {
+  flex: 0 0 auto;
+  max-width: 200px;
+  padding: 5px 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.home-engine-select:hover { border-color: var(--border-strong); }
+.home-engine-select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.home-engine-note {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+@media (max-width: 620px) {
+  .home-engine-note { display: none; }
+}
+
+/* Ad state (adcheck.js). The verdict also lands as a class on <html>, which is
+   the hook for styling a blocked page; the Settings row is the visible part. */
+.debug-warn { color: var(--yellow); }
+html.ads-blocked .ad-slot-label { opacity: 0.6; }

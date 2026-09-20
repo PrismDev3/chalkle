@@ -1,0 +1,2421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Jexel's UBG Tools</title>
+<meta name="description" content="Free browser tools for hosting and opening unblocked games pages. Convert HTML to SVG and back, batch upload to GitHub with CDN link generation, obfuscate HTML, edit with live preview, open in about:blank, and mass open link lists.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%232563eb'/%3E%3Ctext x='16' y='22' font-size='16' font-family='Arial' font-weight='bold' fill='white' text-anchor='middle'%3EJ%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   Jexel's UBG Tools - design system
+   Blue accents on near-black surfaces; the wallpaper carries the depth.
+   ============================================================ */
+:root{
+  --font: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --mono: ui-monospace, SFMono-Regular, "JetBrains Mono", Consolas, Menlo, monospace;
+
+  /* surface */
+  --bg-deep:#05060a;
+  --panel: rgba(14,17,26,.78);
+  --panel-2: rgba(20,24,35,.85);
+  --panel-raise: rgba(26,31,45,.9);
+  --line: rgba(255,255,255,.08);
+  --line-2: rgba(255,255,255,.16);
+  --ink:#f4f6fb;
+  --ink-2: rgba(233,238,248,.66);
+  --ink-3: rgba(224,231,244,.44);
+  --ok:#4ade80;
+  --err:#f87171;
+  --blue:#3b82f6;
+  --blue-2:#93c5fd;
+  --blue-wash:rgba(59,130,246,.13);
+  --blue-line:rgba(96,165,250,.38);
+  --r-sm:9px; --r-md:12px; --r-lg:18px;
+  --ease: cubic-bezier(.3,.7,.3,1);
+  --mono-log-bg:#07090f;
+}
+*{box-sizing:border-box}
+html{height:100%}
+html,body{margin:0;padding:0}
+body{
+  min-height:100%;
+  font:15px/1.55 var(--font);
+  color:var(--ink);
+  background:var(--bg-deep);
+  -webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility;
+}
+::selection{background:rgba(59,130,246,.45)}
+
+/* ---------- fixed wallpaper ---------- */
+#bg{position:fixed;inset:0;z-index:-1;overflow:hidden;background:#05060a}
+#bg svg{position:absolute;inset:0;width:100%;height:100%}
+#bg::after{ /* readability veil */
+  content:"";position:absolute;inset:0;
+  background:#080b11;
+}
+@media (prefers-reduced-motion: reduce){
+  #bgOrbs{animation:none}
+  *,*::before,*::after{transition-duration:.01ms!important;animation-duration:.01ms!important}
+}
+@keyframes drift{
+  0%{transform:translate(0,0)}
+  50%{transform:translate(14px,-20px)}
+  100%{transform:translate(0,0)}
+}
+#bgOrbs circle{animation:drift 46s ease-in-out infinite}
+#bgOrbs circle:nth-child(2){animation-duration:64s;animation-direction:reverse}
+#bgOrbs circle:nth-child(3){animation-duration:38s}
+#bgOrbs circle:nth-child(4){animation-duration:72s;animation-direction:reverse}
+#bgOrbs circle:nth-child(5){animation-duration:56s}
+
+/* ---------- shell ---------- */
+.wrap{max-width:1180px;margin:0 auto;padding:0 28px}
+
+/* ---------- floating side dock ---------- */
+.dock{
+  position:fixed;left:16px;top:50%;transform:translateY(-50%);
+  z-index:60;display:flex;flex-direction:column;align-items:center;gap:6px;
+  padding:9px 7px;border-radius:16px;
+  background:rgba(10,12,19,.82);
+  border:1px solid var(--line);
+  box-shadow:0 18px 50px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.06);
+}
+.dock-btn{
+  appearance:none;border:0;background:transparent;cursor:pointer;
+  width:38px;height:38px;border-radius:11px;
+  display:inline-flex;align-items:center;justify-content:center;
+  color:var(--ink-2);position:relative;
+  transition:background .18s var(--ease), color .18s var(--ease), transform .18s var(--ease);
+}
+.dock-btn svg{width:18px;height:18px}
+.dock-btn:hover{background:var(--blue-wash);color:#fff}
+.dock-btn:active{transform:scale(.94)}
+.dock-btn.on{background:var(--blue-wash);color:var(--blue-2)}
+.dock-sep{width:22px;height:1px;background:var(--line);margin:3px 0}
+.dock-btn .tip{
+  position:absolute;left:calc(100% + 12px);top:50%;transform:translateY(-50%) translateX(-4px);
+  background:#0b0e16;border:1px solid var(--line-2);color:var(--ink);
+  font-size:12px;font-weight:500;letter-spacing:.01em;white-space:nowrap;
+  padding:5px 10px;border-radius:8px;pointer-events:none;
+  opacity:0;transition:opacity .15s var(--ease), transform .15s var(--ease);
+  box-shadow:0 8px 24px rgba(0,0,0,.45);
+}
+.dock-btn:hover .tip,.dock-btn:focus-visible .tip{opacity:1;transform:translateY(-50%) translateX(0)}
+@media (max-width:720px){
+  .dock{left:50%;top:auto;bottom:14px;transform:translateX(-50%);
+    flex-direction:row;padding:8px 10px;gap:4px;border-radius:16px}
+  .dock-btn .tip{display:none}
+  .dock-sep{width:1px;height:20px;margin:0 3px;align-self:center}
+}
+
+/* focus visibility (keyboard) */
+.dock-btn:focus-visible, button:focus-visible, a:focus-visible, summary:focus-visible{
+  outline:2px solid rgba(147,197,253,.7);outline-offset:2px;border-radius:10px;
+}
+input:focus-visible, select:focus-visible, textarea:focus-visible{outline:none}
+
+/* ---------- launcher hero ---------- */
+.home{min-height:100svh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:64px 20px 120px}
+#homeView.off{display:none}
+.hero{text-align:center;margin-bottom:46px}
+.hero-kicker{
+  display:inline-flex;align-items:center;gap:7px;
+  font-size:11px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--ink-3);border:1px solid var(--line);border-radius:999px;
+  padding:5px 12px;margin-bottom:20px;background:rgba(10,13,20,.45);
+}
+.hero-kicker .dot{width:5px;height:5px;border-radius:50%;background:var(--blue-2);box-shadow:0 0 8px rgba(96,165,250,.8)}
+.hero h1{
+  margin:0;font-size:clamp(28px,4.6vw,46px);line-height:1.08;
+  font-weight:800;letter-spacing:-.03em;color:#fff;
+}
+.hero h1 .thin{color:var(--ink-2);font-weight:600}
+.hero .sub{margin:14px auto 0;max-width:520px;color:var(--ink-2);font-size:15px}
+.hero-links{margin-top:18px;display:flex;gap:14px;justify-content:center;font-size:13px}
+.hero-links a{color:var(--ink-2);text-decoration:none;border-bottom:1px solid transparent;padding-bottom:1px;transition:color .15s,border-color .15s}
+.hero-links a:hover{color:#fff;border-color:var(--blue-line)}
+
+/* ---------- launcher grid ---------- */
+.launch-grid{
+  display:grid;grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:16px;width:100%;max-width:820px;
+}
+@media (max-width:900px){ .launch-grid{grid-template-columns:repeat(3,minmax(0,1fr));max-width:640px} }
+@media (max-width:680px){ .launch-grid{grid-template-columns:repeat(2,minmax(0,1fr));max-width:480px} }
+.tool-card{
+  appearance:none;border:1px solid var(--line);cursor:pointer;text-align:center;
+  background:#101621;
+  border-radius:var(--r-lg);padding:22px 14px 18px;color:var(--ink);
+  font:inherit;display:flex;flex-direction:column;align-items:center;gap:0;
+  box-shadow:0 1px 0 rgba(255,255,255,.03) inset, 0 10px 30px rgba(0,0,0,.25);
+  transition:transform .18s var(--ease), border-color .18s var(--ease), background .18s var(--ease), box-shadow .18s var(--ease);
+}
+.tool-card:hover{
+  transform:translateY(-3px);
+  border-color:var(--blue-line);
+  background:#172033;
+  box-shadow:0 18px 44px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.05);
+}
+.tool-card:active{transform:translateY(-1px)}
+.tool-ic{
+  width:52px;height:52px;border-radius:15px;
+  display:flex;align-items:center;justify-content:center;
+  color:#bfdbfe;margin-bottom:14px;
+  background:#142238;
+  border:1px solid rgba(96,165,250,.28);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.08), 0 6px 16px rgba(0,0,0,.35);
+  transition:transform .18s var(--ease), border-color .18s var(--ease);
+}
+.tool-card:hover .tool-ic{transform:scale(1.06);border-color:rgba(96,165,250,.55)}
+.tool-ic svg{width:23px;height:23px}
+.tool-name{font-size:14px;font-weight:600;letter-spacing:-.01em;color:#fff}
+.tool-desc{font-size:12px;line-height:1.45;color:var(--ink-3);margin-top:5px;max-width:180px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+
+/* ---------- tool workspace ---------- */
+.toolview{display:none;min-height:100svh;padding:0 0 120px}
+.toolview .wrap{padding-top:28px}
+.toolview.on{display:block}
+/* one tool section visible at a time */
+.tool{display:none}
+.tool.on{display:block}
+.tool-head{
+  position:sticky;top:0;z-index:50;
+  background:rgba(7,9,14,.72);
+  border-bottom:1px solid var(--line);
+}
+.tool-head-in{
+  max-width:1180px;margin:0 auto;padding:14px 28px;
+  display:flex;align-items:center;gap:14px;min-height:58px;
+}
+.th-ic{
+  width:36px;height:36px;border-radius:11px;flex:none;
+  display:inline-flex;align-items:center;justify-content:center;color:#bfdbfe;
+  background:#142238;
+  border:1px solid rgba(96,165,250,.28);
+}
+.th-ic svg{width:17px;height:17px}
+.th-title{font-size:15px;font-weight:700;letter-spacing:-.01em;color:#fff;white-space:nowrap}
+.tool-tabs{margin-left:auto;display:flex;gap:4px;background:rgba(59,130,246,.07);border:1px solid var(--line);border-radius:11px;padding:4px}
+.tool-tabs button{
+  appearance:none;border:0;background:transparent;cursor:pointer;font:inherit;
+  font-size:12.5px;font-weight:600;color:var(--ink-2);padding:6px 11px;border-radius:8px;white-space:nowrap;
+  transition:background .18s var(--ease), color .18s var(--ease);
+}
+.tool-tabs button:hover{color:var(--ink)}
+.tool-tabs button.on{background:var(--blue-wash);color:var(--blue-2)}
+@media (max-width:860px){
+  .tool-head-in{flex-wrap:wrap;padding:10px 18px}
+  .tool-tabs{margin-left:0;width:100%;overflow-x:auto;scrollbar-width:none}
+  .tool-tabs::-webkit-scrollbar{display:none}
+}
+.panel{
+  background:var(--panel);border:1px solid var(--line);border-radius:var(--r-lg);
+  padding:22px;box-shadow:0 14px 40px rgba(0,0,0,.25);
+}
+.panel > h2,.panel > .panel-top{margin-top:0}
+.panel h2{margin:0 0 4px;font-size:15px;font-weight:700;color:#fff;letter-spacing:-.01em}
+.panel .sub{margin:0 0 14px;color:var(--ink-2);font-size:13px}
+.grid{display:grid;gap:16px}
+.g2{grid-template-columns:1fr 1fr}
+.g32{grid-template-columns:2fr 1fr}
+.editor-split{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
+.editor-left{display:flex;flex-direction:column;gap:16px;min-width:0}
+.editor-split .framebox{height:560px;margin-top:10px}
+@media (max-width:780px){.editor-split{grid-template-columns:1fr}}
+@media (max-width:880px){.g2,.g32{grid-template-columns:1fr}}
+
+/* ---------- forms ---------- */
+label{display:block;font-size:12px;font-weight:600;color:var(--ink-2);margin:12px 0 5px;letter-spacing:.01em}
+label:first-child{margin-top:0}
+input[type=text],input[type=password],input[type=number],select,textarea{
+  width:100%;border:1px solid var(--line);border-radius:var(--r-sm);padding:9px 12px;
+  font:inherit;background:rgba(7,9,15,.6);color:var(--ink);
+  transition:border-color .18s var(--ease), background .18s var(--ease), box-shadow .18s var(--ease);
+}
+input::placeholder,textarea::placeholder{color:var(--ink-3)}
+input:focus,select:focus,textarea:focus{
+  border-color:var(--blue);background:rgba(7,9,15,.78);
+  box-shadow:0 0 0 3px rgba(59,130,246,.16);
+}
+select{appearance:none;-webkit-appearance:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='rgba(147,197,253,.75)' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 10px center;padding-right:32px;
+}
+select option{background:#0b0e16;color:var(--ink)}
+textarea{resize:vertical;min-height:80px}
+textarea.mono,input.mono{font-family:var(--mono);font-size:12.5px;line-height:1.6}
+.check{display:flex;gap:9px;align-items:flex-start;font-size:13px;color:var(--ink-2);font-weight:500;margin:10px 0}
+.check input{margin-top:2px;accent-color:#fff}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.row>*{min-width:0}
+.fmt{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:4px 12px;margin:6px 0}
+.fmt label{display:flex;gap:7px;align-items:center;font-size:12.5px;font-weight:500;color:var(--ink-2);margin:2px 0}
+
+/* ---------- buttons ---------- */
+.btn{
+  display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);
+  background:rgba(255,255,255,.05);color:var(--ink);
+  font:inherit;font-weight:600;font-size:13px;padding:8px 14px;border-radius:var(--r-sm);cursor:pointer;
+  transition:background .18s var(--ease), border-color .18s var(--ease), color .18s var(--ease), transform .18s var(--ease);
+}
+.btn:hover{background:rgba(59,130,246,.12);border-color:var(--blue-line);color:#fff}
+.btn:active{transform:translateY(1px)}
+.btn.primary{background:var(--blue);border-color:var(--blue);color:#fff}
+.btn.primary:hover{background:#2563eb;border-color:#2563eb;color:#fff}
+.btn.sm{padding:5px 10px;font-size:12px}
+.btn:disabled{opacity:.42;cursor:not-allowed;transform:none}
+.chip{border:1px solid var(--line);background:rgba(255,255,255,.04);border-radius:999px;padding:3px 11px;font:inherit;font-size:12px;font-weight:500;color:var(--ink-2);cursor:pointer;transition:all .18s var(--ease)}
+.chip:hover{background:var(--blue-wash);color:var(--blue-2);border-color:var(--blue-line)}
+
+/* ---------- status / misc ---------- */
+.hint{font-size:12px;color:var(--ink-3);margin:6px 0 0}
+.status{font-size:13px;font-weight:600;color:var(--ink-2)}
+.status.ok{color:var(--ok)} .status.err{color:var(--err)}
+.progress{height:6px;background:rgba(255,255,255,.07);border-radius:999px;overflow:hidden;margin:10px 0}
+.progress>div{height:100%;width:0;background:var(--blue);transition:width .25s}
+.log{font-family:var(--mono);font-size:11.5px;line-height:1.6;background:var(--mono-log-bg);color:#c6d2e8;border:1px solid var(--line);border-radius:var(--r-md);padding:12px;height:190px;overflow:auto;white-space:pre-wrap;word-break:break-all;margin:0}
+.kv{display:flex;gap:18px;flex-wrap:wrap;font-size:13px;margin:8px 0;color:var(--ink-2)}
+.kv b{font-size:16px;display:block;color:#fff;font-weight:700;letter-spacing:-.01em}
+.filedrop{border:1.5px dashed rgba(255,255,255,.18);border-radius:var(--r-md);padding:26px;text-align:center;color:var(--ink-3);cursor:pointer;background:rgba(7,9,15,.4);transition:all .18s var(--ease)}
+.filedrop:hover{border-color:rgba(96,165,250,.45);color:var(--blue-2)}
+.filedrop.on{border-color:var(--blue-line);background:var(--blue-wash);color:var(--blue-2)}
+.filelist{font-size:12px;color:var(--ink-3);margin-top:8px;max-height:120px;overflow:auto;font-family:var(--mono)}
+.out{width:100%;font-family:var(--mono);font-size:12px;line-height:1.6;border:1px solid var(--line);border-radius:var(--r-md);padding:10px;min-height:150px;background:var(--mono-log-bg);color:#c6d2e8}
+.linkbox-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 4px}
+.linkbox-head h2{margin:0}
+.linkbox{font-family:var(--mono);font-size:12px;background:var(--mono-log-bg);border:1px solid var(--line);border-radius:var(--r-md);max-height:320px;overflow:auto;margin-top:8px}
+.linkrow{display:flex;align-items:center;gap:10px;justify-content:space-between;padding:6px 10px;border-bottom:1px solid var(--line)}
+.linkrow:last-child{border-bottom:0}
+.linkrow:hover{background:rgba(255,255,255,.045)}
+.linkurl{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#c6d2e8;min-width:0;text-decoration:none}
+.linkurl:hover{color:#fff;text-decoration:underline}
+.linkacts{display:flex;gap:6px;flex:none}
+.pill{display:inline-block;background:var(--blue-wash);color:var(--blue-2);border:1px solid rgba(96,165,250,.25);border-radius:999px;padding:2px 10px;font-size:11.5px;font-weight:600}
+.framebox{position:relative;margin-top:12px;border:1px solid var(--line);border-radius:var(--r-md);overflow:hidden;background:#0b0e16;height:520px}
+.framebox iframe{width:100%;height:100%;border:0;display:block;background:#fff}
+.frame-empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--ink-3);font-size:13px}
+@media (max-width:880px){.framebox{height:400px}}
+hr.sep{border:0;border-top:1px solid var(--line);margin:14px 0}
+details{margin-top:8px}
+summary{cursor:pointer;font-size:13px;font-weight:600;color:var(--ink-2)}
+summary:hover{color:var(--ink)}
+.lede{margin:0 0 20px;color:var(--ink-2);font-size:14px;max-width:820px}
+a{color:inherit}
+
+/* ---------- about modal ---------- */
+.modal{position:fixed;inset:0;z-index:80;display:none}
+.modal.on{display:block}
+.modal-veil{position:absolute;inset:0;background:rgba(3,4,8,.78);animation:fadein .18s var(--ease)}
+.modal-card{
+  position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  width:min(560px,calc(100vw - 40px));max-height:min(680px,calc(100svh - 48px));overflow:auto;
+  background:var(--panel-raise);border:1px solid var(--line-2);border-radius:20px;padding:26px;
+  box-shadow:0 40px 100px rgba(0,0,0,.6);animation:pop .2s var(--ease);
+}
+.modal-card h2{margin:0 0 6px;font-size:18px;font-weight:700;color:#fff;letter-spacing:-.02em}
+.modal-card p{color:var(--ink-2);font-size:13.5px;margin:0 0 12px}
+.modal-list{margin:0;padding:0;list-style:none;display:grid;gap:8px;margin-top:14px}
+.modal-list li{display:flex;gap:10px;align-items:flex-start;font-size:13px;color:var(--ink-2)}
+.modal-list svg{width:15px;height:15px;flex:none;margin-top:2px;color:var(--blue-2)}
+.modal-x{
+  position:absolute;top:14px;right:14px;width:30px;height:30px;border-radius:9px;
+  border:1px solid var(--line);background:transparent;color:var(--ink-2);cursor:pointer;
+  display:inline-flex;align-items:center;justify-content:center;transition:all .18s var(--ease);
+}
+.modal-x:hover{color:#fff;background:rgba(255,255,255,.07)}
+.modal-x svg{width:15px;height:15px}
+@keyframes fadein{from{opacity:0}to{opacity:1}}
+@keyframes pop{from{opacity:0;transform:translate(-50%,-48.5%) scale(.985)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+
+/* ---------- toast ---------- */
+#toast{position:fixed;right:18px;bottom:18px;display:flex;flex-direction:column;gap:8px;z-index:99}
+#toast div{
+  background:rgba(16,19,28,.95);border:1px solid rgba(96,165,250,.3);color:var(--ink);
+  border-radius:11px;padding:9px 15px;font-size:13px;font-weight:500;
+  box-shadow:0 12px 32px rgba(0,0,0,.5);animation:toastin .2s var(--ease);
+}
+@keyframes toastin{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+
+/* ============================================================
+   Hand-built utility layout
+   ============================================================ */
+:root{
+  --bg-deep:#080b11; --panel:#0d121a; --panel-2:#111822; --panel-raise:#141c28;
+  --line:#202938; --line-2:#334157; --ink:#f1f3f6; --ink-2:#a0aaba; --ink-3:#687487;
+  --blue:#4d8dff; --blue-2:#8eb7ff; --blue-wash:rgba(77,141,255,.11); --blue-line:rgba(77,141,255,.55);
+  --r-sm:4px; --r-md:6px; --r-lg:8px;
+}
+html,body{background:var(--bg-deep)}
+body{font-size:14px;overflow-x:hidden}
+#bg{background:#080b11;opacity:.42}
+#bg svg{display:none}
+#bg::after{content:"";display:block;position:absolute;inset:0;background:#080b11;opacity:.82}
+
+/* The rail is navigation, not a floating decoration. */
+.dock{left:0;top:0;bottom:0;transform:none;width:64px;height:100vh;padding:18px 11px;border:0;border-right:1px solid var(--line);border-radius:0;background:#0a0e15;box-shadow:none;gap:8px}
+.dock-btn{width:40px;height:40px;border-radius:5px;color:var(--ink-3)}
+.dock-btn:hover{background:#151e2b;color:var(--ink)}
+.dock-btn.on{background:#172640;color:var(--blue-2)}
+.dock-sep{width:28px;background:var(--line);margin:8px 0}
+.dock-btn .tip{left:calc(100% + 10px);background:#151c27;border-color:var(--line-2);border-radius:4px;box-shadow:none}
+
+/* Compact home screen. */
+.home{display:block;min-height:100svh;margin-left:64px;padding:28px 52px 72px}
+.home-bar{height:42px;display:flex;align-items:center;justify-content:space-between;max-width:1120px;margin:0 auto;border-bottom:1px solid var(--line);color:var(--ink-2);font-size:12px}
+.home-mark{display:flex;align-items:center;gap:9px;color:var(--ink);font-weight:600;letter-spacing:.01em}
+.mark-box{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;background:var(--blue);color:#fff;font-size:13px;font-weight:800;border-radius:3px}
+.home-state{display:flex;align-items:center;gap:7px;color:var(--ink-3)}
+.state-dot{width:6px;height:6px;border-radius:50%;background:#5fcf8b}
+.home-intro{max-width:1120px;margin:56px auto 46px}
+.intro-kicker{color:var(--blue-2);font:600 11px/1 var(--mono);letter-spacing:.16em}
+.intro-kicker span{color:var(--ink-3);padding:0 5px}
+.home-intro h1{margin:16px 0 8px;font-size:clamp(30px,4vw,48px);line-height:1.05;letter-spacing:-.045em;font-weight:700;color:var(--ink)}
+.home-intro p{margin:0;color:var(--ink-2);font-size:15px}
+.quiet-link{display:inline-block;margin-top:17px;color:var(--blue-2);font-size:12px;text-decoration:none}
+.quiet-link:hover{text-decoration:underline;color:#fff}
+.home-sections{max-width:1120px;margin:0 auto;display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr) 180px;gap:34px;align-items:start}
+.tool-group{min-width:0}
+.group-heading{display:flex;align-items:baseline;justify-content:space-between;border-bottom:1px solid var(--line);padding-bottom:10px;margin-bottom:3px}
+.group-heading h2{margin:0;color:var(--ink);font-size:12px;text-transform:uppercase;letter-spacing:.14em;font-weight:700}
+.group-heading span{font:11px var(--mono);color:var(--ink-3)}
+.tool-list{display:flex;flex-direction:column}
+.tool-card{appearance:none;width:100%;display:grid;grid-template-columns:32px minmax(0,1fr) 18px;gap:13px;align-items:center;text-align:left;padding:15px 4px;border:0;border-bottom:1px solid var(--line);border-radius:0;background:transparent;color:var(--ink);font:inherit;cursor:pointer;box-shadow:none;transition:background .16s ease,color .16s ease,padding .16s ease}
+.tool-card:hover{transform:none;padding-left:9px;padding-right:0;background:#0d141e;border-color:var(--line-2);box-shadow:none}
+.tool-card:active{transform:none}
+.tool-ic{width:28px;height:28px;margin:0;border:1px solid var(--line-2);border-radius:4px;background:#111823;color:var(--blue-2);box-shadow:none;display:flex;align-items:center;justify-content:center;transition:background .16s ease,border-color .16s ease}
+.tool-card:hover .tool-ic{transform:none;background:#172640;border-color:var(--blue-line)}
+.tool-ic svg{width:16px;height:16px}
+.tool-copy{min-width:0;display:flex;flex-direction:column;gap:2px}
+.tool-copy strong{font-size:13px;font-weight:600;color:var(--ink)}
+.tool-copy small{font-size:11px;line-height:1.35;color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tool-arrow{color:var(--ink-3);font-size:16px;text-align:right;transition:color .16s ease}
+.tool-card:hover .tool-arrow{color:var(--blue-2)}
+.info-group .tool-card{grid-template-columns:32px minmax(0,1fr) 18px}
+
+/* Shared workspace. */
+.toolview{margin-left:64px;min-height:100svh;padding-bottom:70px;background:#080b11}
+.tool-head{position:sticky;top:0;background:#0a0e15;border-bottom:1px solid var(--line);z-index:50}
+.tool-head-in{max-width:1280px;padding:11px 36px;min-height:58px}
+.th-ic{width:32px;height:32px;border-radius:4px;background:#111823;border:1px solid var(--line-2);color:var(--blue-2)}
+.th-title{font-size:14px;font-weight:650}
+.tool-tabs{background:transparent;border:0;padding:0;gap:2px}
+.tool-tabs button{border-radius:4px;padding:7px 9px;font-size:12px;color:var(--ink-3)}
+.tool-tabs button:hover{background:#151e2b;color:var(--ink)}
+.tool-tabs button.on{background:#172640;color:var(--blue-2)}
+.toolview .wrap{max-width:1280px;padding:32px 36px 0}
+.lede{margin:0 0 22px;max-width:850px;color:var(--ink-2);font-size:13px;line-height:1.6}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:20px;box-shadow:none}
+.panel h2{font-size:13px;letter-spacing:.02em}
+.panel .sub{font-size:12px;color:var(--ink-3);line-height:1.5}
+.grid{gap:14px}
+.g2,.g32{grid-template-columns:repeat(2,minmax(0,1fr))}
+.tool{display:none}.tool.on{display:block}
+
+/* Cloak and editor keep an actual working layout instead of stacked cards. */
+#tool-cloak>.g2{grid-template-columns:minmax(0,1.45fr) minmax(0,.75fr);align-items:start}
+#tool-cloak textarea{min-height:440px;resize:vertical}
+#tool-cloak>.panel:last-child{margin-top:14px!important}
+#tool-editor .editor-split{grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:14px}
+#tool-editor .editor-left{gap:14px}
+#tool-editor #edCode{min-height:520px;height:calc(100vh - 285px);resize:vertical}
+#tool-editor .editor-split .framebox{height:calc(100vh - 220px);min-height:520px;margin-top:10px}
+
+/* Inputs and controls. */
+label{font-size:11px;color:var(--ink-2);margin:14px 0 6px}
+input[type=text],input[type=password],input[type=number],select,textarea{border:1px solid var(--line);border-radius:4px;padding:9px 10px;background:#090d13;color:var(--ink);box-shadow:none}
+input:focus,select:focus,textarea:focus{border-color:var(--blue);background:#0c121b;box-shadow:0 0 0 2px rgba(77,141,255,.14)}
+textarea.mono,input.mono{font-size:12px;line-height:1.6}
+.btn{border:1px solid var(--line-2);background:#121a25;color:var(--ink);border-radius:4px;padding:7px 11px;font-size:12px;box-shadow:none}
+.btn:hover{background:#192536;border-color:#48678f;color:#fff}
+.btn.primary{background:var(--blue);border-color:var(--blue);color:#fff}
+.btn.primary:hover{background:#6aa2ff;border-color:#6aa2ff}
+.check{font-size:12px;color:var(--ink-2)}
+.filedrop{border:1px dashed #344154;border-radius:4px;padding:22px;background:#0a0f16}
+.filedrop:hover,.filedrop.on{border-color:var(--blue);background:#101b2b;color:var(--blue-2)}
+.progress>div{background:var(--blue)}
+.log,.out,.linkbox{background:#080c12;border-color:var(--line);border-radius:4px}
+.framebox{border-color:var(--line);border-radius:4px;box-shadow:none}
+.pill{background:#172640;border-color:#2e4a72;color:var(--blue-2);border-radius:4px}
+
+@media (max-width:1050px){
+  .home-sections{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .info-group{grid-column:1/-1}
+}
+@media (max-width:860px){
+  .tool-head-in{flex-wrap:wrap;padding:10px 20px}
+  .tool-tabs{width:100%;overflow-x:auto}
+  .toolview .wrap{padding:24px 20px 0}
+  .g2,.g32,#tool-cloak>.g2{grid-template-columns:1fr}
+  #tool-editor .editor-split{grid-template-columns:1fr}
+  #tool-editor #edCode{height:420px;min-height:420px}
+  #tool-editor .editor-split .framebox{height:460px;min-height:0}
+}
+@media (max-width:720px){
+  .dock{left:0;right:0;top:auto;bottom:0;width:100%;height:58px;padding:8px 12px;border-right:0;border-top:1px solid var(--line);flex-direction:row;justify-content:center;border-radius:0}
+  .dock-sep{width:1px;height:26px;margin:0 7px}
+  .dock-btn .tip{display:none}
+  .home,.toolview{margin-left:0}
+  .home{padding:18px 18px 88px}
+  .home-bar{height:38px}
+  .home-intro{margin:38px auto 34px}
+  .home-sections{grid-template-columns:1fr;gap:28px}
+  .info-group{grid-column:auto}
+}
+</style>
+</head>
+<body>
+
+<!-- ================= wallpaper ================= -->
+<div id="bg" aria-hidden="true">
+<svg viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <radialGradient id="gGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#8fb4ff" stop-opacity=".16"/>
+      <stop offset="100%" stop-color="#8fb4ff" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="fadeA" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#101725"/>
+      <stop offset="100%" stop-color="#05060a"/>
+    </linearGradient>
+    <filter id="soft1" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="26"/></filter>
+    <filter id="soft2" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="60"/></filter>
+    <pattern id="dots" width="46" height="46" patternUnits="userSpaceOnUse">
+      <circle cx="1.2" cy="1.2" r="1" fill="#ffffff" opacity=".05"/>
+    </pattern>
+  </defs>
+  <rect width="1600" height="900" fill="#05060a"/>
+  <rect width="1600" height="900" fill="url(#fadeA)"/>
+  <ellipse cx="780" cy="240" rx="900" ry="420" fill="url(#gGlow)" filter="url(#soft2)"/>
+  <g filter="url(#soft1)" opacity=".85">
+    <ellipse cx="240" cy="820" rx="620" ry="190" fill="#131b2e"/>
+    <ellipse cx="1180" cy="880" rx="720" ry="210" fill="#0d1422"/>
+    <ellipse cx="1520" cy="120" rx="480" ry="230" fill="#0f1626"/>
+    <ellipse cx="120" cy="60" rx="380" ry="170" fill="#0c1120"/>
+    <path d="M -100 700 C 300 560 620 780 900 640 C 1180 500 1420 660 1720 560 L 1720 980 L -100 980 Z" fill="#0b1120"/>
+    <path d="M -100 780 C 320 660 700 860 1020 740 C 1300 640 1520 760 1720 700 L 1720 980 L -100 980 Z" fill="#080d18"/>
+    <ellipse cx="430" cy="330" rx="300" ry="120" fill="#10182b" opacity=".8"/>
+    <ellipse cx="1150" cy="470" rx="260" ry="110" fill="#0d1322" opacity=".85"/>
+    <ellipse cx="820" cy="620" rx="200" ry="70" fill="#0a0f1c" opacity=".9"/>
+  </g>
+  <ellipse cx="1350" cy="240" rx="90" ry="60" fill="url(#gGlow)" opacity=".7"/>
+  <ellipse cx="330" cy="160" rx="110" ry="70" fill="url(#gGlow)" opacity=".55"/>
+  <rect width="1600" height="900" fill="url(#dots)"/>
+  <g id="bgOrbs" opacity=".5">
+    <circle cx="300" cy="210" r="1.6" fill="#bcd2ff" opacity=".5"/>
+    <circle cx="1180" cy="140" r="1.2" fill="#a9c4ff" opacity=".45"/>
+    <circle cx="880" cy="330" r="1" fill="#d4e2ff" opacity=".4"/>
+    <circle cx="520" cy="520" r="1.4" fill="#9db8e8" opacity=".35"/>
+    <circle cx="1390" cy="600" r="1.1" fill="#c3d5ff" opacity=".4"/>
+  </g>
+</svg>
+</div>
+
+<!-- ================= floating dock ================= -->
+<nav class="dock" aria-label="Dock">
+  <button class="dock-btn" data-nav="home" type="button" aria-label="Home">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 10 9-7 9 7v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/><path d="M9 22V12h6v10"/></svg>
+    <span class="tip">Home</span>
+  </button>
+  <button class="dock-btn" data-nav="tools" type="button" aria-label="Tools">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg>
+    <span class="tip">Tools</span>
+  </button>
+  <div class="dock-sep"></div>
+  <button class="dock-btn" id="dockAbout" type="button" aria-label="About">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+    <span class="tip">About</span>
+  </button>
+  <button class="dock-btn" type="button" aria-label="chalkle.lootline.xyz" onclick="window.open('https://chalkle.lootline.xyz','_blank','noopener')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
+    <span class="tip">chalkle.lootline.xyz</span>
+  </button>
+</nav>
+
+<!-- ================= home / launcher ================= -->
+<main id="homeView" class="home">
+  <header class="home-bar">
+    <div class="home-mark"><span class="mark-box">J</span><span>Jexel / UBG Tools</span></div>
+    <div class="home-state"><span class="state-dot"></span>Local browser tools</div>
+  </header>
+
+  <section class="home-intro" aria-labelledby="home-title">
+    <div class="intro-kicker">JEXEL'S TOOLKIT <span>/</span> 01</div>
+    <h1 id="home-title">Jexel's UBG Tools</h1>
+    <p>Utilities for hosting, opening, converting, and editing game pages.</p>
+    <a class="quiet-link" href="https://chalkle.lootline.xyz" target="_blank" rel="noopener">Visit chalkle.lootline.xyz <span aria-hidden="true">↗</span></a>
+  </section>
+
+  <div class="home-sections" id="launchGrid">
+    <section class="tool-group" aria-labelledby="tools-label">
+      <div class="group-heading"><h2 id="tools-label">Tools</h2><span>04</span></div>
+      <div class="tool-list">
+        <button class="tool-card" data-goto="cloak" type="button">
+          <span class="tool-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg></span>
+          <span class="tool-copy"><strong>Cloak Studio</strong><small>Wrap a page with a custom tab title and icon.</small></span><span class="tool-arrow" aria-hidden="true">↗</span>
+        </button>
+        <button class="tool-card" data-goto="host" type="button">
+          <span class="tool-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg></span>
+          <span class="tool-copy"><strong>SVG Host</strong><small>Upload files and make CDN links.</small></span><span class="tool-arrow" aria-hidden="true">↗</span>
+        </button>
+        <button class="tool-card" data-goto="obfus" type="button">
+          <span class="tool-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1 1 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1Z"/><path d="m9 12 2 2 4-4"/></svg></span>
+          <span class="tool-copy"><strong>Obfuscator</strong><small>Process HTML and JavaScript locally.</small></span><span class="tool-arrow" aria-hidden="true">↗</span>
+        </button>
+        <button class="tool-card" data-goto="editor" type="button">
+          <span class="tool-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m18 16 4-4-4-4"/><path d="m6 8-4 4 4 4"/><path d="m14.5 4-5 16"/></svg></span>
+          <span class="tool-copy"><strong>HTML Editor</strong><small>Edit a page with a live preview.</small></span><span class="tool-arrow" aria-hidden="true">↗</span>
+        </button>
+      </div>
+    </section>
+
+    <section class="tool-group" aria-labelledby="utilities-label">
+      <div class="group-heading"><h2 id="utilities-label">Utilities</h2><span>03</span></div>
+      <div class="tool-list">
+        <button class="tool-card" data-goto="ab" type="button">
+          <span class="tool-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg></span>
+          <span class="tool-copy"><strong>about:blank</strong><small>Open a page in a blank tab.</small></span><span class="tool-arrow" aria-hidden="true">↗</span>
+        </button>
+        <button class="tool-card" data-goto="mass" type="button">
+          <span class="tool-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect width="8" height="18" x="3" y="3" rx="1"/><rect width="8" height="10" x="13" y="3" rx="1"/><rect width="8" height="5" x="13" y="16" rx="1"/></svg></span>
+          <span class="tool-copy"><strong>Mass Open</strong><small>Open a list of links with a delay.</small></span><span class="tool-arrow" aria-hidden="true">↗</span>
+        </button>
+        <button class="tool-card" data-goto="convert" type="button">
+          <span class="tool-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg></span>
+          <span class="tool-copy"><strong>SVG / HTML Converter</strong><small>Convert between SVG and HTML.</small></span><span class="tool-arrow" aria-hidden="true">↗</span>
+        </button>
+      </div>
+    </section>
+
+    <section class="tool-group info-group" aria-labelledby="info-label">
+      <div class="group-heading"><h2 id="info-label">Info</h2><span>01</span></div>
+      <div class="tool-list">
+        <button class="tool-card" id="aboutCard" type="button">
+          <span class="tool-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg></span>
+          <span class="tool-copy"><strong>About</strong><small>Notes about the toolkit.</small></span><span class="tool-arrow" aria-hidden="true">↗</span>
+        </button>
+      </div>
+    </section>
+  </div>
+</main>
+
+<!-- ================= tool workspace ================= -->
+<div id="toolView" class="toolview">
+
+  <!-- ---- toolbar (one sticky header reused by every tool) ---- -->
+  <div class="tool-head">
+    <div class="tool-head-in">
+      <span class="th-ic" id="thIcon"></span>
+      <span class="th-title" id="thTitle">Tool</span>
+      <div class="tool-tabs" role="tablist" id="toolTabs">
+        <button data-tab="cloak" class="on" role="tab" type="button">Cloak Studio</button>
+        <button data-tab="host" role="tab" type="button">SVG Host</button>
+        <button data-tab="obfus" role="tab" type="button">Obfuscator</button>
+        <button data-tab="editor" role="tab" type="button">HTML Editor</button>
+        <button data-tab="ab" role="tab" type="button">about:blank</button>
+        <button data-tab="mass" role="tab" type="button">Mass Open</button>
+        <button data-tab="convert" role="tab" type="button">Converter</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="wrap">
+
+  <!-- ============ CLOAK STUDIO ============ -->
+  <section class="tool on" id="tool-cloak">
+    <p class="lede">Turn any HTML page into an SVG or a data URL with a school style tab title and icon. Paste the page source, pick how it should present, then copy, download or test the result.</p>
+    <div class="grid g2">
+      <div class="panel">
+        <h2>Input</h2>
+        <p class="sub">The full HTML you want to wrap. Scripts stay working.</p>
+        <textarea id="cloakHtml" class="mono" rows="12" placeholder="<!DOCTYPE html>&#10;<html>...your game or page...</html>"></textarea>
+        <div class="row" style="margin-top:8px">
+          <button class="btn sm" id="cloakLoadFile">Load .html file</button>
+        </div>
+      </div>
+      <div class="panel">
+        <h2>Present as</h2>
+        <label>Tab title</label>
+        <input type="text" id="cloakTitle" value="Classroom Resources">
+        <label>Favicon</label>
+        <div class="row">
+          <select id="cloakFav" style="flex:1">
+            <option value="">Custom URL</option>
+            <option value="https://ssl.gstatic.com/docs/documents/images/kix-favicon7.ico">Google Docs</option>
+            <option value="https://ssl.gstatic.com/docs/spreadsheets/forms/favicon_jfk2.png">Google Forms</option>
+            <option value="https://ssl.gstatic.com/classroom/favicon.png">Google Classroom</option>
+            <option value="https://ssl.gstatic.com/docs/presentations/images/slidesfavicon.ico">Google Slides</option>
+            <option value="https://www.google.com/s2/favicons?domain=drive.google.com&sz=64">Google Drive</option>
+            <option value="https://www.bing.com/sa/simg/favicon-2x.ico">Bing</option>
+            <option value="https://www.desmos.com/assets/img/apps/graphing/favicon.ico">Desmos</option>
+            <option value="https://cdn.kastatic.org/images/favicon.ico">Khan Academy</option>
+            <option value="https://en.wikipedia.org/static/favicon/wikipedia.ico">Wikipedia</option>
+          </select>
+          <input type="text" id="cloakFavUrl" placeholder="https://example.com/favicon.ico" style="flex:1.4">
+        </div>
+        <label>Output format</label>
+        <select id="cloakMode">
+          <option value="html">HTML document (iframe wrapper)</option>
+          <option value="svg">SVG image (loads anywhere an SVG loads)</option>
+          <option value="data">data: URL (for iframe src and the about:blank tool)</option>
+        </select>
+        <div class="check"><input type="checkbox" id="cloakScript" checked><span>Allow scripts, storage and fullscreen inside the cloak (needed by most games)</span></div>
+        <div class="row" style="margin-top:12px">
+          <button class="btn primary" id="cloakBuild">Build</button>
+          <button class="btn" id="cloakCopy">Copy</button>
+          <button class="btn" id="cloakDl">Download</button>
+          <button class="btn" id="cloakTest">Test in new tab</button>
+        </div>
+        <p class="hint" id="cloakStat"></p>
+      </div>
+    </div>
+    <div class="panel" style="margin-top:16px">
+      <h2>Output</h2>
+      <textarea id="cloakOut" class="mono" rows="10" readonly placeholder="Press Build"></textarea>
+    </div>
+  </section>
+
+  <!-- ============ SVG HOST ============ -->
+  <section class="tool" id="tool-host">
+    <p class="lede">Upload one file (or many) to GitHub and get back thousands of working CDN links. Repos are created on your account automatically, files are duplicated with numeric names like <b>lesson-notes-1.svg, lesson-quiz-2.svg</b>, and uploads run in parallel batches. Nothing is faked: every link printed here points at a file that was really pushed.</p>
+
+    <div class="grid g2">
+      <div class="panel">
+        <h2>1. GitHub connection</h2>
+        <p class="sub">Needs a token with the <b>repo</b> scope. Create one at github.com/settings/tokens. The token stays in this tab and is only sent to api.github.com. Open this site over http(s) when uploading: browsers block GitHub API calls from local file pages.</p>
+        <div class="row">
+          <input type="password" id="ghToken" class="mono" placeholder="ghp_ or github_pat_ token" style="flex:2">
+          <button class="btn" id="ghShow">Show</button>
+          <button class="btn primary" id="ghCheck">Check token</button>
+        </div>
+        <div class="check"><input type="checkbox" id="ghRemember"><span>Remember the token on this device (localStorage, this browser only)</span></div>
+        <p class="status" id="ghStatus"></p>
+        <label>Username</label>
+        <input type="text" id="ghUser" class="mono" placeholder="filled in after checking the token">
+      </div>
+
+      <div class="panel">
+        <h2>2. Files</h2>
+        <p class="sub">Usually one SVG cloak. Extra files are spread across repos. Text files only (svg, html, js, css, txt, json).</p>
+        <div class="filedrop" id="hostDrop">Drop files here or click to choose<input type="file" id="hostFile" multiple hidden accept=".svg,.html,.htm,.js,.css,.txt,.json,.xml"></div>
+        <div class="filelist" id="hostFiles">No files loaded</div>
+        <label>File name stem (optional, empty = just numbers)</label>
+        <input type="text" id="hostBase" placeholder="index">
+        <div class="row">
+          <div style="flex:1">
+            <label>Start number</label>
+            <input type="number" id="hostStart" value="1" min="0">
+          </div>
+          <div style="flex:1">
+            <label>Zero pad digits</label>
+            <input type="number" id="hostPad" value="0" min="0" max="6">
+          </div>
+        </div>
+        <label>Copies per file</label>
+        <input type="number" id="hostCopies" value="1" min="1" max="1000000">
+        <p class="hint">Start 1 + pad 4 gives lesson-notes-0001.svg. Copies duplicates each file with new names: 1 file x 1000 copies x 12 hosts = 12000 links. Duplicates cost nothing extra to upload, they share one blob per repo.</p>
+      </div>
+    </div>
+
+    <div class="grid g2" style="margin-top:16px">
+      <div class="panel">
+        <h2>3. Repos</h2>
+        <div class="row">
+          <div style="flex:1">
+            <label>Repo prefix</label>
+            <input type="text" id="hostPrefix" value="ubg">
+          </div>
+          <div style="flex:1">
+            <label>Branch</label>
+            <input type="text" id="hostBranch" value="main">
+          </div>
+          <div style="flex:1">
+            <label>Files per repo</label>
+            <input type="number" id="hostPer" value="12" min="1" max="40">
+          </div>
+        </div>
+        <label>Subfolder inside each repo (optional)</label>
+        <input type="text" id="hostSub" placeholder="empty = repo root">
+        <label>Commit message</label>
+        <input type="text" id="hostMsg" value="add files">
+      </div>
+
+      <div class="panel">
+        <h2>4. Link words</h2>
+        <p class="sub">These become part of the file names, so links read like school pages instead of raw dumps.</p>
+        <label>Main word</label>
+        <input type="text" id="hostMain" value="lesson">
+        <label>Sub words (comma separated)</label>
+        <input type="text" id="hostSubs" value="notes, study, planner, quiz, homework, reading">
+        <div class="row" style="margin-top:6px" id="wordChips"></div>
+        <label>Educational ending</label>
+        <select id="hostEdu">
+          <option value="">none</option>
+          <option value="resources">-resources</option>
+          <option value="hub">-hub</option>
+          <option value="portal">-portal</option>
+          <option value="academy">-academy</option>
+          <option value="learning">-learning</option>
+          <option value="zone">-zone</option>
+        </select>
+        <div class="check"><input type="checkbox" id="hostShuffle"><span>Shuffle the sub word order</span></div>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-top:16px">
+      <h2>5. Link hosts</h2>
+      <p class="sub">Every generated link is produced in each format you tick. jsDelivr mirrors are fastest for browsing traffic; the esm.sh styles work well for SVG cloaks.</p>
+      <div class="fmt" id="hostFmts"></div>
+      <div class="row">
+        <button class="btn sm" id="fmtAll">Select all</button>
+        <button class="btn sm" id="fmtFast">Fast mirrors only</button>
+        <button class="btn sm" id="fmtEdu">School style only</button>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-top:16px">
+      <h2>6. Run</h2>
+      <div class="kv" id="hostPlan"></div>
+      <div class="row">
+        <button class="btn primary" id="hostStartBtn">Start upload</button>
+        <button class="btn" id="hostStopBtn" disabled>Stop</button>
+        <button class="btn" id="hostDl" disabled>Download links (.txt)</button>
+      </div>
+      <div class="progress"><div id="hostBar"></div></div>
+      <pre class="log" id="hostLog">Waiting.</pre>
+      <div class="linkbox-head">
+        <h2>Links</h2>
+        <div class="row" style="gap:6px">
+          <span class="pill" id="hostLinkCount">0</span>
+          <button class="btn sm" id="hostOpenAll" disabled>Open all</button>
+          <button class="btn sm" id="hostCopy" disabled>Copy all</button>
+        </div>
+      </div>
+      <p class="hint">Every link below is clickable. Click a link to open it, or use the buttons on its row to copy or open it on its own.</p>
+      <div class="linkbox" id="hostPrev" aria-live="polite"></div>
+    </div>
+  </section>
+
+  <!-- ============ OBFUSCATOR ============ -->
+  <section class="tool" id="tool-obfus">
+    <p class="lede">Make HTML and its JavaScript hard to scan by filters while the page still runs. Everything is done locally, then you get the finished file back.</p>
+    <div class="grid g2">
+      <div class="panel">
+        <h2>Input HTML or JS</h2>
+        <textarea id="obfIn" class="mono" rows="12" placeholder="<html> ... or raw .js ..."></textarea>
+        <div class="row" style="margin-top:8px">
+          <button class="btn sm" id="obfLoadFile">Load .html or .js file</button>
+        </div>
+        <div class="row" style="margin-top:10px">
+          <button class="btn primary" id="obfRun">Obfuscate</button>
+          <button class="btn" id="obfTest">Test run in new tab</button>
+          <button class="btn" id="obfDl">Download result</button>
+          <button class="btn" id="obfCopy">Copy</button>
+        </div>
+        <p class="status" id="obfStat"></p>
+      </div>
+      <div class="panel">
+        <h2>Options</h2>
+        <div class="check"><input type="checkbox" id="obfPack" checked><span>Pack: store the page as an encoded string and rebuild it at run time (strongest layer, best for games)</span></div>
+        <div class="check"><input type="checkbox" id="obfStrings"><span>Encode string literals into generated variables (hide words like game names from scanners)</span></div>
+        <div class="check"><input type="checkbox" id="obfComments" checked><span>Strip comments</span></div>
+        <div class="check"><input type="checkbox" id="obfHtml" checked><span>Output a runnable HTML page (when the input was JS, or when packing is on)</span></div>
+        <label>Filler code density (JS input, packing off)</label>
+        <select id="obfDead">
+          <option value="0">none</option>
+          <option value="1">light</option>
+          <option value="2">medium</option>
+          <option value="3">heavy</option>
+        </select>
+        <label>Page title for the packed wrapper</label>
+        <input type="text" id="obfTitle" value="Study Notes">
+        <p class="hint">Always press Test run after obfuscating. If a page misbehaves, try turning string encoding off.</p>
+      </div>
+    </div>
+    <div class="panel" style="margin-top:16px">
+      <h2>Result</h2>
+      <textarea id="obfOut" class="mono" rows="10" readonly></textarea>
+    </div>
+  </section>
+
+  <!-- ============ EDITOR ============ -->
+  <section class="tool" id="tool-editor">
+    <p class="lede">Edit HTML with a live browser preview, then save it, open it, or send it straight to the other tools.</p>
+    <div class="editor-split">
+      <div class="editor-left">
+        <div class="panel">
+          <div class="row" style="justify-content:space-between">
+            <h2 style="margin:0">Source</h2>
+            <span class="pill" id="edCount">0 chars</span>
+          </div>
+          <textarea id="edCode" class="mono" rows="22" style="margin-top:8px" placeholder="<!DOCTYPE html> ..."></textarea>
+          <div class="row" style="margin-top:10px">
+            <button class="btn" id="edNew">New</button>
+            <button class="btn" id="edOpen">Open file</button>
+            <button class="btn primary" id="edSave">Save .html</button>
+            <button class="btn" id="edPreview">Preview (blob tab)</button>
+            <button class="btn" id="edAb">Open in about:blank</button>
+            <input type="file" id="edFile" hidden accept=".html,.htm,.svg,.txt,.js,.json">
+          </div>
+          <p class="hint">Ctrl+S saves, Ctrl+Enter previews, Tab inserts two spaces.</p>
+        </div>
+        <div class="panel">
+          <h2>Send to tool</h2>
+          <p class="sub">Loads the editor content into another tool.</p>
+          <div class="row">
+            <button class="btn sm" data-send="cloak">Cloak Studio</button>
+            <button class="btn sm" data-send="obfus">Obfuscator</button>
+          </div>
+          <hr class="sep">
+          <h2>Quick template</h2>
+          <div class="row">
+            <button class="btn sm" data-tpl="game">Game page</button>
+            <button class="btn sm" data-tpl="page">Info page</button>
+          </div>
+          <p class="hint" id="edStatus"></p>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="row" style="justify-content:space-between">
+          <h2 style="margin:0">Live preview</h2>
+          <button class="btn sm" id="edRefresh" type="button">Refresh</button>
+        </div>
+        <div class="framebox">
+          <iframe id="edFrame" title="Live preview" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-pointer-lock allow-downloads" hidden></iframe>
+          <div class="frame-empty" id="edPrevEmpty">Type some HTML to see it render here.</div>
+        </div>
+        <p class="hint">Renders as you type. Games and scripts run inside the sandboxed frame only.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ ABOUT:BLANK ============ -->
+  <section class="tool" id="tool-ab">
+    <p class="lede">Open any page inside a blank tab that shows your own title and icon in the browser history. Launch straight from here, copy a small launcher file, or download a one click launcher.</p>
+    <div class="grid g2">
+      <div class="panel">
+        <h2>Launch</h2>
+        <label>Page URL</label>
+        <input type="text" id="abUrl" class="mono" placeholder="https:// ... or a data: URL from Cloak Studio">
+        <label>Tab title</label>
+        <input type="text" id="abTitle" value="Google Docs">
+        <label>Favicon URL</label>
+        <input type="text" id="abFav" value="https://ssl.gstatic.com/docs/documents/images/kix-favicon7.ico">
+        <div class="row" style="margin-top:12px">
+          <button class="btn primary" id="abOpen">Open in about:blank</button>
+          <button class="btn" id="abCopy">Copy launcher code</button>
+          <button class="btn" id="abDl">Download launcher .html</button>
+        </div>
+        <p class="hint" id="abStat"></p>
+      </div>
+      <div class="panel">
+        <h2>How it works</h2>
+        <p class="sub" style="font-size:13px">The launcher opens <b>about:blank</b>, writes a page into it with a fullscreen iframe, and sets the title and icon. If the browser blocks the popup, allow popups for this site and press the button again. The downloaded launcher file does the same thing from your own file, which helps when the site itself is filtered. data: URLs from Cloak Studio work here because the iframe, not the tab, carries them.</p>
+        <label>Launcher code</label>
+        <textarea id="abCode" class="mono" rows="8" readonly></textarea>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ MASS OPEN ============ -->
+  <section class="tool" id="tool-mass">
+    <p class="lede">Open a batch of links one by one with a delay, so the browser keeps up. Failed popups are collected so you can retry just those.</p>
+    <div class="grid g2">
+      <div class="panel">
+        <div class="row" style="justify-content:space-between">
+          <h2 style="margin:0">Links</h2>
+          <button class="btn sm" id="massLoad" type="button">Load .txt</button>
+          <input type="file" id="massFile" hidden accept=".txt,.csv">
+        </div>
+        <textarea id="massIn" class="mono" rows="10" style="margin-top:10px" placeholder="one URL per line"></textarea>
+        <div class="row" style="margin-top:10px">
+          <label style="margin:0">Delay (ms)</label>
+          <input type="number" id="massDelay" value="800" min="100" step="100" style="max-width:110px">
+          <label style="margin:0">Limit</label>
+          <input type="number" id="massMax" value="50" min="1" style="max-width:90px">
+        </div>
+        <div class="check"><input type="checkbox" id="massCloak"><span>Open each link inside an about:blank cloak using the title and icon below</span></div>
+        <div class="row">
+          <input type="text" id="massTitle" placeholder="cloak title" style="flex:1" value="Classroom">
+          <input type="text" id="massFav" placeholder="favicon url" style="flex:2">
+        </div>
+        <div class="row" style="margin-top:12px">
+          <button class="btn primary" id="massGo">Start opening</button>
+          <button class="btn" id="massStop">Stop</button>
+          <button class="btn" id="massRetry" disabled>Retry failed</button>
+          <button class="btn" id="massClean">Clean list</button>
+        </div>
+        <p class="status" id="massStat"></p>
+      </div>
+      <div class="panel">
+        <h2>Log</h2>
+        <pre class="log" id="massLog" style="height:340px">Waiting.</pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SVG / HTML CONVERTER ============ -->
+  <section class="tool" id="tool-convert">
+    <p class="lede">Convert between HTML pages and SVG files. HTML to SVG wraps a page into an SVG that runs it anywhere an SVG loads. SVG to HTML turns an SVG file back into a plain HTML page you can edit and host.</p>
+    <div class="grid g2">
+      <div class="panel">
+        <h2>Convert</h2>
+        <label>Direction</label>
+        <select id="cvDir">
+          <option value="h2s">HTML to SVG</option>
+          <option value="s2h">SVG to HTML</option>
+        </select>
+        <label>Paste the source, or load a file</label>
+        <textarea id="cvIn" class="mono" rows="12" placeholder="<!DOCTYPE html>... or <svg ...>...</svg>"></textarea>
+        <div class="row" style="margin-top:8px">
+          <button class="btn sm" id="cvLoadHtml">Load .html file</button>
+          <button class="btn sm" id="cvLoadSvg">Load .svg file</button>
+        </div>
+        <p class="hint">Loading a file also sets the direction for you (html in, svg out or the reverse).</p>
+        <div class="row" style="margin-top:10px">
+          <button class="btn primary" id="cvRun">Convert</button>
+          <button class="btn" id="cvTest">Test in new tab</button>
+          <button class="btn" id="cvDl">Download</button>
+          <button class="btn" id="cvCopy">Copy</button>
+        </div>
+        <p class="status" id="cvStat"></p>
+      </div>
+      <div class="panel">
+        <h2>How it works</h2>
+        <p class="sub" style="font-size:13px">HTML to SVG percent-encodes the page into a CDATA script inside the SVG and rebuilds it in a fullscreen iframe at run time, the same engine as Cloak Studio's SVG mode. SVG to HTML inlines the SVG into a plain HTML page. Inline SVG runs its scripts, so cloak SVGs keep working after conversion.</p>
+        <label>Output</label>
+        <textarea id="cvOut" class="mono" rows="10" readonly placeholder="Press Convert"></textarea>
+      </div>
+    </div>
+  </section>
+
+  </div><!-- /wrap -->
+</div><!-- /toolView -->
+
+<!-- ================= about modal ================= -->
+<div class="modal" id="aboutModal" role="dialog" aria-modal="true" aria-label="About Jexel's UBG Tools">
+  <div class="modal-veil" data-close></div>
+  <div class="modal-card">
+    <button class="modal-x" data-close type="button" aria-label="Close">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+    </button>
+    <h2>Jexel's UBG Tools</h2>
+    <p>Hosting, converting and opening tools for unblocked games pages. Everything runs locally in your tab. No accounts, no servers, no tracking.</p>
+    <ul class="modal-list">
+      <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg><span>Use only for content you are allowed to host and open, and follow your network rules.</span></li>
+      <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg><span>Sister site: <a href="https://chalkle.lootline.xyz" target="_blank" rel="noopener" style="color:#fff;text-decoration:underline">chalkle.lootline.xyz</a></span></li>
+    </ul>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+/* ============================================================
+   Jexel's UBG Tools - all logic runs locally in this tab.
+   ============================================================ */
+var JX = {}; /* pure helpers, also used by the test harness */
+
+function $(id){ return document.getElementById(id); }
+function escHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function b64e(s){ return btoa(unescape(encodeURIComponent(s))); }
+function toast(msg){
+  var t = $('toast'); if(!t) return;
+  var d = document.createElement('div'); d.textContent = msg; t.appendChild(d);
+  setTimeout(function(){ d.remove(); }, 2600);
+}
+JX.escHtml = escHtml; JX.b64e = b64e;
+
+function slug(s){
+  return String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,40);
+}
+JX.slug = slug;
+
+function padNum(n, width){
+  var s = String(n);
+  while (s.length < width) s = '0' + s;
+  return s;
+}
+JX.padNum = padNum;
+
+function dl(name, text, mime){
+  var b = new Blob([text], {type: mime || 'text/plain'});
+  var u = URL.createObjectURL(b);
+  var a = document.createElement('a'); a.href = u; a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(function(){ URL.revokeObjectURL(u); }, 2000);
+}
+function copyText(text){
+  if (navigator.clipboard && navigator.clipboard.writeText){
+    return navigator.clipboard.writeText(text).then(function(){ return true; }, function(){ return legacyCopy(text); });
+  }
+  return Promise.resolve(legacyCopy(text));
+}
+function legacyCopy(text){
+  var ta = document.createElement('textarea'); ta.value = text;
+  ta.style.position='fixed'; ta.style.left='-9999px';
+  document.body.appendChild(ta); ta.select();
+  var ok = false; try { ok = document.execCommand('copy'); } catch(e){}
+  ta.remove(); return ok;
+}
+/* shared: pick a file, read it as text, drop it into a textarea */
+function wireFileLoad(btnId, inputId, accept, onLoaded){
+  var input = document.getElementById(inputId);
+  if (!input){
+    input = document.createElement('input');
+    input.type = 'file'; input.hidden = true; input.accept = accept;
+    input.id = inputId;
+    document.body.appendChild(input);
+    input.addEventListener('change', function(){
+      var f = this.files && this.files[0]; this.value = '';
+      if (!f || !input.__onChange) return;
+      var r = new FileReader();
+      r.onload = function(){ input.__onChange(f, String(r.result)); };
+      r.readAsText(f);
+    });
+  }
+  input.__onChange = onLoaded;
+  var btn = document.getElementById(btnId);
+  if (btn) btn.addEventListener('click', function(){ input.click(); });
+}
+
+/* ---------- tabs ---------- */
+function switchTab(name){
+  var b = document.querySelector('[data-tab="'+name+'"]');
+  if (b) b.click();
+}
+function initTabs(){
+  var btns = document.querySelectorAll('[data-tab]');
+  for (var i=0;i<btns.length;i++){
+    (function(b){
+      b.addEventListener('click', function(){
+        var name = b.getAttribute('data-tab');
+        var all = document.querySelectorAll('[data-tab]');
+        for (var j=0;j<all.length;j++) all[j].classList.toggle('on', all[j]===b);
+        var secs = document.querySelectorAll('.tool');
+        for (var k=0;k<secs.length;k++) secs[k].classList.toggle('on', secs[k].id === 'tool-'+name);
+      });
+    })(btns[i]);
+  }
+}
+
+/* ============================================================
+   CLOAK STUDIO
+   ============================================================ */
+var CLOSE_TAG = '<' + '/script>';
+
+function buildHtmlCloak(src, title, fav, allowScripts){
+  var sandbox = allowScripts
+    ? 'sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-pointer-lock allow-downloads"'
+    : 'sandbox=""';
+  return '<!DOCTYPE html>\n<html>\n<head>\n<meta charset="utf-8">\n' +
+    '<meta name="viewport" content="width=device-width, initial-scale=1">\n' +
+    '<title>' + escHtml(title) + '</title>\n' +
+    (fav ? '<link rel="icon" href="' + escHtml(fav) + '">\n' : '') +
+    '<style>html,body{margin:0;padding:0;height:100%;background:#fff;overflow:hidden}iframe{border:0;width:100%;height:100%;display:block}</style>\n' +
+    '</head>\n<body>\n<iframe srcdoc="' + escHtml(src) + '" ' + sandbox + ' allow="autoplay; fullscreen; gamepad"></iframe>\n</body>\n</html>';
+}
+JX.buildHtmlCloak = buildHtmlCloak;
+
+/* SVG cloak follows the standard ecosystem pattern: the payload is
+   percent-encoded inside a CDATA script and injected into a fullscreen
+   iframe at run time, so the SVG stays valid XML no matter what the
+   input HTML contains, and the game still executes. */
+function buildSvgWrap(src){
+  return '<?xml version="1.0" encoding="UTF-8"?>\n' +
+    '<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">\n' +
+    '<foreignObject width="100%" height="100%"><div xmlns="http://www.w3.org/1999/xhtml" style="width:100vw;height:100vh;margin:0;padding:0">' +
+    '<iframe id="jxframe" style="position:fixed;top:0;left:0;width:100vw;height:100vh;border:0;margin:0;padding:0"></iframe>' +
+    '</div></foreignObject>\n' +
+    '<script>\n<![CDATA[\n' +
+    'document.getElementById("jxframe").setAttribute("srcdoc", decodeURIComponent("' + encodeURIComponent(src) + '"));\n' +
+    ']]>\n<' + '/script>\n' +
+    '</svg>';
+}
+JX.buildSvgWrap = buildSvgWrap;
+
+function buildDataUrl(src, title, fav, allowScripts){
+  return 'data:text/html;charset=utf-8;base64,' + b64e(buildHtmlCloak(src, title, fav, allowScripts));
+}
+JX.buildDataUrl = buildDataUrl;
+
+function decodeDataUrl(u){
+  var m = /^data:text\/html;charset=utf-8;base64,([A-Za-z0-9+/=]+)$/.exec(u || '');
+  if (!m) return null;
+  try { return decodeURIComponent(escape(atob(m[1]))); } catch(e){ return null; }
+}
+JX.decodeDataUrl = decodeDataUrl;
+
+function initCloak(){
+  wireFileLoad('cloakLoadFile', 'cloakFileIn', '.html,.htm,.txt', function(f, text){
+    $('cloakHtml').value = text;
+    $('cloakStat').textContent = 'Loaded ' + f.name + '.';
+    toast(f.name + ' loaded.');
+  });
+  $('cloakBuild').addEventListener('click', function(){
+    var src = $('cloakHtml').value;
+    if (!src.trim()){ toast('Paste some HTML first.'); return; }
+    var title = $('cloakTitle').value || 'Home';
+    var fav = $('cloakFav').value || $('cloakFavUrl').value.trim();
+    var allow = $('cloakScript').checked;
+    var mode = $('cloakMode').value;
+    var out = '';
+    try {
+      if (mode === 'svg') out = buildSvgWrap(src);
+      else if (mode === 'data') out = buildDataUrl(src, title, fav, allow);
+      else out = buildHtmlCloak(src, title, fav, allow);
+    } catch(e){ toast('Build failed: ' + e.message); return; }
+    $('cloakOut').value = out;
+    $('cloakStat').textContent = 'Built ' + out.length.toLocaleString() + ' characters, mode ' + mode + '.';
+  });
+  $('cloakCopy').addEventListener('click', function(){
+    if (!$('cloakOut').value) return toast('Nothing to copy yet.');
+    copyText($('cloakOut').value).then(function(ok){ toast(ok ? 'Copied.' : 'Copy failed, select the text manually.'); });
+  });
+  $('cloakDl').addEventListener('click', function(){
+    var v = $('cloakOut').value; if(!v) return toast('Nothing to download yet.');
+    var mode = $('cloakMode').value;
+    if (mode === 'svg') dl('cloak.svg', v, 'image/svg+xml');
+    else if (mode === 'data') dl('cloak-link.txt', v);
+    else dl('cloak.html', v, 'text/html');
+  });
+  $('cloakTest').addEventListener('click', function(){
+    var v = $('cloakOut').value; if(!v) return toast('Press Build first.');
+    var mode = $('cloakMode').value;
+    if (mode === 'data'){
+      /* browsers block top-level data: navigation, so decode and open a
+         temporary blob copy instead */
+      var html = decodeDataUrl(v);
+      if (!html) return toast('Could not decode the data URL.');
+      var u = URL.createObjectURL(new Blob([html], {type:'text/html'}));
+      window.open(u, '_blank');
+      toast('Opened a temporary copy. data: links are meant for iframe src use.');
+      return;
+    }
+    var type = mode === 'svg' ? 'image/svg+xml' : 'text/html';
+    var u2 = URL.createObjectURL(new Blob([v], {type:type}));
+    window.open(u2, '_blank');
+    toast('Opened a temporary copy. Close the tab when done.');
+  });
+}
+
+/* ============================================================
+   SVG HOST  (GitHub mass uploader + link generator)
+   ============================================================ */
+var GH = { token:'', user:'', running:false, results:[], stopUpload:null };
+var FILES = [];
+var HOSTS = ['cdn.jsdelivr.net','fastly.jsdelivr.net','gcore.jsdelivr.net','quantil.jsdelivr.net',
+  'jsdelivr.b-cdn.net','originfastly.jsdelivr.net','testingcdn.jsdelivr.net','rawcdn.jsdelivr.net',
+  'cdn.statically.io','raw.githack.com','rawcdn.githack.com','raw.githubusercontent.com','esm.sh','cdn.esm.sh'];
+
+function fmtUrl(host, user, repo, branch, path){
+  if (host === 'cdn.statically.io') return 'https://cdn.statically.io/gh/' + user + '/' + repo + '/' + branch + '/' + path;
+  if (host === 'esm.sh' || host === 'cdn.esm.sh') return 'https://' + host + '/gh/' + user + '/' + repo + '@' + branch + '/' + path;
+  if (host === 'raw.githubusercontent.com' || host === 'raw.githack.com' || host === 'rawcdn.githack.com')
+    return 'https://' + host + '/' + user + '/' + repo + '/' + branch + '/' + path;
+  return 'https://' + host + '/gh/' + user + '/' + repo + '@' + branch + '/' + path;
+}
+JX.fmtUrl = fmtUrl;
+
+function ghFetch(path, opts){
+  return fetch('https://api.github.com' + path, Object.assign({
+    headers: { 'Accept':'application/vnd.github+json', 'Authorization':'Bearer ' + GH.token, 'Content-Type':'application/json' }
+  }, opts || {})).then(function(r){
+    return r.text().then(function(t){
+      var j = null; try { j = t ? JSON.parse(t) : null; } catch(e){}
+      /* primary rate limit: wait out the reset once, then fail for real */
+      if (r.status === 403 && r.headers.get('X-RateLimit-Remaining') === '0' && !GH.ratelimitWaited){
+        var reset = Number(r.headers.get('X-RateLimit-Reset')) || 0;
+        var waitMs = Math.max(1000, Math.min(15 * 60000, (reset * 1000) - Date.now() + 2000));
+        GH.ratelimitWaited = true;
+        hlog('Rate limit hit. Waiting ' + Math.round(waitMs / 60000) + ' min for the reset, then resuming.');
+        return new Promise(function(res){ setTimeout(function(){ res(ghFetch(path, opts)); }, waitMs); });
+      }
+      return { ok:r.ok, status:r.status, json:j, text:t };
+    });
+  });
+}
+
+function hlog(msg){
+  var el = $('hostLog'); if(!el) return;
+  var stamp = new Date().toTimeString().slice(0,8);
+  el.textContent += '[' + stamp + '] ' + msg + '\n';
+  el.scrollTop = el.scrollHeight;
+}
+
+/* Blob dedup is content keyed. The git blob sha never mattered here: the real
+   sha comes back from GitHub when the blob is posted. Content keys also work
+   on file:// pages where crypto.subtle is unavailable. */
+
+function buildCombos(main, subs, edu, shuffle){
+  var m = slug(main) || 'lesson';
+  var list = String(subs||'').split(',').map(slug).filter(Boolean);
+  var eduS = edu ? '-' + slug(edu) : '';
+  var combos = [m + eduS];
+  for (var i=0;i<list.length;i++) combos.push(m + '-' + list[i] + eduS);
+  if (shuffle){ for (var j=combos.length-1;j>0;j--){ var k=Math.floor(Math.random()*(j+1)); var t=combos[j]; combos[j]=combos[k]; combos[k]=t; } }
+  return combos;
+}
+JX.buildCombos = buildCombos;
+
+function wordFor(combos, fileIdx){
+  var c = combos[fileIdx % combos.length];
+  var gen = Math.floor(fileIdx / combos.length);
+  return gen ? c + '-' + (gen + 1) : c;
+}
+JX.wordFor = wordFor;
+
+function nameFor(base, idx, start, padW, ext){
+  var n = Number(start) + idx;
+  var stem = (base ? base + '-' : '') + padNum(n, padW);
+  return ext ? stem + '.' + ext : stem;
+}
+JX.nameFor = nameFor;
+
+function selectedHosts(){
+  var out = [];
+  var boxes = document.querySelectorAll('[data-host]');
+  for (var i=0;i<boxes.length;i++) if (boxes[i].checked) out.push(boxes[i].getAttribute('data-host'));
+  return out;
+}
+
+function hostPlan(){
+  var nf = FILES.length;
+  var per = Math.max(1, Number($('hostPer').value) || 12);
+  var copies = Math.max(1, Number($('hostCopies').value) || 1);
+  var hosts = selectedHosts().length || 1;
+  var total = nf * copies;
+  var repos = total ? Math.ceil(total / per) : 0;
+  var links = total * hosts;
+  $('hostPlan').innerHTML =
+    '<span><b>' + nf.toLocaleString() + '</b>file(s)</span>' +
+    '<span><b>' + total.toLocaleString() + '</b>file copies</span>' +
+    '<span><b>' + repos.toLocaleString() + '</b>repo(s)</span>' +
+    '<span><b>' + hosts + '</b>hosts</span>' +
+    '<span><b>' + links.toLocaleString() + '</b>links</span>';
+}
+
+function readFiles(list){
+  var arr = Array.prototype.slice.call(list || []);
+  var pending = arr.map(function(f){
+    return new Promise(function(res){
+      var r = new FileReader();
+      r.onload = function(){ res({ name:f.name, text:String(r.result), size:f.size }); };
+      r.onerror = function(){ res(null); };
+      r.readAsText(f);
+    });
+  });
+  Promise.all(pending).then(function(rs){
+    FILES = rs.filter(Boolean);
+    var el = $('hostFiles');
+    if (!FILES.length){ el.textContent = 'No files loaded'; }
+    else {
+      var total = FILES.reduce(function(a,f){ return a + f.size; }, 0);
+      el.textContent = FILES.length + ' file(s), ' + total.toLocaleString() + ' bytes: ' +
+        FILES.slice(0,8).map(function(f){ return f.name; }).join(', ') + (FILES.length > 8 ? ' ...' : '');
+    }
+    hostPlan();
+  });
+}
+
+function seedRepo(name){
+  /* The git data API answers 409 on a repo with zero commits. The contents
+     API is the one write that works on an empty repo, so use it to lay the
+     first commit down before any blob/tree/commit work. */
+  return ghFetch('/repos/' + GH.user + '/' + name + '/contents/.ubg-seed.md', {
+    method:'PUT', body: JSON.stringify({ message:'init', content: btoa('seed') })
+  }).then(function(sd){
+    if (!sd.ok) throw new Error('repo ' + name + ' is empty and could not be initialized (HTTP ' + sd.status + ')');
+    hlog('Initialized empty repo ' + name + ' with a seed commit.');
+  });
+}
+function ensureRepo(name, branch){
+  return ghFetch('/user/repos', { method:'POST', body: JSON.stringify({
+    name: name, private:false, auto_init:true, description:'static files'
+  })}).then(function(cr){
+    if (cr.ok) return { name:name, fresh:true };
+    if (cr.status !== 422) return null;
+    return ghFetch('/repos/' + GH.user + '/' + name).then(function(ex){
+      if (!ex.ok) return null;
+      var def = (ex.json && ex.json.default_branch) || branch || 'main';
+      /* A repo left with zero commits (a previous run that crashed, or a
+         manually created one) rejects every blob with 409. Detect it and
+         seed a commit so the normal pipeline can run. */
+      return ghFetch('/repos/' + GH.user + '/' + name + '/git/ref/heads/' + def).then(function(ref){
+        if (ref.ok || ref.status !== 409) return { name:name, fresh:false };
+        return seedRepo(name).then(function(){ return { name:name, fresh:false }; });
+      });
+    });
+  });
+}
+
+function uploadRepo(job){
+  var repoName = job.repoName;
+  var branch = job.branch;
+  return ensureRepo(repoName, branch).then(function(repo){
+    if (!repo) throw new Error('could not create ' + repoName);
+    /* identical file bodies share one blob POST per repo */
+    var posted = {}; var uniqArr = []; var treeFiles = [];
+    job.files.forEach(function(f){
+      if (!posted[f.text]){ posted[f.text] = { text:f.text, sha:null }; uniqArr.push(posted[f.text]); }
+      treeFiles.push({ f:f, key:f.text });
+    });
+    function postOne(item){
+      return ghFetch('/repos/' + GH.user + '/' + repo.name + '/git/blobs', {
+        method:'POST', body: JSON.stringify({ content:item.text, encoding:'utf-8' })
+      }).then(function(rb){
+        if (!rb.ok) throw new Error('blob upload failed (HTTP ' + rb.status + (rb.status === 403 ? ', rate limit or token scope)' : rb.status === 409 ? ', repository has no commits)' : ')'));
+        item.sha = rb.json.sha;
+      });
+    }
+    function chunk(arr, size){
+      var p = Promise.resolve();
+      for (var i=0;i<arr.length;i+=size){
+        (function(part){ p = p.then(function(){ return Promise.all(part.map(postOne)); }); })(arr.slice(i, i+size));
+      }
+      return p;
+    }
+    return chunk(uniqArr, 6).then(function(){
+      var tree = treeFiles.map(function(tf){
+        return { path: (job.sub ? job.sub + '/' : '') + tf.f.outName,
+                 mode:'100644', type:'blob', sha: posted[tf.key].sha };
+      });
+      var refUrl = '/repos/' + GH.user + '/' + repo.name + '/git/ref/heads/' + branch;
+      return ghFetch(refUrl).then(function(ref){
+          var parents = [], baseTree;
+          if (ref.ok && ref.json && ref.json.object){
+            var headSha = ref.json.object.sha;
+            parents = [headSha];
+            return ghFetch('/repos/' + GH.user + '/' + repo.name + '/git/commits/' + headSha).then(function(cm){
+              baseTree = cm.ok ? cm.json.tree.sha : undefined;
+              return finishTree(baseTree, parents);
+            });
+          }
+          return finishTree(baseTree, parents);
+
+          function finishTree(baseTree, parents){
+            var body = { tree: tree };
+            if (baseTree) body.base_tree = baseTree;
+            return ghFetch('/repos/' + GH.user + '/' + repo.name + '/git/trees', {
+              method:'POST', body: JSON.stringify(body)
+            }).then(function(tr){
+              if (!tr.ok) throw new Error('tree failed ' + tr.status);
+              return ghFetch('/repos/' + GH.user + '/' + repo.name + '/git/commits', {
+                method:'POST', body: JSON.stringify({ message: job.msg, tree: tr.json.sha, parents: parents })
+              });
+            }).then(function(cm2){
+              if (!cm2.ok) throw new Error('commit failed ' + cm2.status);
+              if (parents.length){
+                return ghFetch('/repos/' + GH.user + '/' + repo.name + '/git/refs/heads/' + branch, {
+                  method:'PATCH', body: JSON.stringify({ sha: cm2.json.sha, force:false })
+                });
+              }
+              return ghFetch('/repos/' + GH.user + '/' + repo.name + '/git/refs', {
+                method:'POST', body: JSON.stringify({ ref:'refs/heads/' + branch, sha: cm2.json.sha })
+              });
+            }).then(function(pf){
+              if (!pf.ok && pf.status !== 422) throw new Error('ref failed ' + pf.status);
+              return repo.name;
+            });
+          }
+        });
+    });
+  });
+}
+
+function makeJobs(){
+  var user = GH.user;
+  var branch = ($('hostBranch').value || 'main').trim();
+  var prefix = slug($('hostPrefix').value) || 'ubg';
+  var mainWord = $('hostMain').value || 'lesson';
+  var subs = $('hostSubs').value;
+  var edu = $('hostEdu').value;
+  var shuffle = $('hostShuffle').checked;
+  var per = Math.max(1, Number($('hostPer').value) || 12);
+  var copies = Math.max(1, Math.min(1000000, Number($('hostCopies').value) || 1));
+  var sub = slug($('hostSub').value);
+  var msg = $('hostMsg').value || 'add files';
+  var base = slug($('hostBase').value);
+  var start = Number($('hostStart').value) || 1;
+  var padW = Math.max(0, Number($('hostPad').value) || 0);
+  var ext = ((FILES[0] && FILES[0].name.match(/\.([a-z0-9]+)$/i)) || [,'svg'])[1].toLowerCase();
+  var combos = buildCombos(mainWord, subs, edu, shuffle);
+  /* expansion: each source file is duplicated `copies` times. All duplicates
+     share the same content, so each unique body is only ONE blob POST per
+     repo; the rest are free tree entries. */
+  var flat = [];
+  for (var c=0;c<copies;c++){
+    for (var fi=0;fi<FILES.length;fi++) flat.push(FILES[fi]);
+  }
+  var total = flat.length;
+  if (total > 20000) return null; /* guarded in startUpload with a confirm */
+  var repos = Math.ceil(total / per);
+  var jobs = [];
+  for (var r=0;r<repos;r++){
+    var repoName = prefix + '-' + (slug(mainWord) || 'lesson') + '-' + padNum(r+1, String(repos).length);
+    var files = [];
+    for (var f = r*per; f < Math.min((r+1)*per, total); f++){
+      var src = flat[f];
+      var stem = wordFor(combos, f) + '-' + nameFor(base, f % FILES.length, start, padW, '');
+      files.push({ outName: stem + '.' + ext, text: src.text });
+    }
+    jobs.push({ repoName: repoName, branch:branch, sub:sub, msg:msg, files:files, user:user });
+  }
+  return jobs;
+}
+
+function pool(jobs, size, onDone){
+  return new Promise(function(resolve){
+    var i = 0, active = 0, stopped = false;
+    GH.stopUpload = function(){ stopped = true; };
+    function next(){
+      if (active === 0 && (stopped || i >= jobs.length)) return resolve();
+      if (stopped || i >= jobs.length) return;
+      var j = jobs[i++];
+      active++;
+      uploadRepo(j).then(function(repoName){
+        var links = [];
+        for (var k=0;k<j.files.length;k++){
+          for (var h=0;h<j.hosts.length;h++){
+            links.push(fmtUrl(j.hosts[h], j.user, repoName, j.branch,
+              (j.sub ? j.sub + '/' : '') + j.files[k].outName));
+          }
+        }
+        GH.results.push.apply(GH.results, links);
+        onDone(null, j, links.length);
+      }).catch(function(err){
+        onDone(err, j, 0);
+      }).then(function(){
+        active--; next();
+      });
+    }
+    for (var s=0;s<size;s++) next();
+  });
+}
+
+function startUpload(){
+  if (GH.running) return;
+  if (!GH.token){ toast('Check your token first.'); return; }
+  if (!GH.user){ toast('Check the token so the username fills in.'); return; }
+  if (!FILES.length){ toast('Load at least one file.'); return; }
+  var hosts = selectedHosts();
+  if (!hosts.length){ toast('Pick at least one link host.'); return; }
+  GH.running = true; GH.results = []; GH.ratelimitWaited = false;
+  $('hostStartBtn').disabled = true; $('hostStopBtn').disabled = false;
+  $('hostDl').disabled = true; $('hostCopy').disabled = true; $('hostOpenAll').disabled = true;
+  renderHostLinks();
+  var jobs = makeJobs();
+  if (!jobs){
+    GH.running = false;
+    $('hostStartBtn').disabled = false; $('hostStopBtn').disabled = true;
+    var cap = Math.max(1, Math.floor(20000 / FILES.length));
+    var okBig = confirm('That plan makes over 20000 file copies. GitHub allows 5000 API requests per hour and a run this size may not finish. Continue anyway?');
+    if (okBig){
+      $('hostCopies').value = cap;
+      toast('Copies capped to ' + cap.toLocaleString() + ' for this run. Press Start again.');
+    }
+    return;
+  }
+  for (var i=0;i<jobs.length;i++) jobs[i].hosts = hosts;
+  var totalLinks = jobs.reduce(function(a,j){ return a + j.files.length; }, 0) * hosts.length;
+  hlog('Plan: ' + jobs.length + ' repos, ' + jobs.reduce(function(a,j){ return a + j.files.length; }, 0) +
+       ' file copies, ' + hosts.length + ' hosts, ' + totalLinks + ' links.');
+  var done = 0, failed = 0;
+  pool(jobs, 10, function(err, job, linkCount){
+    done++;
+    if (err){ failed++; hlog('FAIL ' + job.repoName + ': ' + err.message); }
+    else {
+      hlog('ok ' + job.repoName + ' (' + job.files.length + ' files, ' + linkCount + ' links)');
+      renderHostLinks();
+    }
+    $('hostBar').style.width = (done / jobs.length * 100).toFixed(1) + '%';
+  }).then(function(){
+    GH.running = false;
+    $('hostStartBtn').disabled = false; $('hostStopBtn').disabled = true;
+    if (GH.results.length){
+      $('hostDl').disabled = false; $('hostCopy').disabled = false; $('hostOpenAll').disabled = false;
+      hlog('DONE. ' + GH.results.length + ' links' + (failed ? ', ' + failed + ' repos failed' : '') + '.');
+      toast(GH.results.length.toLocaleString() + ' links ready.');
+    } else {
+      hlog('Stopped with no links.');
+    }
+  });
+}
+
+var HOST_LINK_CAP = 1000;
+function renderHostLinks(){
+  var box = $('hostPrev');
+  if (!box) return;
+  var n = GH.results.length;
+  var shown = Math.min(n, HOST_LINK_CAP);
+  var html = '';
+  for (var i=0;i<shown;i++){
+    html += '<div class="linkrow">' +
+      '<a class="linkurl" href="' + escHtml(GH.results[i]) + '" target="_blank" rel="noopener" title="Open in new tab">' + escHtml(GH.results[i]) + '</a>' +
+      '<span class="linkacts">' +
+      '<button type="button" class="btn sm" data-act="open" data-i="' + i + '">Open</button>' +
+      '<button type="button" class="btn sm" data-act="copy" data-i="' + i + '">Copy</button>' +
+      '</span></div>';
+  }
+  box.innerHTML = html;
+  if (n > shown){
+    var more = document.createElement('p');
+    more.className = 'hint';
+    more.style.padding = '6px 10px';
+    more.textContent = 'Showing the first ' + shown.toLocaleString() + ' of ' + n.toLocaleString() + ' links. Use Copy all or Download links for the full list.';
+    box.appendChild(more);
+  }
+  $('hostLinkCount').textContent = n.toLocaleString();
+}
+
+function initHost(){
+  var fmtBox = $('hostFmts');
+  HOSTS.forEach(function(h){
+    var l = document.createElement('label');
+    var c = document.createElement('input'); c.type='checkbox'; c.setAttribute('data-host', h); c.checked = true;
+    l.appendChild(c); l.appendChild(document.createTextNode(' ' + h));
+    fmtBox.appendChild(l);
+  });
+  function setHosts(fn){
+    var b = document.querySelectorAll('[data-host]');
+    for (var i=0;i<b.length;i++) b[i].checked = fn(b[i].getAttribute('data-host'));
+    hostPlan();
+  }
+  $('fmtAll').addEventListener('click', function(){ setHosts(function(){ return true; }); });
+  $('fmtFast').addEventListener('click', function(){ setHosts(function(h){ return h.indexOf('jsdelivr') > -1; }); });
+  $('fmtEdu').addEventListener('click', function(){
+    setHosts(function(h){ return h === 'cdn.jsdelivr.net' || h === 'raw.githubusercontent.com' || h === 'cdn.statically.io'; });
+  });
+  var words = ['lesson','notes','homework','study','quiz','planner','essay','science','reading','math','history','writing'];
+  var wc = $('wordChips');
+  words.forEach(function(w){
+    var s = document.createElement('button'); s.type='button'; s.className='chip'; s.textContent = w;
+    s.addEventListener('click', function(){
+      var cur = $('hostSubs').value.trim();
+      var list = cur ? cur.split(',').map(function(x){return x.trim();}).filter(Boolean) : [];
+      if (list.indexOf(w) === -1) list.push(w);
+      $('hostSubs').value = list.join(', ');
+      hostPlan();
+    });
+    wc.appendChild(s);
+  });
+  var drop = $('hostDrop'), file = $('hostFile');
+  drop.addEventListener('click', function(){ file.click(); });
+  drop.addEventListener('dragover', function(e){ e.preventDefault(); drop.classList.add('on'); });
+  drop.addEventListener('dragleave', function(){ drop.classList.remove('on'); });
+  drop.addEventListener('drop', function(e){ e.preventDefault(); drop.classList.remove('on'); readFiles(e.dataTransfer.files); });
+  file.addEventListener('change', function(){ readFiles(file.files); file.value=''; });
+  ['hostPer','hostMain','hostSubs','hostEdu','hostCopies'].forEach(function(id){
+    $(id).addEventListener('input', hostPlan);
+  });
+
+  $('ghShow').addEventListener('click', function(){
+    var t = $('ghToken'); t.type = t.type === 'password' ? 'text' : 'password';
+  });
+  try {
+    var saved = localStorage.getItem('jexel_gh_token');
+    if (saved){ $('ghToken').value = saved; $('ghRemember').checked = true; }
+  } catch(e){}
+  $('ghRemember').addEventListener('change', function(){
+    try {
+      if (this.checked) localStorage.setItem('jexel_gh_token', $('ghToken').value.trim());
+      else localStorage.removeItem('jexel_gh_token');
+    } catch(e){}
+  });
+  $('ghCheck').addEventListener('click', function(){
+    GH.token = $('ghToken').value.trim();
+    var st = $('ghStatus');
+    if (!GH.token){ st.className='status err'; st.textContent='Paste a token first.'; return; }
+    st.className='status'; st.textContent='Checking...';
+    try {
+      if ($('ghRemember').checked) localStorage.setItem('jexel_gh_token', GH.token);
+    } catch(e){}
+    ghFetch('/user').then(function(r){
+      if (r.ok){
+        GH.user = r.json.login;
+        $('ghUser').value = GH.user;
+        st.className='status ok'; st.textContent='Connected as ' + GH.user + '.';
+        hostPlan();
+      } else {
+        st.className='status err';
+        st.textContent = r.status === 401 ? 'Token rejected (401). Check it has the repo scope.' :
+                         'GitHub returned ' + r.status + '. Try again in a minute.';
+      }
+    }).catch(function(){ st.className='status err'; st.textContent='Network error reaching api.github.com.'; });
+  });
+  $('hostStartBtn').addEventListener('click', startUpload);
+  $('hostStopBtn').addEventListener('click', function(){
+    if (GH.stopUpload) GH.stopUpload();
+    hlog('Stopping after current repos finish.');
+  });
+  $('hostDl').addEventListener('click', function(){ dl('links.txt', GH.results.join('\n')); });
+  $('hostCopy').addEventListener('click', function(){
+    copyText(GH.results.join('\n')).then(function(ok){ toast(ok ? GH.results.length + ' links copied.' : 'Copy failed.'); });
+  });
+  $('hostOpenAll').addEventListener('click', function(){
+    if (!GH.results.length) return toast('No links yet.');
+    var first = GH.results.slice(0, 25);
+    first.forEach(function(u){ window.open(u, '_blank', 'noopener'); });
+    toast(first.length < GH.results.length
+      ? 'Opened the first 25 tabs. Browsers block bigger bursts, use the row buttons for the rest.'
+      : 'Opened ' + first.length + ' tabs.');
+  });
+  $('hostPrev').addEventListener('click', function(e){
+    var b = e.target && e.target.closest ? e.target.closest('[data-act]') : null;
+    if (!b) return;
+    var i = Number(b.getAttribute('data-i'));
+    var url = GH.results[i];
+    if (!url) return;
+    if (b.getAttribute('data-act') === 'open'){
+      window.open(url, '_blank', 'noopener');
+    } else {
+      copyText(url).then(function(ok){ toast(ok ? 'Link copied.' : 'Copy failed.'); });
+    }
+  });
+  hostPlan();
+}
+
+/* ============================================================
+   OBFUSCATOR
+   ============================================================ */
+function jsStringSpans(src){
+  /* returns [start, length, kind] spans; kind 1 = string, 2 = regex literal.
+     Comments are consumed but not spanned. Regex vs division is decided from
+     the previous significant token so /a"b/ never opens a fake string. */
+  var spans = []; var i = 0, n = src.length, mode = 0, last = -1;
+  var prevSig = '', prevWord = '';
+  var REGEX_AFTER = { return:1, typeof:1, instanceof:1, in:1, of:1, new:1, delete:1, void:1, case:1, do:1, else:1, yield:1, await:1, throw:1 };
+  while (i < n){
+    var c = src[i];
+    if (mode === 0){
+      if (c === '/' && src[i+1] === '/'){ mode = 4; i++; continue; }
+      if (c === '/' && src[i+1] === '*'){ mode = 5; i += 2; continue; }
+      if (c === '/'){
+        var looksRegex = true;
+        if (prevSig && (/[-)\]}"'`]/.test(prevSig) || (/[A-Za-z0-9_$]/.test(prevSig) && !REGEX_AFTER[prevWord]))) looksRegex = false;
+        if (looksRegex){
+          var j = i + 1, inCls = false, closed = false;
+          while (j < n){
+            var rc = src[j];
+            if (rc === '\\'){ j += 2; continue; }
+            if (rc === '[') inCls = true;
+            else if (rc === ']') inCls = false;
+            else if (rc === '\n') break;
+            else if (rc === '/' && !inCls){ closed = true; break; }
+            j++;
+          }
+          if (closed){
+            var k = j + 1;
+            while (k < n && /[a-z]/i.test(src[k])) k++;
+            spans.push([i, k - i, 2]);
+            prevSig = src[k-1] || '/'; prevWord = '';
+            i = k; continue;
+          }
+          prevSig = '/'; prevWord = ''; i++; continue;
+        }
+        prevSig = '/'; prevWord = ''; i++; continue;
+      }
+      if (c === "'" ){ mode = 1; last = i; }
+      else if (c === '"'){ mode = 2; last = i; }
+      else if (c === '`'){ mode = 3; last = i; }
+      else if (!/\s/.test(c)){
+        if (/[A-Za-z0-9_$]/.test(c)){
+          var w = i;
+          while (w < n && /[A-Za-z0-9_$]/.test(src[w])) w++;
+          prevWord = src.slice(i, w); prevSig = src[w-1];
+          i = w; continue;
+        }
+        prevWord = ''; prevSig = c;
+      }
+    } else if (mode === 1 || mode === 2 || mode === 3){
+      if (c === '\\') i++;
+      else if ((mode===1 && c==="'") || (mode===2 && c==='"') || (mode===3 && c==='`')){
+        spans.push([last, i - last + 1, 1]); mode = 0;
+        prevSig = c; prevWord = '';
+      }
+    } else if (mode === 4){ if (c === '\n') mode = 0; }
+    else if (mode === 5){ if (c === '*' && src[i+1] === '/'){ mode = 0; i++; } }
+    i++;
+  }
+  return spans;
+}
+function inSpans(spans, i){
+  /* spans are produced in ascending order, so binary search keeps big files fast */
+  var lo = 0, hi = spans.length - 1;
+  while (lo <= hi){
+    var mid = (lo + hi) >> 1, sp = spans[mid];
+    if (i < sp[0]) hi = mid - 1;
+    else if (i >= sp[0] + sp[1]) lo = mid + 1;
+    else return true;
+  }
+  return false;
+}
+JX.jsStringSpans = jsStringSpans; JX.inSpans = inSpans;
+
+function stripComments(src){
+  var spans = jsStringSpans(src), out = '', i = 0, n = src.length;
+  while (i < n){
+    if (!inSpans(spans,i) && src[i]==='/' && src[i+1]==='/'){
+      while (i < n && src[i] !== '\n'){ out += ' '; i++; } continue;
+    }
+    if (!inSpans(spans,i) && src[i]==='/' && src[i+1]==='*'){
+      out += '  '; i += 2;
+      while (i < n && !(src[i]==='*' && src[i+1]==='/')){ out += src[i]==='\n' ? '\n' : ' '; i++; }
+      out += '  '; i += 2; continue;
+    }
+    out += src[i]; i++;
+  }
+  return out;
+}
+JX.stripComments = stripComments;
+
+function encodeStrings(src){
+  var spans = jsStringSpans(src), store = [], out = '', idx = 0;
+  for (var s=0;s<spans.length;s++){
+    var sp = spans[s];
+    if (sp[2] !== 1 || sp[1] < 5) continue;
+    var lit = src.substr(sp[0], sp[1]);
+    /* templates with ${} reference outer scope: hoisting would change evaluation */
+    if (lit.charAt(0) === '`' && lit.indexOf('${') !== -1) continue;
+    store.push(lit);
+    out += src.slice(idx, sp[0]) + '_JXS' + (store.length-1) + '_';
+    idx = sp[0] + sp[1];
+  }
+  out += src.slice(idx);
+  if (!store.length) return src;
+  var decl = 'var ';
+  for (var j=0;j<store.length;j++){ decl += '_JXS' + j + '_=' + store[j]; if (j < store.length-1) decl += ','; }
+  return decl + ';\n' + out;
+}
+JX.encodeStrings = encodeStrings;
+
+function deadStmt(words, k){
+  var w = words[k % words.length];
+  var n = 100 + (k * 37) % 900;
+  return ' var ' + w + '_' + n + '="' + w + ' page ' + n + '"; void ' + w + '_' + n + ';';
+}
+function injectDead(src, level){
+  if (!level) return src;
+  var spans = jsStringSpans(src);
+  /* only inject after top level statement ends, never inside for(...) or
+     argument lists where a var statement would break syntax */
+  var depth = 0, pts = [];
+  for (var i=0;i<src.length;i++){
+    if (!inSpans(spans,i)){
+      var c = src[i];
+      if (c==='(' || c==='[' || c==='{') depth++;
+      else if (c===')' || c===']' || c==='}') depth = Math.max(0, depth-1);
+      else if (c===';' && depth===0 && src[i+1] !== '}' ) pts.push(i+1);
+    }
+  }
+  if (!pts.length) return src;
+  var per = level===1 ? 3500 : level===2 ? 1200 : 450;
+  var need = Math.max(1, Math.floor(src.length / per));
+  var step = Math.max(1, Math.floor(pts.length / need));
+  var chosen = {};
+  for (var k=0;k<pts.length && Object.keys(chosen).length < need;k+=step) chosen[pts[k]] = 1;
+  var words = ['lesson','notes','study','quiz','planner','essay','science','reading'];
+  var out = '', kc = 0;
+  for (var i2=0;i2<src.length;i2++){
+    if (chosen[i2]) out += deadStmt(words, kc++);
+    out += src[i2];
+  }
+  return out;
+}
+JX.injectDead = injectDead; JX.deadStmt = deadStmt;
+
+function packCode(src, forHtml){
+  /* HTML payloads must be document.write()n back into the page; eval() of an
+     HTML string renders nothing. JS payloads run through indirect eval. */
+  var body = forHtml
+    ? 'document.write(decodeURIComponent(escape(atob(_JXP))));'
+    : '(function(){var s=decodeURIComponent(escape(atob(_JXP)));(0,eval)(s);})();';
+  return 'var _JXP="' + b64e(src) + '";' + body;
+}
+JX.packCode = packCode;
+
+function wrapScript(code, title){
+  var safe = code.replace(new RegExp('<' + '/script', 'gi'), '<\\/script');
+  return '<!DOCTYPE html>\n<html>\n<head>\n<meta charset="utf-8">\n<title>' + escHtml(title) + '</title>\n' +
+    '<meta name="viewport" content="width=device-width, initial-scale=1">\n</head>\n<body>\n' +
+    '<script>\n' + safe + '\n<' + '/script>\n</body>\n</html>';
+}
+JX.wrapScript = wrapScript;
+
+function looksLikeHtml(s){
+  s = String(s || '');
+  /* note: no literal "<" + "!--" sequence here; inside a <script> block the
+     HTML parser would flip into its double-escaped state on any later
+     "<script" string and the whole program would silently never run */
+  return /^\s*(<!doctype|<html|<head|<body|<meta|<div|<script|<\x21--)/i.test(s) || /<\/html>/i.test(s);
+}
+function obfuscate(src, o){
+  var isHtml = looksLikeHtml(src);
+  var out = src;
+  /* string and filler passes are JavaScript transforms; running them on HTML
+     would hoist attribute values and corrupt the markup */
+  if (!isHtml){
+    if (o.stripComments) out = stripComments(out);
+    if (o.dead) out = injectDead(out, o.dead);
+    if (o.strings) out = encodeStrings(out);
+  }
+  if (o.pack) out = packCode(out, isHtml && o.asHtml);
+  if (o.asHtml && (o.pack || !isHtml)) out = wrapScript(out, o.title);
+  return out;
+}
+JX.obfuscate = obfuscate;
+
+function initObfus(){
+  wireFileLoad('obfLoadFile', 'obfFileIn', '.html,.htm,.js,.txt', function(f, text){
+    $('obfIn').value = text;
+    $('obfStat').className = 'status';
+    $('obfStat').textContent = 'Loaded ' + f.name + '.';
+    toast(f.name + ' loaded.');
+  });
+  $('obfRun').addEventListener('click', function(){
+    var src = $('obfIn').value;
+    if (!src.trim()) return toast('Paste code first.');
+    var out;
+    try {
+      out = obfuscate(src, {
+        pack: $('obfPack').checked,
+        strings: $('obfStrings').checked,
+        stripComments: $('obfComments').checked,
+        dead: Number($('obfDead').value) || 0,
+        asHtml: $('obfHtml').checked,
+        title: $('obfTitle').value || 'Notes'
+      });
+    } catch(e){ $('obfStat').className='status err'; $('obfStat').textContent='Failed: '+e.message; return; }
+    $('obfOut').value = out;
+    $('obfStat').className='status ok';
+    $('obfStat').textContent = src.length.toLocaleString() + ' chars in, ' + out.length.toLocaleString() + ' out.' +
+      (looksLikeHtml(src) && !$('obfPack').checked ? ' HTML input needs packing on to change.' : ' Press Test run.');
+  });
+  $('obfTest').addEventListener('click', function(){
+    var code = $('obfOut').value;
+    if (!code) return toast('Run the obfuscator first.');
+    var isHtml = /<html[\s>]/i.test(code);
+    var doc = isHtml ? code : '<!DOCTYPE html><meta charset="utf-8"><body><script>\n' +
+      code.replace(new RegExp('<' + '/script','gi'), '<\\/script') + '\n<' + '/script>';
+    var w = window.open('about:blank','_blank');
+    if (!w) return toast('Popup blocked. Allow popups and retry.');
+    if (writePopupDoc(w, doc)){
+      try { w.opener = null; } catch(e){}
+      $('obfStat').className='status ok'; $('obfStat').textContent='Opened in a new tab. Check it plays, then close it.';
+      return;
+    }
+    try { w.close(); } catch(e){}
+    $('obfStat').className='status err';
+    $('obfStat').textContent = "Couldn't create the about:blank page.";
+  });
+  $('obfDl').addEventListener('click', function(){
+    var v = $('obfOut').value; if(!v) return toast('Nothing to download.');
+    var isHtml = /<html[\s>]/i.test(v);
+    dl(isHtml ? 'packed.html' : 'packed.js', v, isHtml ? 'text/html' : 'text/javascript');
+  });
+  $('obfCopy').addEventListener('click', function(){
+    if (!$('obfOut').value) return toast('Nothing to copy.');
+    copyText($('obfOut').value).then(function(ok){ toast(ok ? 'Copied.' : 'Copy failed.'); });
+  });
+}
+
+/* ============================================================
+   EDITOR
+   ============================================================ */
+var TPL_GAME = '<!DOCTYPE html>\n<html>\n<head>\n<meta charset="utf-8">\n<title>Play</title>\n<style>\n  html,body{margin:0;height:100%;background:#111;color:#fff;font-family:system-ui,sans-serif;display:flex;align-items:center;justify-content:center}\n  button{font-size:20px;padding:14px 28px;border-radius:10px;border:0;background:#2563eb;color:#fff;cursor:pointer}\n</style>\n</head>\n<body>\n<button onclick="start()">Play</button>\n<script>\n  function start(){\n    document.body.innerHTML = \'game goes here\';\n  }\n<' + '/script>\n</body>\n</html>';
+var TPL_PAGE = '<!DOCTYPE html>\n<html>\n<head>\n<meta charset="utf-8">\n<title>My Page</title>\n<style>\n  body{font-family:system-ui,sans-serif;max-width:640px;margin:40px auto;padding:0 16px;color:#222}\n  h1{color:#1d4ed8}\n</style>\n</head>\n<body>\n<h1>Hello</h1>\n<p>Edit this page, then press Preview.</p>\n</body>\n</html>';
+
+function edCount(){
+  $('edCount').textContent = $('edCode').value.length.toLocaleString() + ' chars';
+  /* every path that changes the source (typing, templates, file open, New)
+     calls this, so it doubles as the live-preview refresh trigger */
+  if (typeof window.edSchedulePreview === 'function') window.edSchedulePreview();
+}
+function initEditor(){
+  var code = $('edCode');
+  code.addEventListener('input', edCount);
+  code.addEventListener('keydown', function(e){
+    if (e.key === 'Tab'){
+      e.preventDefault();
+      var s = code.selectionStart, epos = code.selectionEnd;
+      code.value = code.value.slice(0,s) + '  ' + code.value.slice(epos);
+      code.selectionStart = code.selectionEnd = s + 2;
+    }
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's'){ e.preventDefault(); saveEd(); }
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter'){ e.preventDefault(); previewEd(); }
+  });
+  $('edNew').addEventListener('click', function(){ code.value = TPL_PAGE; edCount(); $('edStatus').textContent='New page loaded.'; });
+  $('edOpen').addEventListener('click', function(){ $('edFile').click(); });
+  $('edFile').addEventListener('change', function(){
+    var f = this.files && this.files[0]; this.value='';
+    if (!f) return;
+    var r = new FileReader();
+    r.onload = function(){ code.value = String(r.result); edCount(); $('edStatus').textContent = 'Loaded ' + f.name; };
+    r.readAsText(f);
+  });
+  function saveEd(){
+    var v = code.value; if(!v.trim()) return toast('Nothing to save.');
+    dl('page.html', v, 'text/html'); $('edStatus').textContent='Saved page.html.';
+  }
+  function previewEd(){
+    var v = code.value; if(!v.trim()) return toast('Nothing to preview.');
+    var u = URL.createObjectURL(new Blob([v], {type:'text/html'}));
+    window.open(u, '_blank');
+  }
+  $('edAb').addEventListener('click', function(){
+    var v = code.value; if(!v.trim()) return toast('Nothing to open.');
+    var w = window.open('about:blank', '_blank');
+    if (!w) return toast('Popup blocked. Allow popups and try again.');
+    if (writePopupDoc(w, v)){
+      try { w.opener = null; } catch(e){}
+      $('edStatus').textContent = 'Opened in an about:blank tab.';
+      return;
+    }
+    try { w.close(); } catch(e){}
+    toast("Couldn't create the about:blank page.", 'err');
+  });
+  $('edSave').addEventListener('click', saveEd);
+  $('edPreview').addEventListener('click', previewEd);
+  var sends = document.querySelectorAll('[data-send]');
+  for (var i=0;i<sends.length;i++){
+    (function(b){
+      b.addEventListener('click', function(){
+        var v = code.value; if(!v.trim()) return toast('Editor is empty.');
+        var t = b.getAttribute('data-send');
+        if (t === 'cloak'){ switchTab('cloak'); $('cloakHtml').value = v; }
+        if (t === 'obfus'){ switchTab('obfus'); $('obfIn').value = v; }
+        toast('Sent to ' + t + '.');
+      });
+    })(sends[i]);
+  }
+  var tpls = document.querySelectorAll('[data-tpl]');
+  for (var j=0;j<tpls.length;j++){
+    (function(b){
+      b.addEventListener('click', function(){
+        code.value = b.getAttribute('data-tpl') === 'game' ? TPL_GAME : TPL_PAGE;
+        edCount();
+      });
+    })(tpls[j]);
+  }
+  /* ---------- live canvas preview ---------- */
+  var edFrame = $('edFrame'), edEmpty = $('edPrevEmpty'), edTimer = null;
+  function renderPreview(){
+    var v = code.value;
+    if (!v.trim()){ edFrame.hidden = true; edEmpty.hidden = false; return; }
+    edFrame.hidden = false; edEmpty.hidden = true;
+    edFrame.srcdoc = v;
+  }
+  window.edSchedulePreview = function(){
+    clearTimeout(edTimer);
+    edTimer = setTimeout(renderPreview, 350);
+  };
+  $('edRefresh').addEventListener('click', renderPreview);
+  edCount();
+}
+
+/* ============================================================
+   ABOUT:BLANK LAUNCHER
+   ============================================================ */
+function bootstrapDoc(url, title, fav){
+  /* The sandbox leaves out allow-top-navigation on purpose: pages that
+     framebust (top.location = ...) would otherwise steal the whole cloak tab
+     and navigate it to their real address. allow-same-origin stays so game
+     saves and storage keep working. */
+  var sandbox = 'allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-orientation-lock allow-pointer-lock allow-presentation';
+  return '<!DOCTYPE html>\n<html>\n<head>\n<meta charset="utf-8">\n<title>' + escHtml(title||'Home') + '</title>\n' +
+    (fav ? '<link rel="icon" href="' + escHtml(fav) + '">\n' : '') +
+    '<style>html,body{margin:0;height:100%;background:#fff;overflow:hidden}iframe{border:0;width:100%;height:100%;display:block}</style>\n' +
+    '</head>\n<body>\n<iframe src="' + escHtml(url) + '" sandbox="' + sandbox + '" allow="autoplay; fullscreen; gamepad" referrerpolicy="no-referrer"></iframe>\n</body>\n</html>';
+}
+JX.bootstrapDoc = bootstrapDoc;
+
+/* Build a minimal shell page (title, icon, full-viewport iframe) directly in
+   a freshly opened about:blank popup using DOM APIs. No document.write
+   anywhere: some browsers and extensions silently refuse writes into
+   about:blank popups, but same-process DOM construction on the fresh
+   WindowProxy keeps working. The opener is only cut AFTER the shell exists;
+   dropping it earlier can break the WindowProxy relationship in some browser
+   configurations. Returns true only when the shell verifiably exists. */
+function buildPopupShell(w, src, title, fav){
+  try {
+    var doc = w.document;
+    var html = doc.createElement('html');
+    var head = doc.createElement('head');
+    var body = doc.createElement('body');
+
+    var meta = doc.createElement('meta');
+    meta.charset = 'utf-8';
+
+    var titleEl = doc.createElement('title');
+    titleEl.textContent = title || 'Home';
+
+    var icon = doc.createElement('link');
+    icon.rel = 'icon';
+    icon.href = fav || 'https://ssl.gstatic.com/classroom/favicon.png';
+
+    var style = doc.createElement('style');
+    style.textContent = 'html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#000}' +
+      'iframe{display:block;width:100%;height:100%;border:0}';
+
+    var frame = doc.createElement('iframe');
+    frame.src = src;
+    frame.setAttribute('sandbox',
+      'allow-scripts allow-same-origin allow-forms allow-popups allow-modals ' +
+      'allow-orientation-lock allow-pointer-lock allow-presentation allow-downloads');
+    frame.setAttribute('allow', 'fullscreen; autoplay; gamepad; pointer-lock');
+    frame.allowFullscreen = true;
+    frame.referrerPolicy = 'no-referrer';
+
+    head.appendChild(meta);
+    head.appendChild(titleEl);
+    head.appendChild(icon);
+    head.appendChild(style);
+    body.appendChild(frame);
+    html.appendChild(head);
+    html.appendChild(body);
+    doc.replaceChild(html, doc.documentElement);
+
+    /* make sure the shell actually exists before declaring victory */
+    return !!(w.document.body && w.document.body.firstElementChild);
+  } catch(e){ return false; }
+}
+JX.buildPopupShell = buildPopupShell;
+
+/* Run arbitrary HTML in the popup directly (no wrapper). Used by the editor
+   and obfuscator test-run buttons, whose payloads are complete pages. */
+function writePopupDoc(w, html){
+  try {
+    var doc = w.document;
+    var range = doc.createRange();
+    range.selectNodeContents(doc.documentElement);
+    var frag = range.createContextualFragment(html);
+    doc.documentElement.replaceChildren(frag);
+    return !!(doc.body && doc.body.firstElementChild);
+  } catch(e){ return false; }
+}
+JX.writePopupDoc = writePopupDoc;
+
+function openAboutBlank(url, title, fav){
+  if (!/^https?:\/\//i.test(url) && !/^data:text\/html/i.test(url)){
+    return 'Enter a http(s) or data:text/html URL.';
+  }
+  var w = window.open('about:blank', '_blank');
+  if (!w) return 'Popup blocked. Allow popups for this site and press Open again.';
+  if (buildPopupShell(w, url, title, fav)){
+    try { w.opener = null; } catch(e){}
+    return 'ok';
+  }
+  try { w.close(); } catch(e){}
+  return "Couldn't create the about:blank page.";
+}
+JX.openAboutBlank = openAboutBlank;
+
+function initAb(){
+  function vals(){
+    return { url: $('abUrl').value.trim(), title: $('abTitle').value || 'Home', fav: $('abFav').value.trim() };
+  }
+  $('abOpen').addEventListener('click', function(){
+    var v = vals();
+    if (!v.url) return toast('Enter a URL.');
+    var r = openAboutBlank(v.url, v.title, v.fav);
+    $('abStat').textContent = r; $('abStat').className = 'status ' + (r.indexOf('ok') === 0 ? 'ok' : 'err');
+  });
+  $('abCopy').addEventListener('click', function(){
+    var v = vals();
+    if (!v.url) return toast('Enter a URL.');
+    var code = bootstrapDoc(v.url, v.title, v.fav);
+    $('abCode').value = code;
+    copyText(code).then(function(ok){ toast(ok ? 'Launcher code copied.' : 'Copy failed, use the box.'); });
+  });
+  $('abDl').addEventListener('click', function(){
+    var v = vals();
+    if (!v.url) return toast('Enter a URL.');
+    var code = '<!DOCTYPE html>\n<html>\n<head>\n<meta charset="utf-8">\n<title>Home</title>\n</head>\n<body>\n<' + 'script>\n' +
+      'var src=' + JSON.stringify(v.url) + ';\n' +
+      'var title=' + JSON.stringify(v.title || "Home") + ';\n' +
+      'var fav=' + JSON.stringify(v.fav || "https://ssl.gstatic.com/classroom/favicon.png") + ';\n' +
+      'var w=window.open("about:blank","_blank");\n' +
+      'if(!w){document.body.textContent="Allow popups, then reopen this file.";}\n' +
+      'else{try{\n' +
+      ' var d=w.document;\n' +
+      ' var h=d.createElement("html");\n' +
+      ' var head=d.createElement("head");\n' +
+      ' var body=d.createElement("body");\n' +
+      ' var m=d.createElement("meta"); m.charset="utf-8";\n' +
+      ' var ti=d.createElement("title"); ti.textContent=title;\n' +
+      ' var ic=d.createElement("link"); ic.rel="icon"; ic.href=fav;\n' +
+      ' var st=d.createElement("style");\n' +
+      ' st.textContent="html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#000}iframe{display:block;width:100%;height:100%;border:0}";\n' +
+      ' var fr=d.createElement("iframe");\n' +
+      ' fr.src=src; fr.allowFullscreen=true; fr.referrerPolicy="no-referrer";\n' +
+      ' fr.setAttribute("sandbox","allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-orientation-lock allow-pointer-lock allow-presentation allow-downloads");\n' +
+      ' fr.setAttribute("allow","fullscreen; autoplay; gamepad; pointer-lock");\n' +
+      ' head.appendChild(m); head.appendChild(ti); head.appendChild(ic); head.appendChild(st);\n' +
+      ' body.appendChild(fr); h.appendChild(head); h.appendChild(body);\n' +
+      ' d.replaceChild(h, d.documentElement);\n' +
+      ' if(!w.document.body || !w.document.body.firstElementChild){throw new Error("no shell");}\n' +
+      ' try{w.opener=null;}catch(e){}\n' +
+      '}catch(e){try{w.close();}catch(e2){} document.body.textContent="Could not create the about:blank page.";}}\n' +
+      '\n<' + '/script>\n</body>\n</html>';
+    dl('launcher.html', code, 'text/html');
+  });
+}
+
+/* ============================================================
+   MASS OPEN
+   ============================================================ */
+var MASS = { stop:false, failed:[] };
+function parseLinks(text){
+  return String(text||'').split(/\r?\n/).map(function(s){ return s.trim(); })
+    .filter(function(s){ return /^https?:\/\//i.test(s) || /^data:text\/html/i.test(s); });
+}
+JX.parseLinks = parseLinks;
+
+function initMass(){
+  $('massGo').addEventListener('click', function(){
+    var links = parseLinks($('massIn').value);
+    if (!links.length) return toast('No valid links found.');
+    var max = Math.max(1, Number($('massMax').value) || 50);
+    var delay = Math.max(100, Number($('massDelay').value) || 800);
+    var useCloak = $('massCloak').checked;
+    var title = $('massTitle').value || 'Page';
+    var fav = $('massFav').value.trim();
+    links = links.slice(0, max);
+    MASS.stop = false; MASS.failed = [];
+    var log = $('massLog'); log.textContent = '';
+    var i = 0;
+    function step(){
+      if (MASS.stop || i >= links.length){
+        $('massStat').className = 'status ' + (MASS.failed.length ? 'err' : 'ok');
+        $('massStat').textContent = i + ' handled, ' + MASS.failed.length + ' blocked.';
+        if (MASS.failed.length){ $('massRetry').disabled = false; }
+        return;
+      }
+      var u = links[i];
+      var ok;
+      if (useCloak){
+        var r = openAboutBlank(u, title, fav);
+        ok = r.indexOf('ok') === 0;
+        log.textContent += (ok ? 'ok   ' : 'FAIL ') + u.slice(0, 90) + (r !== 'ok' ? '  (' + r + ')' : '') + '\n';
+        if (!ok) MASS.failed.push(u);
+      } else {
+        var w = window.open(u, '_blank');
+        ok = !!w;
+        log.textContent += (ok ? 'ok   ' : 'FAIL ') + u.slice(0, 90) + '\n';
+        if (!ok) MASS.failed.push(u);
+      }
+      log.scrollTop = log.scrollHeight;
+      i++;
+      $('massStat').className = 'status';
+      $('massStat').textContent = i + ' / ' + links.length;
+      setTimeout(step, delay);
+    }
+    step();
+  });
+  $('massStop').addEventListener('click', function(){ MASS.stop = true; });
+  $('massLoad').addEventListener('click', function(){ $('massFile').click(); });
+  $('massFile').addEventListener('change', function(){
+    var f = this.files && this.files[0]; this.value='';
+    if (!f) return;
+    var r = new FileReader();
+    r.onload = function(){
+      var cur = parseLinks($('massIn').value);
+      var add = parseLinks(String(r.result));
+      var seen = {}; var all = [];
+      cur.concat(add).forEach(function(u){ if(!seen[u]){ seen[u]=1; all.push(u); } });
+      $('massIn').value = all.join('\n');
+      toast(add.length + ' links loaded from ' + f.name + ' (' + all.length + ' total).');
+    };
+    r.readAsText(f);
+  });
+  $('massRetry').addEventListener('click', function(){
+    if (!MASS.failed.length) return;
+    $('massIn').value = MASS.failed.join('\n');
+    toast('Failed links loaded into the box. Press Start opening.');
+  });
+  $('massClean').addEventListener('click', function(){
+    var links = parseLinks($('massIn').value);
+    var uniq = []; var seen = {};
+    links.forEach(function(u){ if(!seen[u]){ seen[u]=1; uniq.push(u); } });
+    $('massIn').value = uniq.join('\n');
+    toast(uniq.length + ' unique links.');
+  });
+}
+
+/* (boot moved to the launcher shell section at the end) */
+if (typeof module !== 'undefined' && module.exports){ module.exports = JX; }
+/* ---------- new: launcher shell (home <-> tool views) ---------- */
+var TOOLS = {
+  cloak: { name: 'Cloak Studio', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>' },
+  host:  { name: 'SVG Host', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>' },
+  obfus: { name: 'Obfuscator', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1 1 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1Z"/><path d="m9 12 2 2 4-4"/></svg>' },
+  editor:{ name: 'HTML Editor', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m18 16 4-4-4-4"/><path d="m6 8-4 4 4 4"/><path d="m14.5 4-5 16"/></svg>' },
+  ab:    { name: 'about:blank', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>' },
+  mass:  { name: 'Mass Open', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect width="8" height="18" x="3" y="3" rx="1"/><rect width="8" height="10" x="13" y="3" rx="1"/><rect width="8" height="5" x="13" y="16" rx="1"/></svg>' },
+  convert: { name: 'SVG / HTML Converter', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg>' }
+};
+
+function showTool(name){
+  var t = TOOLS[name];
+  $('homeView').classList.add('off');
+  $('homeView').style.display = '';
+  $('toolView').classList.add('on');
+  var dock = document.querySelectorAll('.dock [data-nav]');
+  for (var d=0;d<dock.length;d++) dock[d].classList.toggle('on', dock[d].getAttribute('data-nav') === 'tools');
+  if (t){ $('thIcon').innerHTML = t.icon; $('thTitle').textContent = t.name; }
+  var btns = document.querySelectorAll('#toolTabs [data-tab]');
+  for (var i=0;i<btns.length;i++) btns[i].classList.toggle('on', btns[i].getAttribute('data-tab') === name);
+  var secs = document.querySelectorAll('.tool');
+  for (var k=0;k<secs.length;k++) secs[k].classList.toggle('on', secs[k].id === 'tool-'+name);
+  document.title = t ? t.name + " - Jexel's UBG Tools" : "Jexel's UBG Tools";
+  window.scrollTo(0,0);
+}
+function goHome(){
+  $('toolView').classList.remove('on');
+  $('homeView').classList.remove('off');
+  $('homeView').style.display = '';
+  var dock = document.querySelectorAll('.dock [data-nav]');
+  for (var d=0;d<dock.length;d++) dock[d].classList.toggle('on', dock[d].getAttribute('data-nav') === 'home');
+  document.title = "Jexel's UBG Tools";
+  window.scrollTo(0,0);
+}
+
+/* (patched) show the requested tool inside the workspace view */
+function initTabs(){
+  var btns = document.querySelectorAll('[data-tab]');
+  for (var i=0;i<btns.length;i++){
+    (function(b){
+      b.addEventListener('click', function(){
+        var name = b.getAttribute('data-tab');
+        showTool(name);
+      });
+    })(btns[i]);
+  }
+}
+
+/* (patched) boot the shell along with every tool */
+function initShell(){
+  var cards = document.querySelectorAll('#launchGrid [data-goto]');
+  for (var i=0;i<cards.length;i++){
+    (function(c){
+      c.addEventListener('click', function(){ showTool(c.getAttribute('data-goto')); });
+    })(cards[i]);
+  }
+  var about = $('aboutModal');
+  function openAbout(){ about.classList.add('on'); }
+  function closeAbout(){ about.classList.remove('on'); }
+  var ac = $('aboutCard'); if (ac) ac.addEventListener('click', openAbout);
+  var da = $('dockAbout'); if (da) da.addEventListener('click', openAbout);
+  var closes = about.querySelectorAll('[data-close]');
+  for (var j=0;j<closes.length;j++) closes[j].addEventListener('click', closeAbout);
+  document.addEventListener('keydown', function(e){ if (e.key === 'Escape') closeAbout(); });
+  var navs = document.querySelectorAll('.dock [data-nav]');
+  for (var m=0;m<navs.length;m++){
+    (function(n){
+      n.addEventListener('click', function(){
+        var w = n.getAttribute('data-nav');
+        if (w === 'home') goHome();
+        if (w === 'tools') showTool('cloak');
+      });
+    })(navs[m]);
+  }
+}
+/* ============================================================
+   SVG / HTML CONVERTER
+   ============================================================ */
+function htmlToSvg(src){ return buildSvgWrap(src); }
+JX.htmlToSvg = htmlToSvg;
+
+function svgToHtml(svg){
+  var s = String(svg || '').trim();
+  if (!s) throw new Error('No SVG source given.');
+  if (!/<svg[\s>]/i.test(s)) throw new Error('That does not look like an SVG file.');
+  /* already a cloak SVG (foreignObject + iframe + CDATA script)? decode its
+     payload back to the original HTML for a clean round trip */
+  var enc = /decodeURIComponent\("([^"]+)"\)/.exec(s);
+  if (enc){
+    var dec = '';
+    try { dec = decodeURIComponent(enc[1]); } catch(e){}
+    if (dec && /<[a-z!]/i.test(dec)) return dec;
+  }
+  /* any other SVG: inline it into a standards-mode HTML page. Inline SVG runs
+     its scripts, so converted cloaks keep working. */
+  return '<!DOCTYPE html>\n<html>\n<head>\n<meta charset="utf-8">\n<title>Converted page</title>\n' +
+    '<meta name="viewport" content="width=device-width, initial-scale=1">\n' +
+    '<style>html,body{margin:0;height:100%;background:#fff}svg{width:100vw;height:100vh;display:block}</style>\n' +
+    '</head>\n<body>\n' + s + '\n</body>\n</html>';
+}
+JX.svgToHtml = svgToHtml;
+
+function initConvert(){
+  wireFileLoad('cvLoadHtml', 'cvFileHtml', '.html,.htm,.txt', function(f, text){
+    $('cvIn').value = text;
+    $('cvDir').value = 'h2s';
+    $('cvStat').className = 'status';
+    $('cvStat').textContent = 'Loaded ' + f.name + ', direction set to HTML to SVG.';
+    toast(f.name + ' loaded.');
+  });
+  wireFileLoad('cvLoadSvg', 'cvFileSvg', '.svg,.txt', function(f, text){
+    $('cvIn').value = text;
+    $('cvDir').value = 's2h';
+    $('cvStat').className = 'status';
+    $('cvStat').textContent = 'Loaded ' + f.name + ', direction set to SVG to HTML.';
+    toast(f.name + ' loaded.');
+  });
+  $('cvRun').addEventListener('click', function(){
+    var src = $('cvIn').value;
+    if (!src.trim()) return toast('Paste something to convert first.');
+    var out = '';
+    try {
+      if ($('cvDir').value === 's2h') out = svgToHtml(src);
+      else out = htmlToSvg(src);
+    } catch(e){
+      $('cvStat').className = 'status err'; $('cvStat').textContent = 'Failed: ' + e.message;
+      return;
+    }
+    $('cvOut').value = out;
+    $('cvStat').className = 'status ok';
+    $('cvStat').textContent = src.length.toLocaleString() + ' chars in, ' + out.length.toLocaleString() + ' out.';
+  });
+  $('cvTest').addEventListener('click', function(){
+    var v = $('cvOut').value; if(!v) return toast('Convert something first.');
+    var mime = $('cvDir').value === 's2h' ? 'text/html' : 'image/svg+xml';
+    var u = URL.createObjectURL(new Blob([v], {type:mime}));
+    window.open(u, '_blank');
+    toast('Opened a temporary copy. Close the tab when done.');
+  });
+  $('cvDl').addEventListener('click', function(){
+    var v = $('cvOut').value; if(!v) return toast('Nothing to download.');
+    if ($('cvDir').value === 's2h') dl('converted.html', v, 'text/html');
+    else dl('converted.svg', v, 'image/svg+xml');
+  });
+  $('cvCopy').addEventListener('click', function(){
+    if (!$('cvOut').value) return toast('Nothing to copy.');
+    copyText($('cvOut').value).then(function(ok){ toast(ok ? 'Copied.' : 'Copy failed.'); });
+  });
+}
+JX.initConvert = initConvert;
+
+/* (boot moved to the launcher shell section at the end) */
+if (typeof document !== 'undefined' && typeof window !== 'undefined'){
+  document.addEventListener('DOMContentLoaded', function(){
+    /* saved pages can carry runtime state (inline display styles, stray on
+       classes); normalize once so views always start from a known state */
+    var home = $('homeView'), toolView = $('toolView');
+    home.style.display = '';
+    home.classList.remove('off');
+    toolView.classList.remove('on');
+    var tabs = document.querySelectorAll('#toolTabs [data-tab]');
+    for (var i=0;i<tabs.length;i++) tabs[i].classList.remove('on');
+    var secs = document.querySelectorAll('.tool');
+    for (var k=0;k<secs.length;k++) secs[k].classList.remove('on');
+    initShell(); initTabs(); initCloak(); initHost(); initObfus(); initEditor(); initAb(); initMass(); initConvert();
+  });
+}
+</script>
+</body>
+</html>

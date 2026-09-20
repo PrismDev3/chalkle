@@ -124,21 +124,48 @@
   var origSet = localStorage.setItem;
   var origRemove = localStorage.removeItem;
   var origClear = localStorage.clear;
-  
+
   var syncTimeout = null;
+  var SYNC_MIN_MS = 2000;   /* never POST twice within this window */
+  var lastSyncAt = 0;
+  var SYNC_BIG_BYTES = 5 * 1024 * 1024;  /* above this, stretch the interval */
+  var SYNC_MAX_BYTES = 40 * 1024 * 1024; /* beyond any sane state: refuse */
+  var lastSize = 0;
+
   function syncUp() {
     clearTimeout(syncTimeout);
     syncTimeout = setTimeout(function() {
+      /* Rate limit: active play writes localStorage constantly (playtime
+         ticks, play counts, clicker state), and the old 500ms debounce meant
+         a full-state POST every half second. The interval stretches with
+         size: small states sync after 2s, a 20 MB one waits 15s - still
+         fast enough for crash recovery, without a 22 MB upload every half
+         second during play. */
+      var interval = SYNC_MIN_MS;
+      if (lastSize > SYNC_BIG_BYTES) interval = 15000;
+      var now = Date.now();
+      var wait = lastSyncAt + interval - now;
+      if (wait > 0) { syncTimeout = setTimeout(syncUp, wait); return; }
       var d = {};
+      var total = 0;
       for (var i = 0; i < localStorage.length; i++) {
         var k = localStorage.key(i);
-        d[k] = localStorage.getItem(k);
+        var v = localStorage.getItem(k);
+        d[k] = v;
+        total += (k.length + (v ? v.length : 0)) * 2; /* UTF-16 worst case */
+      }
+      if (total > SYNC_MAX_BYTES) {
+        /* Beyond any plausible state: a runaway key is writing garbage.
+           Syncing would just amplify it. */
+        return;
       }
       var postUrl = '/_sync';
       try {
         if (window.ChalkleApi && window.ChalkleApi.mirrorPing) postUrl = window.ChalkleApi.mirrorPing(postUrl);
       } catch (e) { /* keep same-origin */ }
-      fetch(postUrl, { method: 'POST', body: JSON.stringify(d) }).catch(function(){});
+      lastSyncAt = Date.now();
+      lastSize = total;
+      fetch(postUrl, { method: 'POST', headers: { "X-Requested-With": "chalkle" }, body: JSON.stringify(d) }).catch(function(){});
     }, 500);
   }
 

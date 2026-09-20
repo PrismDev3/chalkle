@@ -1,0 +1,1386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Yut</title>
+<meta name="description" content="HTML pages and link lists from yut. Open pages in about:blank, download files, press through every link.">
+<link rel="icon" type="image/gif" href="beluga.gif">
+<style>
+:root{
+  --font: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  --bg:#f4f8f4;
+  --panel:#ffffff;
+  --panel-2:#fbfdfb;
+  --line:#dfe8df;
+  --line-2:#c9d8ca;
+  --ink:#101910;
+  --ink-2:#4c5a4e;
+  --ink-3:#7d8b7f;
+  --green:#16a34a;
+  --green-deep:#15803d;
+  --green-ink:#0f5c2c;
+  --wash:rgba(22,163,74,.09);
+  --wash-2:rgba(22,163,74,.16);
+  --err:#dc2626;
+  --shadow:0 1px 2px rgba(16,25,16,.05), 0 10px 30px rgba(16,25,16,.06);
+  --r:14px;
+  --ease:cubic-bezier(.3,.7,.3,1);
+}
+html[data-theme="dark"]{
+  --bg:#070a08;
+  --panel:#0d120e;
+  --panel-2:#111712;
+  --line:#1d271e;
+  --line-2:#2c3a2d;
+  --ink:#e9f1ea;
+  --ink-2:#a4b3a6;
+  --ink-3:#6d7d70;
+  --green:#22c55e;
+  --green-deep:#4ade80;
+  --green-ink:#8fe3a8;
+  --wash:rgba(34,197,94,.10);
+  --wash-2:rgba(34,197,94,.18);
+  --err:#f87171;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 12px 34px rgba(0,0,0,.45);
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  min-height:100svh;
+  font:15px/1.55 var(--font);
+  background:var(--bg);
+  color:var(--ink);
+  -webkit-font-smoothing:antialiased;
+}
+::selection{background:var(--wash-2)}
+button{font:inherit}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{
+  outline:2px solid var(--green);outline-offset:2px;
+}
+
+/* ---------- top bar ---------- */
+.top{
+  position:sticky;top:0;z-index:40;
+  background:var(--panel);
+  border-bottom:1px solid var(--line);
+}
+.top-in{
+  max-width:1080px;margin:0 auto;padding:0 22px;
+  height:60px;display:flex;align-items:center;gap:12px;
+}
+.mark{
+  display:flex;align-items:center;gap:10px;min-width:0;
+}
+.mark-sq{
+  width:30px;height:30px;border-radius:8px;flex:none;overflow:hidden;
+  background:var(--green);
+}
+.mark-sq img{width:100%;height:100%;display:block;object-fit:cover}
+.mark-name{font-weight:800;font-size:16px;letter-spacing:-.02em;color:var(--ink)}
+.mark-tag{font-size:12px;color:var(--ink-3);white-space:nowrap}
+.top-actions{margin-left:auto;display:flex;align-items:center;gap:8px}
+.theme-btn{
+  width:36px;height:36px;border-radius:10px;cursor:pointer;
+  border:1px solid var(--line);background:var(--panel);color:var(--ink-2);
+  display:inline-flex;align-items:center;justify-content:center;
+  transition:color .15s var(--ease), border-color .15s var(--ease), background .15s var(--ease);
+}
+.theme-btn:hover{color:var(--ink);border-color:var(--line-2);background:var(--panel-2)}
+.theme-btn svg{width:17px;height:17px}
+html[data-theme="dark"] .sun-ic{display:block}
+html[data-theme="dark"] .moon-ic{display:none}
+.sun-ic{display:none}
+.moon-ic{display:block}
+
+.btn{
+  display:inline-flex;align-items:center;gap:7px;
+  border:1px solid var(--line);background:var(--panel);color:var(--ink);
+  font-size:13px;font-weight:600;padding:8px 13px;border-radius:10px;cursor:pointer;
+  text-decoration:none;
+  transition:background .15s var(--ease), border-color .15s var(--ease), color .15s var(--ease), transform .1s var(--ease);
+}
+.btn:hover{background:var(--panel-2);border-color:var(--line-2)}
+.btn:active{transform:translateY(1px)}
+.btn.primary{
+  background:var(--green);border-color:var(--green);color:#fff;
+}
+.btn.primary:hover{background:var(--green-deep);border-color:var(--green-deep)}
+.btn.sm{padding:5px 10px;font-size:12px;border-radius:8px}
+.btn.danger{color:var(--err);border-color:var(--line)}
+.btn.danger:hover{border-color:var(--err);background:transparent}
+.btn svg{width:14px;height:14px;flex:none}
+
+/* ---------- page ---------- */
+.wrap{max-width:1080px;margin:0 auto;padding:0 22px}
+.hero{padding:52px 0 8px}
+.hero h1{
+  margin:0 0 8px;font-size:clamp(26px,4vw,38px);
+  font-weight:800;letter-spacing:-.03em;color:var(--ink);
+}
+.hero p{margin:0;color:var(--ink-2);font-size:15px;max-width:560px}
+.stats{display:flex;gap:22px;margin-top:18px;font-size:13px;color:var(--ink-3)}
+.stats b{color:var(--ink);font-size:15px;font-weight:700;margin-right:5px}
+
+.bar{
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  padding:20px 0 14px;
+}
+.chips{display:flex;gap:6px;background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:4px}
+.chip{
+  appearance:none;border:0;background:transparent;cursor:pointer;
+  font-size:12.5px;font-weight:600;color:var(--ink-2);
+  padding:6px 12px;border-radius:8px;white-space:nowrap;
+  transition:background .15s var(--ease), color .15s var(--ease);
+}
+.chip:hover{color:var(--ink)}
+.chip.on{background:var(--wash);color:var(--green-ink)}
+.search{
+  margin-left:auto;min-width:200px;flex:1;max-width:280px;
+  border:1px solid var(--line);border-radius:10px;background:var(--panel);
+  color:var(--ink);font:inherit;font-size:13px;padding:8px 12px;
+  transition:border-color .15s var(--ease);
+}
+.search::placeholder{color:var(--ink-3)}
+.search:focus{border-color:var(--green);outline:none}
+
+/* ---------- grid ---------- */
+.grid{
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));
+  gap:14px;padding-bottom:60px;
+}
+.card{
+  display:flex;flex-direction:column;gap:10px;
+  background:var(--panel);border:1px solid var(--line);border-radius:var(--r);
+  padding:16px;box-shadow:var(--shadow);
+  transition:transform .15s var(--ease), border-color .15s var(--ease);
+}
+.card:hover{transform:translateY(-2px);border-color:var(--line-2)}
+.card-top{display:flex;align-items:flex-start;gap:10px}
+.card-ic{
+  width:38px;height:38px;border-radius:10px;flex:none;
+  background:var(--wash);color:var(--green);
+  display:flex;align-items:center;justify-content:center;
+}
+.card-ic svg{width:18px;height:18px}
+.card-name{
+  font-weight:700;font-size:14px;letter-spacing:-.01em;color:var(--ink);
+  min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-top:1px;
+}
+.card-kind{
+  margin-top:2px;font-size:11.5px;font-weight:600;color:var(--ink-3);letter-spacing:.02em;
+}
+.card-cat{
+  display:inline-block;margin-top:6px;
+  background:var(--wash);color:var(--green-ink);
+  border-radius:999px;padding:2px 9px;font-size:11px;font-weight:600;
+}
+.cat-chip-row{display:flex;gap:6px;flex-wrap:wrap;padding:0 0 14px}
+.cat-chip{
+  appearance:none;border:1px solid var(--line);background:var(--panel);cursor:pointer;
+  color:var(--ink-2);font-size:12px;font-weight:600;
+  padding:5px 12px;border-radius:999px;
+  transition:all .15s var(--ease);
+}
+.cat-chip:hover{color:var(--ink);border-color:var(--line-2)}
+.cat-chip.on{background:var(--green);border-color:var(--green);color:#fff}
+
+/* ---------- tools ---------- */
+.tabs{display:flex;gap:6px;flex-wrap:wrap;padding:28px 0 0}
+.tab{
+  appearance:none;border:1px solid var(--line);background:var(--panel);cursor:pointer;
+  color:var(--ink-2);font-size:13px;font-weight:700;
+  padding:8px 16px;border-radius:999px;
+  transition:all .15s var(--ease);
+}
+.tab:hover{color:var(--ink);border-color:var(--line-2)}
+.tab.on{background:var(--green);border-color:var(--green);color:#fff}
+.tool{display:none;padding-top:16px}
+.tool.on{display:block}
+.panel{
+  background:var(--panel);border:1px solid var(--line);border-radius:var(--r);
+  padding:20px;box-shadow:var(--shadow);
+}
+.panel h2{margin:0 0 2px;font-size:15px;font-weight:800;letter-spacing:-.01em}
+.panel-sub{margin:0 0 14px;color:var(--ink-2);font-size:13px}
+input[type=number],textarea{
+  width:100%;border:1px solid var(--line);border-radius:10px;padding:9px 12px;
+  font:inherit;font-size:14px;background:var(--panel-2);color:var(--ink);
+  transition:border-color .15s var(--ease);
+}
+textarea{resize:vertical;line-height:1.55}
+input[type=number]:focus,textarea:focus{border-color:var(--green);outline:none}
+.mono-in{font-family:var(--mono);font-size:12.5px;line-height:1.55}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.grid2{display:grid;grid-template-columns:1.1fr .9fr;gap:14px;align-items:start}
+label.inline{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--ink-2);font-weight:600;margin:0}
+label.inline input{width:84px;border:1px solid var(--line);border-radius:8px;padding:6px 8px;background:var(--panel-2);color:var(--ink);font:inherit;font-size:13px}
+.check{display:flex;gap:8px;align-items:flex-start;font-size:13px;color:var(--ink-2);margin:12px 0 0}
+.check input{margin-top:2px;accent-color:var(--green)}
+.hint{font-size:12px;color:var(--ink-3);margin:10px 0 0}
+@media (max-width:640px){.two{grid-template-columns:1fr}}
+@media (max-width:880px){.grid2{grid-template-columns:1fr}}
+.card-meta{font-size:12px;color:var(--ink-3)}
+.card-meta b{color:var(--ink-2);font-weight:600}
+.card-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:auto}
+.del{
+  margin-left:auto;width:28px;height:28px;border-radius:8px;flex:none;cursor:pointer;
+  border:1px solid var(--line);background:transparent;color:var(--ink-3);
+  display:none;align-items:center;justify-content:center;
+  transition:color .15s, border-color .15s;
+}
+.del:hover{color:var(--err);border-color:var(--err)}
+.del svg{width:13px;height:13px}
+body.unlocked .del{display:inline-flex}
+
+.empty{
+  grid-column:1/-1;text-align:center;padding:70px 20px;color:var(--ink-3);
+  border:1.5px dashed var(--line-2);border-radius:var(--r);
+}
+.empty h2{margin:0 0 6px;font-size:16px;color:var(--ink-2);font-weight:700}
+.empty p{margin:0;font-size:13.5px}
+
+.notice{
+  display:none;margin:18px 0 0;padding:11px 14px;border-radius:10px;
+  border:1px solid var(--line);background:var(--panel);color:var(--ink-2);font-size:13px;
+}
+.notice.on{display:block}
+.notice.err{color:var(--err);border-color:var(--err)}
+
+/* ---------- footer ---------- */
+footer{
+  border-top:1px solid var(--line);padding:22px 0 30px;
+  text-align:center;color:var(--ink-3);font-size:12.5px;
+}
+
+/* ---------- modal ---------- */
+.modal{position:fixed;inset:0;z-index:80;display:none}
+.modal.on{display:block}
+.veil{position:absolute;inset:0;background:rgba(7,10,8,.45);animation:fade .15s var(--ease)}
+html[data-theme="dark"] .veil{background:rgba(0,0,0,.6)}
+.sheet{
+  position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  width:min(640px,calc(100vw - 36px));max-height:min(720px,calc(100svh - 40px));
+  overflow:auto;background:var(--panel);border:1px solid var(--line);border-radius:18px;
+  box-shadow:0 30px 80px rgba(7,10,8,.3);
+  animation:pop .18s var(--ease);
+}
+.sheet-in{padding:22px}
+.sheet h2{margin:0 0 4px;font-size:17px;font-weight:800;letter-spacing:-.02em}
+.sheet .sub{margin:0 0 16px;color:var(--ink-2);font-size:13px}
+.x{
+  position:absolute;top:12px;right:12px;width:30px;height:30px;border-radius:9px;cursor:pointer;
+  border:1px solid var(--line);background:transparent;color:var(--ink-2);
+  display:inline-flex;align-items:center;justify-content:center;
+}
+.x:hover{color:var(--ink);background:var(--panel-2)}
+.x svg{width:14px;height:14px}
+label{display:block;font-size:12px;font-weight:600;color:var(--ink-2);margin:14px 0 5px}
+label:first-of-type{margin-top:0}
+input[type=text],input[type=password],select{
+  width:100%;border:1px solid var(--line);border-radius:10px;padding:9px 12px;
+  font:inherit;font-size:14px;background:var(--panel-2);color:var(--ink);
+  transition:border-color .15s var(--ease);
+}
+input:focus,select:focus{border-color:var(--green);outline:none}
+select option{background:var(--panel);color:var(--ink)}
+.drop{
+  border:1.5px dashed var(--line-2);border-radius:12px;padding:26px 16px;text-align:center;
+  color:var(--ink-3);font-size:13px;cursor:pointer;background:var(--panel-2);
+  transition:border-color .15s var(--ease), background .15s var(--ease), color .15s var(--ease);
+}
+.drop:hover,.drop.on{border-color:var(--green);background:var(--wash);color:var(--green-ink)}
+.drop b{color:var(--ink-2);font-weight:600}
+.drop.on b,.drop:hover b{color:var(--green-ink)}
+.picklist{
+  margin-top:10px;font-family:var(--mono);font-size:12px;color:var(--ink-2);
+  max-height:110px;overflow:auto;white-space:pre-wrap;
+}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:16px}
+.status{font-size:13px;font-weight:600;color:var(--ink-2)}
+.status.ok{color:var(--green)} .status.err{color:var(--err)}
+
+/* list viewer */
+.links{display:flex;flex-direction:column;gap:2px;margin-top:4px}
+.link-row{
+  display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:9px;
+  text-decoration:none;color:var(--ink);
+  transition:background .12s var(--ease);
+}
+.link-row:hover{background:var(--wash)}
+.link-host{
+  flex:none;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  font-family:var(--mono);font-size:11.5px;color:var(--green);font-weight:600;
+}
+.link-url{
+  min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  font-size:13px;color:var(--ink-2);
+}
+.link-row:hover .link-url{color:var(--ink)}
+
+/* preview frame */
+.framebox{
+  margin-top:4px;border:1px solid var(--line);border-radius:12px;overflow:hidden;
+  height:400px;background:#fff;
+}
+.framebox iframe{width:100%;height:100%;border:0;display:block}
+
+/* toast */
+#toast{position:fixed;right:16px;bottom:16px;display:flex;flex-direction:column;gap:8px;z-index:99}
+#toast div{
+  background:var(--panel);border:1px solid var(--line);color:var(--ink);
+  border-radius:10px;padding:9px 14px;font-size:13px;font-weight:600;
+  box-shadow:var(--shadow);animation:toastin .18s var(--ease);
+}
+#toast div.ok{border-color:var(--green);color:var(--green-ink)}
+#toast div.err{border-color:var(--err);color:var(--err)}
+
+@keyframes fade{from{opacity:0}to{opacity:1}}
+@keyframes pop{from{opacity:0;transform:translate(-50%,-49%) scale(.98)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+@keyframes toastin{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+
+@media (max-width:640px){
+  .top-in{padding:0 14px}
+  .wrap{padding:0 14px}
+  .mark-tag{display:none}
+  .search{max-width:none}
+  .stats{gap:16px}
+}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="top-in">
+    <div class="mark">
+      <div class="mark-sq"><img src="beluga.gif" alt="" width="30" height="30"></div>
+      <span class="mark-name">yut</span>
+      <span class="mark-tag">pages + link lists</span>
+    </div>
+    <div class="top-actions">
+      <button class="theme-btn" id="themeBtn" type="button" aria-label="Toggle theme">
+        <svg class="moon-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+        <svg class="sun-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
+      </button>
+      <button class="btn primary" id="uploadBtn" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 8 5-5 5 5"/><path d="M5 21h14"/></svg>
+        Upload
+      </button>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="tabs" role="tablist">
+    <button class="tab on" data-tool="tool-gallery" type="button">Gallery</button>
+    <button class="tab" data-tool="tool-ab" type="button">about:blank</button>
+    <button class="tab" data-tool="tool-mass" type="button">Mass open</button>
+    <button class="tab" data-tool="tool-ed" type="button">Editor</button>
+  </div>
+
+  <section class="tool on" id="tool-gallery">
+    <div class="hero">
+      <h1>Yut's pages and lists</h1>
+      <p>HTML pages and link lists in one spot. Open a page in about:blank, download the file, or press through a list link by link.</p>
+      <div class="stats">
+        <span><b id="statPages">0</b>pages</span>
+        <span><b id="statLists">0</b>lists</span>
+      </div>
+      <p class="notice" id="apiNotice"></p>
+    </div>
+
+    <div class="bar">
+      <div class="chips" role="tablist">
+        <button class="chip on" data-filter="all" type="button">All</button>
+        <button class="chip" data-filter="html" type="button">HTML</button>
+        <button class="chip" data-filter="list" type="button">Link lists</button>
+      </div>
+      <input type="text" class="search" id="search" placeholder="Search by name">
+    </div>
+
+    <div class="cat-chip-row" id="catRow"></div>
+
+    <div class="grid" id="grid"></div>
+  </section>
+
+  <section class="tool" id="tool-ab">
+    <div class="panel">
+      <h2>about:blank launcher</h2>
+      <p class="panel-sub">Opens any page in a blank tab. The tab shows your title and icon, never the real address.</p>
+      <label for="abUrl">Page URL</label>
+      <input type="text" id="abUrl" class="mono-in" placeholder="https://" autocapitalize="off" spellcheck="false">
+      <div class="two">
+        <div>
+          <label for="abTitle">Tab title</label>
+          <input type="text" id="abTitle" value="Google Docs">
+        </div>
+        <div>
+          <label for="abFav">Tab icon URL <span style="color:var(--ink-3);font-weight:500">(empty = beluga)</span></label>
+          <input type="text" id="abFav" class="mono-in" placeholder="">
+        </div>
+      </div>
+      <div class="row">
+        <button class="btn primary" id="abOpen" type="button">Open in about:blank</button>
+        <button class="btn" id="abPick" type="button">Open local file</button>
+        <button class="btn" id="abCopy" type="button">Copy launcher</button>
+        <button class="btn" id="abDl" type="button">Download launcher</button>
+        <input type="file" id="abFile" hidden accept=".html,.htm">
+      </div>
+      <p class="hint" id="abHint">Web links open as-is. Local HTML files: press Open local file and pick one, single file games work whole. Files that read other files from your disk (a .swf beside it, local images) can never load inside a hosted tab, browsers block that at the source.</p>
+    </div>
+  </section>
+
+  <section class="tool" id="tool-mass">
+    <div class="panel">
+      <h2>Mass open</h2>
+      <p class="panel-sub">Paste links, one per line. They open one by one with a delay so the browser keeps up.</p>
+      <textarea id="massIn" class="mono-in" rows="9" placeholder="one link per line" spellcheck="false"></textarea>
+      <div class="row">
+        <label class="inline" for="massDelay">Delay <input type="number" id="massDelay" value="800" min="100" step="100"> ms</label>
+        <button class="btn primary" id="massGo" type="button">Start</button>
+        <button class="btn" id="massStop" type="button" disabled>Stop</button>
+        <button class="btn" id="massClean" type="button">Clean list</button>
+      </div>
+      <div class="check"><input type="checkbox" id="massCloak"><span>Cloak each one in about:blank with the title and icon below</span></div>
+      <div class="two">
+        <div>
+          <label for="massTitle">Tab title</label>
+          <input type="text" id="massTitle" value="Google Docs">
+        </div>
+        <div>
+          <label for="massFav">Tab icon URL <span style="color:var(--ink-3);font-weight:500">(empty = beluga)</span></label>
+          <input type="text" id="massFav" class="mono-in" placeholder="">
+        </div>
+      </div>
+      <p class="hint" id="massStat"></p>
+    </div>
+  </section>
+
+  <section class="tool" id="tool-ed">
+    <div class="grid2">
+      <div class="panel">
+        <h2>Editor</h2>
+        <p class="panel-sub">Write HTML, see it run. Games and scripts work in the preview.</p>
+        <textarea id="edCode" class="mono-in" rows="17" spellcheck="false" placeholder="&lt;!DOCTYPE html&gt;"></textarea>
+        <div class="row">
+          <button class="btn" id="edNew" type="button">New</button>
+          <button class="btn" id="edOpen" type="button">Open file</button>
+          <button class="btn" id="edSave" type="button">Save .html</button>
+          <button class="btn" id="edBlob" type="button">Run as blob tab</button>
+          <button class="btn primary" id="edAb" type="button">Run in about:blank</button>
+          <input type="file" id="edFile" hidden accept=".html,.htm,.txt,.svg">
+        </div>
+        <p class="hint"><span id="edCount">0 chars</span>. Ctrl+S saves, Ctrl+Enter runs in about:blank. Single self contained files run whole; files that read other disk files (images, .swf next to the html) can never load in a hosted tab.</p>
+      </div>
+      <div class="panel">
+        <h2>Live preview</h2>
+        <div class="framebox" style="margin-top:10px"><iframe id="edFrame" title="Live preview" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-pointer-lock allow-downloads"></iframe></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>yut.lootline.xyz, made by yut</footer>
+
+<!-- upload modal -->
+<div class="modal" id="uploadModal" role="dialog" aria-modal="true" aria-label="Upload">
+  <div class="veil" data-close></div>
+  <div class="sheet">
+    <button class="x" data-close type="button" aria-label="Close">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+    </button>
+    <div class="sheet-in">
+      <h2>Upload</h2>
+      <p class="sub">Pick HTML files or .txt link lists, name them, and they show up here for everyone.</p>
+
+      <label for="upCode">Code</label>
+      <input type="password" id="upCode" placeholder="Upload code" autocomplete="off">
+
+      <label for="upKind">Category</label>
+      <select id="upKind">
+        <option value="html">HTML page</option>
+        <option value="list">Link list</option>
+      </select>
+
+      <label for="upCat">Site category <span style="color:var(--ink-3);font-weight:500">(games, school, tools, whatever fits)</span></label>
+      <input type="text" id="upCat" placeholder="none" maxlength="24" list="catList">
+      <datalist id="catList"></datalist>
+
+      <label for="upName">Name <span id="nameHint" style="color:var(--ink-3);font-weight:500">(used when one file is picked)</span></label>
+      <input type="text" id="upName" placeholder="My page" maxlength="60">
+
+      <label>Files</label>
+      <div class="drop" id="drop">
+        <b>Choose files</b> or drag them here<br>HTML pages (.html, .htm) or link lists (.txt)
+      </div>
+      <input type="file" id="fileInput" hidden multiple accept=".html,.htm,.txt">
+      <div class="picklist" id="picklist"></div>
+
+      <div class="row">
+        <button class="btn primary" id="upGo" type="button">Upload</button>
+        <span class="status" id="upStat"></span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- html viewer -->
+<div class="modal" id="viewModal" role="dialog" aria-modal="true" aria-label="Preview">
+  <div class="veil" data-close></div>
+  <div class="sheet" style="width:min(860px,calc(100vw - 36px))">
+    <button class="x" data-close type="button" aria-label="Close">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+    </button>
+    <div class="sheet-in">
+      <h2 id="viewTitle">Page</h2>
+      <p class="sub" id="viewSub"></p>
+      <div class="row" style="margin:0 0 12px">
+        <button class="btn" id="viewAb" type="button">Open in about:blank</button>
+        <a class="btn" id="viewDl" download>Download</a>
+        <a class="btn" id="viewTab" target="_blank" rel="noopener">New tab</a>
+      </div>
+      <div class="framebox"><iframe id="viewFrame" title="Page preview" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-pointer-lock allow-downloads"></iframe></div>
+    </div>
+  </div>
+</div>
+
+<!-- list viewer -->
+<div class="modal" id="listModal" role="dialog" aria-modal="true" aria-label="Link list">
+  <div class="veil" data-close></div>
+  <div class="sheet" style="width:min(760px,calc(100vw - 36px))">
+    <button class="x" data-close type="button" aria-label="Close">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+    </button>
+    <div class="sheet-in">
+      <h2 id="listTitle">List</h2>
+      <p class="sub" id="listSub"></p>
+      <div class="row" style="margin:0 0 12px">
+        <button class="btn" id="listCopy" type="button">Copy all</button>
+        <a class="btn" id="listDl" download>Download .txt</a>
+        <button class="btn" id="listTop" type="button">Open first 10</button>
+      </div>
+      <div class="links" id="listRows"></div>
+    </div>
+  </div>
+</div>
+
+<div id="toast" aria-live="polite"></div>
+
+<script>
+(function () {
+  "use strict";
+
+  var CODE = "yutforyut25";
+  var MAX_FILE = 2 * 1024 * 1024;      /* per file */
+  var MAX_BATCH = 8 * 1024 * 1024;     /* per upload press */
+  var CACHE_KEY = "yut-gallery-cache-v1";
+
+  var items = [];
+  var filter = "all";
+  var catFilter = "";   /* empty = every category */
+  var query = "";
+  var picked = [];   /* File objects waiting for upload */
+  var unlocked = false;
+
+  function $(id) { return document.getElementById(id); }
+
+  function esc(s) {
+    return String(s == null ? "" : s)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  }
+
+  function toast(msg, kind) {
+    var box = $("toast");
+    var el = document.createElement("div");
+    if (kind) el.className = kind;
+    el.textContent = msg;
+    box.appendChild(el);
+    setTimeout(function () { el.remove(); }, 3200);
+  }
+
+  /* ---------- theme ---------- */
+  var THEME_KEY = "yut-theme";
+  function applyTheme(t) {
+    document.documentElement.setAttribute("data-theme", t);
+    try { localStorage.setItem(THEME_KEY, t); } catch (e) { /* private mode */ }
+  }
+  (function initTheme() {
+    var saved = null;
+    try { saved = localStorage.getItem(THEME_KEY); } catch (e) { /* private mode */ }
+    if (saved === "dark" || saved === "light") applyTheme(saved);
+    else if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) applyTheme("dark");
+  })();
+  $("themeBtn").addEventListener("click", function () {
+    var now = document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark";
+    applyTheme(now);
+  });
+
+  /* ---------- api ---------- */
+  function apiUrl(path) { return "/yut/api/" + path; }
+
+  function loadItems() {
+    return fetch(apiUrl("list"), { cache: "no-store" })
+      .then(function (r) { if (!r.ok) throw new Error("bad status"); return r.json(); })
+      .then(function (data) {
+        items = Array.isArray(data.items) ? data.items : [];
+        try { localStorage.setItem(CACHE_KEY, JSON.stringify(items)); } catch (e) { /* full disk */ }
+        render();
+      })
+      .catch(function () {
+        /* no api here (static mirror or file://). Show the last cached copy. */
+        var cached = [];
+        try { cached = JSON.parse(localStorage.getItem(CACHE_KEY) || "[]"); } catch (e) { /* none */ }
+        items = Array.isArray(cached) ? cached : [];
+        var note = $("apiNotice");
+        note.textContent = "This mirror can't take uploads and may show an older copy of the gallery. Open the main site to upload.";
+        note.classList.add("on");
+        render();
+      });
+  }
+
+  /* ---------- render ---------- */
+  function fmtDate(ts) {
+    try {
+      var d = new Date(ts);
+      var now = new Date();
+      var opts = { month: "short", day: "numeric" };
+      if (d.getFullYear() !== now.getFullYear()) opts.year = "numeric";
+      return d.toLocaleDateString(undefined, opts);
+    } catch (e) { return ""; }
+  }
+  function fmtSize(n) {
+    if (!n && n !== 0) return "";
+    if (n < 1024) return n + " B";
+    return (n / 1024).toFixed(n < 10240 ? 1 : 0) + " KB";
+  }
+  function fileUrl(id) { return apiUrl("file/" + id); }
+
+  function cardHTML(it) {
+    var isHtml = it.kind === "html";
+    var ic = isHtml
+      ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 16 4-4-4-4"/><path d="m6 8-4 4 4 4"/><path d="m14.5 4-5 16"/></svg>'
+      : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/></svg>';
+    var cat = String(it.cat || "").trim();
+    var catTag = cat ? '<span class="card-cat">' + esc(cat) + '</span>' : "";
+    var actions;
+    if (isHtml) {
+      actions =
+        '<button class="btn sm primary" data-ab="' + esc(it.id) + '" type="button">about:blank</button>' +
+        '<button class="btn sm" data-view="' + esc(it.id) + '" type="button">Preview</button>' +
+        '<a class="btn sm" href="' + esc(fileUrl(it.id)) + '" download="' + esc(it.name) + '.html">Download</a>';
+    } else {
+      actions =
+        '<button class="btn sm primary" data-openlist="' + esc(it.id) + '" type="button">Open</button>' +
+        '<a class="btn sm" href="' + esc(fileUrl(it.id)) + '" download="' + esc(it.name) + '.txt">Download</a>';
+    }
+    return '<article class="card">' +
+      '<div class="card-top">' +
+        '<div class="card-ic">' + ic + '</div>' +
+        '<div style="min-width:0">' +
+          '<div class="card-name" title="' + esc(it.name) + '">' + esc(it.name) + '</div>' +
+          '<div class="card-kind">' + (isHtml ? "HTML page" : "Link list") + '</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="card-meta">' + catTag + " " + esc(fmtDate(it.ts)) +
+        (it.size ? ' <b>' + esc(fmtSize(it.size)) + '</b>' : '') +
+        (isHtml ? '' : (it.links ? ' <b>' + esc(it.links) + '</b> links' : '')) +
+      '</div>' +
+      '<div class="card-actions">' + actions +
+        '<button class="del" data-recat="' + esc(it.id) + '" type="button" aria-label="Change category" title="Change category">' +
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>' +
+        '</button>' +
+        '<button class="del" data-del="' + esc(it.id) + '" type="button" aria-label="Delete">' +
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>' +
+        '</button>' +
+      '</div>' +
+    '</article>';
+  }
+
+  function render() {
+    var list = items.filter(function (it) {
+      if (!it) return false;
+      if (filter !== "all" && it.kind !== filter) return false;
+      if (catFilter && String(it.cat || "").trim() !== catFilter) return false;
+      if (query && String(it.name || "").toLowerCase().indexOf(query) === -1) return false;
+      return true;
+    });
+    var grid = $("grid");
+    if (!list.length) {
+      var anything = items.length > 0;
+      grid.innerHTML = '<div class="empty"><h2>' +
+        (anything ? "Nothing matches" : "Nothing here yet") + '</h2><p>' +
+        (anything ? "Try another filter or search." : "Press Upload in the top right to add the first page or list.") + '</p></div>';
+    } else {
+      grid.innerHTML = list.map(cardHTML).join("");
+    }
+    var pages = items.filter(function (i) { return i && i.kind === "html"; }).length;
+    $("statPages").textContent = String(pages);
+    $("statLists").textContent = String(items.length - pages);
+    renderCatChips();
+  }
+
+  /* category chips: built from whatever categories exist in the gallery */
+  function knownCats() {
+    var seen = {};
+    var out = [];
+    items.forEach(function (it) {
+      var c = String((it && it.cat) || "").trim();
+      if (c && !seen[c.toLowerCase()]) { seen[c.toLowerCase()] = 1; out.push(c); }
+    });
+    return out;
+  }
+  function renderCatChips() {
+    var cats = knownCats();
+    var row = $("catRow");
+    if (!cats.length) { row.innerHTML = ""; return; }
+    var html = '<button class="cat-chip' + (catFilter ? "" : " on") + '" data-cat="" type="button">All categories</button>';
+    cats.forEach(function (c) {
+      html += '<button class="cat-chip' + (catFilter === c ? " on" : "") + '" data-cat="' + esc(c) + '" type="button">' + esc(c) + '</button>';
+    });
+    row.innerHTML = html;
+    row.querySelectorAll("[data-cat]").forEach(function (b) {
+      b.addEventListener("click", function () {
+        catFilter = b.getAttribute("data-cat");
+        render();
+      });
+    });
+    /* keep the upload suggestions in sync */
+    var dl = $("catList");
+    dl.innerHTML = cats.map(function (c) { return '<option value="' + esc(c) + '">'; }).join("");
+  }
+
+  /* chips + search */
+  document.querySelectorAll(".chip").forEach(function (c) {
+    c.addEventListener("click", function () {
+      document.querySelectorAll(".chip").forEach(function (x) { x.classList.remove("on"); });
+      c.classList.add("on");
+      filter = c.getAttribute("data-filter");
+      render();
+    });
+  });
+  $("search").addEventListener("input", function () {
+    query = this.value.trim().toLowerCase();
+    render();
+  });
+
+  /* ---------- about:blank core (shared by every tool) ---------- */
+  function normUrl(u) {
+    var s = String(u || "").trim();
+    if (!s) return "";
+    if (/^(https?:|data:|blob:)/i.test(s)) return s;
+    if (/^[\w-]+\.[^\s]/.test(s)) return "https://" + s;
+    return "";
+  }
+  function faviconFor(custom) {
+    var c = normUrl(custom);
+    if (c) return c;
+    try { return new URL("beluga.gif", location.href).href; } catch (e) { return "beluga.gif"; }
+  }
+  /* What actually lands in the about:blank tab. document.write keeps the
+     address bar on about:blank; the iframe carries the page.
+     The iframe sandbox deliberately leaves out allow-top-navigation: game
+     pages that framebust (top.location = ...) would otherwise steal the
+     whole tab and navigate it away to their real address. With the sandbox
+     they cannot touch the top tab at all. allow-same-origin stays so game
+     saves and storage keep working. */
+  var AB_SANDBOX = "allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-orientation-lock allow-pointer-lock allow-presentation allow-downloads";
+  var AB_SHELL =
+    "<!DOCTYPE html><html><head><title>{TITLE}</title>" +
+    "<link rel=\"icon\" type=\"image/gif\" href=\"{FAV}\">" +
+    "<style>html,body{margin:0;height:100%;overflow:hidden;background:#000}iframe{border:0;width:100%;height:100%;display:block}</style>" +
+    "</head><body><iframe src=\"{SRC}\" sandbox=\"" + AB_SANDBOX + "\" allow=\"fullscreen; autoplay; gamepad\" allowfullscreen referrerpolicy=\"no-referrer\"></iframe></body></html>";
+  function abDoc(url, title, fav) {
+    return AB_SHELL
+      .replace("{TITLE}", esc(title))
+      .replace("{FAV}", esc(fav))
+      .replace("{SRC}", esc(url));
+  }
+  /* Write html into a fresh popup and VERIFY it landed. Some browsers and
+     extensions silently swallow document.write into about:blank popups,
+     which used to leave an empty white tab. Returns true only on success. */
+  function writePopupDoc(win, doc) {
+    try {
+      win.document.open();
+      win.document.write(doc);
+      win.document.close();
+      return !!(win.document && win.document.body && win.document.body.firstChild);
+    } catch (e) { return false; }
+  }
+  /* Launch a shell doc: about:blank first (clean address bar), blob page as
+     the fallback when the write cannot land. */
+  function abLaunch(doc) {
+    var w = window.open("about:blank", "_blank");
+    if (!w) { toast("Popup blocked. Allow popups and try again.", "err"); return false; }
+    try { w.opener = null; } catch (e) { /* some browsers */ }
+    if (writePopupDoc(w, doc)) return true;
+    try { w.close(); } catch (e) { /* gone already */ }
+    var blob = new Blob([doc], { type: "text/html" });
+    var url = URL.createObjectURL(blob);
+    w = window.open(url, "_blank");
+    if (!w) { toast("Popup blocked. Allow popups and try again.", "err"); return false; }
+    try { w.opener = null; } catch (e) { /* some browsers */ }
+    setTimeout(function () { URL.revokeObjectURL(url); }, 20000);
+    return true;
+  }
+  function openAb(url, title, fav) {
+    var u = normUrl(url);
+    if (!u) { toast("Enter a valid link first.", "err"); return false; }
+    return abLaunch(abDoc(u, title, faviconFor(fav)));
+  }
+  /* Launcher file: the same trick from any offline file. It builds the blank
+     tab with DOM calls (no document.write), so nothing tricky to escape. */
+  function launcherHTML(url, title, fav) {
+    var lines = [
+      '<!DOCTYPE html>',
+      '<html>',
+      '<head><meta charset="utf-8"><title>Launch</title></head>',
+      '<body>',
+      '<script>',
+      'var u = ' + JSON.stringify(url) + ';',
+      'var t = ' + JSON.stringify(title) + ';',
+      'var f = ' + JSON.stringify(fav) + ';',
+      'var w = window.open("about:blank", "_blank");',
+      'if (!w) {',
+      '  document.body.textContent = "Popup blocked. Allow popups and reopen this file.";',
+      '} else {',
+      '  w.document.title = t;',
+      '  var l = w.document.createElement("link");',
+      '  l.rel = "icon"; l.href = f;',
+      '  w.document.head.appendChild(l);',
+      '  var s = w.document.createElement("style");',
+      '  s.textContent = "html,body{margin:0;height:100%;overflow:hidden;background:#000}iframe{border:0;width:100%;height:100%;display:block}";',
+      '  w.document.head.appendChild(s);',
+      '  var fr = w.document.createElement("iframe");',
+      '  fr.src = u; fr.allow = "fullscreen; autoplay; gamepad"; fr.allowFullscreen = true;',
+      '  w.document.body.appendChild(fr);',
+      '}',
+      '<\/script>',
+      '</body>',
+      '</html>'
+    ];
+    return lines.join("\n");
+  }
+
+  /* ---------- gallery about:blank (uses the shared core) ---------- */
+  function openAboutBlank(it) {
+    var url = new URL(fileUrl(it.id), location.href).href;
+    if (openAb(url, it.name, "")) toast("Opened in about:blank", "ok");
+  }
+
+  /* ---------- list parsing ---------- */
+  function parseLinks(text) {
+    var seen = {};
+    var out = [];
+    String(text || "").split(/\r?\n/).forEach(function (line) {
+      var s = line.trim();
+      if (!s || s.charAt(0) === "#") return;
+      if (!/^https?:\/\//i.test(s)) s = "https://" + s;
+      if (seen[s]) return;
+      seen[s] = 1;
+      out.push(s);
+    });
+    return out;
+  }
+  function hostOf(u) {
+    try { return new URL(u).host.replace(/^www\./, ""); } catch (e) { return u; }
+  }
+
+  var currentList = null;   /* {name, text, links} */
+  function openListView(it) {
+    fetch(fileUrl(it.id), { cache: "no-store" })
+      .then(function (r) { if (!r.ok) throw new Error("gone"); return r.text(); })
+      .then(function (text) {
+        var links = parseLinks(text);
+        currentList = { name: it.name, text: text, links: links };
+        $("listTitle").textContent = it.name;
+        $("listSub").textContent = links.length + " links, all pressable";
+        $("listDl").href = fileUrl(it.id);
+        $("listDl").setAttribute("download", it.name + ".txt");
+        var rows = $("listRows");
+        var cap = 2000;
+        var html = [];
+        for (var i = 0; i < links.length && i < cap; i++) {
+          html.push('<a class="link-row" href="' + esc(links[i]) + '" target="_blank" rel="noopener">' +
+            '<span class="link-host">' + esc(hostOf(links[i])) + '</span>' +
+            '<span class="link-url">' + esc(links[i]) + '</span></a>');
+        }
+        rows.innerHTML = html.join("");
+        if (links.length > cap) {
+          rows.insertAdjacentHTML("beforeend",
+            '<div class="card-meta" style="padding:8px 10px">and ' + (links.length - cap) + ' more. Copy all or download the .txt.</div>');
+        }
+        openModal("listModal");
+      })
+      .catch(function () {
+        toast("That file is gone. The card was removed.", "err");
+        dropGone(it.id);
+      });
+  }
+  $("listCopy").addEventListener("click", function () {
+    if (!currentList) return;
+    navigator.clipboard.writeText(currentList.links.join("\n"))
+      .then(function () { toast("Copied " + currentList.links.length + " links", "ok"); })
+      .catch(function () { toast("Clipboard blocked", "err"); });
+  });
+  $("listTop").addEventListener("click", function () {
+    if (!currentList) return;
+    var n = Math.min(10, currentList.links.length);
+    for (var i = 0; i < n; i++) window.open(currentList.links[i], "_blank", "noopener");
+  });
+
+  /* ---------- html viewer ---------- */
+  /* A card whose file no longer exists server side (deleted in another tab,
+     trimmed after a restart) would preview as a bare JSON error. Fetch the
+     file first: when it is gone, drop the stale card and refresh instead. */
+  function dropGone(id) {
+    items = items.filter(function (x) { return x && x.id !== id; });
+    try { localStorage.setItem(CACHE_KEY, JSON.stringify(items)); } catch (e) { /* full disk */ }
+    render();
+  }
+  var viewing = null;
+  function openView(it) {
+    fetch(fileUrl(it.id), { cache: "no-store" })
+      .then(function (r) {
+        if (!r.ok) throw new Error("gone");
+        viewing = it;
+        $("viewTitle").textContent = it.name;
+        $("viewSub").textContent = "Preview, then open it in about:blank or download the file.";
+        $("viewDl").href = fileUrl(it.id);
+        $("viewDl").setAttribute("download", it.name + ".html");
+        $("viewTab").href = fileUrl(it.id);
+        $("viewFrame").src = fileUrl(it.id);
+        openModal("viewModal");
+      })
+      .catch(function () {
+        toast("That file is gone. The card was removed.", "err");
+        dropGone(it.id);
+      });
+  }
+  $("viewAb").addEventListener("click", function () {
+    if (viewing) openAboutBlank(viewing);
+  });
+
+  /* ---------- modals ---------- */
+  function openModal(id) { $(id).classList.add("on"); }
+  function closeModal(id) {
+    $(id).classList.remove("on");
+    if (id === "viewModal") $("viewFrame").src = "about:blank";
+    if (id === "listModal") currentList = null;
+  }
+  document.querySelectorAll(".modal").forEach(function (m) {
+    m.addEventListener("click", function (e) {
+      if (e.target.hasAttribute("data-close")) closeModal(m.id);
+    });
+    m.querySelectorAll("[data-close]").forEach(function (b) {
+      b.addEventListener("click", function () { closeModal(m.id); });
+    });
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") {
+      ["uploadModal", "viewModal", "listModal"].forEach(closeModal);
+    }
+  });
+
+  $("uploadBtn").addEventListener("click", function () {
+    openModal("uploadModal");
+    setTimeout(function () {
+      if (!unlocked) $("upCode").focus();
+      else $("fileInput").focus();
+    }, 60);
+  });
+
+  /* ---------- upload ---------- */
+  var drop = $("drop");
+  var fileInput = $("fileInput");
+  drop.addEventListener("click", function () { fileInput.click(); });
+  fileInput.addEventListener("change", function () { setPicked(fileInput.files); });
+  ["dragenter", "dragover"].forEach(function (ev) {
+    drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.add("on"); });
+  });
+  ["dragleave", "drop"].forEach(function (ev) {
+    drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.remove("on"); });
+  });
+  drop.addEventListener("drop", function (e) {
+    if (e.dataTransfer && e.dataTransfer.files) setPicked(e.dataTransfer.files);
+  });
+
+  function extKind(name) {
+    return /\.(html?|svg)$/i.test(name) ? "html" : "list";
+  }
+  function setPicked(files) {
+    picked = [];
+    var reasons = [];
+    for (var i = 0; i < files.length; i++) {
+      var f = files[i];
+      if (f.size > MAX_FILE) { reasons.push(f.name + " is over 2 MB"); continue; }
+      if (f.size === 0) { reasons.push(f.name + " is empty"); continue; }
+      picked.push(f);
+    }
+    var names = picked.map(function (f) { return f.name + " (" + fmtSize(f.size) + ")"; });
+    $("picklist").textContent = names.join("\n");
+    $("upStat").textContent = reasons.length ? "Skipped: " + reasons.join(", ") : "";
+    $("upStat").className = "status" + (reasons.length ? " err" : "");
+    if (picked.length === 1) {
+      var base = picked[0].name.replace(/\.[^.]+$/, "");
+      $("upName").value = base;
+      $("upKind").value = extKind(picked[0].name);
+      $("nameHint").style.display = "none";
+    } else {
+      $("nameHint").style.display = "";
+    }
+  }
+
+  function readAsText(file) {
+    return new Promise(function (res, rej) {
+      var r = new FileReader();
+      r.onload = function () { res(String(r.result)); };
+      r.onerror = function () { rej(new Error("read failed")); };
+      r.readAsText(file);
+    });
+  }
+
+  $("upGo").addEventListener("click", function () {
+    var code = $("upCode").value.trim();
+    var stat = $("upStat");
+    if (!picked.length) { stat.textContent = "Pick at least one file first."; stat.className = "status err"; return; }
+    if (!code) { stat.textContent = "Enter the upload code."; stat.className = "status err"; return; }
+
+    var singleName = $("upName").value.trim().slice(0, 60);
+    var chosenKind = $("upKind").value;
+    var cat = $("upCat").value.trim().slice(0, 24);
+
+    stat.textContent = "Reading files...";
+    stat.className = "status";
+
+    Promise.all(picked.map(function (f) { return readAsText(f).then(function (text) { return { file: f, text: text }; }); }))
+      .then(function (loaded) {
+        var payload = loaded.map(function (x) {
+          var name;
+          if (loaded.length === 1 && singleName) name = singleName;
+          else name = x.file.name.replace(/\.[^.]+$/, "").slice(0, 60) || "Untitled";
+          var kind = loaded.length === 1 ? chosenKind : extKind(x.file.name);
+          var linkCount = 0;
+          if (kind === "list") linkCount = parseLinks(x.text).length;
+          var entry = { name: name, kind: kind, text: x.text, links: linkCount };
+          if (cat) entry.cat = cat;
+          return entry;
+        });
+        var total = payload.reduce(function (n, p) { return n + p.text.length; }, 0);
+        if (total > MAX_BATCH) throw new Error("That batch is over 8 MB. Upload fewer files at once.");
+
+        stat.textContent = "Uploading...";
+        return fetch(apiUrl("upload"), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ code: code, items: payload })
+        }).then(function (r) {
+          return r.json().catch(function () { throw new Error("Server error"); });
+        }).then(function (data) {
+          if (!data || !data.ok) {
+            var msg = data && data.error === "bad-code" ? "Wrong code." :
+                      data && data.error ? String(data.error) : "Upload failed.";
+            throw new Error(msg);
+          }
+          unlocked = true;
+          document.body.classList.add("unlocked");
+          try { sessionStorage.setItem("yut-unlocked", "1"); } catch (e) { /* no storage */ }
+          closeModal("uploadModal");
+          toast("Uploaded", "ok");
+          picked = [];
+          fileInput.value = "";
+          $("picklist").textContent = "";
+          $("upCode").value = "";
+          $("upName").value = "";
+          $("upStat").textContent = "";
+          /* keep the category in the box so a batch of pages in one category
+             needs no retyping; the placeholder shows when it is empty */
+          if (!cat) $("upCat").value = "";
+          return loadItems();
+        });
+      })
+      .catch(function (err) {
+        stat.textContent = err && err.message ? err.message : "Upload failed.";
+        stat.className = "status err";
+      });
+  });
+
+  try {
+    if (sessionStorage.getItem("yut-unlocked") === "1") {
+      unlocked = true;
+      document.body.classList.add("unlocked");
+    }
+  } catch (e) { /* no storage */ }
+
+  /* ---------- delete (after unlock) ---------- */
+  $("grid").addEventListener("click", function (e) {
+    var t = e.target.closest ? e.target.closest("[data-ab],[data-view],[data-openlist],[data-del],[data-recat]") : null;
+    if (!t) return;
+    var id = t.getAttribute("data-ab") || t.getAttribute("data-view") || t.getAttribute("data-openlist") || t.getAttribute("data-del") || t.getAttribute("data-recat");
+    var it = null;
+    for (var i = 0; i < items.length; i++) if (items[i] && items[i].id === id) { it = items[i]; break; }
+    if (!it) return;
+    if (t.hasAttribute("data-ab")) return openAboutBlank(it);
+    if (t.hasAttribute("data-view")) return openView(it);
+    if (t.hasAttribute("data-openlist")) return openListView(it);
+    if (t.hasAttribute("data-recat")) {
+      var next = prompt("Category for " + it.name + " (leave empty for none):", String(it.cat || ""));
+      if (next === null) return;   /* cancelled */
+      fetch(apiUrl("recat"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: CODE, id: id, cat: next.trim().slice(0, 24) })
+      }).then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (data && data.ok) { toast("Category saved", "ok"); loadItems(); }
+          else toast(data && data.error === "bad-code" ? "Wrong code." : "Could not save that.", "err");
+        })
+        .catch(function () { toast("Could not save that.", "err"); });
+      return;
+    }
+    if (t.hasAttribute("data-del")) {
+      if (!confirm("Delete " + it.name + "? This cannot be undone.")) return;
+      fetch(apiUrl("remove"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: CODE, id: id })
+      }).then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (data && data.ok) { toast("Deleted", "ok"); loadItems(); }
+          else toast(data && data.error === "bad-code" ? "Wrong code." : "Delete failed.", "err");
+        })
+        .catch(function () { toast("Delete failed.", "err"); });
+    }
+  });
+
+  /* ---------- tools tabs ---------- */
+  function showTool(id) {
+    ["tool-gallery", "tool-ab", "tool-mass", "tool-ed"].forEach(function (t) {
+      var el = document.getElementById(t);
+      if (el) el.classList.toggle("on", t === id);
+    });
+    document.querySelectorAll(".tab").forEach(function (b) {
+      b.classList.toggle("on", b.getAttribute("data-tool") === id);
+    });
+    if (id === "tool-ed") schedulePreview();
+  }
+  document.querySelectorAll(".tab").forEach(function (b) {
+    b.addEventListener("click", function () { showTool(b.getAttribute("data-tool")); });
+  });
+
+  /* ---------- about:blank launcher tool ---------- */
+  function looksLocal(u) {
+    return /^(file:|[a-z]:[\\/]|\\\\|\/)[^\s]*$/i.test(String(u || "").trim()) &&
+           !/^https?:/i.test(String(u || "").trim());
+  }
+  $("abOpen").addEventListener("click", function () {
+    var raw = $("abUrl").value.trim();
+    if (looksLocal(raw)) {
+      toast("Browsers block local paths in a hosted tab. Press Open local file and pick the HTML instead.", "err");
+      return;
+    }
+    if (openAb(raw, $("abTitle").value.trim() || "Page", $("abFav").value)) toast("Opened in about:blank", "ok");
+  });
+  /* Local HTML files: read the real bytes (user picked them, so the browser
+     allows it) and run them as a blob inside the blank tab shell. Whole
+     self-contained games work; references to other disk files cannot. */
+  $("abPick").addEventListener("click", function () { $("abFile").click(); });
+  $("abFile").addEventListener("change", function () {
+    var f = this.files[0];
+    if (!f) return;
+    var r = new FileReader();
+    r.onload = function () {
+      var src = String(r.result);
+      var blob = new Blob([src], { type: "text/html" });
+      var url = URL.createObjectURL(blob);
+      var name = f.name.replace(/\.[^.]+$/, "");
+      var ok = abLaunch(abDoc(url, $("abTitle").value.trim() || name, faviconFor($("abFav").value)));
+      setTimeout(function () { URL.revokeObjectURL(url); }, 60000);
+      if (ok) {
+        if (/file:\/\//i.test(src)) {
+          toast("Opened, but this file reads other disk files. Browsers block that here, so those parts stay blank.", "err");
+        } else {
+          toast("Opened in about:blank", "ok");
+        }
+      }
+    };
+    r.readAsText(f);
+    this.value = "";
+  });
+  function dlFile(name, mime, text) {
+    var blob = new Blob([text], { type: mime });
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 4000);
+  }
+  $("abCopy").addEventListener("click", function () {
+    var u = normUrl($("abUrl").value);
+    if (!u) { toast("Enter a valid link first.", "err"); return; }
+    var t = $("abTitle").value.trim() || "Page";
+    navigator.clipboard.writeText(launcherHTML(u, t, faviconFor($("abFav").value)))
+      .then(function () { toast("Launcher code copied", "ok"); })
+      .catch(function () { toast("Clipboard blocked", "err"); });
+  });
+  $("abDl").addEventListener("click", function () {
+    var u = normUrl($("abUrl").value);
+    if (!u) { toast("Enter a valid link first.", "err"); return; }
+    dlFile("launcher.html", "text/html", launcherHTML(u, $("abTitle").value.trim() || "Page", faviconFor($("abFav").value)));
+  });
+
+  /* ---------- mass open ---------- */
+  var massTimer = null;
+  var massFailed = [];
+  function massLinks() {
+    var seen = {};
+    var out = [];
+    $("massIn").value.split(/\r?\n/).forEach(function (line) {
+      var u = normUrl(line);
+      if (u && !seen[u]) { seen[u] = 1; out.push(u); }
+    });
+    return out;
+  }
+  $("massClean").addEventListener("click", function () {
+    var links = massLinks();
+    $("massIn").value = links.join("\n");
+    $("massStat").textContent = links.length + " links, duplicates and junk removed.";
+  });
+  $("massGo").addEventListener("click", function () {
+    var links = massLinks();
+    var stat = $("massStat");
+    if (!links.length) { stat.textContent = "Paste at least one link first."; return; }
+    var delay = Math.max(100, parseInt($("massDelay").value, 10) || 800);
+    var cloak = $("massCloak").checked;
+    var title = $("massTitle").value.trim() || "Page";
+    var fav = faviconFor($("massFav").value);
+    massFailed = [];
+    $("massStop").disabled = false;
+    var i = 0;
+    function step() {
+      if (i >= links.length) {
+        $("massStop").disabled = true;
+        stat.textContent = "Done. Opened " + (links.length - massFailed.length) + " of " + links.length + ".";
+        if (massFailed.length) stat.textContent += " Blocked: " + massFailed.join(", ") + ".";
+        return;
+      }
+      var ok;
+      if (cloak) {
+        ok = openAb(links[i], title, fav);
+      } else {
+        /* no opener handshake: window.open answers null, so treat a null
+           return as opened and only surface it if the browser threw */
+        try {
+          window.open(links[i], "_blank");
+          ok = true;
+        } catch (err) { ok = false; }
+      }
+      if (!ok) massFailed.push(links[i]);
+      i++;
+      stat.textContent = "Opening " + i + " of " + links.length + "...";
+      massTimer = setTimeout(step, delay);
+    }
+    step();
+  });
+  $("massStop").addEventListener("click", function () {
+    if (massTimer) clearTimeout(massTimer);
+    massTimer = null;
+    $("massStop").disabled = true;
+    $("massStat").textContent = "Stopped.";
+  });
+
+  /* ---------- editor ---------- */
+  var edFrame = $("edFrame");
+  var edTimer = null;
+  function runFrame() {
+    edFrame.srcdoc = $("edCode").value;
+  }
+  function schedulePreview() {
+    if (edTimer) clearTimeout(edTimer);
+    edTimer = setTimeout(runFrame, 450);
+  }
+  $("edCode").addEventListener("input", schedulePreview);
+  $("edCode").addEventListener("keydown", function (e) {
+    if (e.key === "Tab") {
+      e.preventDefault();
+      var ta = this, s = ta.selectionStart, epos = ta.selectionEnd;
+      ta.value = ta.value.slice(0, s) + "  " + ta.value.slice(epos);
+      ta.selectionStart = ta.selectionEnd = s + 2;
+      schedulePreview();
+    }
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
+      e.preventDefault();
+      edSave();
+    }
+    if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+      e.preventDefault();
+      edRunAb();
+    }
+  });
+  function edCount() {
+    $("edCount").textContent = $("edCode").value.length + " chars";
+  }
+  $("edCode").addEventListener("input", edCount);
+  $("edNew").addEventListener("click", function () {
+    $("edCode").value = "";
+    edFrame.srcdoc = "";
+    edCount();
+  });
+  $("edOpen").addEventListener("click", function () { $("edFile").click(); });
+  $("edFile").addEventListener("change", function () {
+    var f = this.files[0];
+    if (!f) return;
+    var r = new FileReader();
+    r.onload = function () {
+      $("edCode").value = String(r.result);
+      edCount();
+      runFrame();
+    };
+    r.readAsText(f);
+  });
+  function edSave() {
+    dlFile("page.html", "text/html", $("edCode").value);
+    toast("Saved page.html", "ok");
+  }
+  $("edSave").addEventListener("click", edSave);
+  /* Blob tab: the page runs as its own top level document from a blob URL.
+     The address bar shows a short blob link, nothing else. */
+  $("edBlob").addEventListener("click", function () {
+    var src = $("edCode").value;
+    if (!src.trim()) { toast("Nothing to run yet.", "err"); return; }
+    var blob = new Blob([src], { type: "text/html" });
+    var url = URL.createObjectURL(blob);
+    var w = window.open(url, "_blank");
+    if (!w) { toast("Popup blocked. Allow popups and try again.", "err"); return; }
+    setTimeout(function () { URL.revokeObjectURL(url); }, 20000);
+    toast("Running in a blob tab", "ok");
+  });
+  /* about:blank run: the code rides inside the shell as a sandboxed iframe
+     with a blob src, so the address bar stays about:blank and scripts run. */
+  function edRunAb() {
+    var src = $("edCode").value;
+    if (!src.trim()) { toast("Nothing to run yet.", "err"); return; }
+    var blob = new Blob([src], { type: "text/html" });
+    var url = URL.createObjectURL(blob);
+    var ok = abLaunch(abDoc(url, $("abTitle").value.trim() || "Page", faviconFor("")));
+    setTimeout(function () { URL.revokeObjectURL(url); }, 20000);
+    if (!ok) return;
+    if (/file:\/\//i.test(src)) {
+      toast("Running, but the code reads files from your disk. Browsers block that inside hosted tabs, so those parts stay blank.", "err");
+    } else {
+      toast("Running in about:blank", "ok");
+    }
+  }
+  $("edAb").addEventListener("click", edRunAb);
+  edCount();
+
+  /* ---------- boot ---------- */
+  loadItems();
+})();
+</script>
+</body>
+</html>

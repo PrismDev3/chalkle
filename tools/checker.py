@@ -14,9 +14,17 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 SHIPPED = [
     "src/styles.css", "index.html", "src/app.js", "src/sites.js", "src/apps.js", "src/games.js",
     "src/docs.js", "src/ai.js", "src/youtube.js", "src/livetv.js", "src/music.js", "src/theme.js",
+    "src/ugs-games.js",
     "src/partners.js", "src/bookmarklets.js", "src/proxies.js", "src/launcher.js", "src/editor.js",
     "src/runtime-config.js", "build/chalkle-single.html", "cloud-play.html", "src/cloud.js",
     "src/community-games.js", "src/real-shots.js",
+    # Offline shell + controller layer added this pass.
+    "sw.js", "src/gamepad.js", "ugs/nzp.html", "src/plays.js", "src/search.js",
+    "src/perf.js", "src/adcheck.js", "src/playtime.js",
+    # Standalone pages outside the main shell (checked for dashes/vocab; the
+    # gradient rule only applies to .css files, same as index.html).
+    "movies.html", "browser.html", "chat.html", "go.html", "play.html",
+    "unsent.html",
 ]
 
 # Fade gradients: a gradient whose color stops blend (no hard 0%/100% pairs).
@@ -35,7 +43,9 @@ AI_VOCAB = [
     "streamline", "streamlined", "in today's", "in the world of",
     "take it to the next level", "next-level", "state-of-the-art",
     "robust", "myriad", "plethora", "tapestry", "testament to",
-    "navigate the", "embark", "journey", "marvel", "realm of",
+    "navigate the", "embark", "realm of",
+    # "marvel" and "journey" were here but always hit the Marvel brand and
+    # game/anime plot copy, never real AI slop, so they are not vocab signals.
 ]
 
 def is_hard_stop(args: str) -> bool:
@@ -62,6 +72,9 @@ def is_hard_stop(args: str) -> bool:
 # their data rows. Gradients are still checked everywhere.
 DATA_FILES = {"src/cloudgames.js"}
 DATA_ROW_RE = re.compile(r"^\s*\{\s*title:")
+# unsent.html carries a verbatim snapshot of user-submitted posts (upstream
+# content, same as the game data rows above) on one window.__TUP_POSTS__ line.
+UPSTREAM_LINE_RE = re.compile(r"^\s*window\.__TUP_POSTS__\s*=")
 
 fails = []
 VOCAB_RE = re.compile(
@@ -85,8 +98,8 @@ for name in SHIPPED:
                 for m in GRAD_RE.finditer(line):
                     if not is_hard_stop(m.group(2)):
                         fails.append(f"GRADIENT {name}:{i}: {m.group(0)[:90]}")
-        if is_data or DATA_ROW_RE.match(line):
-            continue  # upstream game titles/descriptions, not our copy
+        if is_data or DATA_ROW_RE.match(line) or UPSTREAM_LINE_RE.match(line):
+            continue  # upstream titles/messages, not our copy
         if DASH_RE.search(line):
             # IXL tab-cloak meta: dashes come from IXL's own mirrored copy,
             # which must stay byte-identical, so they are not ours to fix.

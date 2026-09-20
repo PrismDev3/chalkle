@@ -116,8 +116,8 @@
         }
 
         (async () => {
-            const dataParts = getParts("https://quantil.jsdelivr.net/gh/matheveryday25/math@main/baldi/Build/WebGL.data", 3);
-            const wasmParts = getParts("https://quantil.jsdelivr.net/gh/matheveryday25/math@main/baldi/Build/WebGL.wasm", 3);
+            const dataParts = getParts("https://cdn.jsdelivr.net/gh/matheveryday25/math@main/baldi/Build/WebGL.data", 3);
+            const wasmParts = getParts("https://cdn.jsdelivr.net/gh/matheveryday25/math@main/baldi/Build/WebGL.wasm", 3);
             const allParts = [...dataParts, ...wasmParts];
             const sizes = await Promise.all(allParts.map(getSize));
             totalBytes = sizes.reduce((a, b) => a + b, 0);

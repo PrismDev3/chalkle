@@ -38,7 +38,7 @@
        preload tag kept firing "preloaded but not used" warnings whenever
        the body didn't paint it during the boot intro. theme.js also strips
        any stale preload tag left by earlier builds. -->
-  <link rel="stylesheet" href="src/styles.css?v=20260919e">
+  <link rel="stylesheet" href="src/styles.css?v=20260919m">
   <!-- AdSense. This loader powers BOTH layers:
        1. Manual units - the .ad-slot placements below, each filled when its
           slot ID is pasted into CHALKLE_ADS.slots (AdSense → Ads → By ad unit).
@@ -115,8 +115,32 @@
     }
   };
   </script>
-  <script src="src/appcore.js?v=20260920a"></script>
-  <script src="src/theme.js?v=20260919c"></script>
+  <script src="src/appcore.js?v=20260921c"></script>
+  <script src="src/theme.js?v=20260919e"></script>
+  <script>
+  /* Low-power early exit: runs before first paint, sets the Motion off
+     class immediately (no flash of animations on weak hardware) and leaves
+     a hint for intro.js so the 2.4s boot sequence cuts to 600ms.
+     Detection is a cheap once-per-load probe: deviceMemory <= 2 means a
+     small-memory Chromebook or phone, and mobile GPUs without a real
+     pointer get the same break. A real desktop never matches, so nothing
+     changes for it. Settings > Motion still wins over this default. */
+  (function () {
+    try {
+      var lowPower = false;
+      var nav = navigator;
+      if (nav.deviceMemory && nav.deviceMemory <= 2) lowPower = true;
+      if (nav.connection && nav.connection.saveData) lowPower = true;
+      if (!lowPower && nav.maxTouchPoints > 1 && Math.min(screen.width, screen.height) <= 900) {
+        lowPower = true; /* phone-class GPU without a mouse */
+      }
+      if (lowPower) {
+        document.documentElement.classList.add("motion-off");
+        window.__chalkleLowPower = true;
+      }
+    } catch (e) { /* old browser: keep everything on */ }
+  })();
+  </script>
   <script>
   /* Panic key: press ` (backtick) three times quickly (or Ctrl+Shift+` once)
      to instantly send the tab to Google Classroom. Works from anywhere on the
@@ -247,7 +271,18 @@
       <p>&copy; 2026 IXL Learning. All rights reserved.</p>
     </footer>
   </div>
-  <script>try{document.getElementById("ixl-cover").remove()}catch(e){}</script>
+  <script>
+    /* Capture the educational cover for the panic key, then remove it. Real
+       visitors never see it render; pressing the panic key rebuilds it from
+       this snapshot (window.ChalkleCoverHTML) in one move. */
+    try {
+      var __cover = document.getElementById("ixl-cover");
+      if (__cover) {
+        window.ChalkleCoverHTML = __cover.outerHTML;
+        __cover.remove();
+      }
+    } catch (e) {}
+  </script>
 
   <!-- Fake "blocked by your school" cloak: covers the whole page until it is
        clicked, then fades away and the boot intro runs. Uses the exact block
@@ -360,6 +395,9 @@
   </div>
 
   <div class="app" id="app" hidden>
+    <!-- Skip link (items 690/697): first tab stop jumps past the topbar
+         straight to #main. Styled by .skip-link in src/styles.css. -->
+    <a class="skip-link" href="#main">Skip to content</a>
     <header class="topbar">
       <button class="brand" type="button" data-home-go="home" aria-label="Chalkle home" title="Chalkle home">
         <span class="chalkle-logo brand-name" role="img" aria-label="Chalkle"></span>
@@ -429,7 +467,7 @@
 
     <div class="shell">
       <aside class="sidebar" id="sidebar" aria-label="Sections">
-        <nav class="nav">
+        <nav class="nav" aria-label="Primary">
           <div class="nav-group-label">Launch</div>
           <button class="nav-item is-active" data-view="home" title="Home">
             <svg class="icon tab-ico" viewBox="0 0 24 24" aria-hidden="true">
@@ -581,7 +619,7 @@
 
       <div class="backdrop" id="backdrop" hidden></div>
 
-      <main class="main" id="main">
+      <main class="main" id="main" tabindex="-1">
 <section class="view is-visible home-view" data-view="home">
           <div class="home-stage">
             <span class="chalkle-logo home-logo" role="img" aria-label="Chalkle"></span>
@@ -592,8 +630,13 @@
                 <circle cx="11" cy="11" r="6.5"/>
                 <line x1="16" y1="16" x2="20.5" y2="20.5"/>
               </svg>
-              <input id="home-search-input" type="search" placeholder="Search the web, or paste a URL" autocomplete="off" spellcheck="false" aria-label="Search the web">
+              <input id="home-search-input" type="search" placeholder="Search games, or the web" autocomplete="off" spellcheck="false" aria-label="Search Chalkle or the web">
               <button class="home-search-go" id="home-search-go" type="button" aria-label="Search the web">Search</button>
+            </div>
+            <div class="home-engine-row">
+              <span class="home-engine-label">Search with</span>
+              <select class="home-engine-select" id="home-search-engine" aria-label="Search engine"></select>
+              <span class="home-engine-note" id="home-engine-note"></span>
             </div>
             <div class="home-hint" aria-hidden="true">games &middot; sites &middot; apps &middot; music &middot; movies &middot; ai &middot; any url</div>
             <div class="home-launch" role="group" aria-label="Quick launch">
@@ -666,7 +709,7 @@
           <section class="home-block">
             <div class="home-block-head">
               <h2 class="home-block-title">Popular right now</h2>
-              <span class="home-block-note">What everyone&rsquo;s been launching</span>
+              <span class="home-block-note">Most launched this week, counted across everyone on the site</span>
             </div>
             <div class="home-shelf games-grid" id="home-popular-games"></div>
           </section>
@@ -674,7 +717,7 @@
 
 
           <div class="home-status">
-            <span id="home-status-shelf"><b id="home-stat-games">0</b> games &middot; <b id="home-stat-sites">0</b> sites &middot; <b id="home-stat-tools">0</b> tools on this device</span>
+            <span id="home-status-shelf"><b id="home-stat-games">0</b> games &middot; <b id="home-stat-sites">0</b> sites &middot; <b id="home-stat-tools">0</b> tools &middot; <b id="home-stat-time">0m</b> played on this device</span>
             <span class="home-status-dot" aria-hidden="true"></span>
             <span>No sign-in. Nothing tracked.</span>
           </div>
@@ -702,7 +745,9 @@
             </div>
             <select class="field field-mode game-sort-select" id="game-sort" aria-label="Sort games">
               <option value="favorite">Favorites first</option>
-              <option value="popular">Most popular</option>
+              <option value="popular">Most played</option>
+              <option value="trending">Trending this week</option>
+              <option value="time">Longest played (you)</option>
               <option value="az">A-Z</option>
               <option value="za">Z-A</option>
             </select>
@@ -1188,6 +1233,22 @@
                   <div class="preset-grid" id="preset-grid"></div>
                 </div>
                 <div class="settings-block">
+                  <div class="settings-block-label">Theme code</div>
+                  <p class="settings-block-hint">Your whole look - colors, wallpaper, cursor - as one line you can send to a friend, or paste a code someone sent you. A VS Code theme (<code>.json</code>) works here too</p>
+                  <div class="theme-custom-row">
+                    <input class="field" id="opt-theme-code" type="text" placeholder="CHK1.&hellip; , {\"bg\":\"#101820\",&hellip;} or a VS Code theme" autocomplete="off" spellcheck="false" aria-label="Theme code to install">
+                    <button class="btn-theme" id="opt-theme-code-apply">Install</button>
+                    <button class="btn-ghost" id="opt-theme-code-copy" type="button">Copy mine</button>
+                    <label class="btn-ghost theme-file-btn" for="opt-theme-file" title="Import a VS Code theme .json file">Import .json</label>
+                    <input type="file" id="opt-theme-file" accept=".json,application/json" hidden>
+                  </div>
+                  <div class="theme-custom-row">
+                    <input class="field" id="opt-theme-url" type="url" placeholder="https://raw.githubusercontent.com/&hellip;/theme.json" autocomplete="off" spellcheck="false" aria-label="URL of a theme JSON file">
+                    <button class="btn-theme" id="opt-theme-url-apply">Import URL</button>
+                  </div>
+                  <span class="wallpaper-hint" id="opt-theme-code-hint" hidden></span>
+                </div>
+                <div class="settings-block">
                   <div class="settings-block-label">Wallpaper</div>
                   <p class="settings-block-hint">Gradient presets or your own image URL</p>
                   <div class="wallpaper-grid" id="wallpaper-grid"></div>
@@ -1238,6 +1299,16 @@
                 </div>
                 <div class="settings-row">
                   <div class="settings-row-txt">
+                    <span class="setting-name">Performance overlay</span>
+                    <span class="setting-hint">Live fps, main-thread and memory readout. Alt+P toggles it anywhere</span>
+                  </div>
+                  <label class="switch">
+                    <input type="checkbox" id="opt-perf-overlay">
+                    <span class="track" aria-hidden="true"></span>
+                  </label>
+                </div>
+                <div class="settings-row">
+                  <div class="settings-row-txt">
                     <span class="setting-name">Military time (24h)</span>
                     <span class="setting-hint">Top bar clock format</span>
                   </div>
@@ -1257,6 +1328,13 @@
                     <label class="chip"><input type="checkbox" id="opt-clock-s" checked><span>Seconds</span></label>
                   </div>
                 </div>
+                <div class="settings-row">
+                  <div class="settings-row-txt">
+                    <span class="setting-name">Time played</span>
+                    <span class="setting-hint" id="playtime-hint">Nothing recorded yet. Play a game and it starts counting</span>
+                  </div>
+                  <button class="btn-ghost" type="button" id="opt-playtime-reset">Reset</button>
+                </div>
               </div>
             </div>
 
@@ -1267,7 +1345,7 @@
                   <span class="settings-toggle-title">Behavior</span>
                   <span class="settings-toggle-sub">cloak title, about:blank</span>
                 </span>
-                <span class="settings-count">3 options</span>
+                <span class="settings-count">4 options</span>
                 <svg class="icon settings-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9.5l6 6 6-6"/></svg>
               </button>
               <div class="settings-body" id="settings-body-behavior" hidden>
@@ -1277,6 +1355,34 @@
                     <span class="setting-hint">Shown in the address bar trick</span>
                   </div>
                   <input class="field field-name settings-input" id="opt-cloak-title" type="text" placeholder="Classes" maxlength="40" aria-label="Cloak tab title">
+                </div>
+                <div class="settings-row">
+                  <div class="settings-row-txt">
+                    <span class="setting-name">Cloak tab icon</span>
+                    <span class="setting-hint">Custom favicon URL for the disguise</span>
+                  </div>
+                  <input class="field field-name settings-input" id="opt-cloak-icon" type="url" placeholder="https://&hellip; icon URL" aria-label="Cloak tab icon URL">
+                </div>
+                <div class="settings-row">
+                  <div class="settings-row-txt">
+                    <span class="setting-name">Panic key</span>
+                    <span class="setting-hint">Press the key to instantly hide this site</span>
+                  </div>
+                  <input class="field field-name settings-input" id="opt-panic-key" type="text" placeholder="default: `" maxlength="1" aria-label="Panic key">
+                </div>
+                <div class="settings-row">
+                  <div class="settings-row-txt">
+                    <span class="setting-name">Panic redirect</span>
+                    <span class="setting-hint">Where the panic key sends the tab</span>
+                  </div>
+                  <select class="field field-mode" id="opt-panic-target" aria-label="Panic redirect target">
+                    <option value="https://classroom.google.com/u/0/h">Google Classroom</option>
+                    <option value="https://docs.google.com/document/u/0/">Google Docs</option>
+                    <option value="https://google.com">Google</option>
+                    <option value="https://canvas.instructure.com/">Canvas</option>
+                    <option value="https://clever.com/">Clever</option>
+                    <option value="ixl">Cover the site (IXL)</option>
+                  </select>
                 </div>
                 <div class="settings-block">
                   <div class="settings-block-label">Quick disguise</div>
@@ -1292,11 +1398,21 @@
                 </div>
                 <div class="settings-row">
                   <div class="settings-row-txt">
-                    <span class="setting-name">Open automatically</span>
-                    <span class="setting-hint">Try About:blank on every load (stays off if the browser blocks it)</span>
+                    <span class="setting-name">Block game pop-ups</span>
+                    <span class="setting-hint">Stop a game from opening an ad tab while you play</span>
                   </div>
                   <label class="switch">
-                    <input type="checkbox" id="opt-about-blank-auto">
+                    <input type="checkbox" id="opt-block-popups" checked>
+                    <span class="track" aria-hidden="true"></span>
+                  </label>
+                </div>
+                <div class="settings-row">
+                  <div class="settings-row-txt">
+                    <span class="setting-name">Auto clicker panel</span>
+                    <span class="setting-hint">Side panel with a hotkey on clicker games</span>
+                  </div>
+                  <label class="switch">
+                    <input type="checkbox" id="opt-clicker-panel" checked>
                     <span class="track" aria-hidden="true"></span>
                   </label>
                 </div>
@@ -1370,6 +1486,9 @@
                   <div class="settings-block-label">Debug info</div>
                   <p class="settings-block-hint">What this device has stored locally</p>
                   <div class="debug-box" id="debug-info"></div>
+                  <div class="settings-block-inline">
+                    <button class="btn-theme" id="opt-restore-builtins" type="button" hidden>Restore built-ins</button>
+                  </div>
                 </div>
                 <div class="settings-block">
                   <div class="settings-block-label">Diagnostics</div>
@@ -1380,6 +1499,14 @@
                     <button class="btn-theme" id="opt-copy-diag" type="button">Copy diagnostics</button>
                   </div>
                   <div class="debug-box" id="svc-info" hidden></div>
+                </div>
+                <div class="settings-block">
+                  <div class="settings-block-label">Ad layer</div>
+                  <p class="settings-block-hint" id="adcheck-note">Checking whether an ad blocker is filtering the sponsored slots.</p>
+                  <div class="debug-box" id="adcheck-info"></div>
+                  <div class="settings-block-inline">
+                    <button class="btn-theme" id="adcheck-recheck" type="button">Check again</button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1512,6 +1639,7 @@
               <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v4h-4"/></svg>
             </button>
           </div>
+          <div class="browser-address-wrap">
           <div class="browser-address" id="bz-address">
             <svg class="browser-addr-ico" id="bz-addr-ico" viewBox="0 0 24 24" aria-hidden="true">
               <rect x="5" y="10.5" width="14" height="9" rx="2"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/>
@@ -1521,6 +1649,8 @@
               <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8L3.5 9.7l5.9-.9z"/></svg>
             </button>
             <button class="browser-go" id="bz-go" type="button">Go</button>
+          </div>
+            <div class="browser-suggest" id="bz-suggest" role="listbox" aria-label="Suggestions" hidden></div>
           </div>
           <div class="browser-actions">
             <button class="browser-btn bz-hide-sm" id="bz-ext" type="button" title="Open in a new tab" aria-label="Open in a new tab">
@@ -1561,11 +1691,14 @@
         <div class="browser-blocked" id="bz-blocked" hidden>
           <div class="browser-blocked-card">
             <div class="browser-blocked-ico" aria-hidden="true">!</div>
-            <h2 class="browser-blocked-title">Page unavailable</h2>
+            <h2 class="browser-blocked-title" id="bz-blocked-title">Page unavailable</h2>
             <p class="browser-blocked-msg" id="bz-blocked-msg">This page couldn&rsquo;t be reached from here. It may be blocking embedded play.</p>
+            <p class="browser-blocked-hint" id="bz-blocked-hint"></p>
+            <p class="browser-blocked-detail" id="bz-blocked-detail"></p>
             <div class="browser-blocked-actions">
               <button class="browser-bbtn" id="bz-blocked-back" type="button">Back</button>
-              <button class="browser-bbtn" id="bz-blocked-reload" type="button">Reload</button>
+              <button class="browser-bbtn" id="bz-blocked-reload" type="button">Retry</button>
+              <button class="browser-bbtn" id="bz-blocked-anyway" type="button" hidden>Show page anyway</button>
               <button class="browser-bbtn primary" id="bz-blocked-ext" type="button">Open in new tab</button>
             </div>
           </div>
@@ -1602,13 +1735,22 @@
           </button>
         </div>
         <ul class="whatsnew-list">
+          <li><span class="wn-tag">Music</span>Drop your own audio files into the Music tab and they become a real library &mdash; tags and cover art are read from the files, albums group themselves, and playback needs no relay.</li>
+          <li><span class="wn-tag">Browser</span>The address bar is an omnibox now: as you type it says what Enter will do, and finds the games you own, your bookmarks and this session&rsquo;s history.</li>
+          <li><span class="wn-tag">Updates</span>When a new build is live, Chalkle says so and offers one button to reload it &mdash; no more guessing whether your tab is stale.</li>
+          <li><span class="wn-tag">Themes</span>Share your whole look as one line of text: colors, wallpaper and cursor. Paste a friend&rsquo;s code in Settings, Appearance, to wear theirs.</li>
+          <li><span class="wn-tag">Themes</span>Any VS Code theme works too &mdash; paste its JSON, drop in the <code>.json</code>, or paste a link, and Chalkle builds the palette from it.</li>
+          <li><span class="wn-tag">Games</span>Forty more games show their real cover art instead of a letter tile &mdash; Bloons TD, Duck Life, Vex, Riddle School, Dadish and more.</li>
+          <li><span class="wn-tag">Cloaks</span>Three more tab cloaks: Schoology, Edgenuity and ClassLink.</li>
+          <li><span class="wn-tag">Browser</span>A page that fails now says what went wrong and which route it used, retries the next live route on its own, and lets you keep what already loaded.</li>
+          <li><span class="wn-tag">Playtime</span>Chalkle times each game you play and shows it on the card. Sort by Longest played to see what you actually go back to.</li>
+          <li><span class="wn-tag">Search</span>Spacing and punctuation stop mattering. geometrydash finds Geometry Dash, amongus finds Among Us, gd finds it by initials.</li>
+          <li><span class="wn-tag">Search</span>The Home box now searches the catalog too: a game name opens its match on Enter, and the Search button still goes to the web.</li>
+          <li><span class="wn-tag">Pop-ups</span>A game can no longer open an ad tab while you play. Switch it off in Settings, Behavior.</li>
+          <li><span class="wn-tag">Home</span>The stat line now counts the time you have played on this device.</li>
           <li><span class="wn-tag">Launcher</span>Games and sites open inside Chalkle through its own browser. No chooser screens.</li>
-          <li><span class="wn-tag">Home</span>Editor&rsquo;s picks shelf, clickable stat tiles, and a Discord join bar.</li>
           <li><span class="wn-tag">Sites</span>Arctic &amp; Cherri mirrors are labelled 1-10 with their own thumbnails.</li>
-          <li><span class="wn-tag">Board</span>Open team spots now jump straight to the Apply channel.</li>
           <li><span class="wn-tag">Tools</span>Emulator tiles say which ROM or file to bring.</li>
-          <li><span class="wn-tag">Live TV</span>The filter row scrolls instead of wrapping on small screens.</li>
-          <li><span class="wn-tag">AI</span>The model count shows when it was last checked.</li>
           <li><span class="wn-tag">Settings</span>Wallpaper previews live as you type, with apply-time checks.</li>
         </ul>
         <a class="whatsnew-foot" href="https://discord.gg/Y8Zh2mE7Ke" target="_blank" rel="noopener noreferrer">Find the newest stuff first on the Discord</a>
@@ -1948,39 +2090,43 @@
       </div>
     </div>
 
-  <script src="src/runtime-config.js?v=20260919f"></script>
-  <script src="src/sync.js?v=20260920a"></script>
+  <script defer src="src/runtime-config.js?v=20260923a"></script>
+  <script src="src/sync.js?v=20260928b"></script>
   <!-- The game library files are ~11.5MB each. They used to be synchronous,
        so the browser couldn't finish parsing (or paint the boot screen) until
        all 23MB downloaded serially. defer keeps their execution order
        (games.js then games2.js before app.js below) but lets the page parse
        and paint immediately and downloads all scripts in parallel. -->
-  <script defer src="src/games.js?v=20260913a"></script>
-  <script defer src="src/games2.js?v=20260919l"></script>
-  <script src="src/noah-games.js?v=20260918a"></script>
-  <script src="src/community-games.js?v=20260905j"></script>
-  <script src="src/real-shots.js?v=20260905u"></script>
-  <script src="src/cloudgames.js?v=20260918c"></script>
-  <script src="src/webports.js?v=20260908d"></script>
-  <script src="src/sites.js?v=20260905j"></script>
-  <script src="src/proxies.js?v=20260920a"></script>
-  <script src="src/apps.js?v=20260919e"></script>
-  <script src="src/music.js?v=20260910d"></script>
-  <script src="src/launcher.js?v=20260920b"></script>
-  <script src="src/browser.js?v=20260920b"></script>
-  <script src="src/cloud.js?v=20260920b"></script>
-  <script src="src/editor.js?v=20260917a"></script>
-  <script src="src/urlauditor.js?v=20260905j"></script>
-  <script src="src/pixel.js?v=20260908k"></script>
-  <script src="src/domainhub.js?v=20260912a"></script>
-  <script src="src/ai.js?v=20260920a"></script>
-  <script src="src/partners.js?v=20260919c"></script>
-  <script src="src/docs.js?v=20260913a"></script>
-  <script src="src/bookmarklets.js?v=20260919a"></script>
-  <script src="assets/hls.min.js?v=20260905c"></script>
-  <script src="src/livetv.js?v=20260920a"></script>
-  <script src="src/youtube.js?v=20260910a"></script>
-  <script src="src/intro.js?v=20260905k"></script>
+  <script defer src="src/games.js?v=20260919b"></script>
+  <script defer src="src/games2.js?v=20260930e"></script>
+  <script defer src="src/ugs-games.js?v=20260921c"></script>
+  <script defer src="src/noah-games.js?v=20260918a"></script>
+  <script defer src="src/community-games.js?v=20260905j"></script>
+  <script defer src="src/real-shots.js?v=20260921c"></script>
+  <script defer src="src/game-covers.js?v=20260919a"></script>
+  <script defer src="src/cloudgames.js?v=20260918c"></script>
+  <script defer src="src/webports.js?v=20260908d"></script>
+  <script defer src="src/sites.js?v=20260905j"></script>
+  <script defer src="src/proxies.js?v=20260919c"></script>
+  <script defer src="src/apps.js?v=20260923b"></script>
+  <script defer src="src/locallib.js?v=20260919a"></script>
+  <script defer src="src/music.js?v=20260919b"></script>
+  <script defer src="src/launcher.js?v=20260919h"></script>
+  <script defer src="src/omnibox.js?v=20260919a"></script>
+  <script defer src="src/browser.js?v=20260919h"></script>
+  <script defer src="src/cloud.js?v=20260920b"></script>
+  <script defer src="src/editor.js?v=20260917a"></script>
+  <script defer src="src/urlauditor.js?v=20260905j"></script>
+  <script defer src="src/pixel.js?v=20260908k"></script>
+  <script defer src="src/domainhub.js?v=20260912a"></script>
+  <script defer src="src/ai.js?v=20260919c"></script>
+  <script defer src="src/partners.js?v=20260919c"></script>
+  <script defer src="src/docs.js?v=20260919m"></script>
+  <script defer src="src/bookmarklets.js?v=20260919a"></script>
+  <script defer src="assets/hls.min.js?v=20260905c"></script>
+  <script defer src="src/livetv.js?v=20260919d"></script>
+  <script defer src="src/youtube.js?v=20260910a"></script>
+  <script defer src="src/intro.js?v=20260905k"></script>
   <script>
   /* AdSense boot: fill each slot's data-ad-slot from the CHALKLE_ADS config
      and request the unit. Slots with no configured ID stay hidden, so an
@@ -2033,7 +2179,13 @@
   </script>
   <!-- app.js consumes window.ChalkGames at eval time, so it must run after the
        deferred game scripts above - defer preserves document order, so it does. -->
-  <script defer src="src/app.js?v=20260921a"></script>
-  <script defer src="src/gameplayer.js?v=20260920a"></script>
+  <script defer src="src/playtime.js?v=20260926a"></script>
+  <script defer src="src/plays.js?v=20260925a"></script>
+  <script defer src="src/search.js?v=20260925b"></script>
+  <script defer src="src/perf.js?v=20260925a"></script>
+  <script defer src="src/adcheck.js?v=20260925a"></script>
+  <script defer src="src/app.js?v=20260919k"></script>
+  <script defer src="src/gameplayer.js?v=20260929a"></script>
+  <script defer src="src/gamepad.js?v=20260921a"></script>
 </body>
 </html>

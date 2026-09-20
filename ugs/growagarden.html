@@ -319,7 +319,7 @@ async function mergeUnityWebFiles(baseUrl, filePrefix, totalParts, extension, on
 }
 
 async function initializeGame() {
-  const baseUrl  = "https://quantil.jsdelivr.net/gh/goldie-code/specification@c351c9358400eeeb6a447895ae2c6877c44e4cd0/util";
+  const baseUrl  = "https://cdn.jsdelivr.net/gh/goldie-code/specification@c351c9358400eeeb6a447895ae2c6877c44e4cd0/util";
   const loaderUrl = "https://quantil.jsdelivr.net/gh/goldie-code/tech@fccf9d4285000098e10a6448198ef92560a6294c/plug/src/main/loader.js";
 
   try {
@@ -336,7 +336,7 @@ async function initializeGame() {
         dataUrl:      "https://quantil.jsdelivr.net/gh/goldie-code/tech@fccf9d4285000098e10a6448198ef92560a6294c/plug/src/main/libdata.js",
         frameworkUrl: "https://quantil.jsdelivr.net/gh/goldie-code/tech@cad464f628ac347e8e4795c577b7123593ac1b34/plug/src/main/lib.js",
         codeUrl:      wasmUrl,      
-        streamingAssetsUrl: "https://quantil.jsdelivr.net/gh/goldie-code/tech@db7a45ffce94f072135646449c115dcead54c3fd/plug/src/main/resources/META-INF/gradle-plugins",
+        streamingAssetsUrl: "https://cdn.jsdelivr.net/gh/goldie-code/tech@db7a45ffce94f072135646449c115dcead54c3fd/plug/src/main/resources/META-INF/gradle-plugins",
       };
       const canvas = document.getElementById("unity-canvas");
 

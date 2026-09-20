@@ -159,17 +159,17 @@
         .then(r => r.json())
         .then(config => {
           return Promise.all([
-            mergeFiles(getParts("https://quantil.jsdelivr.net/gh/matheveryday25/math/truck/Build/indian_truck_gd_2_0_1.data.unityweb", 1, 2)),
-            mergeFiles(getParts("https://quantil.jsdelivr.net/gh/matheveryday25/math/truck/Build/indian_truck_gd_2_0_1.wasm.code.unityweb", 1, 1)),
-            mergeFiles(getParts("https://quantil.jsdelivr.net/gh/matheveryday25/math/truck/Build/indian_truck_gd_2_0_1.wasm.framework.unityweb", 1, 1))
+            mergeFiles(getParts("https://cdn.jsdelivr.net/gh/matheveryday25/math/truck/Build/indian_truck_gd_2_0_1.data.unityweb", 1, 2)),
+            mergeFiles(getParts("https://cdn.jsdelivr.net/gh/matheveryday25/math/truck/Build/indian_truck_gd_2_0_1.wasm.code.unityweb", 1, 1)),
+            mergeFiles(getParts("https://cdn.jsdelivr.net/gh/matheveryday25/math/truck/Build/indian_truck_gd_2_0_1.wasm.framework.unityweb", 1, 1))
           ]).then(([dataUrl, wasmCodeUrl, wasmFrameworkUrl]) => {
             window.mergedBlobUrls["indian_truck_gd_2_0_1.data.unityweb"] = dataUrl;
             window.mergedBlobUrls["indian_truck_gd_2_0_1.wasm.code.unityweb"] = wasmCodeUrl;
             window.mergedBlobUrls["indian_truck_gd_2_0_1.wasm.framework.unityweb"] = wasmFrameworkUrl;
 
-            config.dataUrl = "https://quantil.jsdelivr.net/gh/matheveryday25/math/truck/Build/indian_truck_gd_2_0_1.data.unityweb";
-            config.wasmCodeUrl = "https://quantil.jsdelivr.net/gh/matheveryday25/math/truck/Build/indian_truck_gd_2_0_1.wasm.code.unityweb";
-            config.wasmFrameworkUrl = "https://quantil.jsdelivr.net/gh/matheveryday25/math/truck/Build/indian_truck_gd_2_0_1.wasm.framework.unityweb";
+            config.dataUrl = "https://cdn.jsdelivr.net/gh/matheveryday25/math/truck/Build/indian_truck_gd_2_0_1.data.unityweb";
+            config.wasmCodeUrl = "https://cdn.jsdelivr.net/gh/matheveryday25/math/truck/Build/indian_truck_gd_2_0_1.wasm.code.unityweb";
+            config.wasmFrameworkUrl = "https://cdn.jsdelivr.net/gh/matheveryday25/math/truck/Build/indian_truck_gd_2_0_1.wasm.framework.unityweb";
 
             let blob = new Blob([JSON.stringify(config)], { type: "application/json" });
             let blobUrl = URL.createObjectURL(blob);

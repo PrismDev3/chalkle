@@ -14,11 +14,14 @@
   var $ = function (id) { return document.getElementById(id); };
   var tabsEl = $("bz-tabs"), viewport = $("bz-viewport");
   var addr = $("bz-addr"), addrIco = $("bz-addr-ico"), goBtn = $("bz-go");
+  var suggestEl = $("bz-suggest");
   var ntPage = $("bz-newtab-page");
   var backBtn = $("bz-back"), fwdBtn = $("bz-fwd"), reloadBtn = $("bz-reload");
   var extBtn = $("bz-ext"), homeBtn = $("bz-home"), fsBtn = $("bz-fs"), closeBtn = $("bz-close");
   var progressBar = $("bz-progress-bar");
   var blocked = $("bz-blocked"), blockedMsg = $("bz-blocked-msg");
+  var blockedTitle = $("bz-blocked-title"), blockedHint = $("bz-blocked-hint");
+  var blockedDetail = $("bz-blocked-detail"), blockedAnyway = $("bz-blocked-anyway");
   var blockedBack = $("bz-blocked-back"), blockedReload = $("bz-blocked-reload"), blockedExt = $("bz-blocked-ext");
   var notice = $("bz-notice"), noticeMsg = $("bz-notice-msg"), noticeExt = $("bz-notice-ext"), noticeX = $("bz-notice-x");
   var exitFsBtn = $("bz-exitfs");
@@ -67,6 +70,13 @@
   function resolveInput(input) {
     var t = String(input || "").trim();
     if (!t) return null;
+    /* ChalkleSearch owns the address-vs-search decision and the saved engine,
+       so the address bar and the Home box stay in agreement. The inline
+       fallback below keeps the browser usable if that module is absent. */
+    if (window.ChalkleSearch && window.ChalkleSearch.target) {
+      var r = window.ChalkleSearch.target(t);
+      if (r && r.url) return r.url;
+    }
     if (/^(https?:|ftp:)\/\//i.test(t)) return t;
     if (t.indexOf("://") !== -1) return t;
     if (looksUrl(t)) return "https://" + t;
@@ -83,19 +93,201 @@
     } catch (e) { return false; }
   }
 
-  /* Route an external target through the first configured proxy, mirroring
-     the launcher's own in-app-frame behaviour. */
-  function routeTarget(u) {
-    var s = String(u || "");
-    if (/^(blob:|data:|about:|javascript:|file:)/i.test(s)) return s;
+  /* ---------- Routing ---------- */
+  /* Ask the launcher for a route: it resolves single-file embeds, local-only
+     builds and proxy routing in one place, and hands back the node it used.
+     The browser needs that node - when a routed page fails, the failure is
+     evidence about one node, and the retry has to skip it. */
+  function routeForTarget(target, skip) {
+    var t = String(target || "");
+    if (/^(blob:|data:|about:|javascript:|file:)/i.test(t)) return { url: t, node: null };
     var L = window.ChalkleLaunch;
-    if (L && L.firstProxy && L.routeProxy && L.shouldOpenDirect) {
-      var p = L.firstProxy();
-      if (p && /^https?:/i.test(s) && !L.shouldOpenDirect(s)) {
-        return L.routeProxy(s, p.url, p.mode === "frame" || !!p.hashRoute);
+    if (!L || typeof L.routeFor !== "function") return { url: t, node: null };
+    try {
+      var r = L.routeFor(t, skip || []);
+      return (r && r.url) ? { url: r.url, node: r.node || null } : { url: t, node: null };
+    } catch (e) {
+      return { url: t, node: null };
+    }
+  }
+
+  /* Raw handoffs arrive already routed, with no node attached (the launcher
+     resolved them before the overlay opened). Read the node back out of the
+     route so a failure can still be attributed: /res/ on this origin is the
+     relay, and anything under a listed node's host is that node. */
+  function nodeFromRoute(url) {
+    var u = String(url || "");
+    if (!u || !/^https?:/i.test(u)) return null;
+    try {
+      var parsed = new URL(u, location.href);
+      if (parsed.origin === location.origin && /^\/res\//i.test(parsed.pathname)) {
+        return (typeof window.ChalkProxyBackendFind === "function")
+          ? window.ChalkProxyBackendFind("relay") : null;
+      }
+      var all = (typeof window.ChalkProxyBackendList === "function")
+        ? (window.ChalkProxyBackendList() || []) : [];
+      for (var i = 0; i < all.length; i++) {
+        var b = all[i];
+        if (!b || !b.url) continue;
+        try {
+          var bu = new URL(b.url, location.href);
+          if (bu.origin === parsed.origin && parsed.pathname.indexOf(bu.pathname) === 0) return b;
+        } catch (e) { /* keep looking */ }
+      }
+    } catch (e) { /* not a URL: nothing to attribute */ }
+    return null;
+  }
+
+  /* ---------- Failure recovery ----------
+     A failed load is a fact about the route, not a verdict on the page. Nodes
+     die on one network and work on the next, a relay can 502 on a cold start,
+     a filter answers a dead tunnel with its own block page. So a failure is
+     treated as a routing problem first: report it into the shared health
+     store (proxies.js owns the reading the Proxies tab shows), retry the same
+     route once - a cold tunnel usually answers the second time - then walk to
+     a different route, and only then show the error panel. The panel always
+     says which route failed and offers Show page anyway, because a page that
+     never "finished" often rendered fine. */
+  var FAIL_TEXT = {
+    offline: {
+      title: "You are offline",
+      msg: "This device has no network connection right now, so nothing can load.",
+      hint: "Reconnect, then hit Retry."
+    },
+    proxy: {
+      title: "That route never answered",
+      msg: "Nothing came back from the route Chalkle opened for {host}.",
+      hint: "Retry in a moment, or open it in a new tab."
+    },
+    notfound: {
+      title: "The site said no",
+      msg: "{host} answered, but with a {code} error page instead of the page you wanted.",
+      hint: "Check the address - this one probably has a typo or the page moved."
+    },
+    timeout: {
+      title: "Taking longer than usual",
+      msg: "{host} started loading but never finished.",
+      hint: "Show what already rendered, or retry."
+    },
+    unreachable: {
+      title: "Page unavailable",
+      msg: "Chalkle could not reach {host} from here - it may be down, or blocked on this network.",
+      hint: "Retry, or open it in a new tab where a different route applies."
+    }
+  };
+
+  /* A routed load (there is a node behind the URL) versus a direct one: only
+     the routed case is worth blaming on a route. */
+  function isRouted(s) {
+    return !!(s && s.node && s.node.id);
+  }
+
+  /* Chrome's error page for a host that never answered is readable and has no
+     title, unlike any real page. Without this check a frame that "loaded" an
+     error page counts as a success - which is how a dead host used to leave
+     nothing but an empty panel behind. */
+  function looksNetworkError(title, bodyText) {
+    if (title) return false;
+    var t = String(bodyText || "");
+    return /ERR_[A-Z_]+/.test(t)
+      || /can(?:not|'|\u2019)?t be reached/i.test(t)
+      || /refused to connect/i.test(t)
+      || /isn(?:'|\u2019)?t working/i.test(t)
+      || /took too long to respond/i.test(t)
+      || /dns_probe|no internet/i.test(t);
+  }
+
+  function reportRoute(s, ok) {
+    if (!s || !s.node || !s.node.id) return;
+    if (typeof window.ChalkProxyReport !== "function") return;
+    try { window.ChalkProxyReport(s.node.id, !!ok); } catch (e) { /* health is best effort */ }
+  }
+
+  function routeLabel(s) {
+    if (s && s.node && s.node.name) return s.node.name;
+    if (s && s.node) return "proxy node";
+    return "direct";
+  }
+
+  /* One failed attempt. The ladder is: same route once more, then the next
+     route, then the panel - and a 4xx is not a failure at all, it is the site
+     answering, so it goes straight to the panel without touching health. */
+  function failReason(s, reason, code) {
+    if (!s || s.failed) return;
+    var why = (!navigator.onLine) ? "offline" : (reason || "unreachable");
+    s.loading = false;
+    if (loadTimer) { clearTimeout(loadTimer); loadTimer = null; }
+    if (progressBar) {
+      progressBar.style.width = "100%";
+      setTimeout(function () { progressBar.style.opacity = "0"; }, 250);
+    }
+    renderTabs();
+    /* Only a repeated failure is a health verdict: one timeout is weather,
+       and a single 502 on a cold relay is not a dead relay. */
+    if (why === "proxy" && s.attempts >= 2) reportRoute(s, false);
+    if (why === "proxy" && s.attempts < 2) {
+      s.attempts++;
+      startLoading(s);
+      if (s.frame) s.frame.src = s.route;
+      return;
+    }
+    /* Another ROUTE is worth trying; another route is not "load it direct".
+       A proxied failure that silently falls back to the raw URL would leak
+       the request to the filter and usually just fail there too - the panel
+       says so instead, and the health verdict on the failed route makes the
+       NEXT navigation pick a different one on its own. */
+    if ((why === "proxy" || why === "unreachable") && s.attempts < 4) {
+      var next = routeForTarget(s.target, s.tried);
+      var canSwitch = !!(next.node && next.node.id && s.node && next.node.id !== s.node.id);
+      if (canSwitch) {
+        if (s.node && s.node.id) s.tried.push(s.node.id);
+        s.node = next.node;
+        s.route = next.url;
+        s.attempts++;
+        s.reason = "";
+        if (window.ChalkleToast && window.ChalkleToast.show) {
+          window.ChalkleToast.show("That route did not answer - retrying through " + (next.node.name || "another node"));
+        }
+        startLoading(s);
+        if (s.frame) s.frame.src = s.route;
+        return;
       }
     }
-    return s;
+    s.failed = true;
+    s.reason = why;
+    s.code = code || "";
+    syncView();
+  }
+
+  /* Retry re-routes rather than replaying the dead URL: a route that just
+     failed was demoted in the health store, so this attempt lands on a live
+     one (or on the relay once it answers again) without the user having to
+     know any of that. */
+  function retry() {
+    var s = active();
+    if (!s || !s.url) return;
+    var route = routeForTarget(s.target || s.url, []);
+    s.failed = false;
+    s.reason = "";
+    s.route = route.url;
+    s.node = route.node;
+    s.tried = (route.node && route.node.id) ? [route.node.id] : [];
+    s.attempts = Math.max(s.attempts + 1, 2);
+    ensureFrame(s);
+    startLoading(s);
+    s.frame.src = s.route;
+    syncView();
+  }
+
+  /* Keep what already rendered: a page that is slow is not a page that
+     failed, and hiding it behind an error card is the worst option. */
+  function showAnyway() {
+    var s = active();
+    if (!s) return;
+    s.failed = false;
+    s.reason = "";
+    if (progressBar) progressBar.style.opacity = "0";
+    syncView();
   }
 
   /* ---------- Sessions ---------- */
@@ -104,6 +296,9 @@
   var nextId = 1;
   var loadTimer = null;
   var MAX_TABS = 8;
+  /* A load that has not finished in 11s is reported as slow, not as failed:
+     heavy WebGL builds and cold tunnels routinely take longer. */
+  var SLOW_MS = 11000;
 
   function active() {
     for (var i = 0; i < sessions.length; i++) if (sessions[i].id === activeId) return sessions[i];
@@ -129,10 +324,25 @@
 
   function showNt() { if (ntPage) ntPage.hidden = false; }
   function hideNt() { if (ntPage) ntPage.hidden = true; }
+  /* The error card says WHAT failed, over WHICH route, and what to try next -
+     a bare "page unavailable" leaves the user guessing whether the site is
+     down, the proxy is dead, or the address is wrong. */
   function showBlocked(s) {
     if (!blocked) return;
+    var t = FAIL_TEXT[(s && s.reason) || "unreachable"] || FAIL_TEXT.unreachable;
+    var host = (s && s.url) ? hostOf(s.url) : "that site";
+    var msg = String(t.msg).replace(/\{host\}/g, host).replace(/\{code\}/g, (s && s.code) || "404");
     blocked.hidden = false;
-    if (s && s.url) blockedMsg.textContent = "We couldn\u2019t reach " + hostOf(s.url) + " from here. It may be blocking embedded play.";
+    if (blockedTitle) blockedTitle.textContent = t.title;
+    if (blockedMsg) blockedMsg.textContent = msg;
+    if (blockedHint) blockedHint.textContent = t.hint;
+    if (blockedDetail) {
+      var tries = Math.max(1, (s && s.attempts) || 1);
+      blockedDetail.textContent = "route: " + routeLabel(s) + " \u00b7 " + tries + (tries === 1 ? " attempt" : " attempts");
+    }
+    /* A timeout is the one failure where the frame can hold a usable page. */
+    if (blockedAnyway) blockedAnyway.hidden = !(s && s.reason === "timeout");
+    if (blockedReload) blockedReload.textContent = "Retry";
   }
   function hideBlocked() { if (blocked) blocked.hidden = true; }
 
@@ -152,6 +362,7 @@
     if (s && s.failed) showBlocked(s); else hideBlocked();
     if (s && s.blockedHost) showNotice(true, s.blockedHost + " may block embedded play."); else showNotice(false);
     renderTabs();
+    if (suggestEl && !suggestEl.hidden) suggestEl.hidden = true;
     var cur = s && s.url ? cleanUrl(s.url) : "";
     if (document.activeElement !== addr) {
       addr.value = cur;
@@ -235,7 +446,14 @@
       if (window.ChalkleToast && window.ChalkleToast.show) window.ChalkleToast.show("Tab limit reached - close one first");
       return null;
     }
-    var s = { id: nextId++, title: "New tab", url: "", letter: "?", color: "#3e3930", hist: [], hi: -1, frame: null, el: null, loading: false, failed: false, blockedHost: "" };
+    var s = {
+      id: nextId++, title: "New tab", url: "", letter: "?", color: "#3e3930",
+      hist: [], hi: -1, frame: null, el: null,
+      loading: false, failed: false, blockedHost: "",
+      /* Recovery state: the address the user asked for, the URL actually
+         loaded, the node that served it, and the nodes already tried. */
+      target: "", route: "", node: null, attempts: 0, tried: [], reason: "", code: ""
+    };
     sessions.push(s);
     activeId = s.id;
     syncView();
@@ -273,6 +491,12 @@
     s.loading = true;
     s.failed = false;
     s.blockedHost = looksFrameBlocked(s.url) ? hostOf(s.url) : "";
+    /* No network at all: say so now instead of waiting 11s for a timeout that
+       was never going to have a different answer. */
+    if (!navigator.onLine && /^https?:/i.test(String(s.route || s.url || ""))) {
+      failReason(s, "offline");
+      return;
+    }
     showNotice(!!s.blockedHost, s.blockedHost ? s.blockedHost + " may block embedded play." : "");
     hideBlocked();
     if (progressBar) {
@@ -283,20 +507,19 @@
     if (loadTimer) clearTimeout(loadTimer);
     loadTimer = setTimeout(function () {
       if (!s.loading) return;
-      s.loading = false;
-      s.failed = true;
-      syncView();
-      if (progressBar) {
-        progressBar.style.width = "100%";
-        setTimeout(function () { progressBar.style.opacity = "0"; }, 250);
-      }
-    }, 9000);
+      /* Still loading after SLOW_MS is a timeout, not a verdict - and the
+         panel that follows keeps a Show page anyway escape hatch. */
+      failReason(s, "timeout");
+    }, SLOW_MS);
     renderTabs();
   }
 
   function finishLoading(s) {
-    if (!s.loading) return;
+    if (!s.loading && !s.failed) return;
     s.loading = false;
+    /* The page arrived after the error card went up: the card was wrong, so
+       take it down instead of leaving a working page hidden behind it. */
+    if (s.failed) { s.failed = false; s.reason = ""; }
     if (loadTimer) { clearTimeout(loadTimer); loadTimer = null; }
     if (progressBar) {
       progressBar.style.width = "100%";
@@ -315,29 +538,56 @@
   }
 
   function onFrameLoad(s) {
-    finishLoading(s);
+    var title = "", bodyText = "", docRead = false;
     try {
-      var w = s.frame.contentWindow;
-      var doc = w.document;
-      var t = doc && doc.title;
-      /* The proxy returns a same-origin error page for unreachable targets -
-         surface it as the Chalkle error state instead of a raw 502. */
-      if (t === "Proxy error" || (doc && doc.body && /proxy couldn't load/i.test(String(doc.body.textContent || "") ))) {
-        s.failed = true;
-        syncView();
-        return;
+      var doc = s.frame && s.frame.contentDocument;
+      if (doc) {
+        docRead = true;
+        title = String(doc.title || "");
+        bodyText = String((doc.body && doc.body.textContent) || "").slice(0, 600);
       }
-      if (t && String(t).trim() && t !== "New tab") {
-        s.title = t;
-        renderTabs();
-      }
-    } catch (e) { /* cross-origin - keep the provided title */ }
+    } catch (e) { /* cross-origin: it really loaded */ }
+    /* Our own relay serves same-origin documents, so a route that "loaded"
+       with no readable document never actually answered - that is the relay
+       (or the server) being down, not the site. Any other unreadable frame is
+       an ordinary cross-origin page. */
+    if (s.node && s.node.builtin && !docRead) {
+      failReason(s, "proxy");
+      return;
+    }
+    /* "load" is not proof of success - the relay's own error page is a
+       perfectly valid document, so read it before declaring anything. */
+    if (title === "Proxy error" || /proxy couldn't load/i.test(bodyText)) {
+      var m = bodyText.match(/HTTP\s*(\d{3})/i);
+      var code = m ? m[1] : "";
+      /* The relay answered, so the relay itself is fine: what it could not do
+         is reach the target. A 4xx means the site answered too (the page is
+         just not there); anything else means the site was unreachable from
+         here. Retrying does not change either, so no ladder and no health
+         verdict - the panel says which it was. */
+      failReason(s, (/^4/.test(code)) ? "notfound" : "unreachable", code);
+      return;
+    }
+    /* A Chrome error page is the opposite case: the ROUTE never answered at
+       all. That is the failure worth retrying and worth recording. */
+    if (looksNetworkError(title, bodyText)) {
+      failReason(s, isRouted(s) ? "proxy" : "unreachable");
+      return;
+    }
+    finishLoading(s);
+    if (!s.failed) reportRoute(s, true);
+    if (title && title.trim() && title !== "New tab") {
+      s.title = title;
+      renderTabs();
+    }
   }
 
   function navigate(url, opts) {
     opts = opts || {};
     var u = String(url || "").trim();
-    if (!u || /^(javascript:|file:)/i.test(u)) return;
+    /* Same rule for typed and pasted addresses: script execution schemes
+       never navigate (a data: page here would be self-inflicted XSS). */
+    if (!u || /^(javascript:|file:|data:|vbscript:|blob:)/i.test(u)) return;
     var s = active();
     if (!s) return;
     /* current: address-bar navigation stays in the active tab (like a real
@@ -354,41 +604,67 @@
     s.hist.push(u);
     s.hi = s.hist.length - 1;
     s.url = u;
+    /* A raw handoff is already routed by the launcher: keep it as it is, but
+       remember the address behind it plus the node it went through, so a
+       failure can be attributed and retried. Everything else is routed here. */
+    var route;
+    if (opts.raw) {
+      s.target = String(opts.source || u);
+      route = { url: u, node: nodeFromRoute(u) };
+    } else {
+      s.target = u;
+      route = routeForTarget(u, []);
+    }
+    s.route = route.url;
+    s.node = route.node;
+    s.tried = (route.node && route.node.id) ? [route.node.id] : [];
+    s.attempts = 1;
+    s.failed = false;
+    s.reason = "";
+    s.code = "";
     ensureFrame(s);
     hideNt();
     startLoading(s);
-    /* raw: the URL is already a resolved route (proxy cards) - never wrap it. */
-    s.frame.src = opts.raw ? u : routeTarget(u);
+    s.frame.src = s.route;
+    syncView();
+  }
+
+  /* History entries hold the address the user asked for, not the route, so a
+     revisit is routed fresh (and through a live node, not the one that failed
+     earlier in the session). */
+  function loadHistory(s, url) {
+    var route = routeForTarget(url, []);
+    s.target = url;
+    s.route = route.url;
+    s.node = route.node;
+    s.tried = (route.node && route.node.id) ? [route.node.id] : [];
+    s.attempts = 1;
+    s.failed = false;
+    s.reason = "";
+    s.code = "";
+    ensureFrame(s);
+    startLoading(s);
+    s.frame.src = s.route;
     syncView();
   }
 
   function back() {
     var s = active();
     if (!s || !canBack()) return;
-    s.hi--; s.url = s.hist[s.hi]; s.failed = false;
-    ensureFrame(s);
-    startLoading(s);
-    s.frame.src = routeTarget(s.url);
-    syncView();
+    s.hi--;
+    s.url = s.hist[s.hi];
+    loadHistory(s, s.url);
   }
   function forward() {
     var s = active();
     if (!s || !canFwd()) return;
-    s.hi++; s.url = s.hist[s.hi]; s.failed = false;
-    ensureFrame(s);
-    startLoading(s);
-    s.frame.src = routeTarget(s.url);
-    syncView();
+    s.hi++;
+    s.url = s.hist[s.hi];
+    loadHistory(s, s.url);
   }
-  function reload() {
-    var s = active();
-    if (!s || !s.url) return;
-    s.failed = false;
-    ensureFrame(s);
-    startLoading(s);
-    s.frame.src = routeTarget(s.url);
-    syncView();
-  }
+  /* Reload is a retry: same address, a fresh attempt, with the attempt count
+     carried so a route that keeps failing is not retried forever. */
+  function reload() { retry(); }
 
   /* ---------- Public API ---------- */
   var api = {
@@ -468,10 +744,75 @@
     if (!u) return;
     navigate(u, { current: true });
   }
-  if (addr) {
-    addr.addEventListener("keydown", function (e) {
-      if (e.key === "Enter") { e.preventDefault(); submitFromBar(); }
+
+  /* What the typed string means. Same answer resolveInput gives the Go button,
+     so the omnibox's first row is never a different promise than Enter keeps. */
+  function classifyInput(t) {
+    var u = resolveInput(t);
+    if (!u) return null;
+    return { kind: looksUrl(t) ? "open" : "search", url: u };
+  }
+
+  /* This session's addresses, newest first and de-duplicated, for the History
+     rows. Per-tab history is all the browser keeps, so that is what we offer. */
+  function sessionHistory() {
+    var out = [], seen = {};
+    sessions.slice().reverse().forEach(function (s) {
+      for (var i = s.hist.length - 1; i >= 0; i--) {
+        var u = s.hist[i];
+        if (!u || seen[u]) continue;
+        seen[u] = 1;
+        out.push({ url: u, title: hostOf(u) || u });
+      }
     });
+    return out;
+  }
+
+  /* Catalogue hits for the omnibox come from the app's own ranked search
+     (exposed as ChalkleCatalog) so typing "minecr" here finds what it finds
+     in the top bar. Absent that module the field still works, just web-only. */
+  function catalogSearch(q) {
+    var C = window.ChalkleCatalog;
+    if (!C || typeof C.search !== "function") return [];
+    try {
+      return (C.search(q, 5) || []).map(function (h) {
+        return { title: h.title, category: h.category, url: h.url, badge: "Play", item: h.item || null };
+      });
+    } catch (e) { return []; }
+  }
+
+  function goSuggestion(r) {
+    if (!r) return;
+    /* A game row leaves the browser: the launcher opens its own surface, and
+       stacking that under this overlay would hide it. */
+    if (r.kind === "catalog" && r.item && window.ChalkleCatalog && window.ChalkleCatalog.open) {
+      api.close();
+      window.ChalkleCatalog.open(r.item);
+      return;
+    }
+    if (r.url) navigate(r.url, { current: true });
+  }
+
+  if (addr) {
+    if (window.ChalkleOmni && suggestEl) {
+      window.ChalkleOmni.attach({
+        input: addr,
+        panel: suggestEl,
+        classify: classifyInput,
+        catalog: catalogSearch,
+        context: function () { return { bookmarks: loadBookmarks(), history: sessionHistory() }; },
+        go: goSuggestion,
+        submit: function (value, first) {
+          if (first && first.kind === "catalog") { goSuggestion(first); return; }
+          submitFromBar();
+        }
+      });
+    } else {
+      /* No omnibox module: Enter still goes. */
+      addr.addEventListener("keydown", function (e) {
+        if (e.key === "Enter") { e.preventDefault(); submitFromBar(); }
+      });
+    }
     addr.addEventListener("focus", function () {
       addr.select();
       if (addrIco) addrIco.classList.add("is-editing");
@@ -513,7 +854,8 @@
 
   /* ---------- Blocked panel ---------- */
   if (blockedBack) blockedBack.addEventListener("click", back);
-  if (blockedReload) blockedReload.addEventListener("click", reload);
+  if (blockedReload) blockedReload.addEventListener("click", retry);
+  if (blockedAnyway) blockedAnyway.addEventListener("click", showAnyway);
   if (blockedExt) blockedExt.addEventListener("click", function () { api.popOut(); });
 
   /* ---------- Notice bar ---------- */

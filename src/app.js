@@ -9,6 +9,27 @@
     window.ChalkleCore.installErrorCapture();
   }
 
+  /* Build stamp. The ?v= on this very script tag is the only reliable way to
+     tell which build a browser is running: versioned src URLs are served from
+     the service worker cache after the first visit, so an un-bumped token can
+     keep serving an old copy forever. Printing it in the sidebar footer turns
+     "am I stale?" from a mystery into something you can read. */
+  (function () {
+    try {
+      var tag = document.currentScript;
+      if (!tag || !/\/app\.js/.test(tag.src || "")) {
+        tag = null;
+        for (var i = document.scripts.length - 1; i >= 0; i--) {
+          if (/\/app\.js(\?|$)/.test(document.scripts[i].src || "")) { tag = document.scripts[i]; break; }
+        }
+      }
+      var m = tag && String(tag.src || "").match(/[?&]v=([^&]+)/);
+      if (!m) return;
+      var label = document.querySelector(".side-foot-txt");
+      if (label) label.textContent = "CHALKLE v1.1 \u00B7 " + m[1];
+    } catch (e) { /* a missing stamp is cosmetic */ }
+  })();
+
   /* Saved libraries. On first load each list is seeded from the built-in
      data, then everything lives in localStorage so the Admin panel can add,
      edit and remove games / sites / tools and it all sticks on this device. */
@@ -28,14 +49,33 @@
            covers for local builds. Swap the thumb at seed time when the URL
            stem has a capture, so every card and the library sync pick it up. */
         var realShots = window.ChalkRealShots || [];
+        var realExt = window.ChalkRealShotExt || {};
         var realSet = {};
         realShots.forEach(function (s) { realSet[s] = true; });
+        /* game-covers.js: the same idea for games that never got a capture -
+           a hand-picked cover image keyed by normalised title. Titles are
+           folded to letters and digits, so "Bloons TD 5" and "bloons-td-5"
+           are one key and a cover cannot miss on punctuation alone. */
+        var covers = window.ChalkGameCovers || {};
+        var coverKey = function (title) {
+          return String(title || "").toLowerCase().replace(/[^a-z0-9]+/g, "");
+        };
         var withRealArt = function (g) {
           var copy = Object.assign({}, g);
           if (copy.thumb && /^data:image\//i.test(String(copy.thumb))) {
-            var m = /^\/(?:ugs|mc)\/([^/]+)\.html$/i.exec(String(copy.url || ""));
+            var m = /^\/(?:ugs|mc|gn)\/([^/]+)\.html$/i.exec(String(copy.url || ""));
             if (m && realSet[m[1]]) {
-              copy.thumb = "/assets/games/real/" + encodeURIComponent(m[1]) + ".jpg";
+              /* Most captures are JPEGs. Some games were saved as WebP, which
+                 is smaller for the same frame; those files were sitting on
+                 disk unreferenced until the extension travelled with the
+                 slug here. */
+              copy.thumb = "/assets/games/real/" + encodeURIComponent(m[1]) +
+                "." + (realExt[m[1]] || "jpg");
+            } else {
+              /* A real capture wins over a published cover: one is the game
+                 actually running, the other is marketing art. */
+              var cover = covers[coverKey(copy.title)];
+              if (cover) copy.thumb = cover;
             }
           }
           return copy;
@@ -308,7 +348,12 @@
     genreFilters: [],
     appFilters: [],
     collapsed: readPref(COLLAPSED_KEY) === "1",
-    motion: readPref(MOTION_KEY) === "1",
+    /* Low-power default: index.html's early boot script sets __chalkleLowPower
+       on small-memory Chromebooks and phones (before first paint), so those
+       devices start with animations off instead of janky ones. An explicit
+       Settings choice overwrites the stored pref, so this only ever seeds
+       the first visit. */
+    motion: readPref(MOTION_KEY) === "1" || window.__chalkleLowPower === true,
     size: readPref(SIZE_KEY) || "comfortable",
     sort: readPref(SORT_KEY) || "favorite",
     sitesSort: "az",
@@ -584,6 +629,90 @@
     return String(n);
   }
 
+  /* ---------- shared launch counts (plays.js) ----------
+     Every card can show how many times a game has been played, and every
+     ranking below prefers those shared totals. The local click counter stays
+     the fallback, because a static mirror with no relay (or an offline copy)
+     has no shared counts to read - and a card with no number at all would be
+     worse than a personal one. */
+
+  function sharedPlays(key) {
+    try { return window.ChalklePlays ? (window.ChalklePlays.count(key) || 0) : 0; }
+    catch (e) { return 0; }
+  }
+
+  function sharedTrend(key) {
+    try { return window.ChalklePlays ? (window.ChalklePlays.trending(key) || 0) : 0; }
+    catch (e) { return 0; }
+  }
+
+  function playsLabel(key, clicks) {
+    var shared = sharedPlays(key);
+    var n = shared || clicks || 0;
+    if (!n) return "";
+    var text = shared && window.ChalklePlays ? window.ChalklePlays.format(n) : formatCount(n);
+    return text + (n === 1 ? " play" : " plays");
+  }
+
+  /* One score for the Most popular sort and the Home shelf: this week's shared
+     plays weigh heaviest, then the all-time total, then the local signal. */
+  function playScore(key) {
+    var week = sharedTrend(key);
+    var all = sharedPlays(key);
+    if (week || all) return week * 4 + all;
+    return (state.clicks[key] || 0) * 2 + (state.favs[key] ? 5 : 0);
+  }
+
+  /* ---------- playtime (playtime.js) ----------
+     How long this device has actually had a game open in the in-app player.
+     Local only, and only mentioned from a minute up, so a stray click never
+     reads as a habit. Shared play counts say what everyone opens; this says
+     what you stay in. */
+
+  function playtimeMs(key) {
+    try {
+      return window.ChalklePlaytime ? (window.ChalklePlaytime.get(key) || 0) : 0;
+    } catch (e) {
+      return 0;
+    }
+  }
+
+  function playtimeLabel(key) {
+    if (!window.ChalklePlaytime) return "";
+    var ms = playtimeMs(key);
+    if (ms < window.ChalklePlaytime.MIN_SHOW_MS) return "";
+    return window.ChalklePlaytime.format(ms) + " played";
+  }
+
+  /* Lenient text matching. People type "gta5", "amongus" or "fnaf2" and mean
+     the title with the spaces and punctuation still in it. Folding both sides
+     handles that, the initialism pass answers "gd" for Geometry Dash, and a
+     bounded subsequence pass catches the rest without flooding the grid. */
+
+  function matchFold(s) {
+    return String(s == null ? "" : s).toLowerCase().replace(/[^a-z0-9]+/g, "");
+  }
+
+  function initialism(s) {
+    var words = String(s == null ? "" : s).toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+    if (words.length < 2 || words.length > 4) return "";
+    var out = "";
+    for (var i = 0; i < words.length; i++) out += words[i].charAt(0);
+    return out;
+  }
+
+  /* Does the query read as the first letters of a title's words, or the start
+     of them? "gd" -> Geometry Dash, "gta5" -> Grand Theft Auto 5, "hkr" ->
+     Hollow Knight: Radiant. This is the precise cousin of a plain subsequence
+     pass, which is tempting but wrong here: typing "gta5" matched Minecraft
+     builds whose letters happened to appear in order, and a filter that
+     answers with the wrong three games is worse than one that says none. */
+  function initialsMatch(title, foldQ) {
+    var ini = initialism(title);
+    if (!ini) return false;
+    return ini === foldQ || ini.indexOf(foldQ) === 0;
+  }
+
   function proxyCard(item, i) {
     var url = item.url ? escapeAttr(item.url) : "";
     var isHosted = !!url;
@@ -645,9 +774,55 @@
     return "relay";
   }
 
+  /* Latency, as a card should show it: one number, no unit soup. */
+  function msLabel(ms) {
+    if (ms === null || ms === undefined) return "";
+    if (ms < 1000) return Math.round(ms) + " ms";
+    return (ms / 1000).toFixed(1) + " s";
+  }
+
+  function nodeHealth() {
+    return (typeof window.ChalkProxyHealthOf === "function")
+      ? window.ChalkProxyHealthOf
+      : function () { return { state: "unknown", ms: null, fails: 0, at: 0 }; };
+  }
+
+  /* The live state of a hosted node, from proxies.js's health store: the same
+     reading the launcher routes on, so the card can never claim a node works
+     while the launcher is skipping it. */
+  function nodeHealthPill(b) {
+    if (!b) return "";
+    var h = nodeHealth()(b.id) || { state: "unknown", ms: null };
+    if (h.state === "live") {
+      return '<span class="proxy-pill is-live">' + (h.ms === null ? "Answered" : msLabel(h.ms)) + "</span>";
+    }
+    if (h.state === "slow") return '<span class="proxy-pill is-slow">Slow: ' + msLabel(h.ms) + "</span>";
+    if (h.state === "dead") return '<span class="proxy-pill is-dead">No answer</span>';
+    return '<span class="proxy-pill is-checking">Not checked</span>';
+  }
+
+  function relayHealthPill() {
+    var h = nodeHealth()("relay") || { state: "unknown", ms: null };
+    if (h.state === "live") return '<span class="proxy-pill is-live">Answered in ' + msLabel(h.ms) + "</span>";
+    if (h.state === "slow") return '<span class="proxy-pill is-slow">Slow: ' + msLabel(h.ms) + "</span>";
+    if (h.state === "dead") return '<span class="proxy-pill is-dead">No answer</span>';
+    return '<span class="proxy-pill is-checking">Checking</span>';
+  }
+
   function backendPill(b) {
     if (!b) return "";
-    if (b.kind === "relay") return '<span class="proxy-pill is-live">Always on</span>';
+    if (b.kind === "auto") {
+      var pick = (typeof window.ChalkProxyResolve === "function") ? window.ChalkProxyResolve("auto") : null;
+      if (pick && pick.id !== "auto" && pick.kind !== "relay") {
+        return '<span class="proxy-pill is-live">Fastest now: ' + escapeHtml(pick.name) + "</span>";
+      }
+      return '<span class="proxy-pill">Falls back to the relay</span>';
+    }
+    if (b.kind === "relay") {
+      var rh = nodeHealth()("relay") || { state: "unknown" };
+      if (rh.state === "unknown") return '<span class="proxy-pill is-live">Always on</span>';
+      return relayHealthPill();
+    }
     if (b.kind === "direct") return '<span class="proxy-pill">No proxy</span>';
     if (b.kind === "chain") {
       var st = backendProbe.backends[b.id];
@@ -665,11 +840,21 @@
       }
       return '<span class="proxy-pill">Panel not running</span>';
     }
-    return '<span class="proxy-pill is-live">Hosted node</span>';
+    /* Hosted nodes: the pill is the live check, not a promise. */
+    return nodeHealthPill(b);
   }
 
   function backendWhy(b) {
     if (!b) return "";
+    if (b.kind === "auto") {
+      var pick = (typeof window.ChalkProxyResolve === "function") ? window.ChalkProxyResolve("auto") : null;
+      if (pick && pick.id !== "auto" && pick.kind !== "relay") {
+        return "Every hosted node on this list is checked, and the fastest one that answers is used. That is " +
+          String(pick.name) + " right now.";
+      }
+      return "Every hosted node is checked and the fastest one that answers is used. Nothing has answered yet, " +
+        "so pages fall back to Chalkle's own relay.";
+    }
     if (b.kind === "chain") {
       var st = backendProbe.backends[b.id];
       if (st && st.live) {
@@ -691,6 +876,14 @@
       return "Relay is live - fetches go straight out from this machine.";
     }
     if (b.kind === "direct") return "Nothing is proxied. Games still load; nothing is hidden.";
+    if (b.kind === "frame") {
+      var h = nodeHealth()(b.id) || { state: "unknown", ms: null, at: 0 };
+      var when = h.at ? " Last checked " + new Date(h.at).toLocaleTimeString() + "." : "";
+      if (h.state === "live") return "Answered in " + msLabel(h.ms) + " on the last check." + when + " " + (b.note || "");
+      if (h.state === "slow") return "Answered, but slowly (" + msLabel(h.ms) + "). A fast school line will still feel this one." + when;
+      if (h.state === "dead") return "Nothing answered on the last check. It is down, or this network filters it." + when;
+      return "Not checked on this device yet. " + (b.note || "");
+    }
     return b.note || "";
   }
 
@@ -718,9 +911,10 @@
     sel.value = active;
     var meta = $("#proxy-backend-meta");
     if (meta) {
-      meta.innerHTML = cur
+      meta.innerHTML = (cur
         ? '<span class="backend-bar-name">' + escapeHtml(cur.name) + "</span>" + backendPill(cur)
-        : "";
+        : "") +
+        '<button class="btn-ghost backend-check" type="button" data-backend-check-all="1">Check nodes</button>';
     }
     var why = $("#proxy-backend-why");
     if (why) why.textContent = backendWhy(cur);
@@ -756,6 +950,9 @@
             '<p class="backend-note">' + escapeHtml(backendWhy(b)) + "</p>" +
             '<div class="backend-actions">' +
             '<button class="btn-ghost" data-backend-use="' + escapeAttr(b.id) + '">' + (isActive ? "Selected" : "Use") + "</button>" +
+            (b.kind === "frame"
+              ? '<button class="btn-ghost" data-backend-check="' + escapeAttr(b.id) + '">Check</button>'
+              : "") +
             (b.kind === "frame" || b.kind === "panel"
               ? '<button class="btn-ghost" data-backend-open="' + escapeAttr(b.id) + '">Open</button>'
               : "") +
@@ -776,7 +973,57 @@
       renderProxyBackendBar();
       renderProxyBackendCards();
     });
+    /* The hosted nodes are checked in the same visit that renders their
+       cards: the user is looking at these numbers, so they may as well be
+       from now instead of the last time the tab was opened. */
+    if (typeof window.ChalkProxyCheckAll === "function") window.ChalkProxyCheckAll(null);
   }
+
+  /* ------------------------------------------------------- proxy health ---
+     The check itself lives in proxies.js (one health store for the tab, the
+     launcher and the auto picker). These are the two actions the tab offers:
+     check one node, or check everything including the relay. */
+  function checkProxyNode(id) {
+    if (typeof window.ChalkProxyPingNode !== "function") return;
+    var b = backendById(id);
+    if (b && b.name) showToast("Checking " + b.name + "...");
+    window.ChalkProxyPingNode(id, function (rec) {
+      if (b && b.name && rec) {
+        showToast((rec.state === "live" || rec.state === "slow")
+          ? b.name + ": answered in " + msLabel(rec.ms)
+          : b.name + ": no answer");
+      }
+      window.ChalkleProxyRefresh();
+    });
+  }
+
+  function checkProxyNodes(announce) {
+    if (announce) showToast("Checking every proxy node...");
+    if (typeof window.ChalkProxyCheckRelay === "function") window.ChalkProxyCheckRelay(null);
+    if (typeof window.ChalkProxyCheckAll !== "function") return;
+    window.ChalkProxyCheckAll(function (rows) {
+      if (announce && rows) {
+        var live = rows.filter(function (r) { return r.state === "live" || r.state === "slow"; }).length;
+        showToast(live
+          ? live + " of " + rows.length + " hosted nodes answered"
+          : "No hosted node answered - using the relay");
+      }
+      window.ChalkleProxyRefresh();
+    });
+  }
+
+  /* Repaint once per burst: a check-all settles every node within a few
+     hundred milliseconds and each answer fires its own event. */
+  var proxyRepaint = null;
+  window.ChalkleProxyRefresh = function () {
+    if (proxyRepaint) return;
+    proxyRepaint = setTimeout(function () {
+      proxyRepaint = null;
+      renderProxyBackendBar();
+      renderProxyBackendCards();
+    }, 120);
+  };
+  document.addEventListener("chalkle:proxy-health", function () { window.ChalkleProxyRefresh(); });
 
   function useProxyBackend(id) {
     var b = backendById(id);
@@ -831,7 +1078,11 @@
     var use = e.target.closest("[data-backend-use]");
     if (use) { e.preventDefault(); useProxyBackend(use.getAttribute("data-backend-use")); return; }
     var op = e.target.closest("[data-backend-open]");
-    if (op) { e.preventDefault(); openProxyBackend(op.getAttribute("data-backend-open")); }
+    if (op) { e.preventDefault(); openProxyBackend(op.getAttribute("data-backend-open")); return; }
+    var chk = e.target.closest("[data-backend-check]");
+    if (chk) { e.preventDefault(); checkProxyNode(chk.getAttribute("data-backend-check")); return; }
+    var all = e.target.closest("[data-backend-check-all]");
+    if (all) { e.preventDefault(); checkProxyNodes(true); }
   });
 
   function renderProxies() {
@@ -1230,6 +1481,9 @@
 
   var searchFocusIdx = -1;
   var searchFocusList = [];
+  /* Which field is driving the dropdown. Remembered at render time instead of
+     read back off document.activeElement, which anything can move. */
+  var searchSourceEl = null;
   var SEARCH_MAX = 12; /* cap the dropdown so short queries don't flood it */
 
   /* Real relevance scoring, not a bare includes().
@@ -1255,6 +1509,21 @@
 
     /* For >=2 chars allow plain substring (still later than prefix/word-start). */
     if (!short && title.indexOf(q) !== -1) return { score: 60, hit: true };
+
+    /* Punctuation-insensitive pass: query and title are folded to letters and
+       digits, so "gta5" matches "GTA 5", "spiderman" matches "Spider-Man"
+       and "fnaf2" matches "FNAF 2". Every score here sits under the literal
+       ones above, so a real substring hit always leads the list. */
+    if (!short) {
+      var foldQ = matchFold(q);
+      var foldTitle = matchFold(title);
+      if (foldQ.length >= 2 && foldTitle) {
+        if (foldTitle === foldQ) return { score: 58, hit: true };
+        if (foldTitle.indexOf(foldQ) === 0) return { score: 52, hit: true };
+        if (foldTitle.indexOf(foldQ) !== -1) return { score: 46, hit: true };
+        if (initialsMatch(title, foldQ)) return { score: 42, hit: true };
+      }
+    }
 
     /* Non-title fields still count, but only for 2+ char queries and ranked
        below any title hit so the right game still leads: category ("sports",
@@ -1304,10 +1573,13 @@
   function positionSearchResults() {
     var box = $("#search-results");
     if (!box || box.hidden) return;
+    /* Anchor under the field that produced the list, not under whatever
+       happens to hold focus right now. */
     var src = document.activeElement;
-    var anchor = (src && (src.id === "search-input" || src.id === "home-search-input"))
-      ? src
-      : (els.search || null);
+    var fields = { "search-input": 1, "home-search-input": 1 };
+    var anchor = (searchSourceEl && fields[searchSourceEl.id])
+      ? searchSourceEl
+      : ((src && fields[src.id]) ? src : (els.search || null));
     if (!anchor || !anchor.getBoundingClientRect) return;
     var r = anchor.getBoundingClientRect();
     box.style.top = Math.round(r.bottom + 8) + "px";
@@ -1315,9 +1587,10 @@
     box.style.width = Math.round(r.width) + "px";
   }
 
-  function renderSearchResults(q) {
+  function renderSearchResults(q, source) {
     var box = $("#search-results");
     if (!box) return;
+    if (source) searchSourceEl = source;
     var list = collectSearchResults(q);
     searchFocusIdx = -1;
     searchFocusList = list;
@@ -1357,6 +1630,12 @@
         '<span class="search-r-in">in ' + escapeHtml(item.__label) + "</span>" +
         "</button>";
     });
+    /* Typing in the Home box needs one line of explanation, because that
+       field also searches the web: Enter opens the match, Search goes out. */
+    var fromHome = !!(searchSourceEl && searchSourceEl.id === "home-search-input");
+    if (fromHome) {
+      html += '<div class="search-hint">' + escapeHtml("Enter opens the top match \u00B7 the Search button goes to the web") + "</div>";
+    }
     box.hidden = false;
     positionSearchResults();
     box.innerHTML = html;
@@ -1375,7 +1654,7 @@
     box.querySelectorAll("[data-search-go]").forEach(function (btn) {
       btn.addEventListener("click", function () {
         closeSearchResults();
-        if (els.search) els.search.value = "";
+        clearSearchFields();
         state.query = "";
         setView(btn.dataset.searchGo);
       });
@@ -1404,6 +1683,13 @@
     if (searchFocusIdx >= 0 && searchFocusList[searchFocusIdx]) launchSearchItem(searchFocusList[searchFocusIdx]);
   }
 
+  /* Both search fields share one result list, so both must be emptied when a
+     result is picked - otherwise the other box keeps a stale query. */
+  function clearSearchFields() {
+    if (els.search) els.search.value = "";
+    if (els.homeSearch) els.homeSearch.value = "";
+  }
+
   function closeSearchResults() {
     var box = $("#search-results");
     if (box) box.hidden = true;
@@ -1411,13 +1697,34 @@
     searchFocusList = [];
   }
 
+  /* The omnibox in the in-app browser needs the same catalogue search the
+     top-bar field uses. Exporting the two functions (rather than the scoring
+     internals) keeps one ranked list behind every search field in the app, so
+     typing "minecr" means the same thing wherever you type it. */
+  window.ChalkleCatalog = {
+    search: function (q, limit) {
+      var n = parseInt(limit, 10);
+      if (!isFinite(n) || n <= 0) n = 6;
+      return collectSearchResults(q).slice(0, n).map(function (item) {
+        return {
+          title: item.title || "",
+          category: item.category || "",
+          url: item.url || "",
+          label: item.__label || "",
+          item: item
+        };
+      });
+    },
+    open: function (item) { launchSearchItem(item); }
+  };
+
   /* Launch an item picked from search - same behaviour as clicking its card,
      but first it hops you to that item's tab for context. */
   function launchSearchItem(item) {
     if (!item) return;
     var view = item.__view;
     closeSearchResults();
-    if (els.search) els.search.value = "";
+    clearSearchFields();
     state.query = "";
     setView(view);
     if (!window.ChalkleLaunch) return;
@@ -1511,18 +1818,6 @@
        already run (repeat visits skip the intro, so this fires at script
        eval) or will run once the intro finishes. */
     window.__chalkleRendered = true;
-    /* Auto-open About:blank when enabled: exactly one quiet attempt per page
-       load, 1.5s in so the click-through intro has finished. Browsers refuse
-       programmatic popups without a user gesture, so a blocked attempt stays
-       silent - no retry loop, no nagging. */
-    try {
-      if (!window.__chalkleAbAutoTried && readPref("chalkle-about-blank-auto") === "1") {
-        window.__chalkleAbAutoTried = true;
-        setTimeout(function () {
-          if (window.ChalkleAboutBlank) window.ChalkleAboutBlank.openSilent();
-        }, 1500);
-      }
-    } catch (e) { /* no storage */ }
     /* Come back to the last open tab instead of always landing on Home. */
     try {
       var lastView = localStorage.getItem("chalkle-last-view") || "";
@@ -1689,6 +1984,7 @@
     var source = item.sourceLabel || (item.porter ? "PC port" : "");
     var key = gameKey(item);
     var clicks = state.clicks[key] || 0;
+    var plays = playsLabel(key, clicks);
     var fav = !!state.favs[key];
     var recent = isRecentGame(key);
 
@@ -1699,7 +1995,9 @@
     if (item.category) metaBits.push('<span class="card-cat">' + escapeHtml(item.category) + "</span>");
     if (source) metaBits.push('<span class="card-src">' + escapeHtml(source) + "</span>");
     if (creditTxt) metaBits.push('<span class="card-src">' + creditTxt + "</span>");
-    if (clicks > 0) metaBits.push('<span class="card-src card-plays">' + (clicks === 1 ? "1 play" : clicks + " plays") + "</span>");
+    if (plays) metaBits.push('<span class="card-src card-plays">' + escapeHtml(plays) + "</span>");
+    var played = playtimeLabel(key);
+    if (played) metaBits.push('<span class="card-src card-time">' + escapeHtml(played) + "</span>");
     if (recent) metaBits.push('<span class="card-recent-tag">Continue</span>');
     var meta = metaBits.length ? '<span class="card-meta">' + metaBits.join('<span class="meta-sep" aria-hidden="true">&middot;</span>') + "</span>" : "";
     /* Ready marker: every library entry launches in the browser, so this
@@ -1909,16 +2207,70 @@
     return false;
   }
 
-  function showToast(msg) {
+  /* opts: { label, onClick, sticky }. Plain calls behave exactly as before -
+     a line of text that fades. `sticky` plus a label turns it into something
+     that waits for an answer (the update prompt), which is the only kind of
+     notice that must not disappear before it is read. */
+  function showToast(msg, opts) {
     var box = $("#toast-box");
-    if (!box || !msg) return;
+    if (!box || !msg) return null;
+    var o = opts || {};
     var t = document.createElement("div");
-    t.className = "toast";
-    t.textContent = msg;
+    t.className = "toast" + (o.sticky ? " is-sticky" : "");
+    var txt = document.createElement("span");
+    txt.className = "toast-txt";
+    txt.textContent = msg;
+    t.appendChild(txt);
+    if (o.label && typeof o.onClick === "function") {
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "toast-action";
+      btn.textContent = o.label;
+      btn.addEventListener("click", function () {
+        if (t.parentNode) t.parentNode.removeChild(t);
+        try { o.onClick(); } catch (e) { /* the handler owns its own errors */ }
+      });
+      t.appendChild(btn);
+    }
     box.appendChild(t);
-    setTimeout(function () { t.classList.add("is-out"); }, 1500);
-    setTimeout(function () { if (t.parentNode) t.parentNode.removeChild(t); }, 1900);
+    if (!o.sticky) {
+      setTimeout(function () { t.classList.add("is-out"); }, 1500);
+      setTimeout(function () { if (t.parentNode) t.parentNode.removeChild(t); }, 1900);
+    }
+    return t;
   }
+
+  /* A newer build is live on the server. Nothing reloads on its own - a game
+     mid-level is worth more than a build - but the offer waits until it is
+     answered or refreshed away. */
+  var updateShownFor = "";
+  document.addEventListener("chalkle:update-ready", function (e) {
+    var detail = (e && e.detail) || {};
+    var build = String(detail.build || "");
+    if (build && build === updateShownFor) return;
+    updateShownFor = build;
+    showToast("A newer Chalkle is live", {
+      label: "Update",
+      sticky: true,
+      onClick: function () {
+        if (window.ChalkleCore && window.ChalkleCore.applyUpdate) window.ChalkleCore.applyUpdate();
+        else try { location.reload(); } catch (err) { /* nothing else to try */ }
+      }
+    });
+  });
+
+  /* Ask once after boot: a tab left open across a deploy finds out on its own.
+     Delayed past the first paint so the check never competes with drawing. */
+  setTimeout(function () {
+    if (window.ChalkleCore && window.ChalkleCore.checkForUpdate) {
+      try { window.ChalkleCore.checkForUpdate(true); } catch (e) { /* offline */ }
+    }
+  }, 3000);
+
+  /* The Browser tool, the ad check and any future module call this instead of
+     owning a second notification style. browser.js already shipped calls to
+     window.ChalkleToast.show - they silently did nothing until this line. */
+  window.ChalkleToast = { show: showToast };
 
   var gridExpandAll = false;
   /* Remember the expanded grid per view for this session (#155): once you
@@ -1986,8 +2338,20 @@
         var bf = state.favs[bk] ? 1 : 0;
         if (state.sort === "favorite" && af !== bf) return bf - af;
         if (state.sort === "popular") {
-          var popular = (state.clicks[bk] || 0) - (state.clicks[ak] || 0);
+          var popular = playScore(bk) - playScore(ak);
           if (popular) return popular;
+        }
+        /* Trending is the same ranking with the week's plays only, so a game
+           people just picked up beats an old favorite that nobody opens. */
+        if (state.sort === "trending") {
+          var hot = sharedTrend(bk) - sharedTrend(ak);
+          if (hot) return hot;
+          var lifetime = sharedPlays(bk) - sharedPlays(ak);
+          if (lifetime) return lifetime;
+        }
+        if (state.sort === "time") {
+          var spent = playtimeMs(bk) - playtimeMs(ak);
+          if (spent) return spent;
         }
         var at = (a.title || "");
         var bt = (b.title || "");
@@ -2014,13 +2378,20 @@
     if (state.view === "games" || state.view === "apps-tools") {
       var fq = String(state.gridFilter || "").toLowerCase().trim();
       if (fq) {
+        /* Two passes: the literal one people expect, then a lenient one so
+           "gta5" finds "GTA 5", "amongus" finds "Among Us" and "gd" finds
+           "Geometry Dash" instead of an empty grid. */
+        var foldQ = matchFold(fq);
+        var lenient = foldQ.length >= 2;
         items = items.filter(function (item) {
           var title = String(item.title || item.name || "").toLowerCase();
           if (title.indexOf(fq) !== -1) return true;
-          /* Word-start matching: "htf" won't match, but "fish" finds "How To Fish". */
-          if (title.indexOf(fq) === 0) return true;
           var cat = String(item.category || "").toLowerCase();
-          return cat.indexOf(fq) !== -1;
+          if (cat.indexOf(fq) !== -1) return true;
+          if (!lenient) return false;
+          var foldTitle = matchFold(title);
+          if (foldTitle.indexOf(foldQ) !== -1) return true;
+          return initialsMatch(title, foldQ);
         });
       }
     }
@@ -2043,8 +2414,12 @@
 
     empty.hidden = true;
     /* Big libraries (1,400+ games) cap the initial render so filter/sort
-       swaps stay fast; a "Show more" button expands to the full set. */
-    var GRID_CAP = 480;
+       swaps stay fast; a "Show more" button expands to the full set. The
+       cap halves on low-power devices (the same signal as the Motion
+       default) - content-visibility already keeps scrolling cheap, but
+       building 240 cards instead of 480 keeps the first grid paint fast
+       on a Chromebook's CPU. */
+    var GRID_CAP = window.__chalkleLowPower ? 240 : 480;
     var capped = items.length > GRID_CAP && !gridExpandAll;
     var shown = capped ? items.slice(0, GRID_CAP) : items;
     var cardFn = state.view === "apps-tools" ? toolCard : (state.view === "games" ? gameCard : card);
@@ -2306,9 +2681,13 @@
     var g = $("#home-stat-games");
     var s = $("#home-stat-sites");
     var t = $("#home-stat-tools");
+    var tm = $("#home-stat-time");
     if (g) g.textContent = (DATA.games || []).length;
     if (s) s.textContent = (DATA.sites || []).length;
     if (t) t.textContent = (DATA["apps-tools"] || []).length;
+    if (tm) {
+      tm.textContent = window.ChalklePlaytime ? window.ChalklePlaytime.format(window.ChalklePlaytime.total()) : "0m";
+    }
 
     renderPicks();
 
@@ -2334,12 +2713,13 @@
 
     var popularBox = $("#home-popular-games");
     if (popularBox) {
+      /* The shelf heading promises what everyone has been launching. It used
+         to rank this device's own clicks plus favorites; now it ranks the
+         shared counts, with the local signal as the fallback. */
       var games = (DATA.games || []).slice().filter(Boolean).sort(function (a, b) {
         var ak = gameKey(a);
         var bk = gameKey(b);
-        var aScore = (state.clicks[ak] || 0) * 2 + (state.favs[ak] ? 5 : 0);
-        var bScore = (state.clicks[bk] || 0) * 2 + (state.favs[bk] ? 5 : 0);
-        return bScore - aScore;
+        return playScore(bk) - playScore(ak);
       }).slice(0, 6);
       popularBox.innerHTML = games.map(function (item) {
         var title = escapeHtml(item.title || "Untitled");
@@ -2477,12 +2857,9 @@
     if (els.backdrop) els.backdrop.hidden = true;
   }
 
-  /* ---------- Options ---------- */
-
-  function applyOptions() {
+  /* ---------- Options ---------- */  function applyOptions() {
     document.documentElement.classList.toggle("motion-off", state.motion);
     document.body.classList.toggle("size-compact", state.size === "compact");
-
     var motion = $("#opt-motion");
     if (motion) motion.checked = state.motion;
 
@@ -2726,7 +3103,12 @@
           } else {
             art = hvFallback(letter);
           }
-          return homeCard("home-game", item._id || gameKey(item), title, "Continue", art);
+          var recKey = item._id || gameKey(item);
+          /* The Continue shelf is the one place a real time is worth more
+             than the word "Continue". */
+          var recStatus = playtimeLabel(recKey);
+          if (recStatus) recStatus = recStatus.replace(" played", "");
+          return homeCard("home-game", recKey, title, recStatus || "Continue", art);
         })
         .join("") +
       '</div></div>';
@@ -2794,6 +3176,12 @@
     { id: "clever", name: "Clever", title: "Clever | Portal", icon: "https://www.clever.com/wp-content/uploads/2023/06/cropped-Favicon-512px-32x32.png" },
     { id: "khan", name: "Khan Academy", title: "Dashboard | Khan Academy", icon: "https://www.khanacademy.org/favicon.ico" },
     { id: "studyisland", name: "Study Island", title: "Edmentum\u00ae Learning Environment Login", icon: "https://app.studyisland.com/favicon.ico" },
+    /* The three Pyrus ships that Chalkle's list was missing. Their own
+       favicons answer with HTML or 403, so the icons come from Google's
+       favicon service, which returns a real PNG. */
+    { id: "schoology", name: "Schoology", title: "Home | Schoology", icon: "https://www.google.com/s2/favicons?domain=schoology.com&sz=64" },
+    { id: "edgenuity", name: "Edgenuity", title: "Edgenuity Student Portal", icon: "https://www.google.com/s2/favicons?domain=edgenuity.com&sz=64" },
+    { id: "classlink", name: "ClassLink", title: "ClassLink | Login", icon: "https://www.google.com/s2/favicons?domain=classlink.com&sz=64" },
     { id: "ixl", name: "IXL", title: "IXL | Math, Language Arts, Science, Social Studies, and Spanish", icon: "https://www.ixl.com/dv3/powZqMuTE7du4asFrVyNGxxoqkw/yui3/opengraph/assets/square_og_ixl.png" }
   ];
 
@@ -2804,6 +3192,17 @@
     cloakIcon = link ? link.getAttribute("href") : "";
   }
 
+  /* Custom cloak overrides (arsenic style): a personal title and icon that
+     ride on top of any preset. Saved by the Settings fields further down. */
+  function customCloak() {
+    var t = "", icon = "";
+    try {
+      t = (localStorage.getItem("chalkle-cloak-title") || "").trim();
+      icon = (localStorage.getItem("chalkle-cloak-icon") || "").trim();
+    } catch (e) { /* no storage */ }
+    return { title: t, icon: icon };
+  }
+
   /* Apply (or clear) the tab cloak. */
   function applyCloak(id) {
     captureCloakIcon();
@@ -2812,12 +3211,14 @@
       if (CLOAKS[i].id === id) { cloak = CLOAKS[i]; break; }
     }
     var activeId = cloak ? cloak.id : "";
+    var custom = customCloak();
     /* No cloak = keep the tab looking like the IXL preview, so what Discord
-       promised and what the tab shows always agree. */
-    document.title = cloak ? cloak.title
-      : "IXL | Math, Language Arts, Science, Social Studies, and Spanish";
+       promised and what the tab shows always agree. A custom title or icon
+       from Settings wins over the preset when present. */
+    document.title = custom.title || (cloak ? cloak.title
+      : "IXL | Math, Language Arts, Science, Social Studies, and Spanish");
     var link = document.querySelector('link[rel="icon"]');
-    if (link) link.href = cloak ? cloak.icon : cloakIcon;
+    if (link) link.href = custom.icon || (cloak ? cloak.icon : cloakIcon);
     try { localStorage.setItem(CLOAK_KEY, activeId); } catch (e) { /* no storage */ }
     document.querySelectorAll("[data-cloak]").forEach(function (btn) {
       btn.classList.toggle("is-active", btn.dataset.cloak === activeId);
@@ -2842,6 +3243,68 @@
   }
 
   window.ChalkleCloak = { apply: applyCloak };
+
+  /* ---------- Panic key (arsenic's escape hatch, ported) ----------
+     One keypress swaps the page for an innocent site, or resurrects the
+     educational cover, so a glance at the screen shows nothing suspicious.
+     Config persists in localStorage so it works on every load. */
+  var PANIC_CFG_KEY = "chalkle-panic";
+
+  function panicConfig() {
+    var cfg = { key: "`", target: "https://classroom.google.com/u/0/h" };
+    try {
+      var raw = localStorage.getItem(PANIC_CFG_KEY);
+      if (raw) {
+        var saved = JSON.parse(raw);
+        if (saved && typeof saved.key === "string" && saved.key.length === 1) cfg.key = saved.key;
+        if (saved && typeof saved.target === "string" && saved.target) cfg.target = saved.target;
+      }
+    } catch (e) { /* no storage or bad JSON: defaults hold */ }
+    return cfg;
+  }
+
+  function savePanicConfig(key, target) {
+    try { localStorage.setItem(PANIC_CFG_KEY, JSON.stringify({ key: key, target: target })); } catch (e) { /* no storage */ }
+  }
+
+  function panicEscape() {
+    var cfg = panicConfig();
+    if (cfg.target === "ixl") {
+      /* The cover markup was captured at boot before removal (see index.html);
+         rebuild it so the page looks exactly like the educational site. */
+      try {
+        if (!document.getElementById("ixl-cover") && window.ChalkleCoverHTML) {
+          document.body.insertAdjacentHTML("afterbegin", window.ChalkleCoverHTML);
+          var cover = document.getElementById("ixl-cover");
+          if (cover) {
+            /* The cover's own CSS assumes boot order (first in body). Rebuilt
+               mid-session it must outright cover the app shell instead, which
+               uses fixed chrome, so take over the viewport inline. */
+            cover.style.cssText = "position:fixed;inset:0;z-index:2147483647;overflow:auto;background:#fff;margin:0;padding:0;";
+          }
+        }
+        window.scrollTo(0, 0);
+      } catch (e) { /* cover already up or rebuild failed */ }
+      try { if (window.ChalkleMusic && window.ChalkleMusic.pause) window.ChalkleMusic.pause(); } catch (e) { /* no music */ }
+      document.title = "IXL | Math, Language Arts, Science, Social Studies, and Spanish";
+      return;
+    }
+    /* replace, not assign: the panic page must not sit behind the Back button. */
+    location.replace(cfg.target);
+  }
+
+  document.addEventListener("keydown", function (e) {
+    /* Never hijack keys while the user is typing somewhere, and never eat
+       browser shortcuts. */
+    var t = e.target;
+    var tag = (t && t.tagName || "").toLowerCase();
+    if (tag === "input" || tag === "textarea" || tag === "select" || (t && t.isContentEditable)) return;
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.key === panicConfig().key) {
+      e.preventDefault();
+      panicEscape();
+    }
+  });
 
   /* ---------- Admin panel ----------
      Locked behind a code. Lets you add / edit / delete games, sites, tools
@@ -3557,14 +4020,20 @@
 
     /* Global search: one shared behavior for the top-bar field AND the
        Home launcher field - dropdown of matches across Games / Sites /
-       Apps-Tools. Typing never switches the view on its own. */
-    function bindSearchBox(input) {
+       Apps-Tools. Typing never switches the view on its own.
+
+       `onFallback` is what the field does when the catalog has nothing to
+       offer. The Home box passes its web search, so Enter opens a match when
+       there is one and only then falls through to the browser. Without this
+       the Home box ignored the catalog entirely: typing a game name into the
+       biggest search field on the page looked like it did nothing at all. */
+    function bindSearchBox(input, onFallback) {
       if (!input) return;
       input.addEventListener("input", function () {
         var q = input.value.trim();
         clearTimeout(musicSearchDebounce);
         musicSearchDebounce = setTimeout(function () {
-          renderSearchResults(q);
+          renderSearchResults(q, input);
         }, 110);
       });
       input.addEventListener("keydown", function (e) {
@@ -3580,23 +4049,29 @@
           return;
         }
         if (e.key === "Enter") {
-          if (open) {
+          /* A match on screen wins over the field's other job. */
+          if (open && searchFocusList.length) {
             e.preventDefault();
-            if (searchFocusIdx < 0 && searchFocusList.length) setSearchFocus(0);
+            if (searchFocusIdx < 0) setSearchFocus(0);
             commitSearchFocus();
+            return;
           }
+          /* Empty catalog answer: the Home field still gets to be an address
+             bar / web search. */
+          if (onFallback) { e.preventDefault(); onFallback(); }
         }
       });
       /* Focusing an already-filled field re-opens its results. */
       input.addEventListener("focus", function () {
-        if (input.value.trim()) renderSearchResults(input.value.trim());
+        if (input.value.trim()) renderSearchResults(input.value.trim(), input);
       });
     }
-    /* The top bar is Chalkle's global catalog search. Home's field is the
-       browser address/search box: submit opens the in-app Browser and turns
-       plain text into a web search. Keeping these separate prevents Home
-       searches from hijacking the catalog dropdown. */
+    /* The top bar is Chalkle's global catalog search. Home's field does both
+       jobs: the same match list while you type, the web only when the catalog
+       has nothing (or when the Search button is pressed). One shared behavior
+       keeps typing a game name into the Home box from coming up empty. */
     bindSearchBox(els.search);
+    bindSearchBox(els.homeSearch, openHomeWebSearch);
     /* Quiet border pulse on the home search bar - only on capable devices,
        and never while the tab is hidden. Flat accent color, no gradients. */
     (function () {
@@ -3618,6 +4093,13 @@
       if (!els.homeSearch) return;
       var value = els.homeSearch.value.trim();
       if (!value) { els.homeSearch.focus(); return; }
+      /* ChalkleSearch owns the decision (address vs search, and which engine),
+         so Home and the Browser tool can never disagree about a typed string.
+         The inline fallback keeps the box working if that module is missing. */
+      if (window.ChalkleSearch && window.ChalkleSearch.open) {
+        window.ChalkleSearch.open(value, value);
+        return;
+      }
       var target = /^(https?:\/\/|ftp:\/\/)/i.test(value)
         ? value
         : (/^[a-z0-9-]+(\.[a-z0-9-]+)+([/?#].*)?$/i.test(value) && value.indexOf(" ") === -1
@@ -3726,26 +4208,75 @@
     try { savedCloak = localStorage.getItem(CLOAK_KEY) || ""; } catch (e) { /* no storage */ }
     applyCloak(savedCloak);
 
-    /* Settings: cloak title */
+    /* Settings: cloak title + icon (custom overrides on any preset) and
+       panic key + redirect target. Empty custom fields mean "let the preset
+       decide"; anything typed wins over the preset. */
 
     var cloakTitle = $("#opt-cloak-title");
+    var cloakIconInput = $("#opt-cloak-icon");
+    function currentCloakId() {
+      try { return localStorage.getItem(CLOAK_KEY) || ""; } catch (e) { return ""; }
+    }
+    function refreshCloakFromSettings() {
+      applyCloak(currentCloakId());
+    }
     if (cloakTitle) {
-      try { cloakTitle.value = localStorage.getItem("chalkle-cloak-title") || "Classes"; } catch (e) { /* no storage */ }
+      try { cloakTitle.value = localStorage.getItem("chalkle-cloak-title") || ""; } catch (e) { /* no storage */ }
       cloakTitle.addEventListener("input", function () {
         var v = cloakTitle.value.trim();
-        try { localStorage.setItem("chalkle-cloak-title", v || "Classes"); } catch (e) { /* no storage */ }
+        try { localStorage.setItem("chalkle-cloak-title", v); } catch (e) { /* no storage */ }
+        refreshCloakFromSettings();
+      });
+    }
+    if (cloakIconInput) {
+      try { cloakIconInput.value = localStorage.getItem("chalkle-cloak-icon") || ""; } catch (e) { /* no storage */ }
+      cloakIconInput.addEventListener("input", function () {
+        var v = cloakIconInput.value.trim();
+        try { localStorage.setItem("chalkle-cloak-icon", v); } catch (e) { /* no storage */ }
+        refreshCloakFromSettings();
+      });
+    }
+
+    /* Panic key + target. The key input keeps only the last typed character
+       so the field always holds exactly one key. */
+    var panicKeyInput = $("#opt-panic-key");
+    var panicTarget = $("#opt-panic-target");
+    var panicCfg = panicConfig();
+    if (panicKeyInput) {
+      panicKeyInput.value = panicCfg.key;
+      panicKeyInput.addEventListener("input", function () {
+        var v = panicKeyInput.value.slice(-1);
+        if (v) panicKeyInput.value = v;
+        var t = panicTarget ? panicTarget.value : panicConfig().target;
+        savePanicConfig(v || "`", t);
+      });
+    }
+    if (panicTarget) {
+      panicTarget.value = panicCfg.target;
+      /* Keep a saved custom target visible instead of snapping to the first
+         option when it is not one of the presets. */
+      if (panicCfg.target && panicTarget.value !== panicCfg.target) {
+        var panicOpt = document.createElement("option");
+        panicOpt.value = panicCfg.target;
+        panicOpt.textContent = "Custom: " + panicCfg.target;
+        panicTarget.appendChild(panicOpt);
+        panicTarget.value = panicCfg.target;
+      }
+      panicTarget.addEventListener("change", function () {
+        var k = panicKeyInput ? panicKeyInput.value : panicConfig().key;
+        savePanicConfig(k || "`", panicTarget.value);
       });
     }
 
     /* ---------- About:blank launcher ----------
        Opens a blank tab and frames this site inside it, so the browser's
-       address bar just shows about:blank. One source of truth for both the
-       Settings button and the auto-open boot path. */
+       address bar just shows about:blank. Runs only from the Settings
+       button: a click it actually has. */
 
-    function openAboutBlankPopup(silent) {
+    function openAboutBlankPopup() {
       var win = window.open("about:blank");
       if (!win || win.closed) {
-        if (!silent) showToast("Popup blocked - allow popups for this site, then try again");
+        showToast("Popup blocked - allow popups for this site, then try again");
         return false;
       }
       try {
@@ -3766,30 +4297,19 @@
         });
         doc.documentElement.style.height = "100%";
         doc.body.appendChild(frame);
-        if (!silent) showToast("Opened in About:blank");
+        showToast("Opened in About:blank");
         return true;
       } catch (e) {
-        if (!silent) showToast("Couldn't build the About:blank page");
+        showToast("Couldn't build the About:blank page");
         return false;
       }
     }
 
     var aboutBtn = $("#opt-about-blank");
-    if (aboutBtn) aboutBtn.addEventListener("click", function () { openAboutBlankPopup(false); });
+    if (aboutBtn) aboutBtn.addEventListener("click", function () { openAboutBlankPopup(); });
 
-    var AB_AUTO_KEY = "chalkle-about-blank-auto";
-    var aboutAuto = $("#opt-about-blank-auto");
-    if (aboutAuto) {
-      aboutAuto.checked = readPref(AB_AUTO_KEY) === "1";
-      aboutAuto.addEventListener("change", function () {
-        persist(AB_AUTO_KEY, aboutAuto.checked ? "1" : "0");
-      });
-    }
-    /* One source of truth for the launcher: the Settings button uses open(),
-       the auto-open boot path uses openSilent() (no toasts, no retry). */
     window.ChalkleAboutBlank = {
-      open: function () { return openAboutBlankPopup(false); },
-      openSilent: function () { return openAboutBlankPopup(true); }
+      open: function () { return openAboutBlankPopup(false); }
     };
 
     /* Settings options */
@@ -3834,6 +4354,54 @@
       });
     });
 
+    /* ---- Built-ins hidden by deletions ---------------------------------
+       loadLib re-seeds by title and skips anything on the per-library
+       deletion list, so a built-in that was removed here (or removed on
+       another device and synced over) stays gone forever - even after a
+       later build ships it again. That is how a game arrives in games.js and
+       still never shows up on a device that had it deleted once. These two
+       helpers find exactly that case and undo it on request: only titles the
+       CURRENT catalog still ships are restored, so an item that really was
+       dropped from the catalog stays deleted. */
+    function shippedTitles(name) {
+      var conf = LIB_CONF[name];
+      var set = {};
+      if (!conf) return set;
+      try {
+        (conf.seed() || []).forEach(function (it) { if (it && it.title) set[it.title] = true; });
+      } catch (e) { /* a broken seed ships nothing */ }
+      return set;
+    }
+    function deletedTitles(name) {
+      var conf = LIB_CONF[name];
+      if (!conf) return [];
+      try {
+        var raw = localStorage.getItem(conf.key + "-del");
+        var d = raw ? JSON.parse(raw) : [];
+        return Array.isArray(d) ? d : [];
+      } catch (e) { return []; }
+    }
+    function hiddenBuiltIns() {
+      var out = [];
+      Object.keys(LIB_CONF).forEach(function (name) {
+        var shipped = shippedTitles(name);
+        deletedTitles(name).forEach(function (t) {
+          if (shipped[t]) out.push({ lib: name, title: t });
+        });
+      });
+      return out;
+    }
+    function restoreBuiltIns() {
+      var hidden = hiddenBuiltIns();
+      Object.keys(LIB_CONF).forEach(function (name) {
+        var conf = LIB_CONF[name];
+        var shipped = shippedTitles(name);
+        var keep = deletedTitles(name).filter(function (t) { return !shipped[t]; });
+        try { localStorage.setItem(conf.key + "-del", JSON.stringify(keep)); } catch (e) { /* full */ }
+      });
+      return hidden.length;
+    }
+
     /* Advanced group: live count chip + debug info. */
     function refreshAdvancedSummary() {
       var chip = $("#settings-adv-count");
@@ -3853,11 +4421,26 @@
           }
         }
         var kb = (bytes / 1024).toFixed(1);
+        var hidden = hiddenBuiltIns();
         box.innerHTML =
           '<div class="debug-row"><span>Settings keys</span><b>' + keys.length + '</b></div>' +
           '<div class="debug-row"><span>Storage used</span><b>' + kb + ' KB</b></div>' +
           '<div class="debug-row"><span>Saved proxies</span><b>' + (state.proxies ? state.proxies.length : 0) + '</b></div>' +
-          '<div class="debug-row"><span>Favorites</span><b>' + (state.favs ? Object.keys(state.favs).length : 0) + '</b></div>';
+          '<div class="debug-row"><span>Favorites</span><b>' + (state.favs ? Object.keys(state.favs).length : 0) + '</b></div>' +
+          (hidden.length
+            ? '<div class="debug-row"><span>Built-ins hidden by deletions</span><b class="debug-warn">' + hidden.length + '</b></div>' +
+              hidden.slice(0, 4).map(function (h) {
+                return '<div class="debug-row"><span>&nbsp;' + escapeHtml(h.lib) + '</span><b>' + escapeHtml(h.title) + '</b></div>';
+              }).join("")
+            : "");
+      }
+      var restoreBtn = $("#opt-restore-builtins");
+      if (restoreBtn) {
+        var hiddenCount = hiddenBuiltIns().length;
+        restoreBtn.hidden = !hiddenCount;
+        restoreBtn.textContent = hiddenCount
+          ? "Restore " + hiddenCount + " built-in" + (hiddenCount === 1 ? "" : "s")
+          : "Restore built-ins";
       }
       /* Diagnostics: version, connection, storage health and the last few
          captured errors. Rendered with textContent so an error message can
@@ -3988,6 +4571,21 @@
       });
     }
 
+    /* Restore built-ins: un-delete the catalog entries this device is still
+       hiding (see hiddenBuiltIns), then reload so the library re-seeds with
+       them. Only shown when there is something to restore. */
+    var restoreBiBtn = $("#opt-restore-builtins");
+    if (restoreBiBtn) {
+      restoreBiBtn.addEventListener("click", function () {
+        var n = restoreBuiltIns();
+        if (!n) return;
+        if (window.ChalkleToast && window.ChalkleToast.show) {
+          window.ChalkleToast.show("Restoring " + n + " built-in" + (n === 1 ? "" : "s") + " - reloading\u2026");
+        }
+        setTimeout(function () { try { location.reload(); } catch (e) { /* stay */ } }, 700);
+      });
+    }
+
     /* Service check: one on-demand probe of the relay's /_health, shown as
        ONLINE / OFFLINE rows. Never runs in the background. */
     var svcBtn = $("#opt-check-services");
@@ -4070,7 +4668,7 @@
 
     /* What's new: version changelog lightbox. A pink dot marks the sidebar
        version until the lightbox has been opened once for this release. */
-    var WN_SEEN_KEY = "chalkle-wn-seen-v1";
+    var WN_SEEN_KEY = "chalkle-wn-seen-v2";
     function whatsnewSeen() {
       try { return localStorage.getItem(WN_SEEN_KEY) === "1"; } catch (e) { return true; }
     }
@@ -4123,6 +4721,66 @@
         state.motion = motion.checked;
         persist("chalkle-motion", state.motion ? "1" : "0");
         applyOptions();
+      });
+    }
+
+    /* Time played: a local counter, with a way to clear it. The hint is built
+       on demand (opening Settings or ending a session) rather than at boot,
+       so it always shows the current total. */
+    function refreshPlaytimeRow() {
+      var hint = $("#playtime-hint");
+      if (!hint || !window.ChalklePlaytime) return;
+      var totalMs = window.ChalklePlaytime.total();
+      var count = window.ChalklePlaytime.games();
+      hint.textContent = totalMs > 0
+        ? window.ChalklePlaytime.format(totalMs) + " across " + count +
+          (count === 1 ? " game" : " games") + ", saved on this device only"
+        : "Nothing recorded yet. Play a game and it starts counting";
+    }
+    refreshPlaytimeRow();
+    window.addEventListener("chalkle:playtime", refreshPlaytimeRow);
+    var playtimeReset = $("#opt-playtime-reset");
+    if (playtimeReset) {
+      playtimeReset.addEventListener("click", function () {
+        if (!window.ChalklePlaytime) return;
+        window.ChalklePlaytime.reset();
+        refreshPlaytimeRow();
+        render();
+        showToast("Time played cleared");
+      });
+    }
+    document.querySelectorAll(".settings-toggle").forEach(function (btn) {
+      btn.addEventListener("click", refreshPlaytimeRow);
+    });
+
+    /* Block game pop-ups: the player reads this pref, and re-applies it to a
+       frame that is already open so the switch never needs a reload. */
+    var popupToggle = $("#opt-block-popups");
+    if (popupToggle) {
+      popupToggle.checked = readPref("chalkle-block-popups") !== "0";
+      popupToggle.addEventListener("change", function () {
+        persist("chalkle-block-popups", popupToggle.checked ? "1" : "0");
+        try {
+          if (window.ChalkleGamePlayer && window.ChalkleGamePlayer.applyPopupPolicy) {
+            window.ChalkleGamePlayer.applyPopupPolicy();
+          }
+        } catch (e) { /* player not loaded yet */ }
+        showToast(popupToggle.checked ? "Game pop-ups blocked" : "Game pop-ups allowed");
+      });
+    }
+
+    /* Auto clicker panel: same live-apply pattern as the pop-up switch. */
+    var clickerToggle = $("#opt-clicker-panel");
+    if (clickerToggle) {
+      clickerToggle.checked = readPref("chalkle-clicker-panel") !== "0";
+      clickerToggle.addEventListener("change", function () {
+        persist("chalkle-clicker-panel", clickerToggle.checked ? "1" : "0");
+        try {
+          if (window.ChalkleGamePlayer && window.ChalkleGamePlayer.applyClickerPolicy) {
+            window.ChalkleGamePlayer.applyClickerPolicy();
+          }
+        } catch (e) { /* player not loaded yet */ }
+        showToast(clickerToggle.checked ? "Auto clicker panel on" : "Auto clicker panel off");
       });
     }
 
@@ -4342,6 +5000,151 @@
         }
         renderPresetGrid();
       }
+
+      /* Theme code: the whole look as one line. Sharing a theme should not
+         need an account, a marketplace or a file; a code in a Discord message
+         is enough. Every field is validated in theme.js before it reaches a
+         CSS custom property, so a pasted code cannot inject styles. */
+      var codeInput = $("#opt-theme-code");
+      var codeApply = $("#opt-theme-code-apply");
+      var codeCopy = $("#opt-theme-code-copy");
+      var codeHint = $("#opt-theme-code-hint");
+      var codeHintTimer = null;
+
+      function codeNote(msg, ok) {
+        if (!codeHint) return;
+        clearTimeout(codeHintTimer);
+        codeHint.textContent = msg || "";
+        codeHint.hidden = !msg;
+        /* .wallpaper-hint is red by default and turns accent with .is-ok, the
+           same convention the wallpaper row already uses. */
+        codeHint.classList.toggle("is-ok", ok === true);
+        if (msg) codeHintTimer = setTimeout(function () { codeHint.hidden = true; }, 6000);
+      }
+
+      /* navigator.clipboard needs a secure context; the textarea path keeps
+         Copy mine working on http:// LAN copies too. When both fail the code
+         is left in the input selected, which is still copyable by hand. */
+      function copyCode(text, done) {
+        try {
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(function () { done(true); }, function () { done(false); });
+            return;
+          }
+        } catch (e) { /* fall through */ }
+        try {
+          var ta = document.createElement("textarea");
+          ta.value = text;
+          ta.setAttribute("readonly", "");
+          ta.style.position = "fixed";
+          ta.style.opacity = "0";
+          document.body.appendChild(ta);
+          ta.select();
+          var ok = document.execCommand("copy");
+          ta.remove();
+          done(ok);
+        } catch (e) { done(false); }
+      }
+
+      /* One install path for all three doors into a theme: a pasted code or
+         JSON, a picked .json file, or a URL. Everything ends up in
+         ChalkleTheme.install, so validation only lives in one place. */
+      function installThemeText(text, source) {
+        var res = T.install(text);
+        if (!res || !res.ok) {
+          codeNote((res && res.error) || "That does not look like a theme.", false);
+          return false;
+        }
+        /* Keep every other control in the panel showing what is now live. */
+        if (themeBg) themeBg.value = res.theme.bg;
+        if (themeAccent) themeAccent.value = res.theme.accent;
+        if (typeof renderPresetGrid === "function") renderPresetGrid();
+        if (typeof renderWallpaperGrid === "function") renderWallpaperGrid();
+        if (typeof renderCursorGrid === "function") renderCursorGrid();
+        if (wallpaperUrl) {
+          wallpaperUrl.value = res.theme.wallpaper.indexOf("custom:") === 0 ? res.theme.wallpaper.slice(7) : "";
+        }
+        codeNote("Installed \u201C" + res.theme.name + "\u201D" + (source ? " " + source : "") + ".", true);
+        return true;
+      }
+
+      if (codeApply) {
+        codeApply.addEventListener("click", function () {
+          if (installThemeText(codeInput ? codeInput.value : "") && codeInput) codeInput.value = "";
+        });
+      }
+
+      /* A VS Code theme file: the format is JSON with a colors map, so the
+         file picker is the friendliest way in for the thousands of themes
+         that only exist as a .json in some repo. */
+      var themeFile = $("#opt-theme-file");
+      if (themeFile) {
+        themeFile.addEventListener("change", function () {
+          var file = themeFile.files && themeFile.files[0];
+          if (!file) return;
+          try {
+            var reader = new FileReader();
+            reader.onload = function () {
+              if (!installThemeText(String(reader.result || ""), "(from " + file.name + ")")) {
+                codeNote("\u201C" + file.name + "\u201D is not a theme Chalkle can read.", false);
+              }
+              themeFile.value = "";
+            };
+            reader.onerror = function () { codeNote("Could not read that file.", false); };
+            reader.readAsText(file);
+          } catch (e) {
+            codeNote("Could not read that file.", false);
+          }
+        });
+      }
+
+      /* Theme URLs: raw.githubusercontent, jsDelivr and most pages that serve
+         JSON send permissive CORS headers, so a pasted link usually just
+         works. When it does not the note says why instead of failing mute. */
+      var themeUrl = $("#opt-theme-url");
+      var themeUrlApply = $("#opt-theme-url-apply");
+      if (themeUrlApply) {
+        themeUrlApply.addEventListener("click", function () {
+          var url = themeUrl ? themeUrl.value.trim() : "";
+          if (!/^https?:\/\//i.test(url)) { codeNote("Paste an http(s) URL to a theme .json.", false); return; }
+          codeNote("Fetching\u2026", true);
+          fetch(url, { cache: "no-store", credentials: "omit", redirect: "follow" })
+            .then(function (r) { return r.ok ? r.text() : null; })
+            .then(function (body) {
+              if (body === null) { codeNote("That URL answered with an error.", false); return; }
+              if (installThemeText(body, "(from the web)") && themeUrl) themeUrl.value = "";
+            })
+            .catch(function () {
+              codeNote("Could not fetch that URL \u2014 the host may not allow it (CORS) or you are offline.", false);
+            });
+        });
+      }
+
+      if (themeUrl) {
+        themeUrl.addEventListener("keydown", function (e) {
+          if (e.key === "Enter") { e.preventDefault(); if (themeUrlApply) themeUrlApply.click(); }
+        });
+      }
+
+      if (codeCopy) {
+        codeCopy.addEventListener("click", function () {
+          var code = T.shareCode();
+          if (codeInput) {
+            codeInput.value = code;
+            try { codeInput.select(); } catch (e) { /* not fatal */ }
+          }
+          copyCode(code, function (ok) {
+            if (ok) { codeNote("Theme code copied \u2014 paste it anywhere.", true); if (codeInput) codeInput.value = ""; }
+            else codeNote("Could not reach the clipboard \u2014 the code is in the box, copy it by hand.", false);
+          });
+        });
+      }
+
+      if (codeInput) {
+        codeInput.addEventListener("keydown", function (e) {
+          if (e.key === "Enter") { e.preventDefault(); if (codeApply) codeApply.click(); }
+        });
+      }
     }
 
     var sort = $("#game-sort");
@@ -4353,6 +5156,19 @@
         render();
       });
     }
+
+    /* Shared play counts land after the first paint (the relay answers when it
+       answers, and a warm cache answers instantly). Repaint once when they do,
+       so the badges and the Home shelf stop showing local-only numbers. One
+       repaint, not one per update: a re-render is not free at this library
+       size, and a stale number for a few seconds is harmless. */
+    var playsRepainted = false;
+    window.addEventListener("chalkle:plays", function () {
+      if (playsRepainted) return;
+      playsRepainted = true;
+      if (state.view === "games") render();
+      else if (state.view === "home") renderHome();
+    });
 
     /* Games/sites/apps tab filter box: live grid narrowing. Debounced so
        typing stays smooth over the big library. */
@@ -4573,6 +5389,9 @@
             state.clicks[key] = (state.clicks[key] || 0) + 1;
             persist(COUNTS_KEY, JSON.stringify(state.clicks));
             trackRecent(key, launch.dataset.title || "");
+            /* Count it for everyone, not just this device. Fire and forget:
+               a slow or missing relay never delays the launch. */
+            if (window.ChalklePlays) window.ChalklePlays.report(key);
             if (state.view === "games") render();
           }, 400);
           return;

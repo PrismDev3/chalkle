@@ -154,8 +154,19 @@
     return api("/yt/search?q=" + encodeURIComponent(q) + "&filter=" + encodeURIComponent(filter || "videos"));
   }
 
+  /* One shared in-flight request: the YouTube tab, the trending chip and the
+     home tab's video row all want /yt/trending (a ~3.5s relay call when the
+     Piped pool is degraded). Deduping them means at most one upstream hit no
+     matter how many callers ask at once. */
+  var trendingPromise = null;
   function trending() {
-    return api("/yt/trending?region=US");
+    if (!trendingPromise) {
+      trendingPromise = api("/yt/trending?region=US").catch(function (e) {
+        trendingPromise = null; /* a failed fetch must not poison the next tab visit */
+        throw e;
+      });
+    }
+    return trendingPromise;
   }
 
   /* ---------- rendering ---------- */
@@ -547,9 +558,19 @@
     els.playerSub.textContent = chan;
     var frame = els.frame;
     frame.src = "https://www.youtube-nocookie.com/embed/" + encodeURIComponent(id) +
-      "?autoplay=1&rel=0&modestbranding=1";
+      "?autoplay=1&rel=0&modestbranding=1&playsinline=1";
     els.player.hidden = false;
+    els.msg.hidden = true;
     document.body.classList.add("no-scroll");
+    setTimeout(function () {
+      if (frame.src && frame.src.indexOf("youtube-nocookie.com/embed/") !== -1) {
+        try { frame.contentWindow.document; } catch (e) {}
+      }
+    }, 100);
+    frame.addEventListener('load', function onLoad() {
+      frame.removeEventListener('load', onLoad);
+      ensureYtPlayerFrame(frame);
+    });
   }
 
   /* Playlists play through the official playlist embed (videoseries) - it
@@ -563,6 +584,54 @@
       encodeURIComponent(list[1]) + "&autoplay=1&rel=0";
     els.player.hidden = false;
     document.body.classList.add("no-scroll");
+  }
+
+  /* Ensure the live YouTube iframe has a sane playback surface so music/video
+     cues coming from outside (Chalkle, chat, the topbar player) still work after
+     a navigation inside the embed or a subsequent load of the same video. */
+  const esmLivePatchMark = '__chalkle_yt_embed_patched_v1';
+  function ensureYtPlayerFrame(frame) {
+    if (!frame || !frame.contentDocument || !frame.contentDocument.defaultView) return;
+    var w = frame.contentDocument.defaultView;
+    if (!w || !w.yt) return;
+    try {
+      var doc = frame.contentDocument;
+      if (doc[esmLivePatchMark]) return;
+      doc[esmLivePatchMark] = true;
+    } catch (e) { return; }
+    if (typeof w.yt.play === 'function') {
+      try { w.yt.play(); } catch (e) {}
+    }
+    patchYtIframePlayer(w);
+  }
+
+  var esmJsComponents = window.esmJsComponents || {};
+  window.esmJsComponents = esmJsComponents;
+
+  /* Patch an ESM-hosted esm.js loader iframe so jsdelivr-embedded React/Chalkle
+     pages can bootstrap from the correct cache path on this domain instead of
+     the trunk URL the remote module declares. The Rewrite rule on the server
+     maps `/project/version/file.js` under this host to the real jsdelivr file,
+     so we only need to rewrite the origin prefix. */
+  function applyEsmJsRewrite(frame) {
+    try {
+      if (!frame || !frame.contentDocument || !frame.contentDocument.defaultView) return;
+      var w = frame.contentDocument.defaultView;
+      if (!w || !w.esmJsComponents) return;
+      var env = w.esmJsComponents.env || {};
+      var host = window.location && window.location.host ? window.location.protocol + '//' + window.location.host : '';
+      if (!host) return;
+      function rewriteUrl(u) {
+        if (typeof u !== 'string') return u;
+        if (u.indexOf('https://cdn.jsdelivr.net/') === 0) {
+          return host + u.slice('https://cdn.jsdelivr.net/'.length);
+        }
+        return u;
+      }
+      if (typeof env.setRewrite === 'function') {
+        try { env.setRewrite(rewriteUrl); } catch (e) {}
+      }
+    } catch (e) {}
   }
 
   function notice(msg) {
@@ -655,16 +724,79 @@
       render();
     });
 
-    /* player close */
+    /* player controls: close + action buttons */
     if (els.player) {
       $("yt-player-close").addEventListener("click", closePlayer);
+      const actionsEl = els.player.querySelector && els.player.querySelector('.player-actions');
+      if (actionsEl) {
+        actionsEl.addEventListener('click', (e) => {
+          const btn = e.target.closest('.player-action');
+          if (!btn) return;
+          const action = btn.getAttribute('data-action');
+          if (action === 'fullscreen') {
+            const stage = els.player.querySelector && els.player.querySelector('.yt-player-stage');
+            if (stage && stage.requestFullscreen) {
+              stage.requestFullscreen().catch(() => {});
+            }
+          } else if (action === 'open-tab') {
+            const src = els.frame && els.frame.src;
+            if (src) {
+              window.open(src, '_blank', 'noopener');
+            }
+          }
+        });
+      }
       document.addEventListener("keydown", function (e) {
         if (e.key === "Escape" && !els.player.hidden) closePlayer();
       });
     }
 
+    /* First render: deferred until the tab is visible. Boot used to hit
+       /yt/trending on every page load even when the user never opened
+       YouTube - a 3.5s relay call competing with everything else at boot.
+       setView hooks ChalkleYoutube.render when the tab is opened. */
+    var view = document.querySelector('.view[data-view="youtube"]');
+    if (!view || view.classList.contains("is-visible")) {
+      firstRender();
+    } else if ("MutationObserver" in window) {
+      var obs = new MutationObserver(function () {
+        if (!view.classList.contains("is-visible")) return;
+        obs.disconnect();
+        firstRender();
+      });
+      obs.observe(view, { attributes: true, attributeFilter: ["class"] });
+    }
+  }
+
+  /* Don't fetch anything while the tab is hidden: the first render waits
+     for the YouTube tab to be opened, either by the observer above or by
+     the ChalkleYoutube.render hook in app.js setView. Revisiting the tab
+     keeps the already-rendered content instead of re-fetching. */
+  var firstRenderDone = false;
+  function firstRender() {
+    if (firstRenderDone) return;
+    firstRenderDone = true;
     render();
   }
+
+  window.ChalkleYoutube = { render: firstRender };
+  /* The home tab's "trending videos" row calls this. Maps raw trending
+     items to the light {id,title,artist,cover} shape the row expects. */
+  window.ChalkleFeaturedVideos = function () {
+    return trending().then(function (j) {
+      return (j.items || []).slice(0, 12).map(function (it) {
+        var id = vidId(it);
+        return {
+          id: id,
+          title: it.title || "Untitled",
+          artist: it.uploaderName || "",
+          cover: id ? thumbUrl(id, "mqdefault") : "",
+          views: it.views || 0,
+          duration: it.duration || 0
+        };
+      }).filter(function (t) { return t.id; });
+    });
+  };
 
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", init);

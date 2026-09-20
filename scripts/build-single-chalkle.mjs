@@ -79,9 +79,9 @@ idx = idx.replace(/<link[^>]*rel="stylesheet"[^>]*href="([^"]+)"[^>]*>/gi, (m, h
 });
 
 // ── 2. inline JS ──────────────────────────────────────────────
-const SCRIPTS = ['src/theme.js','src/runtime-config.js','src/sync.js','src/games.js','src/games2.js','src/community-games.js','src/real-shots.js','src/cloudgames.js','src/webports.js','src/sites.js',
+const SCRIPTS = ['src/appcore.js','src/theme.js','src/runtime-config.js','src/sync.js','src/games.js','src/games2.js','src/ugs-games.js','src/community-games.js','src/real-shots.js','src/cloudgames.js','src/webports.js','src/sites.js',
   'src/proxies.js','src/apps.js','src/music.js','src/launcher.js','src/cloud.js','src/editor.js','src/urlauditor.js',
-  'src/pixel.js','src/domainhub.js','src/ai.js','src/partners.js','src/docs.js','src/bookmarklets.js','src/livetv.js','src/youtube.js','src/intro.js','src/app.js'];
+  'src/pixel.js','src/domainhub.js','src/ai.js','src/partners.js','src/docs.js','src/bookmarklets.js','src/livetv.js','src/youtube.js','src/intro.js','src/playtime.js','src/plays.js','src/search.js','src/perf.js','src/adcheck.js','src/app.js','src/gamepad.js'];
 const bodies = SCRIPTS.map((file) => {
   const fp = path.join(root, file);
   if (!fs.existsSync(fp)) { console.warn('skip missing', file); return ''; }
@@ -103,7 +103,7 @@ const EXTS = 'jpg|jpeg|png|webp|gif|svg|ico|woff2?|ttf|mp3|ogg';
    quotes untouched: base64 URIs contain no quotes, so surrounding strings
    (including escaped \" inside url(\"...\") CSS embedded in JS) stay valid. */
 const REWRITE_RE = new RegExp(
-  `(\/(?:assets\/[^"'\`(){}\]{1,240}\.(?:${EXTS})|favicon\.svg|bg-chalk\.webp|arctic-thumb\.png|favicon\.ico))`,
+  `(\/?(?:assets\/[^"'\`(){}\]{1,240}\.(?:${EXTS})|favicon[^"'\`(){}\]{0,80}\.(?:${EXTS})|apple-touch-icon\.png|bg-chalk\.webp|arctic-thumb\.png))`,
   'g'
 );
 const cache = {};
@@ -261,16 +261,18 @@ if (!CDN_SAFE) {
     }
   }
 }
-/* Movies, Lunchbreak chat and the go.html redirector are small, fully
-   client-side pages. They are embedded in BOTH builds (CDN-safe included):
-   those tabs must never depend on lootline reachability, and on a blocked
-   network the api-root fallback is a lootline host anyway, which the app
-   strips. chat.html is ~370KB and movies.html ~180KB; worth every byte. */
+/* Movies, Lunchbreak chat, the go.html redirector and the offline Unsent
+   archive are self-contained client-side pages. They are embedded in BOTH
+   builds (CDN-safe included): none of them may depend on lootline
+   reachability, and on a blocked network the api-root fallback is a lootline
+   host anyway, which the app strips. chat.html is ~370KB, movies.html ~180KB
+   and unsent.html ~2.6MB (it carries its own posts); worth every byte. */
 for (const [p, key] of [
   [path.join(root, 'movies.html'), '/movies.html'],
   [path.join(root, 'chat.html'), '/chat.html'],
   [path.join(root, 'go.html'), '/go.html'],
   [path.join(root, 'browser.html'), '/browser.html'],
+  [path.join(root, 'unsent.html'), '/unsent.html'],
 ]) {
   if (fs.existsSync(p) && !embedMap[key]) {
     const uri = dataURI(p);

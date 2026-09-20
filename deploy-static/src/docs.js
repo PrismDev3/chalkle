@@ -256,7 +256,25 @@
   function renderLinkWorkspace() {
     var host = document.getElementById("docs-workspace");
     if (!host) return;
-    if (state.filter !== "all" && state.filter !== "list") { host.hidden = true; return; }
+    if (state.filter !== "all" && state.filter !== "list") {
+      /* Filtering the Docs tab to SVGs or HTMLs is remembered between visits,
+         which used to hide the collections with nothing on screen to explain
+         where they went. Say so, and offer the one click back. */
+      host.hidden = false;
+      host.innerHTML = "";
+      var notice = el("div", "docs-workspace-head");
+      notice.appendChild(el("p", "docs-workspace-note",
+        "Link collections are hidden while the " + String(state.filter).toUpperCase() + " filter is on."));
+      var showAll = el("button", "btn-ghost", "Show collections");
+      showAll.type = "button";
+      showAll.addEventListener("click", function () {
+        var chip = document.querySelector('[data-docs-filter="all"]');
+        if (chip) chip.click();
+      });
+      notice.appendChild(showAll);
+      host.appendChild(notice);
+      return;
+    }
     var collection = LINK_COLLECTIONS.filter(function (c) { return c.id === workspaceState.collection; })[0] || LINK_COLLECTIONS[0];
     if (!collection) { host.hidden = true; return; }
     workspaceState.collection = collection.id;
@@ -275,7 +293,8 @@
     heading.appendChild(el("h2", "docs-workspace-title", "Link collections"));
     heading.appendChild(el("p", "docs-workspace-note", "Choose a site, then switch between its CDN, storage, and domain variants."));
     head.appendChild(heading);
-    head.appendChild(el("span", "docs-workspace-total", LINK_COLLECTIONS.length + " collections"));
+    var totalLinks = LINK_COLLECTIONS.reduce(function (sum, item) { return sum + workspaceCount(item); }, 0);
+    head.appendChild(el("span", "docs-workspace-total", LINK_COLLECTIONS.length + " collections · " + formatCount(totalLinks) + " links"));
     host.appendChild(head);
 
     var layout = el("div", "docs-workspace-layout");
@@ -353,7 +372,7 @@
       var row = el("div", "docs-variant-row" + (item.status === "pending" ? " is-pending" : ""));
       row.appendChild(el("span", "docs-variant-index", String(index + 1).padStart(2, "0")));
       var info = el("div", "docs-variant-info");
-      var label = item.url.replace(/^https?:\/\//i, "").replace(/\/$/, "");
+      var label = String(item.label || "").trim() || item.url.replace(/^https?:\/\//i, "").replace(/\/$/, "");
       info.appendChild(el("div", "docs-variant-label", label));
       info.appendChild(el("div", "docs-variant-url", item.url));
       row.appendChild(info);
@@ -1159,7 +1178,10 @@
       title: "Opium",
       note: "Bull-33 mirror variants grouped by delivery network.",
       groups: [
-        { id: "jsdelivr", title: "jsDelivr", note: "Primary GitHub CDN", links: ["https://cdn.jsdelivr.net/gh/OpiumBest/bull33@main/index.svg"] },
+        { id: "jsdelivr", title: "jsDelivr", note: "Primary GitHub CDN", links: [
+          { url: "https://cdn.jsdelivr.net/gh/OpiumBest/bull33@main/index.svg", label: "pinned @main" },
+          { url: "https://cdn.jsdelivr.net/gh/opiumbest/bull33/index.svg", label: "unpinned (default branch)" }
+        ] },
         { id: "raw-esm", title: "Raw ESM", note: "esm.sh GitHub raw asset", links: ["https://raw.esm.sh/gh/OpiumBest/bull33/index.svg"] },
         { id: "statically", title: "Statically", note: "GitHub CDN mirror", links: ["https://cdn.statically.io/gh/OpiumBest/bull33@main/index.svg"] },
         { id: "rawcdn", title: "RawCDN", note: "GitHub raw delivery", links: ["https://rawcdn.githack.com/OpiumBest/bull33/main/index.svg"] },
