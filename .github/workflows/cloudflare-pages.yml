@@ -5,10 +5,13 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# `contents: read` is all this workflow needs. cloudflare/pages-action
+# authenticates with the API token, not with OIDC, so the `pages: write` and
+# `id-token: write` scopes this file used to request were copied from pages.yml
+# - where they are required to publish to GitHub Pages - and are meaningless
+# here.
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
   # Unique group: pages.yml uses the generic "pages" group too, and the two
@@ -19,13 +22,13 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    # Kept as a plain environment name: the Cloudflare token may be stored as an
-    # environment secret, and a job that does not declare the environment cannot
-    # see one. The page_url output used to be published here, but it is empty on
-    # every run that skips the deploy, and an environment url that resolves to
-    # nothing is worse than no url - Cloudflare's own GitHub integration already
-    # reports the preview URL on its own check.
-    environment: cloudflare-pages
+    # No `environment:` here, unlike pages.yml. The run used to declare
+    # `cloudflare-pages` and every job died at "Set up job" - the one step this
+    # job had in common with pages.yml's working `github-pages` environment was
+    # the difference, and an API-token deploy needs no environment at all. If
+    # the token is kept as an environment-scoped secret it will not resolve here
+    # any more; store it as a repository secret and the gate below publishes
+    # deploy-static again.
     steps:
       - name: Checkout
         uses: actions/checkout@v4
