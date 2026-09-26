@@ -25,32 +25,66 @@
       var raw = localStorage.getItem(STORE_KEY);
       if (!raw) return;
       var parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) state.docs = parsed;
+      if (Array.isArray(parsed)) {
+        /* save() stores seeded docs as {"title":...,"seeded":true} stubs to
+           keep the quota happy. Drop the stubs here: seedDefaults() re-creates
+           every one of them with full content moments later. */
+        state.docs = parsed.filter(function (d) { return d && !d.seeded; });
+      }
     } catch (e) {
       state.docs = [];
     }
   }
 
+  /* Seeded docs (shipped in this file) rebuild themselves from the seed on
+     every boot, so their content never needs to live in localStorage. Storing
+     them anyway stuffed browsers past the ~5MB quota and showed everyone
+     "Storage full". Skipped docs keep their title in the saved JSON as
+     {"title":..., "seeded":true} so the seed can re-attach the real content
+     on the next load; everything a visitor uploaded still saves in full. */
+  /* Titles are read from DEFAULT_DOCS itself (lazily, after the seed has
+     initialized), so new seed docs are lightened automatically. */
+  var SEED_TITLES = null;
+  function isSeededDoc(doc) {
+    if (!doc) return false;
+    if (doc.seeded) return true;
+    if (!SEED_TITLES) {
+      SEED_TITLES = {};
+      DEFAULT_DOCS.forEach(function (def) {
+        if (def && def.title) SEED_TITLES[String(def.title).trim().toLowerCase()] = true;
+      });
+    }
+    return SEED_TITLES[String(doc.title || "").trim().toLowerCase()] === true;
+  }
+
   function save() {
-    try {
-      var json = JSON.stringify(state.docs);
-      if (json.length > 9.5 * 1024 * 1024) {
-        var copy = state.docs.slice().sort(function (a, b) {
-          return String(b.content || "").length - String(a.content || "").length;
-        });
-        while (copy.length && json.length > 9.5 * 1024 * 1024) {
-          /* Biggest docs are at the front of this sort, so drop from the
-             front. pop() took the smallest docs first and deleted a dozen
-             little cards one re-stringify at a time while the huge ones
-             that caused the overflow stayed. */
-          copy.shift();
-          json = JSON.stringify(copy);
-        }
-        state.docs = copy;
+    var copy = [];
+    var skipped = [];
+    state.docs.forEach(function (d) {
+      if (isSeededDoc(d)) skipped.push({ title: d.title, seeded: true });
+      else copy.push(d);
+    });
+    var payload = function (arr) { return JSON.stringify(skipped.concat(arr)); };
+    var json = payload(copy);
+    if (json.length > 4.5 * 1024 * 1024) {
+      /* User docs alone can still overflow (huge pasted lists). Shed the
+         largest uploads first instead of dropping whole seed cards. */
+      var bySize = copy.slice().sort(function (a, b) {
+        return String(b.content || "").length - String(a.content || "").length;
+      });
+      while (bySize.length && json.length > 4.5 * 1024 * 1024) {
+        var big = bySize.shift();
+        copy = copy.filter(function (d) { return d !== big && d.id !== big.id; });
+        json = payload(copy);
       }
+    }
+    try {
       localStorage.setItem(STORE_KEY, json);
     } catch (e) {
-      notice("Storage full. Remove a doc or two.");
+      /* Only warn when even the trimmed set will not fit, and clear the
+         broken partial write so load() never sees a corrupt state. */
+      try { localStorage.removeItem(STORE_KEY); } catch (e2) {}
+      notice("Storage full. Big built-in docs were already lightened - remove an uploaded doc or two.");
     }
   }
 
@@ -1241,6 +1275,43 @@
       note: "Custom domains, including entries marked pending in the source list.",
       groups: [{ id: "domains", title: "Domains", note: "Pending entries are kept visible but disabled", links: [
         "https://bull.education.drbijaytamang.com.np", "https://bullde.drswright.ca", { url: "https://bull.has.no.noble-house.tk", status: "pending" }, { url: "https://67maths.pound4poundmma.ca", status: "pending" }, "https://latvian-bull.rigaprecast.com.au", "https://maybebull.scottbaptist.com", "https://like.subscribe.thevoiceexchange.com", "https://oscar-angel-vincent-johnny.thevoiceexchange.com"
+      ] }]
+    },
+    {
+      id: "revault",
+      title: "ReVault",
+      note: "Surge.sh subdomain deployments, each serving an index.svg cloak.",
+      groups: [{ id: "surge", title: "Surge", note: "One subdomain per deployment", links: [
+        "https://a2f7ddcd320e.surge.sh/index.svg",
+        "https://0fd37c113f9b.surge.sh/index.svg",
+        "https://674e3b2109bc.surge.sh/index.svg",
+        "https://4adf89ac8de9.surge.sh/index.svg",
+        "https://2bb13756b0e1.surge.sh/index.svg",
+        "https://e47d27046020.surge.sh/index.svg",
+        "https://81a310f9297b.surge.sh/index.svg",
+        "https://93a5f72f2482.surge.sh/index.svg",
+        "https://55ec984be1d2.surge.sh/index.svg",
+        "https://5c2148b601e1.surge.sh/index.svg",
+        "https://87bb10f76c67.surge.sh/index.svg",
+        "https://8d2ef70cb97a.surge.sh/index.svg",
+        "https://f0591b49d948.surge.sh/index.svg",
+        "https://77a999db5986.surge.sh/index.svg",
+        "https://d6568d179222.surge.sh/index.svg",
+        "https://2081d70ef0b1.surge.sh/index.svg",
+        "https://4c2c74de93b6.surge.sh/index.svg",
+        "https://b78cb5944997.surge.sh/index.svg",
+        "https://eec2c94446b5.surge.sh/index.svg",
+        "https://4eccb7007316.surge.sh/index.svg",
+        "https://961373fde239.surge.sh/index.svg",
+        "https://fc8f3d1d54f8.surge.sh/index.svg",
+        "https://8b26f0c299c7.surge.sh/index.svg",
+        "https://4554feea5736.surge.sh/index.svg",
+        "https://b9f216900663.surge.sh/index.svg",
+        "https://b807e7f1d59e.surge.sh/index.svg",
+        "https://b0b900ef0db2.surge.sh/index.svg",
+        "https://65dc0a6e440a.surge.sh/index.svg",
+        "https://39c5f66a64c0.surge.sh/index.svg",
+        "https://7bf4aa3112dc.surge.sh/index.svg"
       ] }]
     }
   ];

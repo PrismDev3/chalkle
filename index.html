@@ -38,7 +38,7 @@
        preload tag kept firing "preloaded but not used" warnings whenever
        the body didn't paint it during the boot intro. theme.js also strips
        any stale preload tag left by earlier builds. -->
-  <link rel="stylesheet" href="src/styles.css?v=20260919m">
+  <link rel="stylesheet" href="src/styles.css?v=20260926a">
   <!-- AdSense. This loader powers BOTH layers:
        1. Manual units - the .ad-slot placements below, each filled when its
           slot ID is pasted into CHALKLE_ADS.slots (AdSense → Ads → By ad unit).
@@ -408,7 +408,7 @@
           <circle cx="11" cy="11" r="6.5"/>
           <line x1="16" y1="16" x2="20.5" y2="20.5"/>
         </svg>
-        <input id="search-input" type="search" placeholder="Search Chalkle" autocomplete="off" spellcheck="false" aria-label="Search Chalkle">
+        <input id="search-input" type="search" placeholder="Search Chalkle  ( / )" autocomplete="off" spellcheck="false" aria-label="Search Chalkle (press / to focus)">
         <kbd class="kbd" aria-hidden="true">Ctrl K</kbd>
         <div class="search-results" id="search-results" hidden role="listbox" aria-live="polite"></div>
       </div>
@@ -500,7 +500,7 @@
           </button>
 
           <div class="nav-group-label">Explore</div>
-          <button class="nav-item" data-view="movies" title="JS Movies">
+          <button class="nav-item" data-view="movies" title="Chlakle Movies">
             <svg class="icon tab-ico" viewBox="0 0 24 24" aria-hidden="true">
               <rect x="2.6" y="5" width="18.8" height="14" rx="2.2"/>
               <path d="m10.2 9.3 5 2.7-5 2.7z" fill="currentColor" stroke="none"/>
@@ -733,6 +733,9 @@
             <div class="view-heading">
               <h1 class="view-title">Games</h1>
               <span class="view-meta" id="games-meta"></span>
+            </div>
+            <div class="view-actions">
+              <button class="btn-ghost" id="surprise-btn" type="button" title="Roll the dice and launch a random game" aria-label="Surprise me: launch a random game">Surprise me</button>
             </div>
           </div>
 
@@ -971,8 +974,8 @@
         <section class="view movies-view" data-view="movies">
           <div class="view-head">
             <div class="view-heading">
-              <h1 class="view-title">JS Movies</h1>
-              <span class="view-meta" id="movies-meta">movies, TV, anime and manga · no sign-in</span>
+              <h1 class="view-title">Chlakle Movies</h1>
+              <span class="view-meta" id="movies-meta">movies, series and anime · TMDB catalogue · every source relayed</span>
             </div>
             <div class="view-actions">
               <button class="btn" id="movies-fullscreen" type="button" aria-pressed="false">
@@ -985,7 +988,7 @@
               </a>
             </div>
           </div>
-          <iframe class="movies-frame" id="movies-frame" title="JS Movies" data-src="movies.html"
+          <iframe class="movies-frame" id="movies-frame" title="Chlakle Movies" data-src="movies.html"
             allow="fullscreen; autoplay; encrypted-media; picture-in-picture" allowfullscreen
             referrerpolicy="no-referrer" loading="lazy"></iframe>
         </section>
@@ -2097,14 +2100,14 @@
        all 23MB downloaded serially. defer keeps their execution order
        (games.js then games2.js before app.js below) but lets the page parse
        and paint immediately and downloads all scripts in parallel. -->
-  <script defer src="src/games.js?v=20260919b"></script>
+  <script defer src="src/games.js?v=20260920a"></script>
   <script defer src="src/games2.js?v=20260930e"></script>
   <script defer src="src/ugs-games.js?v=20260921c"></script>
   <script defer src="src/noah-games.js?v=20260918a"></script>
   <script defer src="src/community-games.js?v=20260905j"></script>
   <script defer src="src/real-shots.js?v=20260921c"></script>
   <script defer src="src/game-covers.js?v=20260919a"></script>
-  <script defer src="src/cloudgames.js?v=20260918c"></script>
+  <script defer src="src/cloudgames.js?v=20260921a"></script>
   <script defer src="src/webports.js?v=20260908d"></script>
   <script defer src="src/sites.js?v=20260905j"></script>
   <script defer src="src/proxies.js?v=20260919c"></script>
@@ -2114,14 +2117,14 @@
   <script defer src="src/launcher.js?v=20260919h"></script>
   <script defer src="src/omnibox.js?v=20260919a"></script>
   <script defer src="src/browser.js?v=20260919h"></script>
-  <script defer src="src/cloud.js?v=20260920b"></script>
+  <script defer src="src/cloud.js?v=20260921a"></script>
   <script defer src="src/editor.js?v=20260917a"></script>
   <script defer src="src/urlauditor.js?v=20260905j"></script>
-  <script defer src="src/pixel.js?v=20260908k"></script>
+  <script defer src="src/pixel.js?v=20260926n"></script>
   <script defer src="src/domainhub.js?v=20260912a"></script>
   <script defer src="src/ai.js?v=20260919c"></script>
   <script defer src="src/partners.js?v=20260919c"></script>
-  <script defer src="src/docs.js?v=20260919m"></script>
+  <script defer src="src/docs.js?v=20260926b"></script>
   <script defer src="src/bookmarklets.js?v=20260919a"></script>
   <script defer src="assets/hls.min.js?v=20260905c"></script>
   <script defer src="src/livetv.js?v=20260919d"></script>
@@ -2184,8 +2187,8 @@
   <script defer src="src/search.js?v=20260925b"></script>
   <script defer src="src/perf.js?v=20260925a"></script>
   <script defer src="src/adcheck.js?v=20260925a"></script>
-  <script defer src="src/app.js?v=20260919k"></script>
-  <script defer src="src/gameplayer.js?v=20260929a"></script>
+  <script defer src="src/app.js?v=20260926a"></script>
+  <script defer src="src/gameplayer.js?v=20260930a"></script>
   <script defer src="src/gamepad.js?v=20260921a"></script>
 </body>
 </html>
