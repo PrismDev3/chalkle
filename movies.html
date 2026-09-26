@@ -370,6 +370,7 @@ img { display: block; max-width: 100%; }
 
 /* rows */
 .cm-row { margin-bottom: 30px; position: relative; }
+.cm-row:last-child { margin-bottom: 10px; }
 .cm-row-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 12px; }
 .cm-row-title { font-size: 16px; font-weight: 700; letter-spacing: 0.2px; }
 .cm-row-sub { font-size: 11.5px; color: var(--dim); }
@@ -406,6 +407,8 @@ img { display: block; max-width: 100%; }
   min-width: 0;
 }
 .cm-card:hover { transform: translateY(-4px); }
+.cm-card:focus-visible { outline: none; }
+.cm-card:focus-visible .cm-card-art { outline: 2px solid var(--accent); outline-offset: 3px; }
 .cm-card-art {
   position: relative;
   display: block;
@@ -413,7 +416,7 @@ img { display: block; max-width: 100%; }
   aspect-ratio: 2 / 3;
   border-radius: var(--r);
   overflow: hidden;
-  background: var(--surface-2);
+  background: linear-gradient(163deg, #262219, #16140f 58%, #11100c);
   border: 1px solid var(--line);
   box-shadow: 0 10px 26px rgba(0, 0, 0, 0.4);
 }
@@ -426,9 +429,27 @@ img { display: block; max-width: 100%; }
   position: absolute; inset: 0;
   display: grid; place-items: center;
   padding: 12px; text-align: center;
-  font-size: 12px; color: var(--dim);
-  background: linear-gradient(160deg, #232019, #14120f);
+  font-size: 12px; font-weight: 600; letter-spacing: 0.2px;
+  color: rgba(242, 240, 236, 0.82);
+  background: linear-gradient(163deg, #262219, #16140f 58%, #11100c);
+  -webkit-line-clamp: 5;
+  -webkit-box-orient: vertical;
+  display: -webkit-box;
+  overflow: hidden;
+  word-break: break-word;
+  -webkit-user-select: none; user-select: none;
 }
+/* landscape variant: continue-watching tiles */
+.cm-card.is-wide { width: 252px; }
+.cm-card.is-wide .cm-card-art { aspect-ratio: 16 / 9; }
+.cm-card.is-wide .cm-card-t { margin-top: 8px; }
+.cm-wide-bar {
+  position: absolute; left: 8px; right: 8px; bottom: 8px;
+  height: 4px; border-radius: 99px;
+  background: rgba(255, 255, 255, 0.22);
+  overflow: hidden;
+}
+.cm-wide-bar i { display: block; height: 100%; background: var(--accent); border-radius: 99px; }
 .cm-card-rate {
   position: absolute; top: 7px; left: 7px;
   display: inline-flex; align-items: center; gap: 3px;
@@ -483,6 +504,22 @@ img { display: block; max-width: 100%; }
   font-size: 11px; color: var(--dim); margin-top: 2px;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
+.cm-card-s b { color: var(--muted); font-weight: 600; }
+
+/* continue-watching row head accent */
+.cm-row[data-col="resume"] .cm-row-title::before {
+  content: "";
+  display: inline-block;
+  width: 8px; height: 8px;
+  margin-right: 8px;
+  border-radius: 99px;
+  background: var(--accent);
+  box-shadow: 0 0 10px rgba(76, 197, 111, 0.65);
+}
+.cm-row[data-col="resume"] .cm-arrow {
+  width: 28px; height: 28px;
+}
+.cm-row[data-col="resume"] .cm-rail { padding-bottom: 10px; }
 
 /* grids + filters */
 .cm-filter {
@@ -803,9 +840,13 @@ img { display: block; max-width: 100%; }
 }
 @media (max-width: 620px) {
   .cm-card { width: 130px; }
+  .cm-card.is-wide { width: 224px; }
   .cm-grid { grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 14px 10px; }
   .cm-ep-thumb { width: 84px; }
   .cm-ep-n { display: none; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .cm-card:hover .cm-wide-bar i { box-shadow: 0 0 8px rgba(76, 197, 111, 0.8); }
 }
 @media (prefers-reduced-motion: reduce) {
   * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
@@ -1554,7 +1595,12 @@ function renderContinueRow() {
         .slice(0, 18);
     if (!rows.length) return;
     var host = col('Continue watching', 'pick up where you left off', 'resume');
-    host.rail.innerHTML = rows.map(function (p) { return cardHTML(norm(p.item), { progress: p.pct || 0, extra: p.season ? ('S' + p.season + ' E' + (p.episode || 1)) : '' }); }).join('');
+    host.rail.innerHTML = rows.map(function (p) {
+        var it = norm(p.item);
+        if (!it) return '';
+        var extra = p.season ? ('S' + p.season + ' E' + (p.episode || 1)) : '';
+        return cardHTML(it, { progress: p.pct || 0, extra: extra, wide: true });
+    }).join('');
     keepLoaded(rows.map(function (p) { return norm(p.item); }).filter(Boolean));
     el('cm-home-rows').appendChild(host.node);
 }
@@ -1601,16 +1647,21 @@ function cardHTML(it, opts) {
     var pct = opts.progress != null ? Math.round(opts.progress * 100) : (p && p.pct ? Math.round(p.pct * 100) : 0);
     var saved = isSaved(it.type, it.id);
     var sub = opts.extra || [it.year, genreNames(it)[0]].filter(Boolean).join(' · ');
+    var wide = !!opts.wide;
     var art = imgTag(it, 'w342');
     var label = it.title.toLowerCase().replace(/"/g, '');
-    return '<div class="cm-card" role="button" tabindex="0" aria-label="' + esc(it.title) + '" ' +
+    return '<div class="cm-card' + (wide ? ' is-wide' : '') + '" role="button" tabindex="0" aria-label="' + esc(it.title) + '" ' +
         'data-act="open" data-type="' + it.type + '" data-id="' + it.id + '" data-cm-label="' + esc(label) + '">' +
         '<span class="cm-card-art' + (art ? '' : ' is-missing') + '" data-t="' + esc(it.title) + '">' + art +
-        (it.vote ? '<span class="cm-card-rate">' + starSVG() + it.vote + '</span>' : '') +
-        '<span class="cm-card-kind">' + (it.type === 'tv' ? 'Series' : 'Movie') + '</span>' +
+        (!wide && it.vote ? '<span class="cm-card-rate">' + starSVG() + it.vote + '</span>' : '') +
+        '<span class="cm-card-kind">' + (wide
+            ? (opts.extra ? esc(opts.extra) + ' · ' : '') + (it.type === 'tv' ? 'Series' : 'Movie')
+            : (it.type === 'tv' ? 'Series' : 'Movie')) + '</span>' +
         '<button class="cm-card-save' + (saved ? ' is-on' : '') + '" type="button" data-act="save" data-type="' + it.type + '" data-id="' + it.id + '" aria-label="Toggle My List">' +
         (saved ? ICON.bookmarkOn : ICON.bookmark) + '</button>' +
-        (pct ? '<span class="cm-card-bar"><i style="width:' + clamp(pct, 3, 100) + '%"></i></span>' : '') +
+        (wide && pct
+            ? '<span class="cm-wide-bar"><i style="width:' + clamp(pct, 3, 100) + '%"></i></span>'
+            : (!wide && pct ? '<span class="cm-card-bar"><i style="width:' + clamp(pct, 3, 100) + '%"></i></span>' : '')) +
         '</span>' +
         '<span class="cm-card-t">' + esc(it.title) + '</span>' +
         '<span class="cm-card-s">' + esc(sub) + '</span></div>';
