@@ -752,8 +752,23 @@ def _prune():
             pass
 
 
+_SID_OK = re.compile(r"[^A-Za-z0-9_.-]")
+
+
+def _active_clean_sid(sid):
+    """Keep ids short and boring: a hand-written query string cannot stuff
+    junk keys into the registry, and two ids never differ only by characters
+    we would strip anyway."""
+    if not isinstance(sid, str):
+        return ""
+    return _SID_OK.sub("", sid)[:64]
+
+
 def _active_touch(sid):
     """Mark a visitor online in the shared registry."""
+    sid = _active_clean_sid(sid)
+    if not sid:
+        return
     now = time.time()
     with LOCK:
         STATE[sid] = now
@@ -762,6 +777,42 @@ def _active_touch(sid):
         for k in [k for k, ts in disk.items() if now - ts > PRUNE_AFTER]:
             disk.pop(k, None)
         _active_save(disk)
+
+
+def _active_remove(sid):
+    """Drop a visitor immediately (tab closed / navigated away) instead of
+    letting the session linger until the TTL expires and inflate the count
+    with a ghost."""
+    sid = _active_clean_sid(sid)
+    if not sid:
+        return
+    now = time.time()
+    with LOCK:
+        STATE.pop(sid, None)
+        disk = _active_load()
+        if sid in disk:
+            disk.pop(sid, None)
+            for k in [k for k, ts in disk.items() if now - ts > PRUNE_AFTER]:
+                disk.pop(k, None)
+            _active_save(disk)
+
+
+def _active_boot_purge():
+    """On startup the registry may hold sessions from a previous run that
+    ended hours ago; nothing overwrote the file while the server was down.
+    Drop everything older than the TTL so the count starts honest. Sessions
+    that re-ping simply re-add themselves."""
+    now = time.time()
+    with LOCK:
+        STATE.clear()
+        try:
+            disk = _active_load()
+        except Exception:
+            return
+        keep = {k: ts for k, ts in disk.items() if now - ts <= ACTIVE_TTL}
+        if len(keep) != len(disk):
+            _active_save(keep)
+
 
 
 def _active_count():
@@ -776,6 +827,18 @@ def _active_count():
                 if now - ts <= ACTIVE_TTL and (k not in seen or ts > seen[k]):
                     seen[k] = ts
         return len(seen)
+
+
+def _active_has(sid):
+    """True when sid is part of the current live count."""
+    now = time.time()
+    if not sid:
+        return False
+    with LOCK:
+        if now - STATE.get(sid, 0) <= ACTIVE_TTL:
+            return True
+        disk = _active_load()
+        return now - disk.get(sid, 0) <= ACTIVE_TTL
 
 
 def _plays_today():
@@ -4990,9 +5053,27 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, _Bitc
         from urllib.parse import parse_qs, urlparse
         q = parse_qs(urlparse(self.path).query)
         sid = (q.get("s") or [""])[0].strip()
-        if sid:
+        bye = (q.get("bye") or [""])[0].strip()
+        if bye:
+            # A tab saying goodbye reuses ?s= for its id; the client also
+            # appends &bye=1, so treat any bye ping as a removal of that id.
+            _active_remove(sid or bye)
+        elif sid:
             _active_touch(sid)
-        body = json.dumps({"active": _active_count(), "ttl": ACTIVE_TTL}).encode()
+        live = _active_count()
+        # "you" tells the client whether its own session is part of the
+        # count, so a lone visitor (just you) can hide the pill instead of
+        # advertising a meaningless "1".
+        you = False
+        if not bye and sid:
+            you = _active_has(_active_clean_sid(sid))
+        body = json.dumps({"active": live, "ttl": ACTIVE_TTL, "you": you}).encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
         self.send_header("Cache-Control", "no-store")
@@ -6993,6 +7074,7 @@ class QuietServer(ThreadingHTTPServer):
 
 
 def main():
+    _active_boot_purge()
     threading.Thread(target=_pruner, daemon=True).start()
     threading.Thread(target=_wp_warm_all, daemon=True).start()
     # SimpleHTTPRequestHandler.__init__ ignores class-level `directory` and
