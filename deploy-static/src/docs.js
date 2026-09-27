@@ -1313,6 +1313,20 @@
         "https://39c5f66a64c0.surge.sh/index.svg",
         "https://7bf4aa3112dc.surge.sh/index.svg"
       ] }]
+    },
+    {
+      id: "novene",
+      title: "NoVene",
+      note: "jsDelivr mirrors of the noveneubg/svg study.svg cloak.",
+      groups: [{ id: "jsdelivr", title: "jsDelivr", links: [
+        "https://cdn.jsdelivr.net/gh/noveneubg/svg@ffd5180/study.svg",
+        "https://cdn.jsdelivr.net/gh/noveneubg/svg@main/study.svg",
+        "https://fastly.jsdelivr.net/gh/noveneubg/svg@main/study.svg",
+        "https://gcore.jsdelivr.net/gh/noveneubg/svg@main/study.svg",
+        "https://testingcf.jsdelivr.net/gh/noveneubg/svg@main/study.svg",
+        "https://quantil.jsdelivr.net/gh/noveneubg/svg@main/study.svg",
+        "https://gcore.jsdelivr.net/gh/noveneubg/svg@8cde9e9/study.svg"
+      ] }]
     }
   ];
 
