@@ -30,7 +30,7 @@
     try {
       if (location.protocol === "file:" || location.origin === "null") return true;
       var host = String(location.hostname || "");
-      return /(?:^|\.)(?:jsdelivr\.net|githack\.com|staticdelivr\.com|unpkg\.com|esm\.sh|github\.io|pages\.dev|gitlab\.io|githubusercontent\.com|vercel\.app|netlify\.app|esm\.lootline\.xyz)$/i.test(host);
+      return /(?:^|\.)(?:jsdelivr\.net|githack\.com|staticdelivr\.com|unpkg\.com|esm\.sh|github\.io|pages\.dev|gitlab\.io|githubusercontent\.com|vercel\.app|netlify\.app|surge\.sh|workers\.dev|esm\.lootline\.xyz)$/i.test(host);
     } catch (e) {
       return false;
     }
@@ -89,6 +89,9 @@
   }
   if (isMirror()) {
     try { pickRelay(); } catch (e) { /* never block boot */ }
+    /* Flag the document so CSS can hide relay-only UI (the viewer pill) on
+       static mirrors instead of probing endpoints those hosts don't have. */
+    try { document.documentElement.setAttribute("data-mirror", ""); } catch (e) {}
   }
 
   window.ChalkleApi = {

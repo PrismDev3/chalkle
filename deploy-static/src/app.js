@@ -5562,13 +5562,28 @@
   }
 })();
 
-/* Live viewer pill: pings the same-origin /_active endpoint every few seconds
-   to keep this tab marked "online" and shows how many people are on right now.
+/* Live viewer pill: pings the same-origin /_active endpoint on a heartbeat
+   to keep this tab marked "online" and shows how many people are on right
+   now. Accuracy rules that make the number mean something:
+   - one stable id per browser profile (localStorage), so one visitor is one
+     session even across reloads;
+   - a sendBeacon goodbye on pagehide removes this visitor the moment the tab
+     closes instead of counting a ghost until the server TTL expires;
+   - heartbeats stop while the tab is hidden and resume on wake, so a parked
+     background tab does not keep itself "online" forever;
+   - "active": 1 with you:true means the only viewer is you, so the pill
+     stays hidden rather than showing a meaningless count.
    Isolated so a failure can never break the rest of the app. */
 (function () {
   function bootViewer() {
     var pill = document.getElementById("viewer-pill");
     if (!pill) return;
+    /* Mirrors have no /_active endpoint (surge.sh, GitHub Pages, jsDelivr):
+       pinging it there just piles up console 404s. The pill only ever shows
+       live-relay data on the real site, so mirror hosts never even start. */
+    try {
+      if (window.ChalkleApi && window.ChalkleApi.isMirror && window.ChalkleApi.isMirror()) return;
+    } catch (e) { /* fall through and ping same-origin */ }
     var countEl = document.getElementById("viewer-count");
     if (!countEl) return;
     var vid = "";
@@ -5579,49 +5594,83 @@
     }
     var fails = 0;
     var lastN = -1;
+    var lastYou = false;
     var flashTimer = null;
-    function ping() {
-      /* Background tabs skip the ping: saves battery/data on long-idle tabs,
-         and the server prunes after 20s anyway, so the count self-corrects
-         via the visibilitychange ping when the tab wakes up. */
-      if (document.visibilityState === "hidden") return;
+    var pingTimer = null;
+    /* One source of truth for the cadence: the pill's heartbeat must be
+       comfortably shorter than the server's sliding TTL (ACTIVE_TTL = 20s)
+       or live sessions expire between beats. */
+    var HEARTBEAT_MS = 8000;
+    function pingUrlFor(extra) {
       /* On mirrors (jsDelivr/GitHub Pages) /_active only exists on the relay
          - route the ping through ChalkleApi.mirrorPing to avoid a 400. */
-      var pingUrl = "/_active?s=" + encodeURIComponent(vid || "anon");
+      var u = "/_active?s=" + encodeURIComponent(vid) + (extra || "");
       try {
-        if (window.ChalkleApi && window.ChalkleApi.mirrorPing) pingUrl = window.ChalkleApi.mirrorPing(pingUrl);
+        if (window.ChalkleApi && window.ChalkleApi.mirrorPing) u = window.ChalkleApi.mirrorPing(u);
       } catch (e) { /* keep same-origin */ }
-      fetch(pingUrl, { cache: "no-store" })
+      return u;
+    }
+    function render(n, you) {
+      fails = 0;
+      /* Hide the pill while the only person online is you. */
+      var show = n > 0 && !(you && n === 1);
+      pill.hidden = !show;
+      if (n !== lastN || !!you !== lastYou) {
+        lastN = n;
+        lastYou = !!you;
+        if (show) {
+          countEl.textContent = String(n);
+          /* Small pop on every change so movement is visible in real time. */
+          countEl.classList.remove("is-pop");
+          void countEl.offsetWidth; /* restart the animation */
+          countEl.classList.add("is-pop");
+          clearTimeout(flashTimer);
+          flashTimer = setTimeout(function () { countEl.classList.remove("is-pop"); }, 420);
+        }
+      }
+    }
+    function ping() {
+      fetch(pingUrlFor(), { cache: "no-store", keepalive: true })
         .then(function (r) { return r.json(); })
         .then(function (d) {
           var n = (d && typeof d.active === "number") ? d.active : 0;
-          fails = 0;
-          pill.hidden = false;
-          if (n !== lastN) {
-            lastN = n;
-            countEl.textContent = String(n);
-            /* Small pop on every change so movement is visible in real time. */
-            countEl.classList.remove("is-pop");
-            void countEl.offsetWidth; /* restart the animation */
-            countEl.classList.add("is-pop");
-            clearTimeout(flashTimer);
-            flashTimer = setTimeout(function () { countEl.classList.remove("is-pop"); }, 420);
-          }
+          render(n, !!(d && d.you));
         })
         .catch(function () {
           fails++;
           if (fails >= 2) pill.hidden = true;
         });
     }
-    ping();
-    /* ~4s keeps it feeling live (matches the server's prune cadence) while
-       staying light for the cloudflare tunnel. */
-    setInterval(ping, 4000);
-    /* Wake up immediately when the tab comes back, don't wait for the tick. */
+    function start() {
+      if (pingTimer) return;
+      ping();
+      pingTimer = setInterval(ping, HEARTBEAT_MS);
+    }
+    function stop() {
+      if (pingTimer) { clearInterval(pingTimer); pingTimer = null; }
+    }
+    /* Heartbeats pause in hidden tabs: an hour-old background tab must not
+       keep counting itself as a viewer. A short grace beat still fires on
+       hide so the server's sliding TTL holds until the next wake. */
     document.addEventListener("visibilitychange", function () {
-      if (document.visibilityState === "visible") ping();
+      if (document.visibilityState === "visible") start();
+      else ping();
     });
-    window.addEventListener("online", ping);
+    window.addEventListener("online", start);
+    /* The goodbye is best-effort: sendBeacon survives the tab tearing down,
+       and a pagehide fallback covers browsers where beacon is unavailable. */
+    function bye() {
+      try {
+        var u = pingUrlFor("&bye=1");
+        if (navigator.sendBeacon) {
+          navigator.sendBeacon(u);
+        } else {
+          fetch(u, { keepalive: true });
+        }
+      } catch (e) { /* nothing else to try during teardown */ }
+    }
+    window.addEventListener("pagehide", bye);
+    start();
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", bootViewer);
   else bootViewer();

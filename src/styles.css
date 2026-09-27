@@ -14917,3 +14917,9 @@ html.ads-blocked .ad-slot-label { opacity: 0.6; }
     display: none;
   }
 }
+
+/*[data-mirror-hide] Elements flagged with this never render on static mirror
+  hosts (surge.sh, GitHub Pages, jsDelivr): the runtime sets it at boot when
+  ChalkleApi.isMirror() is true, because whatever it gates has no data there
+  (the viewer pill counts sessions on the relay, which mirrors cannot reach). */
+html[data-mirror] [data-mirror-hide] { display: none !important; }

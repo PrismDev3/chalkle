@@ -5578,6 +5578,12 @@
   function bootViewer() {
     var pill = document.getElementById("viewer-pill");
     if (!pill) return;
+    /* Mirrors have no /_active endpoint (surge.sh, GitHub Pages, jsDelivr):
+       pinging it there just piles up console 404s. The pill only ever shows
+       live-relay data on the real site, so mirror hosts never even start. */
+    try {
+      if (window.ChalkleApi && window.ChalkleApi.isMirror && window.ChalkleApi.isMirror()) return;
+    } catch (e) { /* fall through and ping same-origin */ }
     var countEl = document.getElementById("viewer-count");
     if (!countEl) return;
     var vid = "";
