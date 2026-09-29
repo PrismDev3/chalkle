@@ -61,6 +61,20 @@
     for (var i = 0; i < h.length; i++) n = (n * 31 + h.charCodeAt(i)) % 997;
     return FAV_COLORS[n % FAV_COLORS.length];
   }
+  /* A tab that shows only a colored letter reads unfinished next to real
+     browsers - the letter stays as the fallback, but the site's own icon
+     paints over it once one of the public favicon mirrors answers. All
+     sources are tried through onerror, and a total failure keeps the letter. */
+  function favUrls(u) {
+    var h = hostOf(u);
+    if (!h || !/\./.test(h)) return [];
+    var e = encodeURIComponent;
+    return [
+      "https://www.google.com/s2/favicons?domain=" + e(h) + "&sz=64",
+      "https://t3.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=" + e("https://" + h) + "&size=128",
+      "https://icons.duckduckgo.com/ip3/" + e(h) + ".ico"
+    ];
+  }
   function looksUrl(t) {
     if (/^(https?:|ftp:)\/\//i.test(t)) return true;
     if (/^[a-z0-9-]+(\.[a-z0-9-]+)+(:[0-9]+)?(\/.*)?$/i.test(t) && t.indexOf(" ") === -1) return true;
@@ -310,9 +324,25 @@
   function renderTabs() {
     var html = "";
     sessions.forEach(function (s) {
+      /* The favicon img sits on top of the letter tile; while it is invisible
+         (before load or after all sources fail) the letter shows through. */
+      var favs = favUrls(s.url || s.target || "");
+      var ladder = "";
+      if (favs.length) {
+        ladder =
+          ' style="opacity:0" data-fav-i="0"' +
+          ' onload="this.style.opacity=1;this.removeAttribute(\'onload\')"' +
+          ' onerror="var i=parseInt(this.getAttribute(\'data-fav-i\')||\'0\',10)+1;var hs=[' +
+          favs.map(function (u) { return "'" + String(u).replace(/'/g, "") + "'"; }).join(",") +
+          "];if(i>=hs.length){this.remove();return;}this.setAttribute(\'data-fav-i\',String(i));this.src=hs[i];";
+      }
       html += '<div class="browser-tab' + (s.id === activeId ? " is-active" : "") + (s.loading ? " is-loading" : "") +
         '" role="tab" tabindex="0" data-bz-tab="' + s.id + '">' +
-        '<span class="browser-tab-fav" style="background:' + s.color + '">' + esc(s.letter) + "</span>" +
+        '<span class="browser-tab-fav" style="background:' + s.color + '">' + esc(s.letter) +
+        (favs.length
+          ? '<img class="browser-tab-fav-img" alt="" loading="lazy" referrerpolicy="no-referrer" src="' + esc(favs[0]) + '"' + ladder + '>'
+          : "") +
+        "</span>" +
         '<span class="browser-tab-title">' + esc(s.title || "New tab") + "</span>" +
         '<button class="browser-tab-x" data-bz-close="' + s.id + '" type="button" aria-label="Close tab" title="Close (Ctrl+W)">' +
         '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>';

@@ -48,12 +48,32 @@ AI_VOCAB = [
     # game/anime plot copy, never real AI slop, so they are not vocab signals.
 ]
 
+def split_stops(args: str) -> list:
+    # Split on top-level commas only: commas inside rgba()/var()/calc()
+    # belong to one stop (e.g. var(--fill, 0%)), not to a new stop.
+    stops, depth, cur = [], 0, ""
+    for ch in args:
+        if ch == "(":
+            depth += 1
+        elif ch == ")":
+            depth = max(0, depth - 1)
+        if ch == "," and depth == 0:
+            stops.append(cur.strip())
+            cur = ""
+        else:
+            cur += ch
+    if cur.strip():
+        stops.append(cur.strip())
+    return stops
+
 def is_hard_stop(args: str) -> bool:
     # Functional patterns (not decorative fades):
     #   - grid/line textures: color 1px, transparent 1px (hard pixel stops)
     #   - scroll-edge masks: transparent 0px, #000 22px (functional reveal)
     #   - checkerboards: every stop positioned, neighbor positions repeat
-    stops = [s.strip() for s in args.split(",")]
+    #   - hard splits: two colors meeting at the same dynamic position
+    #     (e.g. a progress fill: accent var(--fill), track var(--fill))
+    stops = split_stops(args)
     if any(re.search(r"\dpx\b", s) for s in stops):
         return True  # px-positioned stops: line/mask geometry, not a color fade
     if len(stops) < 2:

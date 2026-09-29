@@ -689,12 +689,23 @@
      handles that, the initialism pass answers "gd" for Geometry Dash, and a
      bounded subsequence pass catches the rest without flooding the grid. */
 
+  /* Accents have to fold to their base letter, not vanish: the /[^a-z0-9]/
+     strip below used to delete "é", so "PokéClicker" folded to "pokclicker"
+     and no plain-ASCII query could ever reach it. */
+  function foldAccents(s) {
+    var text = String(s == null ? "" : s);
+    try { text = text.normalize("NFKD").replace(/[\u0300-\u036f]/g, ""); } catch (e) { /* old browser */ }
+    return text.replace(/\u00df/g, "ss")
+      .replace(/[\u00c6\u00e6]/g, "ae")
+      .replace(/\u0153/g, "oe");
+  }
+
   function matchFold(s) {
-    return String(s == null ? "" : s).toLowerCase().replace(/[^a-z0-9]+/g, "");
+    return foldAccents(s).toLowerCase().replace(/[^a-z0-9]+/g, "");
   }
 
   function initialism(s) {
-    var words = String(s == null ? "" : s).toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+    var words = foldAccents(s).toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
     if (words.length < 2 || words.length > 4) return "";
     var out = "";
     for (var i = 0; i < words.length; i++) out += words[i].charAt(0);
@@ -1154,7 +1165,7 @@
     if (btn) { btn.classList.remove("is-open"); btn.setAttribute("aria-expanded", "false"); }
   }
 
-  /* JS Movies: resolve the standalone page for the current deployment.
+  /* Chlakle Movies: resolve the standalone page for the current deployment.
      The full single-file build embeds it as a data URI under /movies.html
      (same trick as embedded games); everywhere else it is a real page. */
   function moviesPageUrl() {
@@ -1380,6 +1391,17 @@
     if (view === "sites" || view === "board") view = "home";
     state.view = view;
     persist("chalkle-last-view", view);
+    /* Deep link: keep the open tab in the URL as #games, #music, ... so a
+       refreshed page or a shared link lands on the same tab. replace() not
+       push(): one tab per history entry, Back still closes the page instead
+       of replaying every tab you visited. */
+    try {
+      var hashView = "#/" + view;
+      if (location.hash !== hashView) {
+        if (history.replaceState) history.replaceState(null, "", hashView);
+        else location.replace(location.pathname + location.search + hashView);
+      }
+    } catch (e) { /* file:// or sandboxed - the hash is cosmetic */ }
     closeMoreNav();
     /*
       YouTube no longer pauses the Music tab by default.
@@ -1493,29 +1515,32 @@
      that happens to contain a "w". Returns an object { hit, score } or null. */
   function scoreSearch(item, q) {
     if (!item) return null;
-    var title = String(item.title || item.name || "").toLowerCase();
-    var short = q.length === 1;
+    /* Both sides are accent-folded first, so "pokeclicker" reaches
+       "PokéClicker" on the exact/prefix passes and not just the lenient one. */
+    var title = foldAccents(item.title || item.name || "").toLowerCase();
+    var qf = foldAccents(q).toLowerCase();
+    var short = qf.length === 1;
 
-    if (title === q) return { score: 100, hit: true };
-    if (title.indexOf(q) === 0) return { score: 90, hit: true };
+    if (title === qf) return { score: 100, hit: true };
+    if (title.indexOf(qf) === 0) return { score: 90, hit: true };
 
     /* Word-boundary: query starts right after a non-letter, to catch the "W"
        in "While True", "World", "Twitch", "Stardew"… */
-    var qi = title.indexOf(q);
+    var qi = title.indexOf(qf);
     if (qi >= 0) {
       var gap = qi === 0 ? "" : title.charAt(qi - 1);
       if (qi === 0 || /[^a-z0-9]/.test(gap)) return { score: 80, hit: true };
     }
 
     /* For >=2 chars allow plain substring (still later than prefix/word-start). */
-    if (!short && title.indexOf(q) !== -1) return { score: 60, hit: true };
+    if (!short && title.indexOf(qf) !== -1) return { score: 60, hit: true };
 
     /* Punctuation-insensitive pass: query and title are folded to letters and
        digits, so "gta5" matches "GTA 5", "spiderman" matches "Spider-Man"
        and "fnaf2" matches "FNAF 2". Every score here sits under the literal
        ones above, so a real substring hit always leads the list. */
     if (!short) {
-      var foldQ = matchFold(q);
+      var foldQ = matchFold(qf);
       var foldTitle = matchFold(title);
       if (foldQ.length >= 2 && foldTitle) {
         if (foldTitle === foldQ) return { score: 58, hit: true };
@@ -1530,12 +1555,12 @@
        "puzzle"), PC-port marker, and the hostname of the url (typing a domain
        finds every game/site hosted there). */
     if (!short) {
-      var category = String(item.category || "").toLowerCase();
-      if (category.indexOf(q) !== -1) return { score: 45, hit: true };
-      if (item.porter && String(item.porter).toLowerCase().indexOf(q) !== -1) return { score: 40, hit: true };
+      var category = foldAccents(item.category || "").toLowerCase();
+      if (category.indexOf(qf) !== -1) return { score: 45, hit: true };
+      if (item.porter && foldAccents(item.porter).toLowerCase().indexOf(qf) !== -1) return { score: 40, hit: true };
       var host = "";
-      try { host = String(item.url || "").replace(/^https?:\/\//i, "").split("/")[0].toLowerCase(); } catch (e) {}
-      if (host && host.indexOf(q) !== -1) return { score: 35, hit: true };
+      try { host = foldAccents(String(item.url || "")).replace(/^https?:\/\//i, "").split("/")[0].toLowerCase(); } catch (e) {}
+      if (host && host.indexOf(qf) !== -1) return { score: 35, hit: true };
     }
 
     return null;
@@ -1813,13 +1838,29 @@
   /* Boot intro door: once the overlay is gone, kick rendering that was
      waiting for the page to be visible. */
 
+  /* Deep links: #/games opens straight on the Games tab. Read once at boot;
+     tab switches keep the hash in sync via replaceState instead of listening
+     to hashchange, so a pasted link is honored but Back never tab-hops. */
+  function viewFromHash() {
+    var raw = "";
+    try { raw = (location.hash || "").replace(/^#\/?/, "").trim(); } catch (e) { return ""; }
+    if (!raw || raw.indexOf("/") !== -1) return ""; /* keep other anchors usable */
+    return document.querySelector('.view[data-view="' + CSS.escape(raw.toLowerCase()) + '"]') ? raw.toLowerCase() : "";
+  }
+
   function bootReady() {
     /* The single render pass at boot: init() skips its render when this has
        already run (repeat visits skip the intro, so this fires at script
        eval) or will run once the intro finishes. */
     window.__chalkleRendered = true;
-    /* Come back to the last open tab instead of always landing on Home. */
+    /* A pasted deep link (#/cloud) wins over the remembered tab; plain #
+       and unknown tags fall through to it. */
     try {
+      var hashView = viewFromHash();
+      if (hashView) {
+        setView(hashView);
+        return;
+      }
       var lastView = localStorage.getItem("chalkle-last-view") || "";
       if (lastView && lastView !== "home" && document.querySelector('.view[data-view="' + CSS.escape(lastView) + '"]')) {
         setView(lastView);
@@ -1840,6 +1881,15 @@
   } else {
     window.addEventListener("chalkle-boot-done", bootReady, { once: true });
   }
+
+  /* Same-document deep links: opening #/cloud while the app is already open
+     is a hash change, not a reload - listen for it. Our own tab switches go
+     through replaceState, which fires no hashchange event, so this only ever
+     reacts to pasted links and manual URL edits, never to its own rendering. */
+  window.addEventListener("hashchange", function () {
+    var v = viewFromHash();
+    if (v && v !== state.view) setView(v);
+  });
 
   /* ---------- Generic rendering ---------- */
 
@@ -2376,7 +2426,7 @@
        initial render, titles below the cap are unfindable by scrolling. This
        narrows the grid live; Escape or the native clear button resets it. */
     if (state.view === "games" || state.view === "apps-tools") {
-      var fq = String(state.gridFilter || "").toLowerCase().trim();
+      var fq = foldAccents(state.gridFilter || "").toLowerCase().trim();
       if (fq) {
         /* Two passes: the literal one people expect, then a lenient one so
            "gta5" finds "GTA 5", "amongus" finds "Among Us" and "gd" finds
@@ -2384,9 +2434,9 @@
         var foldQ = matchFold(fq);
         var lenient = foldQ.length >= 2;
         items = items.filter(function (item) {
-          var title = String(item.title || item.name || "").toLowerCase();
+          var title = foldAccents(item.title || item.name || "").toLowerCase();
           if (title.indexOf(fq) !== -1) return true;
-          var cat = String(item.category || "").toLowerCase();
+          var cat = foldAccents(item.category || "").toLowerCase();
           if (cat.indexOf(fq) !== -1) return true;
           if (!lenient) return false;
           var foldTitle = matchFold(title);
@@ -2868,6 +2918,95 @@
     });
   }
 
+  /* ---------- Surprise me ----------
+     A launcher, not a sort: pick one game at random and open it. The draw is
+     weighted so unknown games lead (weekly shared plays + local clicks set the
+     weight, the unplayed default is 5, favorites get a small boost), and the
+     game drawn last is excluded once so two clicks can never repeat. The
+     active view filters narrow the pool when they make sense - favorites draws
+     from favorites, a genre chip draws from that genre - so "Surprise me" is
+     also the fix for a huge filtered list you cannot be bothered to scroll. */
+  function surpriseWeight(item) {
+    var key = gameKey(item);
+    var w = sharedTrend(key) * 2 + sharedPlays(key) + (state.clicks[key] || 0);
+    if (state.favs[key]) w += 4;
+    return w + 5;
+  }
+
+  function surprisePool() {
+    var list = (DATA.games || []).filter(Boolean);
+    if (state.gameFilter === "ports") list = list.filter(function (item) { return !!item.porter; });
+    else if (state.gameFilter === "favorites") list = list.filter(function (item) { return !!state.favs[gameKey(item)]; });
+    else if (state.gameFilter === "new") list = list.filter(function (item) { return !!item.isNew; });
+    else if (state.gameFilter === "recents") list = list.filter(function (item) { return isRecentGame(gameKey(item)); });
+    if (state.genreFilters && state.genreFilters.length) {
+      list = list.filter(function (item) {
+        for (var i = 0; i < state.genreFilters.length; i++) {
+          if (itemCategory(item) === state.genreFilters[i]) return true;
+        }
+        return false;
+      });
+    }
+    return list;
+  }
+
+  function pickSurprise() {
+    var pool = surprisePool().filter(function (item) {
+      return item.title && item.url && !isLocalFileUrl(item.url);
+    });
+    if (pool.length > 1) {
+      var minus = surprisePool().filter(function (item) {
+        return item.title && item.url && !isLocalFileUrl(item.url) &&
+          gameKey(item) !== state.lastSurprise;
+      });
+      if (minus.length) pool = minus;
+    }
+    if (!pool.length) return null;
+    var weights = pool.map(surpriseWeight);
+    var total = weights.reduce(function (sum, w) { return sum + w; }, 0);
+    var roll = Math.random() * total;
+    for (var i = 0; i < pool.length; i++) {
+      roll -= weights[i];
+      if (roll < 0) return pool[i];
+    }
+    return pool[pool.length - 1];
+  }
+
+  function surpriseMe() {
+    var item = pickSurprise();
+    if (!item) {
+      showToast("Nothing to pick from here yet.");
+      return;
+    }
+    state.lastSurprise = gameKey(item);
+    /* Test hook: surprise-e2e asserts the no-repeat rule through this key so
+       it never has to trust cosmetic title rendering. */
+    try { window.__lastSurpriseKey = state.lastSurprise; } catch (e) {}
+    setView("games");
+    var href = safeHref(item.url);
+    var rawTitle = String(item.title || "Surprise");
+    var htmlAttr = item.html ? ' data-html="' + escapeAttr(item.html) + '"' : "";
+    var directAttr = item.directOnly ? " data-direct-only=\"1\"" : "";
+    var a = document.createElement("a");
+    a.className = "game-launch";
+    a.href = href;
+    a.dataset.launch = "1";
+    a.dataset.url = href;
+    a.dataset.title = rawTitle;
+    if (item.html) a.dataset.html = item.html;
+    if (item.directOnly) a.dataset.directOnly = "1";
+    /* The synthetic anchor must live inside #main: the delegated launch
+       handler is bound there, and a click on an anchor outside it would fall
+       through to the browser default and navigate this very tab. (#main also
+       can't be confused with the sidebar nav button that shares the
+       data-view attribute.) */
+    var host = $("#main") || document.body;
+    a.style.display = "none";
+    host.appendChild(a);
+    a.click();
+    a.remove();
+  }
+
   function renderGameStats(visibleCount) {
     var all = (DATA.games || []).filter(Boolean);
     var ports = all.filter(function (item) { return !!item.porter; }).length;
@@ -3303,6 +3442,13 @@
     if (e.key === panicConfig().key) {
       e.preventDefault();
       panicEscape();
+    } else if (e.key === "s" || e.key === "S") {
+      /* Surprise me from anywhere, same guards as the panic key above.
+         else-if on purpose: a user whose panic key IS "s" must not both
+         escape and launch. Keys typed inside a game iframe never reach this
+         document, so in-game key handling is untouched. */
+      e.preventDefault();
+      surpriseMe();
     }
   });
 
@@ -3904,7 +4050,7 @@
       });
     });
 
-    /* JS Movies: "Open full screen" must resolve like the in-view frame
+    /* Chlakle Movies: "Open full screen" must resolve like the in-view frame
        (single-file builds embed movies.html, plain sites serve it). */
     var moviesTabLink = document.getElementById("movies-open-tab");
     if (moviesTabLink) {
@@ -4190,6 +4336,35 @@
           e.preventDefault();
           window.ChalklePlayer.toggle();
         }
+      }
+
+      /* Plain digits 1-9 jump to the visible sidebar tabs in order, and /
+         focuses search: one-keystroke navigation without modifier chords.
+         Same guards as the panic key: never while typing, never with
+         modifiers, and a digit never hijacks a shortcut another handler
+         wants. */
+      if (/^[1-9]$/.test(e.key)) {
+        var sideTabs = Array.prototype.slice.call(
+          document.querySelectorAll(".sidebar .nav-item[data-view]"),
+          0, 9
+        ).filter(function (b) { return b.offsetParent !== null; });
+        var jump = sideTabs[parseInt(e.key, 10) - 1];
+        if (jump && jump.dataset.view) {
+          e.preventDefault();
+          setView(jump.dataset.view);
+        }
+        return;
+      }
+      if (e.key === "/") {
+        e.preventDefault();
+        if (state.view === "music") {
+          var mq2 = document.getElementById("music-q");
+          if (mq2) mq2.focus();
+        } else if (els.search) {
+          els.search.focus();
+          els.search.select();
+        }
+        return;
       }
 
       if (e.altKey && !e.ctrlKey && !e.metaKey) {
@@ -5446,6 +5621,11 @@
       var optAdmin = $("#opt-admin");
       if (optAdmin) optAdmin.addEventListener("click", openAdmin);
 
+      /* Surprise me: one tap launches a random game (weighted toward what
+         this site plays and what this device has not tried yet). */
+      var surpriseBtn = $("#surprise-btn");
+      if (surpriseBtn) surpriseBtn.addEventListener("click", surpriseMe);
+
       /* Empty-state CTAs: give every dead end a way forward. */
       var gamesCta = $("#games-empty-cta");
       if (gamesCta) {
@@ -5562,13 +5742,28 @@
   }
 })();
 
-/* Live viewer pill: pings the same-origin /_active endpoint every few seconds
-   to keep this tab marked "online" and shows how many people are on right now.
+/* Live viewer pill: pings the same-origin /_active endpoint on a heartbeat
+   to keep this tab marked "online" and shows how many people are on right
+   now. Accuracy rules that make the number mean something:
+   - one stable id per browser profile (localStorage), so one visitor is one
+     session even across reloads;
+   - a sendBeacon goodbye on pagehide removes this visitor the moment the tab
+     closes instead of counting a ghost until the server TTL expires;
+   - heartbeats stop while the tab is hidden and resume on wake, so a parked
+     background tab does not keep itself "online" forever;
+   - "active": 1 with you:true means the only viewer is you, so the pill
+     stays hidden rather than showing a meaningless count.
    Isolated so a failure can never break the rest of the app. */
 (function () {
   function bootViewer() {
     var pill = document.getElementById("viewer-pill");
     if (!pill) return;
+    /* Mirrors have no /_active endpoint (surge.sh, GitHub Pages, jsDelivr):
+       pinging it there just piles up console 404s. The pill only ever shows
+       live-relay data on the real site, so mirror hosts never even start. */
+    try {
+      if (window.ChalkleApi && window.ChalkleApi.isMirror && window.ChalkleApi.isMirror()) return;
+    } catch (e) { /* fall through and ping same-origin */ }
     var countEl = document.getElementById("viewer-count");
     if (!countEl) return;
     var vid = "";
@@ -5579,49 +5774,83 @@
     }
     var fails = 0;
     var lastN = -1;
+    var lastYou = false;
     var flashTimer = null;
-    function ping() {
-      /* Background tabs skip the ping: saves battery/data on long-idle tabs,
-         and the server prunes after 20s anyway, so the count self-corrects
-         via the visibilitychange ping when the tab wakes up. */
-      if (document.visibilityState === "hidden") return;
+    var pingTimer = null;
+    /* One source of truth for the cadence: the pill's heartbeat must be
+       comfortably shorter than the server's sliding TTL (ACTIVE_TTL = 20s)
+       or live sessions expire between beats. */
+    var HEARTBEAT_MS = 8000;
+    function pingUrlFor(extra) {
       /* On mirrors (jsDelivr/GitHub Pages) /_active only exists on the relay
          - route the ping through ChalkleApi.mirrorPing to avoid a 400. */
-      var pingUrl = "/_active?s=" + encodeURIComponent(vid || "anon");
+      var u = "/_active?s=" + encodeURIComponent(vid) + (extra || "");
       try {
-        if (window.ChalkleApi && window.ChalkleApi.mirrorPing) pingUrl = window.ChalkleApi.mirrorPing(pingUrl);
+        if (window.ChalkleApi && window.ChalkleApi.mirrorPing) u = window.ChalkleApi.mirrorPing(u);
       } catch (e) { /* keep same-origin */ }
-      fetch(pingUrl, { cache: "no-store" })
+      return u;
+    }
+    function render(n, you) {
+      fails = 0;
+      /* Hide the pill while the only person online is you. */
+      var show = n > 0 && !(you && n === 1);
+      pill.hidden = !show;
+      if (n !== lastN || !!you !== lastYou) {
+        lastN = n;
+        lastYou = !!you;
+        if (show) {
+          countEl.textContent = String(n);
+          /* Small pop on every change so movement is visible in real time. */
+          countEl.classList.remove("is-pop");
+          void countEl.offsetWidth; /* restart the animation */
+          countEl.classList.add("is-pop");
+          clearTimeout(flashTimer);
+          flashTimer = setTimeout(function () { countEl.classList.remove("is-pop"); }, 420);
+        }
+      }
+    }
+    function ping() {
+      fetch(pingUrlFor(), { cache: "no-store", keepalive: true })
         .then(function (r) { return r.json(); })
         .then(function (d) {
           var n = (d && typeof d.active === "number") ? d.active : 0;
-          fails = 0;
-          pill.hidden = false;
-          if (n !== lastN) {
-            lastN = n;
-            countEl.textContent = String(n);
-            /* Small pop on every change so movement is visible in real time. */
-            countEl.classList.remove("is-pop");
-            void countEl.offsetWidth; /* restart the animation */
-            countEl.classList.add("is-pop");
-            clearTimeout(flashTimer);
-            flashTimer = setTimeout(function () { countEl.classList.remove("is-pop"); }, 420);
-          }
+          render(n, !!(d && d.you));
         })
         .catch(function () {
           fails++;
           if (fails >= 2) pill.hidden = true;
         });
     }
-    ping();
-    /* ~4s keeps it feeling live (matches the server's prune cadence) while
-       staying light for the cloudflare tunnel. */
-    setInterval(ping, 4000);
-    /* Wake up immediately when the tab comes back, don't wait for the tick. */
+    function start() {
+      if (pingTimer) return;
+      ping();
+      pingTimer = setInterval(ping, HEARTBEAT_MS);
+    }
+    function stop() {
+      if (pingTimer) { clearInterval(pingTimer); pingTimer = null; }
+    }
+    /* Heartbeats pause in hidden tabs: an hour-old background tab must not
+       keep counting itself as a viewer. A short grace beat still fires on
+       hide so the server's sliding TTL holds until the next wake. */
     document.addEventListener("visibilitychange", function () {
-      if (document.visibilityState === "visible") ping();
+      if (document.visibilityState === "visible") start();
+      else ping();
     });
-    window.addEventListener("online", ping);
+    window.addEventListener("online", start);
+    /* The goodbye is best-effort: sendBeacon survives the tab tearing down,
+       and a pagehide fallback covers browsers where beacon is unavailable. */
+    function bye() {
+      try {
+        var u = pingUrlFor("&bye=1");
+        if (navigator.sendBeacon) {
+          navigator.sendBeacon(u);
+        } else {
+          fetch(u, { keepalive: true });
+        }
+      } catch (e) { /* nothing else to try during teardown */ }
+    }
+    window.addEventListener("pagehide", bye);
+    start();
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", bootViewer);
   else bootViewer();

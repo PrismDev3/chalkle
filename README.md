@@ -24,6 +24,15 @@ content.
 - Board / Partners / Docs with in-app admin editing (code-gated)
 - Search everywhere (Ctrl/Cmd+K), genre/category chips, sort, favorites,
   recents, Editor's Picks, "New this week" ribbons
+- Surprise me: one button rolls a weighted-random draw over the game
+  library and launches it through the normal player flow. This week's
+  shared plays, all-time plays, local clicks and favorites set the
+  weight (unplayed games default to 5), so the draw leans toward games
+  the site plays and away from one you just had; the last-drawn game
+  can never come up twice in a row, and the active filters narrow the
+  pool, so it doubles as a "pick from my favorites" dice roll. Keyboard:
+  plain `S` (no modifiers, never while typing in a field) rolls from any
+  view - and yields to the panic key if you set that to `s`
 - Shared launch counts: every game shows how many times it has been played,
   and "Most played" / "Trending this week" / the Home shelf rank on those
   totals (local clicks stay the fallback when the relay is unreachable)
@@ -94,16 +103,43 @@ returns Cloudflare 1033, the origin or the tunnel died: check
   week, key sanitizing, the store's self-trimming and malformed-file recovery
 - `python tools/state-post-test.py` - the same-origin guard on state-changing
   POSTs (same host and mirrors allowed, cross-site refused)
+- `python tools/cloud-art-test.py` - the Cloud Gaming tab's box-art
+  resolver (`/api/cloud-art/lookup`): titles whose supplied art is dead get
+  a real cover via SteamGridDB, then IGDB, then Steam's store-search appid
+  CDN, with every answer cached server-side (30 days for hits, 24 hours
+  before a miss retries), failures logged to server/art-cache/failed.log
+  for manual patching, and a shimmering skeleton on the tile while the
+  lookup runs instead of a blank letter placeholder. Keyless by default:
+  dropping a SteamGridDB key into server/sgdb_key.txt (and an IGDB
+  client-id/secret pair into server/igdb_key.txt) upgrades the pipeline
+- `python tools/ai-relay-test.py` - the AI tab's /api/ai/chat relay: the
+  API key actually reaches the upstream request (a missing `import io` once
+  made the loader fail silently, so every chat shipped without the key and
+  died as an opaque 502), a missing key fails fast with a clear 503 instead
+  of a doomed upstream round trip, and the guard never hijacks requests
+  that do carry a key
 - `python tools/server-path-test.py` - the static handler's deny list: secrets
   and build artifacts stay refused, Unity `Build/` payloads stay served
 - `python tools/tmdb-token-test.py` - the Movies proxy's refused-token memo: a
   route the keyless fallback covers is answered without the doomed upstream
   call once that exact header has been refused, a caller's own key is still
-  tried, and the header `movies.html` ships still matches the server's
+  tried, and Chlakle Movies ships no key of its own (it reads through
+  `/api/tmdb`) with `deploy-static/movies.html` byte-identical to the source
+- `node scripts/build-movies.mjs` - syncs `movies.html` into `deploy-static/`
+  and pins the contract the tab depends on: nothing external to load (the page
+  inlines its CSS and app so it also works as the single-file build's data-URI
+  embed), no TMDB key in the HTML, both inline script blocks parse, and the
+  embeds go through the relay's `/res/` proxy
 - `node tools/playtime-test.js` - playtime timing: it accrues only while the
   tab is visible, banks a sitting when you switch games, keeps one session
   across a reopen, drops sub-second deltas, never exceeds the four-hour
   segment cap, survives a corrupt store and prunes itself past 500 keys
+- `node tools/surprise-test.js` - the Surprise me launcher: the weights
+  add up (trend x2 + plays + clicks + favorite boost + 5 default), the
+  last-drawn game is excluded from the next draw, the pool follows the
+  active filters, local-file entries are never pickable, a pool of one
+  or none cannot crash, a heavily played game dominates the draw, and
+  the synthetic launch goes through the real click flow
 - `python tools/clicker-test.py` - the auto clicker panel: the matcher arms
   every catalog game whose title or URL says clicker (and nothing else), and
   the shipped player still wires CPS presets, mouse and spacebar beats, the
@@ -112,8 +148,26 @@ returns Cloudflare 1033, the origin or the tunnel died: check
   ceiling, left/middle/right buttons carrying real `button` numbers and
   `buttons` bitmasks, and the duty cycle that holds the button down for a
   share of each beat on both mouse and spacebar
+- `node tools/baggame-shell-test.js` - web-port shells that exist because a
+  GitHub mirror serves `.html` as `text/plain`: the Bag Game card launches the
+  vendored `/ugs/clbagame.html` (never the CDN document again), that shell
+  keeps the `<base href>` its jsDelivr assets resolve against, still assembles
+  the split wasm and boots the engine, and `/ugs/` stays relay-only so a mirror
+  cannot serve its own text/plain copy
 - `node scripts/build-single-chalkle.mjs` (+ `--cdn`) - regenerate the two
   single-file builds after any source change
+- `node scripts/surprise-e2e.mjs` - boots the real app in headless Chrome,
+  clicks Surprise me, and proves a game actually opened in the dedicated
+  player, that the second draw is a different game (asserted through the
+  `__lastSurpriseKey` hook, never cosmetic titles), and that the run stays
+  clean of first-party console errors. Draws that resolve to an unresolvable
+  external portal inside a sandboxed network SKIP instead of failing; a
+  local draw that fails to open still fails the run
+- GitHub Actions (`.github/workflows/ci.yml`) runs the whole gate chain -
+  syntax, audits, the unit suites, the SW policy pin, the mirror-parity
+  check between `src/`/`index.html`/`sw.js` and `deploy-static/`, plus both
+  headless-Chrome harnesses - on every push and PR to `main`, so a broken
+  push is caught before the deploy workflows can publish it
 - Bump the `?v=` cache version in `index.html` (and rebuild) every release
 
 ## Yut's upload site (yut.lootline.xyz)

@@ -167,34 +167,157 @@ async function createAccount() {
   return acc;
 }
 
-async function createAccountRaw() {
-  const domainData = await (
-    await fetchWithTimeout("https://api.mail.tm/domains")
-  ).json();
-  if (!domainData["hydra:member"]?.length)
-    throw new Error("No Mail.tm domains available");
-  const domain = domainData["hydra:member"][0].domain;
+/* Throwaway mailbox providers. mail.tm is primary; when its backend times
+   out or rate-limits (HTTP 502/504 bursts take it down for minutes at a
+   stretch), the same flow reruns against Guerrilla Mail so a game start
+   never dies on one provider. Both feed the same shape:
+   { email, waitForCode }. */
+const MAIL_PROVIDERS = [
+  {
+    id: "mail.tm",
+    async create() {
+      const domainData = await (
+        await fetchWithTimeout("https://api.mail.tm/domains", {}, 12000)
+      ).json();
+      if (!domainData["hydra:member"]?.length)
+        throw new Error("No Mail.tm domains available");
+      const domain = domainData["hydra:member"][0].domain;
+      const email = `rcn_${Math.random().toString(36).substring(2, 11)}@${domain}`;
+      const password = generatePassword();
+      const regRes = await fetchWithTimeout(
+        "https://api.mail.tm/accounts",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ address: email, password }),
+        },
+        15000,
+      );
+      if (!regRes.ok)
+        throw new Error(`Mail.tm register HTTP ${regRes.status}`);
+      const tokenRes = await fetchWithTimeout(
+        "https://api.mail.tm/token",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ address: email, password }),
+        },
+        15000,
+      );
+      if (!tokenRes.ok)
+        throw new Error(`Mail.tm token HTTP ${tokenRes.status}`);
+      const { token: jwt } = await tokenRes.json();
+      return { email, waitForCode: () => getVerificationCode(jwt) };
+    },
+  },
+  {
+    id: "tempmail.lol",
+    async create() {
+      /* No signup, no key: one POST makes an inbox, the token polls it.
+         Domains rotate (imagesthere.com and friends) and Raccoon's temp-mail
+         filter does not list them, unlike mail.tm's uberip.com. */
+      const res = await fetchWithTimeout(
+        "https://api.tempmail.lol/v2/inbox/create",
+        { method: "POST", headers: { "User-Agent": "Mozilla/5.0" } },
+        15000,
+      );
+      if (!res.ok) throw new Error(`tempmail.lol create HTTP ${res.status}`);
+      const inbox = await res.json();
+      if (!inbox?.address || !inbox?.token)
+        throw new Error("tempmail.lol missing fields");
+      return {
+        email: inbox.address,
+        waitForCode: () => getVerificationCodeTempmailLol(inbox.token),
+      };
+    },
+  },
+  {
+    id: "guerrilla",
+    async create() {
+      /* One shared session per process: get_email_address hands out a fresh
+         inbox each call, but checking messages for a SPECIFIC address needs
+         that address's own sid_token, so create() and the code poller below
+         must reuse the same session. */
+      const res = await fetchWithTimeout(
+        "https://api.guerrillamail.com/ajax.php?f=get_email_address&lang=en",
+        { headers: { "User-Agent": "Mozilla/5.0" } },
+        12000,
+      );
+      if (!res.ok) throw new Error(`Guerrilla session HTTP ${res.status}`);
+      const sess = await res.json();
+      if (!sess?.email_addr || !sess?.sid_token)
+        throw new Error("Guerrilla session missing fields");
+      return {
+        email: sess.email_addr,
+        waitForCode: () => getVerificationCodeGuerrilla(sess.sid_token),
+      };
+    },
+  },
+];
 
-  const mailUser = `rcn_${Math.random().toString(36).substring(2, 11)}`;
-  const email = `${mailUser}@${domain}`;
-  const mailPassword = generatePassword();
+let preferredMailProvider = 0;
+
+/* Cooldowns: a 429 or a deterministic address rejection means retrying that
+   provider right now is pure waste - it burns 15s per attempt and starves
+   the provider that actually works. */
+const providerCooldown = new Map();
+function providerCool(id) {
+  return Date.now() < (providerCooldown.get(id) || 0);
+}
+function coolProvider(id, ms) {
+  providerCooldown.set(id, Date.now() + ms);
+}
+
+/* One account creation at a time. Parallel game starts used to fire the
+   same inbox endpoints at once, and tempmail.lol answers a burst with 429s
+   that killed every flow in the batch. A shared queue makes later sessions
+   wait a few seconds instead of failing. */
+let accountQueue = Promise.resolve();
+
+function createAccountRaw() {
+  const run = accountQueue.catch(() => {}).then(() => createAccountNow());
+  accountQueue = run.catch(() => {});
+  return run;
+}
+
+/* The WHOLE per-provider flow: mailbox + sendEmail + code wait + register +
+   login. The old shape fell back only when the mailbox step failed, so a
+   dead code-delivery path still killed the game start; now a provider only
+   stays preferred when it delivers end to end. */
+async function createAccountNow() {
+  const order = [];
+  for (let i = 0; i < MAIL_PROVIDERS.length; i++)
+    order.push((preferredMailProvider + i) % MAIL_PROVIDERS.length);
+  /* Providers still cooling down are only tried when nothing else is left:
+     their failure is exactly what the cooldown predicts. */
+  const fresh = order.filter((i) => !providerCool(MAIL_PROVIDERS[i].id));
+  const cold = order.filter((i) => providerCool(MAIL_PROVIDERS[i].id));
+  let lastErr;
+  for (const idx of fresh.length ? fresh : cold) {
+    const p = MAIL_PROVIDERS[idx];
+    try {
+      const acc = await createAccountVia(p);
+      /* A provider that delivered the full flow gets tried first next time. */
+      preferredMailProvider = idx;
+      return acc;
+    } catch (e) {
+      lastErr = e;
+      logSys(
+        chalk.yellow(`mailbox: ${p.id} failed (${e.message}) - trying next provider`),
+      );
+      if (/HTTP 429/.test(e.message)) coolProvider(p.id, 60000);
+      else if (/refused/i.test(e.message)) coolProvider(p.id, 600000);
+      else if (/Timeout/.test(e.message)) coolProvider(p.id, 90000);
+    }
+  }
+  throw lastErr || new Error("No mail provider available");
+}
+
+async function createAccountVia(provider) {
+  const box = await provider.create();
+  const email = box.email;
   const raccoonPassword = generatePassword();
   const sn = generateSN();
-
-  const regRes = await fetchWithTimeout("https://api.mail.tm/accounts", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ address: email, password: mailPassword }),
-  });
-  if (!regRes.ok) throw new Error("Failed to register Mail.tm mailbox");
-
-  const tokenRes = await fetchWithTimeout("https://api.mail.tm/token", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ address: email, password: mailPassword }),
-  });
-  if (!tokenRes.ok) throw new Error("Failed to get Mail.tm token");
-  const { token: mailJwt } = await tokenRes.json();
 
   const h = {
     "Content-Type": "application/x-www-form-urlencoded",
@@ -214,9 +337,22 @@ async function createAccountRaw() {
     method: "POST",
     headers: h,
     body: new URLSearchParams({ email, type: "register", ...base }),
+  }).then(async (r) => {
+    /* Raccoon answers 200 even when it refuses the address (its JSON carries
+       status 400, e.g. "Temporary email addresses are not supported"). The
+       old code never looked, then burned 90s waiting for a mail that could
+       never arrive. Fail here so the provider loop moves on immediately. */
+    try {
+      const data = await r.json();
+      if (data.status !== 200)
+        throw new Error(`sendEmail refused: ${data.msg || data.status}`);
+    } catch (e) {
+      if (e.message.indexOf("sendEmail refused") === 0) throw e;
+      /* non-JSON body: leave it to the code poll to decide */
+    }
   });
 
-  const code = await getVerificationCode(mailJwt);
+  const code = await box.waitForCode();
 
   await raccoonFetch("/users/emailRegister", {
     method: "POST",
@@ -247,6 +383,61 @@ async function createAccountRaw() {
   }
 
   return { sn, token: userToken };
+}
+
+async function getVerificationCodeTempmailLol(token, maxRetries = 20) {
+  for (let i = 0; i < maxRetries; i++) {
+    await new Promise((r) => setTimeout(r, 4000));
+    try {
+      const res = await fetchWithTimeout(
+        `https://api.tempmail.lol/v2/inbox?token=${encodeURIComponent(token)}`,
+        { headers: { "User-Agent": "Mozilla/5.0" } },
+        12000,
+      );
+      const data = await res.json();
+      for (const mail of data?.emails || []) {
+        const match = (mail.body || mail.html || "")
+          .replace(/<[^>]*>/g, " ")
+          .match(/\b\d{6}\b/);
+        if (match) return match[0];
+      }
+    } catch {}
+  }
+  throw new Error("Timeout getting verification code (tempmail.lol)");
+}
+
+async function getVerificationCodeGuerrilla(sidToken, maxRetries = 30) {
+  const headers = { "User-Agent": "Mozilla/5.0" };
+  for (let i = 0; i < maxRetries; i++) {
+    await new Promise((r) => setTimeout(r, 3000));
+    try {
+      const list = await (
+        await fetchWithTimeout(
+          `https://api.guerrillamail.com/ajax.php?f=get_email_list&offset=0&sid_token=${encodeURIComponent(sidToken)}`,
+          { headers },
+          12000,
+        )
+      ).json();
+      const mails = list?.list || [];
+      /* Newest first; the first message carrying a 6-digit code wins. No
+         sender filter: the verification mail's From address is whatever the
+         game backend sends with, and the welcome mail has no code to mistype. */
+      for (const m of mails) {
+        const full = await (
+          await fetchWithTimeout(
+            `https://api.guerrillamail.com/ajax.php?f=fetch_email&email_id=${m.mail_id}&sid_token=${encodeURIComponent(sidToken)}`,
+            { headers },
+            12000,
+          )
+        ).json();
+        const match = (full.mail_body || "")
+          .replace(/<[^>]*>/g, " ")
+          .match(/\b\d{6}\b/);
+        if (match) return match[0];
+      }
+    } catch {}
+  }
+  throw new Error("Timeout getting verification code (Guerrilla)");
 }
 
 function gameHeaders(token) {

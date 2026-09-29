@@ -9,6 +9,10 @@ fallback then rebuilt the same JSON. That made each read pay two upstream
 calls, one of them always doomed. The proxy now remembers the header the
 upstream refused and answers from the fallback directly afterwards.
 
+Chlakle Movies no longer ships a key at all: it reads through the relay's
+/api/tmdb route, so the same memo protects every viewer's calls and a revoked
+token is never embedded in a cached public page.
+
 The rule that keeps this safe is pinned here: only the exact header value the
 upstream rejected is remembered. A caller's own pasted key is a different
 string, so it is still tried, and a case-different or differently prefixed
@@ -106,19 +110,30 @@ def main():
     # Sticky: the memo only grows, so a later read cannot re-arm the wasted call.
     expect(dead(default_header), "a remembered header stopped being remembered")
 
-    # The app's own header has to be the very string the server remembers,
-    # otherwise the client's calls never take the skip path.
+    # The page must NOT ship a key any more. Chlakle Movies reads the
+    # catalogue through the relay's same-origin /api/tmdb route, so the server
+    # alone decides which bearer is used and a refused token can never be
+    # handed out in public HTML (it used to be, which is how a dead key stayed
+    # embedded in a cached page long after the relay had moved on).
     for path in (MOVIES, MIRROR_MOVIES):
         expect(path.is_file(), "%s is missing" % path.name)
         if not path.is_file():
             continue
         text = path.read_text(encoding="utf-8", errors="replace")
-        m = re.search(r"^const TMDB_AUTH = '([^']*)';", text, re.M)
-        expect(bool(m), "%s no longer defines TMDB_AUTH" % path.name)
-        if m:
-            expect(m.group(1) == default_header,
-                   "%s ships a TMDB_AUTH that differs from the server token, so "
-                   "its calls are still tried upstream" % path.name)
+        expect(not re.search(r"const TMDB_AUTH\s*=", text),
+               "%s still ships a hardcoded TMDB_AUTH" % path.name)
+        expect("eyJhbGciOi" not in text,
+               "%s still carries a bearer token in public HTML" % path.name)
+        expect("/api/tmdb/" in text,
+               "%s never calls the server's /api/tmdb route" % path.name)
+        expect("/res/" in text,
+               "%s does not route its embeds through the relay" % path.name)
+
+    # The published mirror has to be the same page, byte for byte, or the
+    # deploy serves a stale Movies tab.
+    if MOVIES.is_file() and MIRROR_MOVIES.is_file():
+        expect(MOVIES.read_bytes() == MIRROR_MOVIES.read_bytes(),
+               "deploy-static/movies.html has drifted from movies.html")
 
     # Wiring: the proxy consults the memo before it builds the upstream call,
     # and only a 401 or 403 adds to it.

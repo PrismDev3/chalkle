@@ -183,6 +183,74 @@
     return appid ? "https://cdn.cloudflare.steamstatic.com/steam/apps/" + appid + "/header.jpg" : "";
   }
 
+  /* ---------------- resolved box art (server-side pipeline) ----------------
+     Titles with no working supplied art resolve through /api/cloud-art/lookup,
+     which tries SteamGridDB -> IGDB -> Steam's own appid CDN and caches every
+     answer server-side. The browser work is deliberately tiny: one lookup per
+     missing tile, results remembered in localStorage so a reload of the whole
+     catalog never re-asks. */
+  var ART_MEM = readJson("chalkle-cloud-art-v1", {});   /* key -> url | "" (known missing) */
+  var ART_INFLIGHT = {};
+
+  function saveArtMem() {
+    try { localStorage.setItem("chalkle-cloud-art-v1", JSON.stringify(ART_MEM)); } catch (e) { /* no storage */ }
+  }
+
+  function artLookup(title, imgEl) {
+    var key = cloudArtKey(title);
+    if (!key) return;
+    if (Object.prototype.hasOwnProperty.call(ART_MEM, key)) {
+      applyArt(imgEl, ART_MEM[key]);
+      return;
+    }
+    if (ART_INFLIGHT[key]) {
+      ART_INFLIGHT[key].push(imgEl);
+      return;
+    }
+    ART_INFLIGHT[key] = [imgEl];
+    fetch(apiUrl("/api/cloud-art/lookup?title=" + encodeURIComponent(title)), { cache: "default" })
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        var url = (j && j.ok && j.url) || "";
+        ART_MEM[key] = url;          /* "" = known missing, do not re-ask */
+        saveArtMem();
+        var waiters = ART_INFLIGHT[key] || [];
+        delete ART_INFLIGHT[key];
+        waiters.forEach(function (el) { if (el && el.isConnected) applyArt(el, url); });
+      })
+      .catch(function () {
+        delete ART_INFLIGHT[key];    /* transient network issue: next render asks again */
+      });
+  }
+
+  function applyArt(imgEl, url) {
+    if (!imgEl || !imgEl.parentNode) return;
+    var tile = imgEl.parentNode;
+    if (!url) {
+      imgEl.classList.remove("thumb-loading");
+      tile.classList.remove("thumb-resolving");
+      return;                        /* keep the letter fallback visible */
+    }
+    imgEl.onload = function () {
+      imgEl.classList.remove("thumb-loading");
+      tile.classList.remove("thumb-resolving");
+    };
+    imgEl.onerror = function () {
+      imgEl.classList.remove("thumb-loading");
+      tile.classList.remove("thumb-resolving");
+      imgEl.remove();
+    };
+    imgEl.src = url;
+  }
+
+  function watchLazyArt(root) {
+    if (!root) return;
+    var targets = root.querySelectorAll(".thumb-art[data-art-title]");
+    targets.forEach(function (img) {
+      artLookup(img.dataset.artTitle, img);
+    });
+  }
+
   function thumbHtml(g) {
     var mapped = realCloudArt(g);
     var supplied = g.img || g.cover || "";
@@ -192,9 +260,15 @@
       return '<img class="thumb-art" src="' + esc(src) + '" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer"' + (backup ? ' data-thumb-backup="' + esc(backup) + '"' : '') + ' onerror="if(this.dataset.thumbBackup&&this.src!==this.dataset.thumbBackup){this.src=this.dataset.thumbBackup;this.removeAttribute(\'data-thumb-backup\');}else{this.remove();}">' +
         '<span class="thumb-letter">' + esc((g.title || "?").charAt(0).toUpperCase()) + "</span>";
     }
+    /* No supplied art: render the deterministic letter tile PLUS a skeleton
+       that shimmers while the server resolves a real cover. The <img> stays
+       hidden (thumb-loading) until the resolved URL actually decodes; a
+       "known missing" answer just fades the skeleton away. */
     var pal = tilePalette(g.key);
     return '<span class="thumb-letter cloud-tile" style="background:' + pal[0] + '">' +
-      esc((g.title || "?").charAt(0).toUpperCase()) + "</span>";
+      esc((g.title || "?").charAt(0).toUpperCase()) + "</span>" +
+      '<span class="thumb-skeleton" aria-hidden="true"></span>' +
+      '<img class="thumb-art thumb-loading" data-art-title="' + esc(g.title || "") + '" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">';
   }
 
   function cloudCard(g) {
@@ -283,6 +357,7 @@
     }
     empty.hidden = true;
     grid.innerHTML = items.map(cloudCard).join("");
+    watchLazyArt(grid);
     setStatus("server check", "busy");
     checkServer();
   }

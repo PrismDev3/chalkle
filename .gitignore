@@ -27,6 +27,9 @@ Thumbs.db
 # runtime data / local relay config (never needed by the site itself)
 ai_convos.json
 cloud-relay.json
+server/sgdb_key.txt
+server/igdb_key.txt
+server/art-cache/
 music-relay.json
 # dev tooling / preview session artifacts
 .freebuff/

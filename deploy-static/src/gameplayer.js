@@ -728,6 +728,83 @@
     } catch (e) { /* cross-origin frame: parent-side key still works there */ }
   }
 
+  /* ---------- Frame fit ----------
+     GameMaker HTML5 ports draw to a fixed-size canvas (Undertale is
+     640x480) and the index.html they ship only scales that canvas inside a
+     :-webkit-full-screen pseudo-class no engine accepts, so in the player
+     the game sat as a small stamp in the middle of the stage however wide
+     the frame was. Fit the canvas to the frame here instead: size the
+     ELEMENT to the largest native-aspect rectangle that fits, centered, and
+     redo it whenever the frame resizes (player fullscreen included).
+
+     Why size the element rather than stretch it with object-fit: the runner
+     derives its mouse mapping from canvas.clientWidth / canvas.width, so a
+     letterboxed element would put every click out of step with the picture.
+     An element box that is exactly the scaled bitmap keeps clicks accurate.
+     Only GameMaker documents are touched - engines that already manage their
+     own responsive scaling (Phaser, Unity, plain full-bleed games) are left
+     exactly as they are. */
+  var FIT_STYLE_ID = "chalkle-fit-style";
+
+  function isGameMakerDoc(doc) {
+    try {
+      return !!(doc && doc.querySelector &&
+        doc.querySelector("canvas#canvas") &&
+        doc.querySelector("div.gm4html5_div_class"));
+    } catch (e) { return false; }
+  }
+
+  function fitFrameCanvas() {
+    var w = frameWindow();
+    var doc = frameDoc();
+    if (!w || !doc || !doc.body || !isGameMakerDoc(doc)) return false;
+    var canvas = null;
+    try { canvas = doc.querySelector("canvas#canvas"); } catch (e) { return false; }
+    if (!canvas) return false;
+    /* Centering: the runner's wrapper div is the body's only child, and a
+       flex body shrinks it to the canvas it holds. */
+    if (!doc.getElementById(FIT_STYLE_ID)) {
+      var style = doc.createElement("style");
+      style.id = FIT_STYLE_ID;
+      style.textContent =
+        "html,body{width:100%;height:100%;margin:0;padding:0;overflow:hidden;background:#0a0908}" +
+        "body{display:flex;align-items:center;justify-content:center}";
+      (doc.head || doc.documentElement).appendChild(style);
+    }
+    /* Native size comes from the canvas attributes, never from the style we
+       set: the game keeps those as its own surface size (GM rewrites them for
+       its own fullscreen, which this re-fits on the next resize anyway). */
+    var nw = Number(canvas.width) || 0;
+    var nh = Number(canvas.height) || 0;
+    var vw = doc.documentElement.clientWidth || w.innerWidth || 0;
+    var vh = doc.documentElement.clientHeight || w.innerHeight || 0;
+    if (!nw || !nh || !vw || !vh) return false;
+    var scale = Math.min(vw / nw, vh / nh);
+    if (!isFinite(scale) || scale <= 0) return false;
+    canvas.style.display = "block";
+    canvas.style.width = Math.max(1, Math.round(nw * scale)) + "px";
+    canvas.style.height = Math.max(1, Math.round(nh * scale)) + "px";
+    return true;
+  }
+
+  function guardFrameFit() {
+    var w = frameWindow();
+    if (!w) return;
+    try {
+      if (!w.__chalkleFitHooked) {
+        w.addEventListener("resize", function () { fitFrameCanvas(); });
+        w.__chalkleFitHooked = true;
+      }
+    } catch (e) { return; }
+    if (!fitFrameCanvas()) return;
+    /* GameMaker_Init can size the canvas just after the frame's load event
+       (assets and saves first, and this build's runner is 16 MB of JS), so
+       two cheap follow-up passes re-fit it. Both are no-ops once the frame
+       navigates away: frameDoc() returns null. */
+    setTimeout(fitFrameCanvas, 400);
+    setTimeout(fitFrameCanvas, 1500);
+  }
+
   /* ---------- UI ---------- */
 
   function syncFav() {
@@ -753,10 +830,7 @@
       progressEl.style.opacity = "1";
       requestAnimationFrame(function () { if (progressEl) progressEl.style.width = "72%"; });
     }
-    if (loadTimer) clearTimeout(loadTimer);
-    loadTimer = setTimeout(function () {
-      if (!player.hidden && current && !current.failed) fail("timeout");
-    }, 15000);
+    startTimeout();
   }
 
   /* ---------- Launch splash (cover-art wall behind the load panel) ---------- */
@@ -813,9 +887,101 @@
     }
   }
 
+  /* ---------- Two ways in, and one is usually open ----------
+     Every game has a same-origin relay address (the launcher's default, which
+     is what keeps the game's own domain off the network) and the game's real
+     address. They fail for different reasons: the relay refuses documents over
+     its size cap and cannot reach a host that blocks its own server, while a
+     direct frame dies on X-Frame-Options / a foreign referer / a filter that
+     knows the host's name. So a failure is not reported to the user until the
+     other route has been tried, and the panel then says what each route said.
+     This is the difference between "the embeds are blocked" and a game that
+     plays. */
+  var ROUTE_NAME = { relay: "proxy route", direct: "direct route" };
+
+  function routeOf(url) {
+    return /\/res\/[0-9a-f]{16,}/i.test(String(url || "")) ? "relay" : "direct";
+  }
+
+  /* The address of the other route for the game on screen, or "" when there
+     is no second way (a local /ugs build, a blob:, a single-file embed). */
+  function altUrl() {
+    if (!current) return "";
+    var asked = String(current.asked || current.originalUrl || "");
+    if (!/^(?:https?:|\/)/i.test(asked)) return "";
+    if (routeOf(current.url) === "relay") {
+      return asked === current.url ? "" : asked;
+    }
+    var viaRelay = "";
+    try {
+      if (window.ChalkleLaunch && window.ChalkleLaunch.playTarget) {
+        viaRelay = String(window.ChalkleLaunch.playTarget(asked) || "");
+      }
+    } catch (e) { viaRelay = ""; }
+    return (viaRelay && viaRelay !== current.url) ? viaRelay : "";
+  }
+
+  function startTimeout() {
+    if (loadTimer) clearTimeout(loadTimer);
+    loadTimer = setTimeout(function () {
+      if (!player.hidden && current && !current.failed) fail("timeout");
+    }, 15000);
+  }
+
+  function showLoading() {
+    if (errorEl) errorEl.hidden = true;
+    if (loadingEl) loadingEl.hidden = false;
+    if (iframeEl) iframeEl.style.opacity = "0";
+    if (progressEl) {
+      progressEl.style.width = "0";
+      progressEl.style.opacity = "1";
+      requestAnimationFrame(function () { if (progressEl) progressEl.style.width = "72%"; });
+    }
+  }
+
+  function explain(reason) {
+    var tries = (current && current.tried) || [];
+    var names = [];
+    for (var i = 0; i < tries.length; i++) {
+      var n = ROUTE_NAME[tries[i].route] || tries[i].route;
+      if (names.indexOf(n) === -1) names.push(n);
+    }
+    var why = reason === "proxy"
+      ? "the proxy could not fetch the page (host unreachable, or the document is past the proxy's size cap)"
+      : reason === "edge"
+        ? "something in front of the host answered with its own error page (a timeout, a bot check, or a dropped request)"
+        : reason === "blocked"
+          ? "the page came back empty or refused to be framed"
+          : "the page never finished loading";
+    if (names.length > 1) {
+      return "Tried the " + names.join(" and the ") + ". Both failed: " + why +
+        ". The site is refusing embedded play here - open it in a new tab.";
+    }
+    return "Failed on the " + (names[0] || "first try") + ": " + why + ".";
+  }
+
   function fail(reason) {
     if (loadTimer) { clearTimeout(loadTimer); loadTimer = null; }
-    if (current) current.failed = true;
+    if (!current) return;
+    var route = routeOf(current.url);
+    current.tried = (current.tried || []).concat([{ route: route, why: reason }]);
+    var triedOther = false;
+    for (var i = 0; i < current.tried.length - 1; i++) {
+      if (current.tried[i].route !== route) triedOther = true;
+    }
+    var alt = triedOther ? "" : altUrl();
+    if (alt) {
+      /* Same session, other route: keep the title, favourites and related
+         shelf, and just re-point the frame. */
+      current.url = alt;
+      hideSplash();
+      showLoading();
+      acInvalidateTarget();
+      if (iframeEl) iframeEl.src = alt;
+      startTimeout();
+      return;
+    }
+    current.failed = true;
     hideSplash();
     if (loadingEl) loadingEl.hidden = true;
     if (errorEl) errorEl.hidden = false;
@@ -824,11 +990,35 @@
       setTimeout(function () { if (progressEl) progressEl.style.opacity = "0"; }, 250);
     }
     var hint = $("gp-error-hint");
-    if (hint) {
-      hint.textContent = reason === "blocked"
-        ? "This game blocks embedded play, or the network is filtering it."
-        : "The game took too long to load. Check your connection and try again.";
-    }
+    if (hint) hint.textContent = explain(reason);
+  }
+
+  /* ---------- Block pages that arrive looking like the game ----------
+     Everything proxied is same-origin, so an error page produced ON THE WAY to
+     the game is readable here - and it must never be mistaken for a game that
+     loaded. Two families show up:
+
+       "proxy" - the relay's own page (unreachable target, document past the
+                 size cap the relay enforces)
+       "edge"  - something in front of the host answered first: Cloudflare's
+                 "Bad gateway" / "Error 1033" / "Just a moment", a plain
+                 "Verification" wall, or the temp tunnel in front of THIS site
+                 timing a slow proxied fetch out.
+
+     The edge family is the one that used to hide: those pages fire a normal
+     load event, so the watchdog read a blocked source as healthy and never
+     moved on. Naming them as a failed route turns a dead screen into the next
+     source, and says which layer refused. */
+  function edgePage(doc) {
+    try {
+      var t = String((doc && doc.title) || "").trim();
+      var txt = doc && doc.body ? String(doc.body.textContent || "") : "";
+      if (t === "Proxy error" || /proxy couldn't load/i.test(txt)) return "proxy";
+      if (/^(?:just a moment|attention required|verification|one more step|checking your browser)/i.test(t)) return "edge";
+      if (/bad gateway|error 10(?:16|22|33|35|50)|origin is unreachable|gateway time-?out/i.test(t)) return "edge";
+      if (/\b(?:bad gateway|error 1033|error 1016)\b/i.test(txt.slice(0, 2000))) return "edge";
+      return "";
+    } catch (e) { return ""; }
   }
 
   function onFrameLoad() {
@@ -836,17 +1026,16 @@
     finishLoad();
     guardPopups();
     guardAcHotkey();
+    guardFrameFit();
     syncAc();
     try {
       var w = iframeEl.contentWindow;
       var d = w && w.document;
       if (d) {
-        var t = d.title || "";
-        var txt = d.body ? String(d.body.textContent || "") : "";
-        /* The /res/ relay returns a same-origin error page for unreachable
-           targets - surface it as the Chalkle error state. */
-        if (t === "Proxy error" || /proxy couldn't load/i.test(txt)) {
-          fail("blocked");
+        /* A block page is a failed route, not a loaded game. */
+        var edge = edgePage(d);
+        if (edge) {
+          fail(edge);
           return;
         }
         /* Silently blocked frames: an accessible empty document after a real
@@ -892,12 +1081,18 @@
     opts = opts || {};
     target = String(target || "");
     if (!target) return false;
-    var sameSession = current && current.url === target && !current.failed;
+    var sameSession = !!current && !current.failed &&
+      (current.url === target || current.asked === target);
     current = {
       url: target,
+      /* asked = what the catalogue points at, before any routing. It is what
+         the other route is derived from, and what makes "open this game
+         again" resume a session that has already swapped routes once. */
+      asked: opts.originalUrl || String(opts.asked || "") || target,
       title: title || "Playing",
       originalUrl: opts.originalUrl || target,
       failed: false,
+      tried: [],
       favKey: opts.favKey || "",
       fav: !!opts.fav,
       onFav: opts.onFav || null
@@ -980,6 +1175,10 @@
     exitFs: exitFs,
     reload: function () {
       if (!current || !current.url || player.hidden) return;
+      /* Try again re-walks BOTH routes: a game that lost on the proxy route
+         may well survive on the direct one after a transient failure, and the
+         route the last attempt ended on is not necessarily the better one. */
+      current.tried = [];
       beginLoad();
       acInvalidateTarget();
       if (iframeEl) iframeEl.src = current.url;
@@ -993,7 +1192,12 @@
     applyClickerPolicy: function () { syncAc(); },
     clickerArmed: function () { return ac.armed; },
     clickerRunning: function () { return ac.on; },
-    isClickerGame: looksLikeClicker
+    isClickerGame: looksLikeClicker,
+    /* Re-fit a fixed-size GameMaker canvas to the frame right now. Called by
+       frame load/resize; exposed so the gate test and the console can drive
+       it directly. */
+    fitFrame: fitFrameCanvas,
+    isGameMakerFrame: isGameMakerDoc
   };
   window.ChalkleGamePlayer = api;
 

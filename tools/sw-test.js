@@ -145,12 +145,18 @@ const ask = (payload) => new Promise((resolve) => {
   check("a named app page is cached under its own URL", !!appHit, appHit ? "hit" : "missing");
   check("it does not overwrite the cached shell", shellBody.indexOf("index.html") !== -1, shellBody.slice(0, 40));
 
+  /* Offline, a page the worker holds no cache for gets the honest "could not
+     load" page naming the URL: handing it the app shell used to make a broken
+     game look like the home screen. Only the shell itself falls back to the
+     shell. (Pinned the same way by scripts/sw-policy-check.mjs.) */
   network.mode = "down";
   const before = network.attempts;
   const offline = event("fetch", req(ORIGIN + "/some-other-page", { mode: "navigate" }));
   const offlineBody = await bodyOf(offline);
-  check("offline navigation falls back to the cached shell", offlineBody.indexOf("index.html") !== -1, offlineBody.slice(0, 30));
+  check("offline navigation to an unknown page says so", offlineBody.indexOf("Could not load this page") !== -1 && offlineBody.indexOf("some-other-page") !== -1, offlineBody.slice(0, 30));
   check("offline navigation still tried the network first", network.attempts === before + 1, "attempts: " + (network.attempts - before));
+  const offlineShell = await bodyOf(event("fetch", req(ORIGIN + "/index.html", { mode: "navigate" })));
+  check("offline navigation to the shell serves the cached shell", offlineShell.indexOf("index.html") !== -1, offlineShell.slice(0, 30));
 
   const offlineApp = await bodyOf(event("fetch", req(ORIGIN + "/unsent.html", { mode: "navigate" })));
   check("the cached app page reopens offline", offlineApp.indexOf("/unsent.html") !== -1, offlineApp.slice(0, 40));

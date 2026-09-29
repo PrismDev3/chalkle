@@ -26,11 +26,17 @@
    5. Cache-first is reserved for files that already carry a version query
       (src/app.js?v=...) or live in an art/font directory, so a stale copy
       cannot shadow a new build.
+   6. Navigations to a self-contained local game build (/game-builds/, /mc/)
+      are left alone. Those pages run past 100 MB, so they can never be stored
+      and streaming one through the worker only adds another way for the load
+      to fail halfway. A failed navigation gets an honest offline page naming
+      the URL instead of being handed the app shell, which used to make a
+      broken game look like the home screen.
 
    Bumping SERVICE_WORKER_VERSION below is what retires an old cache: the
    activate step deletes every cache that is not part of the current set. */
 
-var SERVICE_WORKER_VERSION = "2026-09-16a";
+var SERVICE_WORKER_VERSION = "2026-09-30a";
 
 var SHELL_CACHE = "chalkle-shell-" + SERVICE_WORKER_VERSION;
 var ASSET_CACHE = "chalkle-assets-" + SERVICE_WORKER_VERSION;
@@ -114,6 +120,17 @@ function isCacheablePage(path) {
    whole point of the parts cache. */
 function isGamePart(pathname) {
   return /\/part-\d+$/.test(pathname);
+}
+
+/* A navigation the worker has nothing to add to: a self-contained local game
+   build (game-builds/, mc/). Those are single HTML files that run past 100 MB,
+   so they can never be stored (the shell cache stops at MAX_SHELL_BYTES) - all
+   the worker can do is stream the whole body through itself, which is one more
+   way for a load to die halfway and leaves the user staring at a dead page.
+   Hand them to the network untouched. Matched anywhere in the path so mirrors
+   that serve the site from a subdirectory behave the same. */
+function isPassthroughPage(pathname) {
+  return /\/(?:game-builds|mc)\//.test(pathname);
 }
 
 function cachePut(cacheName, request, response) {
@@ -224,19 +241,42 @@ function handleNavigate(request) {
     }
     return response;
   }).catch(function () {
+    /* Offline. Only the shell may fall back to the shell: handing a different
+       page the app shell hides the failure (a game that cannot load would
+       silently show the home screen instead of saying so). */
     return caches.match(request).then(function (hit) {
       if (hit) return hit;
+      if (!isShell) return null;
       return caches.match("./index.html").then(function (shell) {
         return shell || caches.match("./");
       });
     }).then(function (fallback) {
       if (fallback) return fallback;
-      return new Response("<h1>Offline</h1><p>Chalkle could not reach the network and has no cached copy yet.</p>", {
-        status: 503,
-        headers: { "Content-Type": "text/html; charset=utf-8" }
-      });
+      return offlinePage(request.url);
     });
   });
+}
+
+/* The last resort for anything the worker could not put on screen. It names
+   the URL that failed, so a dead page is diagnosable instead of looking like a
+   wrong page. */
+function offlinePage(url, detail) {
+  var path = "";
+  try { path = new URL(url).pathname; } catch (e) { path = String(url || ""); }
+  return new Response(
+    "<!doctype html><meta charset=\"utf-8\"><title>Offline - Chalkle</title>" +
+    "<body style=\"font:16px/1.6 system-ui,sans-serif;background:#0b0b0b;color:#eee;padding:2rem\">" +
+    "<h1 style=\"margin:0 0 .5rem\">Could not load this page</h1>" +
+    "<p style=\"color:#aaa;margin:0 0 1rem\">Chalkle could not reach the network and has no cached copy of:</p>" +
+    "<p><code style=\"background:#1b1b1b;padding:.4rem .6rem;border-radius:6px;word-break:break-all\">" +
+    String(path).replace(/[&<>\"]/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;" }[c];
+    }) +
+    "</code></p>" +
+    "<p><a style=\"color:#ffb347\" href=\"./\">Back to Chalkle</a></p>" +
+    (detail ? "<p style=\"color:#777;font-size:13px\">" + String(detail) + "</p>" : ""),
+    { status: 503, headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" } }
+  );
 }
 
 /* A file whose URL carries its version: serve the cache, fetch on a miss. */
@@ -284,6 +324,18 @@ function handlePart(request) {
   });
 }
 
+/* Every intercepted response goes through here. A responder that rejects is
+   reported by Chrome as "A ServiceWorker intercepted the request and
+   encountered an unexpected error" and the request dies with it, so the chain
+   always ends somewhere real: the network first, then an honest offline page. */
+function respond(event, promise) {
+  event.respondWith(promise.catch(function () {
+    return fetch(event.request).catch(function () {
+      return offlinePage(event.request.url, "The worker could not handle this request, and the retry failed too.");
+    });
+  }));
+}
+
 self.addEventListener("fetch", function (event) {
   var request = event.request;
   if (request.method !== "GET") return;
@@ -293,21 +345,22 @@ self.addEventListener("fetch", function (event) {
   if (url.origin !== self.location.origin) return;
   if (request.headers.get("range")) return;
   if (isPassThrough(url.pathname)) return;
+  if (request.mode === "navigate" && isPassthroughPage(url.pathname)) return;
 
   if (request.mode === "navigate") {
-    event.respondWith(handleNavigate(request));
+    respond(event, handleNavigate(request));
     return;
   }
   if (isGamePart(url.pathname)) {
-    event.respondWith(handlePart(request));
+    respond(event, handlePart(request));
     return;
   }
   if (isImmutable(url)) {
-    event.respondWith(handleImmutable(request));
+    respond(event, handleImmutable(request));
     return;
   }
   if (isVersioned(url) || isStaticPath(url.pathname)) {
-    event.respondWith(handleAsset(request));
+    respond(event, handleAsset(request));
   }
 });
 

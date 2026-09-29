@@ -90,7 +90,7 @@
   { title: "Street Fighter II", category: "Retro", desc: "Classic fighting game with special moves", url: "/ugs/noah/261.html", thumb: "/assets/games/noah/13.jpg" },
   { title: "Steal a Brainrot Online", category: "Multiplayer", desc: "Multiplayer game about strategic theft", url: "/ugs/noah/9.html", thumb: "/assets/games/noah/15.jpg" },
   { title: "Quake III", category: "Retro", desc: "Classic arena shooter with fast combat", url: "/ugs/noah/14.html", thumb: "/assets/games/noah/20.jpg" },
-  { title: "Clash Royale", category: "Action", desc: "Strategic card-based battles", url: "https://raw.githubusercontent.com/NoahsAmazingTutoringHelp/Noahs-Calculus-Tutor/refs/heads/master/games/andurdingus.html", thumb: "/assets/games/noah/26.jpg" },
+  { title: "Clash Royale", category: "Action", desc: "Strategic card-based battles", url: "https://pyxld-kris.github.io/clash-royale-clone/", thumb: "/assets/games/noah/26.jpg" },
   { title: "Binding of Issac WOTL", category: "Action", desc: "Rogue-like dungeon crawler", url: "/ugs/noah/24.html", thumb: "/assets/games/noah/29.jpg" },
   { title: "Triva Crack", category: "Arcade", desc: "Addictive trivia knowledge challenge", url: "/ugs/noah/27.html", thumb: "/assets/games/noah/32.jpg" },
   { title: "Bow Masters", category: "Arcade", desc: "Precision archery physics game", url: "/ugs/noah/28.html", thumb: "/assets/games/noah/33.jpg" },

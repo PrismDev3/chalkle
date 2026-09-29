@@ -25,6 +25,7 @@ same-origin routes:
         never goes stale the way a temporary tunnel does. WebSocket upgrade
         requests to /res/... are tunneled straight through.
 """
+import io
 import os
 import re
 import ssl
@@ -752,8 +753,23 @@ def _prune():
             pass
 
 
+_SID_OK = re.compile(r"[^A-Za-z0-9_.-]")
+
+
+def _active_clean_sid(sid):
+    """Keep ids short and boring: a hand-written query string cannot stuff
+    junk keys into the registry, and two ids never differ only by characters
+    we would strip anyway."""
+    if not isinstance(sid, str):
+        return ""
+    return _SID_OK.sub("", sid)[:64]
+
+
 def _active_touch(sid):
     """Mark a visitor online in the shared registry."""
+    sid = _active_clean_sid(sid)
+    if not sid:
+        return
     now = time.time()
     with LOCK:
         STATE[sid] = now
@@ -762,6 +778,41 @@ def _active_touch(sid):
         for k in [k for k, ts in disk.items() if now - ts > PRUNE_AFTER]:
             disk.pop(k, None)
         _active_save(disk)
+
+
+def _active_remove(sid):
+    """Drop a visitor immediately (tab closed / navigated away) instead of
+    letting the session linger until the TTL expires and inflate the count
+    with a ghost."""
+    sid = _active_clean_sid(sid)
+    if not sid:
+        return
+    now = time.time()
+    with LOCK:
+        STATE.pop(sid, None)
+        disk = _active_load()
+        if sid in disk:
+            disk.pop(sid, None)
+            for k in [k for k, ts in disk.items() if now - ts > PRUNE_AFTER]:
+                disk.pop(k, None)
+            _active_save(disk)
+
+
+def _active_boot_purge():
+    """On startup the registry may hold sessions from a previous run that
+    ended hours ago; nothing overwrote the file while the server was down.
+    Drop everything older than the TTL so the count starts honest. Sessions
+    that re-ping simply re-add themselves."""
+    now = time.time()
+    with LOCK:
+        STATE.clear()
+        try:
+            disk = _active_load()
+        except Exception:
+            return
+        keep = {k: ts for k, ts in disk.items() if now - ts <= ACTIVE_TTL}
+        if len(keep) != len(disk):
+            _active_save(keep)
 
 
 def _active_count():
@@ -776,6 +827,18 @@ def _active_count():
                 if now - ts <= ACTIVE_TTL and (k not in seen or ts > seen[k]):
                     seen[k] = ts
         return len(seen)
+
+
+def _active_has(sid):
+    """True when sid is part of the current live count."""
+    now = time.time()
+    if not sid:
+        return False
+    with LOCK:
+        if now - STATE.get(sid, 0) <= ACTIVE_TTL:
+            return True
+        disk = _active_load()
+        return now - disk.get(sid, 0) <= ACTIVE_TTL
 
 
 def _plays_today():
@@ -1006,6 +1069,377 @@ def _cloud_ws_target(route):
 class _CloudRelay:
     """Mixin with the cloud proxy handlers; combined into Handler below."""
 
+    # ---------------- cloud game box art (/api/cloud-art/*) ----------------
+    # Cloud tiles used to show a blank letter placeholder whenever the catalog
+    # record's own img/cover URLs were dead. This resolver fills those gaps:
+    # SteamGridDB first (the standard indie-launcher source), then IGDB, then
+    # Steam's own CDN via a name->appid lookup. Results are cached on disk so
+    # a 3,520-game library re-fetches nothing on every load, and failed
+    # lookups land in a log file so missing art can be patched by hand later.
+    # Keys are optional: SGDB/IGDB are only consulted when their key files
+    # exist (server/sgdb_key.txt, server/igdb_key.txt with client-id on the
+    # first line), and the plain-Steam fallback always runs.
+
+    ART_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "art-cache")
+    ART_FILE = os.path.join(ART_DIR, "art.json")
+    ART_FAILS = os.path.join(ART_DIR, "failed.json")
+    ART_LOG = os.path.join(ART_DIR, "failed.log")
+    ART_SGDB_KEY = os.path.join(os.path.dirname(os.path.abspath(__file__)), "sgdb_key.txt")
+    ART_IGDB_KEY = os.path.join(os.path.dirname(os.path.abspath(__file__)), "igdb_key.txt")
+    ART_TTL = 30 * 24 * 3600.0        # resolved art entries live 30 days
+    ART_NEG_TTL = 24 * 3600.0         # "no art found" entries retry after a day
+    ART_UPSTREAM_TIMEOUT = 8
+    ART_LOCK = threading.Lock()
+
+    @staticmethod
+    def _art_norm(title):
+        """Normalize a game title into a lookup key: lowercase, accent-stripped,
+        punctuation-collapsed. The same title spelled two ways must map to one
+        cache entry."""
+        import unicodedata
+        s = str(title or "").lower()
+        try:
+            s = unicodedata.normalize("NFKD", s)
+            s = "".join(ch for ch in s if not unicodedata.combining(ch))
+        except Exception:
+            pass
+        # Apostrophes vanish first so possessives survive tokenization:
+        # "Assassin's" and "Assassins" must both become "assassins".
+        s = s.replace("\u2019", "").replace("'", "")
+        s = re.sub(r"[^a-z0-9]+", " ", s).strip()
+        return s
+
+    @classmethod
+    def _art_store(cls):
+        if getattr(cls, "_ART_STORE_CACHE", None) is not None:
+            return cls._ART_STORE_CACHE
+        store = {"v": 1, "resolved": {}, "failed": {}}
+        try:
+            if os.path.exists(cls.ART_FILE):
+                with io.open(cls.ART_FILE, encoding="utf-8") as f:
+                    loaded = json.load(f)
+                if isinstance(loaded, dict):
+                    if isinstance(loaded.get("resolved"), dict):
+                        store["resolved"] = loaded["resolved"]
+                    if isinstance(loaded.get("failed"), dict):
+                        store["failed"] = loaded["failed"]
+        except Exception as e:
+            print("[cloud-art] store load failed:", type(e).__name__, e)
+        cls._ART_STORE_CACHE = store
+        return store
+
+    @classmethod
+    def _art_store_save(cls):
+        store = cls._art_store()
+        try:
+            os.makedirs(cls.ART_DIR, exist_ok=True)
+            tmp = cls.ART_FILE + ".tmp"
+            with io.open(tmp, "w", encoding="utf-8") as f:
+                json.dump(store, f, ensure_ascii=False)
+            os.replace(tmp, cls.ART_FILE)
+        except OSError:
+            # Windows os.replace can race with a concurrent reader; a plain
+            # rewrite beats losing the resolution.
+            try:
+                with io.open(cls.ART_FILE, "w", encoding="utf-8") as f:
+                    json.dump(store, f, ensure_ascii=False)
+            except Exception:
+                pass
+        except Exception as e:
+            print("[cloud-art] store save failed:", type(e).__name__, e)
+
+    @classmethod
+    def _art_read_sidecar(cls, path):
+        try:
+            if os.path.exists(path):
+                with io.open(path, encoding="utf-8") as f:
+                    return f.read().strip()
+        except Exception:
+            pass
+        return ""
+
+    @classmethod
+    def _art_sgdb_key(cls):
+        return cls._art_read_sidecar(cls.ART_SGDB_KEY)
+
+    @classmethod
+    def _art_igdb_key(cls):
+        """IGDB sidecar: line 1 client-id, line 2 client-secret. Returns
+        (client_id, client_secret) or ("", ""). The app token is derived and
+        cached automatically via Twitch's OAuth endpoint."""
+        raw = cls._art_read_sidecar(cls.ART_IGDB_KEY)
+        if not raw:
+            return "", ""
+        lines = [ln.strip() for ln in raw.splitlines() if ln.strip()]
+        if len(lines) >= 2:
+            return lines[0], lines[1]
+        return lines[0] if lines else "", ""
+
+    _ART_IGDB_TOKEN = ("", 0.0)  # (token, expiry timestamp)
+
+    @classmethod
+    def _art_igdb_token(cls):
+        import time as _t
+        token, exp = cls._ART_IGDB_TOKEN
+        if token and exp > _t.time() + 60:
+            return token
+        client_id, client_secret = cls._art_igdb_key()
+        if not (client_id and client_secret):
+            return ""
+        import urllib.request, urllib.parse
+        body = urllib.parse.urlencode({
+            "client_id": client_id, "client_secret": client_secret,
+            "grant_type": "client_credentials",
+        }).encode()
+        req = urllib.request.Request("https://id.twitch.tv/oauth2/token", data=body,
+                                     headers={"Content-Type": "application/x-www-form-urlencoded"})
+        try:
+            with urllib.request.urlopen(req, timeout=cls.ART_UPSTREAM_TIMEOUT) as resp:
+                data = json.loads(resp.read())
+            token = str(data.get("access_token") or "")
+            exp = _t.time() + float(data.get("expires_in") or 3600)
+            cls._ART_IGDB_TOKEN = (token, exp)
+            return token
+        except Exception as e:
+            print("[cloud-art] igdb token failed:", type(e).__name__, e)
+            return ""
+
+    @staticmethod
+    def _art_http_json(url, headers, timeout):
+        import urllib.request
+        req = urllib.request.Request(url, headers=headers)
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            return json.loads(resp.read())
+
+    @classmethod
+    def _art_from_sgdb(cls, title):
+        """SteamGridDB search -> best vertical grid (the tile's aspect)."""
+        key = cls._art_sgdb_key()
+        if not key:
+            return ""
+        import urllib.parse
+        norm = cls._art_norm(title)
+        if not norm:
+            return ""
+        try:
+            q = urllib.parse.quote(title)
+            data = cls._art_http_json(
+                "https://www.steamgriddb.com/api/v2/search/autocomplete/term/" + q,
+                {"Authorization": "Bearer " + key, "Accept": "application/json"},
+                cls.ART_UPSTREAM_TIMEOUT)
+            hits = (data.get("data") or [])
+            if not hits:
+                return ""
+            gid = hits[0].get("id")
+            if not gid:
+                return ""
+            grids = cls._art_http_json(
+                "https://www.steamgriddb.com/api/v2/grids/game/" + str(gid) +
+                "?dimensions=600x900,512x512&styles=alternate",
+                {"Authorization": "Bearer " + key, "Accept": "application/json"},
+                cls.ART_UPSTREAM_TIMEOUT)
+            options = (grids.get("data") or [])
+            if not options:
+                return ""
+            pick = None
+            for opt in options:  # vertical grid first (matches the tile shape)
+                if str(opt.get("width", 0)) == "600" and str(opt.get("height", 0)) == "900":
+                    pick = opt
+                    break
+            if not pick:
+                pick = options[0]
+            return str(pick.get("url") or "")
+        except Exception as e:
+            print("[cloud-art] sgdb lookup failed:", type(e).__name__, e)
+            return ""
+
+    @classmethod
+    def _art_from_igdb(cls, title):
+        """IGDB cover art fallback. Returns a 4:3-ish cover URL (the 720x720
+        size swap is documented by IGDB's image CDN)."""
+        token = cls._art_igdb_token()
+        client_id, _secret = cls._art_igdb_key()
+        if not (token and client_id):
+            return ""
+        norm = cls._art_norm(title)
+        if not norm:
+            return ""
+        import urllib.parse
+        try:
+            q = urllib.parse.quote(title.replace('"', ''))
+            body = ('search "' + title.replace('"', '') + '"; fields id,name; limit 5;')
+            token_esc = token
+            # IGDB takes POST bodies in a protobuf-ish query language.
+            import urllib.request as _ur
+            req = _ur.Request("https://api.igdb.com/v4/games", data=body.encode("utf-8"), headers={
+                "Client-ID": client_id, "Authorization": "Bearer " + token_esc,
+                "Accept": "application/json",
+            })
+            with _ur.urlopen(req, timeout=cls.ART_UPSTREAM_TIMEOUT) as resp:
+                games = json.loads(resp.read())
+            if not games:
+                return ""
+            cover = games[0].get("cover")
+            if not cover:
+                return ""
+            cover_id = cover.get("id") if isinstance(cover, dict) else cover
+            if not cover_id:
+                return ""
+            req2 = _ur.Request("https://api.igdb.com/v4/covers", data=("fields image_id; where id = " + str(cover_id) + ";").encode("utf-8"), headers={
+                "Client-ID": client_id, "Authorization": "Bearer " + token_esc,
+                "Accept": "application/json",
+            })
+            with _ur.urlopen(req2, timeout=cls.ART_UPSTREAM_TIMEOUT) as resp:
+                covers = json.loads(resp.read())
+            if not covers:
+                return ""
+            img_id = covers[0].get("image_id")
+            return ("https://images.igdb.com/igdb/image/upload/t_cover_big/" + str(img_id) + ".jpg") if img_id else ""
+        except Exception as e:
+            print("[cloud-art] igdb lookup failed:", type(e).__name__, e)
+            return ""
+
+    @classmethod
+    def _art_from_steam(cls, title):
+        """Steam's store search maps name -> appid. (The ISteamApps/GetAppList
+        endpoint the launcher folk used was retired by Valve - every version
+        now 404s - so this rides the store search API instead.)"""
+        norm = cls._art_norm(title)
+        if not norm:
+            return ""
+        import urllib.parse
+        try:
+            q = urllib.parse.quote(title)
+            data = cls._art_http_json(
+                "https://store.steampowered.com/api/storesearch/?term=" + q + "&cc=us&l=en",
+                {"User-Agent": "Mozilla/5.0 ChalkleRelay/1.0", "Accept": "application/json"},
+                cls.ART_UPSTREAM_TIMEOUT)
+            items = data.get("items") or []
+            url_for = lambda appid: "https://cdn.cloudflare.steamstatic.com/steam/apps/" + str(appid) + "/header.jpg"
+            STOP = {"the", "a", "of", "to", "in", "on", "and", "for"}
+            def words(s):
+                return [w for w in cls._art_norm(s).split() if w not in STOP]
+            want = set(words(title))
+            for it in items:  # exact normalized title wins
+                if cls._art_norm(it.get("name") or "") == norm and it.get("id"):
+                    return url_for(it["id"])
+            for it in items:  # then a prefix relationship ("2" vs "2: Redux")
+                nm = cls._art_norm(it.get("name") or "")
+                if nm and (nm.startswith(norm) or norm.startswith(nm)) and it.get("id"):
+                    return url_for(it["id"])
+            for it in items:
+                # Stop words are the last tolerance: "Fling to the Finish" and
+                # a catalog's "Fling to Finish" typo must still meet, but two
+                # DIFFERENT games ("God of War" vs "God of War Ragnarok")
+                # never collapse into one - the token sets must be equal.
+                if want and want == set(words(it.get("name") or "")) and it.get("id"):
+                    return url_for(it["id"])
+            return ""
+        except Exception as e:
+            print("[cloud-art] steam store search failed:", type(e).__name__, e)
+            return ""
+
+    @classmethod
+    def _art_record_failure(cls, title, reason):
+        """Failed lookups are persisted (JSON for tooling, .log for humans) so
+        missing art can be patched manually instead of silently placeholdering
+        forever."""
+        store = cls._art_store()
+        norm = cls._art_norm(title)
+        store["failed"][norm] = {"title": str(title or ""), "reason": str(reason or "")[:200],
+                                 "ts": time.time()}
+        try:
+            os.makedirs(cls.ART_DIR, exist_ok=True)
+            with io.open(cls.ART_LOG, "a", encoding="utf-8") as f:
+                f.write(time.strftime("%Y-%m-%d %H:%M:%S\t") + str(title) + "\t" + str(reason) + "\n")
+        except Exception:
+            pass
+        cls._art_store_save()
+
+    @classmethod
+    def _art_resolve(cls, title):
+        """Full pipeline for one title. Returns (url, source, error_reason).
+        Cache checks are lock-free (dict reads are GIL-atomic and the write
+        side is idempotent); the UPSTREAM calls run OUTSIDE the lock so a
+        first load of 30 uncacheated tiles resolves in parallel instead of
+        serializing behind one another."""
+        store = cls._art_store()
+        norm = cls._art_norm(title)
+        now = time.time()
+        hit = store["resolved"].get(norm)
+        if hit and now - float(hit.get("ts") or 0) < cls.ART_TTL and hit.get("url"):
+            return hit["url"], hit.get("source", ""), None
+        neg = store["failed"].get(norm)
+        if neg and now - float(neg.get("ts") or 0) < cls.ART_NEG_TTL:
+            return "", "", "recently failed: " + str(neg.get("reason") or "unknown")
+        reason_bits = []
+        url = cls._art_from_sgdb(title)
+        if url:
+            with cls.ART_LOCK:
+                store["resolved"][norm] = {"url": url, "source": "sgdb", "ts": now}
+                cls._art_store_save()
+            return url, "sgdb", None
+        reason_bits.append("sgdb miss" + ("" if cls._art_sgdb_key() else " (no key)"))
+        url = cls._art_from_igdb(title)
+        if url:
+            with cls.ART_LOCK:
+                store["resolved"][norm] = {"url": url, "source": "igdb", "ts": now}
+                cls._art_store_save()
+            return url, "igdb", None
+        reason_bits.append("igdb miss" + ("" if cls._art_igdb_token() else " (no key)"))
+        url = cls._art_from_steam(title)
+        if url:
+            with cls.ART_LOCK:
+                store["resolved"][norm] = {"url": url, "source": "steam", "ts": now}
+                cls._art_store_save()
+            return url, "steam", None
+        reason_bits.append("steam miss")
+        reason = "; ".join(reason_bits)
+        with cls.ART_LOCK:
+            cls._art_record_failure(title, reason)
+        return "", "", reason
+
+    def _cloud_art_get(self):
+        """GET /api/cloud-art/lookup?title=... -> {url, source} or {url: ""}.
+        The client calls this lazily per visible tile; every result is cached
+        server-side so repeat loads never re-hit upstream APIs."""
+        from urllib.parse import urlparse, parse_qs
+        qs = parse_qs(urlparse(self.path).query)
+        title = (qs.get("title") or [""])[0][:200]
+        if not title:
+            return self._cloud_json({"ok": False, "error": "no-title"}, 400)
+        try:
+            url, source, err = self._art_resolve(title)
+        except Exception as e:
+            return self._cloud_json({"ok": False, "error": type(e).__name__}, 500)
+        if err and not url:
+            data = {"ok": False, "error": "no-art", "detail": err}
+            cache_ttl = 3600  # negatives are retried after an hour
+        else:
+            data = {"ok": True, "url": url, "source": source}
+            cache_ttl = int(_CloudRelay.ART_TTL)
+        payload = json.dumps(data).encode("utf-8")
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        # Resolved URLs are stable for the TTL; negatives are retried sooner.
+        self.send_header("Cache-Control", "public, max-age=" + str(cache_ttl))
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Content-Length", str(len(payload)))
+        self.end_headers()
+        self.wfile.write(payload)
+
+    def _cloud_art_stats(self):
+        """GET /api/cloud-art/stats -> cache size and recent failures, so the
+        operator can see what needs patching without opening the log file."""
+        store = self._art_store()
+        fails = sorted(store["failed"].items(), key=lambda kv: -kv[1].get("ts", 0))[:25]
+        self._cloud_json({
+            "ok": True,
+            "resolved": len(store["resolved"]),
+            "failed": len(store["failed"]),
+            "recent_failures": [{"title": v.get("title"), "reason": v.get("reason")} for _k, v in fails],
+        })
+
     def _cloud_json(self, obj, code=200):
         data = json.dumps(obj).encode("utf-8")
         self.send_response(code)
@@ -1139,6 +1573,12 @@ class _CloudRelay:
         self._cloud_json({"ok": True, "base": base, "keySet": bool(key)})
 
     def _cloud_get(self, route):
+        # Box-art endpoints live in this mixin; check them BEFORE the Stratus
+        # path regex, which only knows /cloud/v1/getQueue and embed-data.
+        if route == "/api/cloud-art/lookup":
+            return self._cloud_art_get()
+        if route == "/api/cloud-art/stats":
+            return self._cloud_art_stats()
         m = CLOUD_PATH_RE.match(route)
         if not m:
             return None
@@ -3464,6 +3904,7 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, _Bitc
                     _chain_set(qb[0])
             except Exception:
                 pass
+            _uv_note_referer(self.headers.get("Referer"))
             return self._uv_route(route[len(_UV_PFX):])
         if route == "/cloud/health":
             return self._cloud_health()
@@ -3541,6 +3982,11 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, _Bitc
         # files on disk so the embedded rhythm game works without Flask.
         if route.startswith("/taiko/api/"):
             self.path = route + ".json" + self.path[len(route):]
+        # Before letting a missing path 404, give the proxied-page fallback a
+        # chance: a player that built a root-absolute URL at runtime expects it
+        # on THIS origin, and without this its bundle 404s.
+        if self._uv_root_fallback(route):
+            return
         return super().do_GET()
 
     def do_HEAD(self):
@@ -3607,6 +4053,8 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, _Bitc
             return _yut_api(self, route)
         if route == "/api/plays":
             return self._plays_post()
+        if route == "/api/cloud-art/stats":
+            return self._cloud_art_stats()
         if route == "/api/proxy/backend":
             return self._proxy_backend_post()
         if route == "/api/ai/chat":
@@ -3623,6 +4071,7 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, _Bitc
             ctype = (self.headers.get("Content-Type") or "").lower()
             if body is not None and "application/x-www-form-urlencoded" in ctype:
                 body = body.decode("utf-8", "replace")
+            _uv_note_referer(self.headers.get("Referer"))
             return self._uv_route(route[len(_UV_PFX):], body)
         # Bitcord chat embed: POST API proxy. The _bitcord_api method reads
         # the request body itself, so do_POST just delegates.
@@ -4105,7 +4554,12 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, _Bitc
             _AI_KEY_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ai_key.txt")
             if os.path.exists(_AI_KEY_FILE):
                 AI_API_KEY = io.open(_AI_KEY_FILE, encoding="utf-8").read().strip()
-        except Exception:
+        except Exception as _key_err:
+            # A silent fallback here once hid a NameError (io was never
+            # imported): the relay shipped every chat WITHOUT the key, and
+            # OpenRouter's 401 came back as an opaque "502 all-upstreams-down"
+            # in the AI tab. Say something instead of eating the error.
+            print("[ai] key file load failed:", type(_key_err).__name__, _key_err)
             AI_API_KEY = ""
     _AI_CONVOS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ai_convos.json")
 
@@ -4319,6 +4773,19 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, _Bitc
         model = str(payload.get("model") or "")
         stream = bool(payload.get("stream"))
         wants_vision = bool(payload.get("vision"))
+
+        # No key configured: every candidate would 401 upstream and the tab
+        # would show an opaque "all-upstreams-down" 502. Fail fast with the
+        # actual reason instead.
+        if not self.AI_API_KEY:
+            data = json.dumps({"ok": False, "error": "no-key",
+                               "detail": "The AI relay has no API key configured (AI_API_KEY or server/ai_key.txt)."}).encode()
+            self.send_response(503)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+            return
 
         # Do not spend an upstream request (or inherit an upstream model's
         # previous-topic bias) for a bare greeting. Some of the public fallback
@@ -4538,6 +5005,88 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, _Bitc
                 "</p></body></html>").encode()
         self._uv_send(code if code else 502, "text/html", body)
 
+    def _uv_root_fallback(self, route):
+        """Serve a root-absolute URL that a proxied page built at runtime.
+
+        Some players (Next.js apps especially) derive asset URLs from
+        location.pathname instead of using a relative path, so a request for
+        /_next/static/chunks/x.js arrives HERE, where no such file exists. The
+        chunk 404s and the app dies with "Application error: a client-side
+        exception has occurred" - which is exactly how one provider failed.
+
+        The Referer on such a request is the proxied page that asked for it,
+        and its /res/<hex> route carries the upstream target, so the miss can be
+        re-resolved against that page's own origin and served through the normal
+        relay path. A request without such a Referer is left alone: this site's
+        own 404s still 404, and the site's real files were already served.
+        """
+        ref = self.headers.get("Referer") or ""
+        if "/res/" not in ref or route.startswith("/res/"):
+            return False
+        seg = ref.split("/res/", 1)[1].split("/", 1)[0]
+        seg = seg.split("?", 1)[0].split("#", 1)[0]
+        base = _uv_dec(seg)
+        if not base:
+            return False
+        import urllib.parse
+        parts = urllib.parse.urlsplit(base)
+        if not parts.scheme or not parts.netloc:
+            return False
+        target = "%s://%s%s" % (parts.scheme, parts.netloc, route)
+        if _uv_ad_host(target):
+            self._uv_ad_stub(target)
+            return True
+        self._uv_route(_uv_enc(target))
+        return True
+
+    def _uv_ad_stub(self, target):
+        """Answer a blocked ad/tracker request with something inert.
+
+        A 403 - what an ordinary filter returns - is the wrong answer here. The
+        page's loader sees a failure, logs it, and falls through to a SECOND ad
+        network, which is how one blocked ad turns into two requests. A
+        successful-looking empty response shaped like whatever was asked for
+        (empty JS, a transparent pixel, a blank document) ends the chain
+        instead, and an iframe that does load stays invisible.
+        """
+        path = (target or "").split("?", 1)[0].split("#", 1)[0]
+        # Any .js/.mjs segment anywhere in the path marks a script: beacons are
+        # served as ".../beacon.min.js/v31edd6df...", whose LEAF has no
+        # extension, and answering that with an HTML document makes the browser
+        # refuse it ("Loading failed for the module" - a MIME mismatch is a
+        # hard failure, not a soft one).
+        segs = [s.lower() for s in path.split("/")]
+        looks_js = any(s.endswith((".js", ".mjs", ".cjs")) for s in segs)
+        looks_css = any(s.endswith(".css") for s in segs)
+        looks_img = any(s.endswith((".gif", ".png", ".jpg", ".jpeg", ".webp",
+                                    ".avif", ".ico", ".svg")) for s in segs)
+        # The request's own type is the honest signal, and every current
+        # browser sends Sec-Fetch-Dest. An EMPTY dest is a fetch/XHR or an old
+        # browser, and those fall back to the path shape below.
+        dest = (self.headers.get("Sec-Fetch-Dest") or "").strip().lower()
+        if dest in ("script", "worker", "sharedworker"):
+            return self._uv_send(200, "text/javascript", _UV_BLANK_JS)
+        if dest == "style":
+            return self._uv_send(200, "text/css", b"/* blocked */")
+        if dest == "image":
+            return self._uv_send(200, "image/gif", _UV_BLANK_GIF)
+        # fetch/XHR: an empty text body parses as "nothing" in any sensible
+        # caller, where an HTML document throws a JSON parse error the ad
+        # script may answer by asking a different network for the same ad.
+        if dest == "empty":
+            if looks_js:
+                return self._uv_send(200, "text/javascript", _UV_BLANK_JS)
+            return self._uv_send(200, "text/plain", b"")
+        if looks_js:
+            return self._uv_send(200, "text/javascript", _UV_BLANK_JS)
+        if looks_css:
+            return self._uv_send(200, "text/css", b"/* blocked */")
+        if looks_img:
+            return self._uv_send(200, "image/gif", _UV_BLANK_GIF)
+        # A navigation (popunder, ad frame) or anything unrecognised: a blank
+        # document is inert and invisible for both.
+        return self._uv_send(200, "text/html", _UV_BLANK_DOC)
+
     def _proxy_backends_get(self):
         """Live view of every backend the Proxies tab's selector can pick."""
         self._json_out(_proxy_backends_payload())
@@ -4609,6 +5158,11 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, _Bitc
             return self._uv_local(target, post_body)
         if not re.match(r"^https?://", target, re.I):
             return self._uv_error(400, "bad target")
+        # Ad / tracker hosts never reach the network. This is the chokepoint for
+        # the whole filter: a proxied player can inject whatever it likes at
+        # runtime, but the fetch itself has to come through here.
+        if _uv_ad_host(target):
+            return self._uv_ad_stub(target)
         # Rewritten-page cache: re-fetching AND re-rewriting the same HTML/CSS/
         # JS on every SPA navigation is the slowest thing this proxy does. GETs
         # replay the last rewritten response from memory (short TTLs below). No
@@ -4703,6 +5257,18 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, _Bitc
                                             cacheable=_uv_cacheable(ctype, target))
         if is_html or is_css or is_svg:
             raw = probe.read(40 * 1024 * 1024 + 1)
+            if len(raw) > 40 * 1024 * 1024 and is_html and not prefix:
+                # Oversized single-document HTML. The single-file WASM game
+                # clients (the Eaglercraft builds and friends) are 50-90 MB, and
+                # rewriting one means holding the original bytes, the decoded
+                # string and the re-encoded copy at once - per viewer. Answering
+                # 502 instead (what this used to do) turns a game that plays
+                # fine in a plain tab into "Proxy couldn't load that page" in
+                # the player, which is exactly the blocked-embed report. Stream
+                # it with one surgical edit instead: a <base href> for this
+                # page's own directory through the relay, so relative scripts,
+                # wasm and data files still come back through this origin.
+                return self._uv_stream_big_html(probe, raw, target)
             probe.close()
             if prefix:
                 raw = prefix + raw
@@ -4757,6 +5323,58 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, _Bitc
                     pass
             while True:
                 chunk = resp.read(65536)
+                if not chunk:
+                    break
+                self.wfile.write(chunk)
+        except Exception:
+            pass
+        finally:
+            try:
+                resp.close()
+            except Exception:
+                pass
+
+    def _uv_stream_big_html(self, resp, head, target):
+        """Stream an oversized HTML document with a relay <base> injected.
+
+        The body passes through byte-for-byte: no attribute rewriting and no
+        runtime patch, because holding the whole rewritten document is what the
+        40 MB cap exists to avoid. The injected <base href="/res/<enc(dir)>"> is
+        what keeps the document ours - relative scripts, wasm, data and audio
+        files still resolve to /res/ routes, so the browser keeps talking only
+        to this origin for everything the game loads by relative path. Absolute
+        URLs inside such a document do go direct, which is why this is the
+        fallback for giant documents and not the normal path.
+        """
+        try:
+            base = _UV_PFX + _uv_enc(urllib.parse.urljoin(target, "."))
+        except Exception:
+            base = _UV_PFX
+        tag = ('<base href="%s">' % base).encode("ascii", "replace")
+        # The document has to be parsed before <base> takes effect, so the tag
+        # goes right after the opening <head ...> tag. A document without a head
+        # in its first 256 KB is not something a browser would parse usefully
+        # anyway; prepending keeps the bytes intact and still lands the base in
+        # head once the parser reaches it.
+        window = head[:262144]
+        at = window.lower().find(b"<head")
+        if at != -1:
+            gt = head.find(b">", at)
+            at = (gt + 1) if gt != -1 else at
+        else:
+            at = 0
+        try:
+            self._stabilize()  # lengthless stream: no keep-alive reuse
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html")
+            # Upstream CSP / X-Frame-Options are never forwarded on this path
+            # either, so an anti-embed header cannot survive it.
+            self.send_header("Cache-Control", "no-store, max-age=0")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(head[:at] + tag + head[at:])
+            while True:
+                chunk = resp.read(262144)
                 if not chunk:
                     break
                 self.wfile.write(chunk)
@@ -4990,9 +5608,21 @@ class Handler(_CloudRelay, _MusicRelay, _YouTubeRelay, _LiveTV, _SportsTV, _Bitc
         from urllib.parse import parse_qs, urlparse
         q = parse_qs(urlparse(self.path).query)
         sid = (q.get("s") or [""])[0].strip()
-        if sid:
+        bye = (q.get("bye") or [""])[0].strip()
+        if bye:
+            # A tab saying goodbye reuses ?s= for its id; the client also
+            # appends &bye=1, so treat any bye ping as a removal of that id.
+            _active_remove(sid or bye)
+        elif sid:
             _active_touch(sid)
-        body = json.dumps({"active": _active_count(), "ttl": ACTIVE_TTL}).encode()
+        live = _active_count()
+        # "you" tells the client whether its own session is part of the
+        # count, so a lone visitor (just you) can hide the pill instead of
+        # advertising a meaningless "1".
+        you = False
+        if not bye and sid:
+            you = _active_has(_active_clean_sid(sid))
+        body = json.dumps({"active": live, "ttl": ACTIVE_TTL, "you": you}).encode()
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
         self.send_header("Cache-Control", "no-store")
@@ -5098,6 +5728,64 @@ def _cimg(v):
     return v if isinstance(v, str) and v.startswith("http") else ""
 
 
+# --- Cinemeta's genre vocabulary <-> TMDB genre ids -------------------------
+# The keyless fallback answers genre questions from Cinemeta's own NAME based
+# catalogs, but the app speaks TMDB ids (chips carry with_genres=<id>). These
+# tables are the translation layer: the genre list endpoints hand out TMDB ids
+# (so chips look right and match real TMDB ids), and an incoming id maps back
+# to the name Cinemeta's catalog path expects. Names that share one TMDB id
+# collapse onto the single name Cinemeta knows (Sci-Fi & Fantasy -> Sci-Fi).
+_CM_MOVIE_GENRES = [
+    ("Action", 28), ("Adventure", 12), ("Animation", 16), ("Biography", 1),
+    ("Comedy", 35), ("Crime", 80), ("Documentary", 99), ("Drama", 18),
+    ("Family", 10751), ("Fantasy", 14), ("History", 36), ("Horror", 27),
+    ("Mystery", 9648), ("Romance", 10749), ("Sci-Fi", 878), ("Sport", 2),
+    ("Thriller", 53), ("War", 10752), ("Western", 37),
+]
+_CM_TV_GENRES = [
+    ("Action & Adventure", 10759), ("Animation", 16), ("Comedy", 35),
+    ("Crime", 80), ("Documentary", 99), ("Drama", 18), ("Family", 10751),
+    ("Kids", 10762), ("Mystery", 9648), ("News", 10763),
+    ("Reality-TV", 10764), ("Sci-Fi & Fantasy", 10765), ("Soap", 10766),
+    ("Talk-Show", 10767), ("War & Politics", 10768), ("Western", 37),
+]
+# TMDB id -> the genre name Cinemeta's catalog path accepts.
+_CM_TV_GENRE_NAME = {
+    10759: "Action", 16: "Animation", 35: "Comedy", 80: "Crime", 99: "Documentary",
+    18: "Drama", 10751: "Family", 10762: "Family", 9648: "Mystery",
+    10763: "Documentary", 10764: "Reality-TV", 10765: "Sci-Fi", 10766: "Drama",
+    10767: "Talk-Show", 10768: "War", 37: "Western",
+}
+_CM_MOVIE_GENRE_NAME = {gid: name for name, gid in _CM_MOVIE_GENRES}
+# Genre name (Cinemeta) -> TMDB id, for tagging rows that arrived genre-less.
+_CM_NAME_TO_ID = {}
+for _n, _i in _CM_MOVIE_GENRES:
+    _CM_NAME_TO_ID.setdefault(_n, _i)
+for _n, _i in _CM_TV_GENRES:
+    _CM_NAME_TO_ID.setdefault(_n, _i)
+
+
+def _cm_genre_name(mtype, gid):
+    """TMDB genre id -> the name Cinemeta's genre=<name> catalog wants."""
+    table = _CM_TV_GENRE_NAME if mtype == "tv" else _CM_MOVIE_GENRE_NAME
+    if gid in table:
+        return table[gid]
+    for name, i in (_CM_TV_GENRES if mtype == "tv" else _CM_MOVIE_GENRES):
+        if i == gid:
+            return name
+    return None
+
+
+def _cm_genre_ids(names):
+    """Cinemeta meta genres (names) -> TMDB genre ids for the row shape."""
+    out = []
+    for n in (names or []):
+        i = _CM_NAME_TO_ID.get(str(n))
+        if i and i not in out:
+            out.append(i)
+    return out
+
+
 def _cinemeta_item(m, mtype):
     """Cinemeta meta -> TMDB catalog row shape (posters/backdrops absolute)."""
     try:
@@ -5115,7 +5803,7 @@ def _cinemeta_item(m, mtype):
         "vote_average": float(m.get("imdbRating") or 0) or None,
         "release_date": year if mtype == "movie" else None,
         "first_air_date": year if mtype == "tv" else None,
-        "genre_ids": [],
+        "genre_ids": _cm_genre_ids(m.get("genres")),
         "popularity": m.get("popularity") or 0,
     }
     if mtype == "movie":
@@ -5127,7 +5815,12 @@ def _cinemeta_item(m, mtype):
 
 def _cinemeta_detail(m, mtype, want_id):
     """Cinemeta meta -> TMDB detail shape."""
-    genres = [{"id": i + 1, "name": g} for i, g in enumerate(m.get("genres") or [])]
+    # Real TMDB ids where the vocabulary matches, so a title opened from the
+    # fallback catalogue still lines up with the app's genre table (the old
+    # enumerate()+1 ids produced chips that filtered nothing).
+    genres = []
+    for i, g in enumerate(m.get("genres") or []):
+        genres.append({"id": _CM_NAME_TO_ID.get(str(g), 1000 + i), "name": g})
     runtime = None
     rt = m.get("runtime")
     if isinstance(rt, str) and rt.strip().endswith("min"):
@@ -5184,6 +5877,59 @@ def _cinemeta_rows(catalog_path, mtype):
     metas = d.get("metas") or []
     _cinemap_harvest(metas, mtype)
     return [_cinemeta_item(m, mtype) for m in metas]
+
+
+def _time_local():
+    import time as _time
+    return _time.localtime()
+
+
+def _cinemeta_discover_path(mtype, params):
+    """Pick the Cinemeta catalog that best matches a TMDB discover query.
+    Returns (catalog_path, genre_id_to_stamp, genre_id_to_filter).
+
+    Cinemeta cannot combine a genre and a year in one catalog, so:
+      * genre only          -> Cinemeta's own genre catalog (no filter needed)
+      * year (genre or not) -> the year catalog; its rows DO carry genres, so a
+                               requested genre is enforced by filtering here
+      * nothing specific    -> imdbRating for -top rated-, top otherwise
+    The stamp matters because catalog metas often ship no genre list at all, so
+    without it every card in a filtered view loses its genre subtitle."""
+    ctype = "series" if mtype == "tv" else "movie"
+    gid = (params.get("with_genres") or "").split(",")[0].strip()
+    gid = int(gid) if gid.isdigit() else None
+    year = (params.get("primary_release_year") or params.get("first_air_date_year") or "").strip()
+    # Year wins over genre when both are set: the year catalog is already
+    # scoped to one year and its rows carry genres, so the genre is enforced
+    # by filtering. A genre catalog cannot be narrowed to a year at all.
+    if year.isdigit():
+        return "/catalog/%s/year/genre=%s.json" % (ctype, year), None, gid
+    if gid is not None:
+        name = _cm_genre_name("tv" if mtype == "tv" else "movie", gid)
+        if name:
+            return "/catalog/%s/top/genre=%s.json" % (ctype, urllib.parse.quote(name)), gid, None
+    if str(params.get("sort_by") or "").startswith("vote_average"):
+        return "/catalog/%s/imdbRating.json" % ctype, None, gid
+    return "/catalog/%s/top.json" % ctype, None, gid
+
+
+def _cm_stamp_genre(rows, gid):
+    """Tag genre-less catalog rows with the genre that was filtered on."""
+    if not gid:
+        return rows
+    for r in rows:
+        if not r.get("genre_ids"):
+            r["genre_ids"] = [gid]
+    return rows
+
+
+def _cm_filter_genre(rows, gid):
+    """Keep only rows carrying the requested genre. Returns the unfiltered
+    list when nothing matches, so a strict filter can never blank a rail."""
+    if not gid:
+        return rows
+    keep = [r for r in rows if gid in (r.get("genre_ids") or [])]
+    return keep or rows
 
 
 # --- Keyless per-provider catalogs (Cinemeta search seeds) ---
@@ -5639,11 +6385,48 @@ def _cinemeta_serve(path_tail, qs):
                                    "total_pages": max(1, -(-len(pool) // 15)),
                                    "total_results": len(pool)}
                     else:
-                        rows = _cinemeta_rows("/catalog/%s/top.json" % ("series" if mtype == "tv" else "movie"), mtype)
+                        cat, stamp, filt = _cinemeta_discover_path(mtype, params)
+                        rows = _cinemeta_rows(cat, mtype)
+                        if filt:
+                            rows = _cm_filter_genre(rows, filt)
+                        if stamp:
+                            rows = _cm_stamp_genre(rows, stamp)
                         results = {"page": page, "results": rows, "total_pages": 1, "total_results": len(rows)}
                 else:
-                    rows = _cinemeta_rows("/catalog/%s/top.json" % ("series" if mtype == "tv" else "movie"), mtype)
+                    cat, stamp, filt = _cinemeta_discover_path(mtype, params)
+                    rows = _cinemeta_rows(cat, mtype)
+                    if filt:
+                        rows = _cm_filter_genre(rows, filt)
+                    if stamp:
+                        rows = _cm_stamp_genre(rows, stamp)
                     results = {"page": page, "results": rows, "total_pages": 1, "total_results": len(rows)}
+        elif re.match(r"^genre/(movie|tv)/list$", path_tail):
+            # The app's filter chips read real TMDB genre ids. The dead bearer
+            # token used to 401 this route, which left the whole genre bar
+            # empty; the fallback answers from the shared vocabulary instead.
+            table = _CM_MOVIE_GENRES if path_tail.startswith("genre/movie") else _CM_TV_GENRES
+            results = {"genres": [{"id": gid, "name": name} for name, gid in table]}
+        elif re.match(r"^(movie|tv)/(now_playing|upcoming|top_rated|airing_today|on_the_air|latest)$", path_tail):
+            # Home/widget rails TMDB serves under their own routes. Cinemeta
+            # exposes equivalents: year catalogs for fresh releases, the
+            # imdbRating catalog for top rated and last-videos for what is
+            # airing now.
+            parts = path_tail.split("/")
+            mtype, which = parts[0], parts[1]
+            ctype = "movie" if mtype == "movie" else "series"
+            page = int(params.get("page") or 1)
+            skip = max(0, (page - 1) * 50)
+            if which in ("now_playing", "upcoming"):
+                cat = "/catalog/%s/year/genre=%d.json" % (ctype, _time_local().tm_year)
+            elif which == "top_rated":
+                cat = "/catalog/%s/imdbRating.json" % ctype
+            elif which == "latest":
+                cat = "/catalog/%s/year/genre=%d.json" % (ctype, _time_local().tm_year)
+            else:
+                cat = "/catalog/series/last-videos.json"
+                mtype = "tv"
+            rows = _cinemeta_rows(cat, mtype)
+            results = {"page": page, "results": rows, "total_pages": 20, "total_results": len(rows)}
         elif re.match(r"^(movie|tv)/popular$", path_tail):
             # TMDB /movie/popular and /tv/popular (home widgets + rail
             # prefetches). Cinemeta exposes the same shape under catalog/
@@ -5921,16 +6704,123 @@ _UV_CSS_URL_RE = re.compile(r"url\(\s*(?P<q>['\"]?)(?P<u>[^)'\"\s]+)(?P<q2>['\"]
 _UV_URL_ATTRS = ("href", "src", "action", "poster", "data-src", "data-href",
                  "data-url", "data-original", "data-lazy-src", "xlink:href")
 
+# --------------------------------------------------------------- ad filter
+# Every embed player in the library monetises through a handful of ad networks:
+# popunders behind "click anywhere to play", banner slots, and popup farms that
+# take over the tab. All of them are third-party hosts, and EVERY request a
+# proxied page makes comes back through /res/ - so filtering here catches the
+# ads a page injects at runtime, not just the <script src> tags visible in its
+# HTML. That matters because these players assemble their ad stack in JS after
+# load, which is exactly what a static filter cannot see.
+#
+# Matching is suffix-based on the hostname: "a.popads.net" is covered by
+# "popads.net" while "notpopads.net" is not. Hosts are matched, never URL
+# substrings, so a player's own /ads/ path or an ad-free API host survives.
+_UV_AD_HOSTS = (
+    # popunder / popup / interstitial networks
+    "popads.net", "popcash.net", "popmyads.com", "popunderjs.com",
+    "propellerads.com", "propellerads-cdn.com", "onclickalgo.com",
+    "onclickads.net", "onclickmega.com", "onclck.org", "onclck.com",
+    "adsterra.com", "highperformanceformat.com", "profitableratecpm.com",
+    "effectivegatecpm.com", "dubiousagency.com", "monetag.com",
+    "hilltopads.net", "hilltopads.com", "adcash.com", "clickadu.com",
+    "admaven.com", "adnium.com", "bidvertiser.com", "zedo.com",
+    "trafficjunky.net", "trafficstars.com", "juicyads.com", "exoclick.com",
+    "exdynsrv.com", "realsrv.com", "exponential.com", "adf.ly",
+    # content-recommendation widgets that embed ad frames
+    "mgid.com", "taboola.com", "outbrain.com", "revcontent.com",
+    # Google's ad stack. The site's OWN AdSense never routes through /res/, so
+    # this only strips ads inside proxied players.
+    "doubleclick.net", "googlesyndication.com", "googleadservices.com",
+    "adservice.google.com", "adsafeprotected.com", "moatads.com",
+    # push-permission prompts and the trackers that ride along with them
+    "onesignal.com", "pushnami.com", "histats.com", "cloudflareinsights.com",
+    "scorecardresearch.com", "quantserve.com", "criteo.com", "adnxs.com",
+    "propellerpops.com", "pemsrv.com", "googlesyndication-cn.com",
+)
+
+
+def _uv_ad_host(url):
+    """True when a relayed URL belongs to a blocked ad or tracker network.
+    Accepts a full URL or a bare hostname; unparseable input is never blocked
+    (a filter must not break playback over a parse quirk)."""
+    import urllib.parse
+    h = str(url or "").strip().lower()
+    if not h:
+        return False
+    if "//" in h:
+        try:
+            h = urllib.parse.urlsplit(h).hostname or ""
+        except Exception:
+            return False
+    h = h.split("/", 1)[0].split("@")[-1].split(":", 1)[0].strip(".")
+    if not h:
+        return False
+    for bad in _UV_AD_HOSTS:
+        if h == bad or h.endswith("." + bad):
+            return True
+    return False
+
+
+# What a blocked request gets back instead of a 403. See _uv_ad_stub.
+_UV_BLANK_DOC = (b"<!doctype html><html><head><meta charset='utf-8'>"
+                 b"<style>html,body{margin:0;height:100%;background:transparent}</style>"
+                 b"</head><body></body></html>")
+_UV_BLANK_JS = b"/* blocked */"
+_UV_BLANK_GIF = base64.b64decode(
+    "R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7")
+
+
 # Injected into every proxied page, right after <head>, so it runs before any
 # site script. It reroutes the runtime requests that static rewriting can't
 # see: fetch / XHR / WebSocket calls with absolute or root-relative URLs, and
-# history / location navigations, all through the same /res/ route.
+# history / location navigations, all through the same /res/ route. It also
+# carries the client half of the ad filter: the relay can stub an ad request,
+# but only the page itself can stop a popunder from opening or an ad frame from
+# landing in the player's layout.
 _UV_PATCH_JS = (
     "<script>"
     "(function(){"
     "\"use strict\";"
     "try{"
     "var TARGET=window.__UV_TARGET__||'';var P='/res/';"
+    # Media files deliberately DO NOT go through the relay. A proxied fetch of a
+    # .mp4/.m3u8 is a request from this server, which loses three things a player
+    # needs: Range/seek handling, the cookies the provider's session set, and the
+    # short-lived signature a CDN ties to that session. One CDN answered a relayed
+    # stream URL with 502, which the viewer saw as a black frame. A
+    # <video>/<audio>/<source> src needs no CORS to load cross-origin, so the
+    # browser's own network stack does this better in every way.
+    "function mediaUrl(u){try{"
+    "var m=String(u).split('#')[0].split('?')[0].toLowerCase();"
+    "return /\\.(mp4|m4v|webm|mkv|mov|mp3|m4a|aac|ogg|oga|opus|m3u8|mpd|ts|m4s|vtt|srt|ass|key)$/.test(m);"
+    "}catch(e){return false;}}"
+    # The ad-host list is generated from the Python constant above so the two
+    # halves of the filter can never drift apart.
+    "var ADH=" + json.dumps(list(_UV_AD_HOSTS)) + ";"
+    "function badhost(u){"
+    "if(!u||typeof u!=='string')return false;"
+    "var s=u.trim();"
+    "if(!s||/^(data:|blob:|javascript:|about:|#)/i.test(s))return false;"
+    "var h='';var sp=-1;"
+    # indexOf instead of a regex literal: a '/' inside a JS regex must be
+    # escaped, and those backslashes would be invalid Python escape sequences.
+    "if(s.indexOf('//')===0)h=s.slice(2);"
+    "else{sp=s.indexOf('://');if(sp>0)h=s.slice(sp+3);}"
+    "if(!h)return false;"  # relative URL -> this origin, never an ad host
+    "h=h.split('/')[0].split('@').pop().split(':')[0].toLowerCase();"
+    "if(h.charAt(h.length-1)==='.')h=h.slice(0,-1);"
+    "for(var i=0;i<ADH.length;i++){var b=ADH[i];"
+    "if(h===b||h.slice(-(b.length+1))==='.'+b)return true;}"
+    "return false;}"
+    # There is deliberately NO DOM layer here: nothing is hidden, marked or
+    # deleted. Hiding and removing are both trivially detectable - a hidden
+    # node reports offsetParent === null, a removed one simply vanishes - and
+    # these players ship ad-block walls that react to exactly that. Blocking
+    # the REQUEST is invisible by comparison: the ad script is handed a 200
+    # and stops. A stale banner that renders empty is the acceptable price.
+    # badhost() still guards the two things a stub cannot reach, popups and
+    # ad redirects, because those hijack the tab rather than just load bytes.
     "function enc(u){try{u=encodeURIComponent(u);var o='';"
     "for(var i=0;i<u.length;i++){var c=u.charCodeAt(i)^(0x2f+i%0x31);"
     "o+=(c<16?'0':'')+c.toString(16);}return o;}"
@@ -5965,6 +6855,13 @@ _UV_PATCH_JS = (
     "if(ox){XMLHttpRequest.prototype.open=function(m,u){"
     "try{if(typeof u==='string')u=wrap(u);}catch(e){}"
     "return ox.apply(this,arguments);};}"
+    # Popunders and popup interstitials. A player has no legitimate reason to
+    # open a window, and the stub keeps callers that expect a handle (and then
+    # call .focus() / .close() on it) from throwing.
+    "try{window.open=function(){return {closed:true,blur:function(){},"
+    "focus:function(){},close:function(){},postMessage:function(){},moveTo:function(){},"
+    "resizeTo:function(){},document:{write:function(){},close:function(){}},"
+    "location:{href:'',replace:function(){},assign:function(){}}};};}catch(e){}"
     "var OWS=window.WebSocket;"
     "if(OWS){window.WebSocket=function(u,p){"
     "try{u=wrap(u);}catch(e){}"
@@ -5975,7 +6872,11 @@ _UV_PATCH_JS = (
     "try{"
     "var lo=window.location;"
     "['assign','replace'].forEach(function(m){var o=lo[m];"
-    "if(o)lo[m]=function(u){try{if(typeof u==='string')u=wrap(u);}catch(e){}"
+    # Ad code hijacks the tab with top.location = <adurl>. Refusing to follow a
+    # blocked host keeps the player on screen instead of replacing it with an
+    # ad page (which, being proxied, would otherwise render as our own origin).
+    "if(o)lo[m]=function(u){try{if(typeof u==='string'){"
+    "if(badhost(u))return;u=wrap(u);}}catch(e){}"
     "return o.call(lo,u);};});"
     "var h=window.history;"
     "['pushState','replaceState'].forEach(function(m){var o=h[m];"
@@ -5985,18 +6886,71 @@ _UV_PATCH_JS = (
     "var osa=Element.prototype.setAttribute;"
     "if(osa){Element.prototype.setAttribute=function(n,v){"
     "if(/^(src|href|action|poster|data-src|data-href|data-url|data-original|xlink:href)$/i.test(String(n))"
-    "&&typeof v==='string'){try{v=wrap(v);}catch(e){}}"
+    "&&typeof v==='string'){try{"
+    "if(mediaUrl(v)&&/^(video|audio|source|track)$/i.test(this.tagName||''))v=abs(v);"
+    "else v=wrap(v);}catch(e){}}"
     "return osa.call(this,n,v);};}"
     "[['HTMLScriptElement','src'],['HTMLImageElement','src'],['HTMLVideoElement','src'],['HTMLAudioElement','src'],['HTMLSourceElement','src'],['HTMLIFrameElement','src'],['HTMLTrackElement','src'],['HTMLLinkElement','href']].forEach(function(pair){"
     "var C=window[pair[0]];if(!C)return;var pr=C.prototype,d=Object.getOwnPropertyDescriptor(pr,pair[1]);"
     "if(!d||!d.set)return;"
     "try{Object.defineProperty(pr,pair[1],{configurable:true,enumerable:d.enumerable||true,"
     "get:function(){return d.get?d.get.call(this):this.getAttribute(pair[1]);},"
-    "set:function(v){try{if(typeof v==='string')v=wrap(v);}catch(e){}d.set.call(this,v);}});}catch(e){}"
+    "set:function(v){try{if(typeof v==='string'){"
+    "v=mediaUrl(v)?abs(v):wrap(v);}}catch(e){}d.set.call(this,v);}});}catch(e){}"
     "});"
     "}catch(e){}"
     "})();"
     "</script>"
+)
+
+
+# ---------------------------------------------------------------------------
+# Embed cloak.
+#
+# A page we proxy is served from OUR origin, so it is same-origin with the app
+# that frames it - which means this script, injected before any of the site's
+# own code, can reach the very properties a site uses to notice it is embedded.
+# Games gate on those in three ways, all of them answerable here:
+#
+#   window.parent !== window.self / window.frameElement   -> "we are framed"
+#   document.referrer                                      -> "by a stranger"
+#   location.ancestorOrigins.length                        -> "by a stranger"
+#
+# Each is answered with what the page would see if it really were running on
+# its own site: parent is the window itself, frameElement and opener are null,
+# the referrer is the target's own origin (the same value the relay sends
+# upstream, so the two halves agree), and ancestorOrigins is empty.
+#
+# What is deliberately NOT claimed: window.top. Per spec `top` is a
+# non-configurable own property of the window (verified in-browser: "Cannot
+# redefine property: top"), so a `top !== self` test cannot be answered in a
+# frame. That is the one and only reason a game that gates on `top` still needs
+# the "open in a new tab" route the player already offers for it.
+#
+# The whole block returns immediately when the document is NOT framed, so a
+# relayed page opened top-level (new tab, pop-out) is left completely alone.
+_UV_CLOAK_ON = os.environ.get("CHALKLE_UV_CLOAK", "1").strip().lower() not in ("0", "off", "false", "no")
+
+_UV_CLOAK_JS = (
+    "<script>(function(){try{"
+    "if(window.self===window.top)return;"
+    "var REF='';"
+    "try{if(window.__UV_TARGET__)REF=new URL(window.__UV_TARGET__).origin+'/';}catch(e){}"
+    "try{Object.defineProperty(window,'parent',{configurable:true,"
+    "get:function(){return window;}});}catch(e){}"
+    "try{Object.defineProperty(window,'frameElement',{configurable:true,"
+    "get:function(){return null;}});}catch(e){}"
+    "try{Object.defineProperty(window,'opener',{configurable:true,"
+    "get:function(){return null;}});}catch(e){}"
+    "if(REF){try{Object.defineProperty(document,'referrer',{configurable:true,"
+    "get:function(){return REF;}});}catch(e){}}"
+    # The instance property is locked like `top`, but Location's PROTOTYPE is
+    # ours to patch - and that is where every ancestorOrigins lookup lands.
+    "try{var ap=Object.getPrototypeOf(location);"
+    "Object.defineProperty(ap,'ancestorOrigins',{configurable:true,"
+    "get:function(){var a=[];a.length=0;return a;}});}catch(e){}"
+    "try{if(window.name)window.name='';}catch(e){}"
+    "}catch(e){}})();</script>"
 )
 
 
@@ -6071,12 +7025,12 @@ def _uv_cache_get(key):
         e = _uv_cache.get(key)
         if not e:
             return None
-        if now >= e[4]:
+        if now >= e[5]:
             del _uv_cache[key]
             return None
         # Copy `extra` so a later handler mutating its own dict can't touch
         # what a cached entry hands out.
-        return (e[0], e[1], e[2], dict(e[3]), e[4])
+        return (e[0], e[1], e[2], dict(e[3]), e[4], e[5])
 
 
 def _uv_cache_put(key, code, ctype, raw, extra, cache_ctl):
@@ -6090,7 +7044,14 @@ def _uv_cache_put(key, code, ctype, raw, extra, cache_ctl):
         if len(_uv_cache) >= _UV_CACHE_MAX_ENTRIES:
             for k in list(_uv_cache)[:16]:
                 del _uv_cache[k]
-        _uv_cache[key] = (code, ctype, raw, dict(extra or {}), now + ttl)
+        # e[4] is the Cache-Control STRING to replay, e[5] the expiry used
+        # internally. Storing only the expiry (and handing it back as if it
+        # were the header) is what produced "Cache-Control: 1790119576.34" on
+        # every cache hit: a float is not a valid directive list, so browsers
+        # fell back to heuristic caching on the URL that carries the most
+        # JavaScript.
+        _uv_cache[key] = (code, ctype, raw, dict(extra or {}),
+                          str(cache_ctl or "no-store, max-age=0"), now + ttl)
 
 
 class _UVPoolConn:
@@ -6529,6 +7490,176 @@ def _uv_cacheable(ctype, target):
     return 0
 
 
+# ---------------------------------------------------------------------------
+# Upstream context: what the target is told about who asked for it.
+#
+# Three things live here, all of them answers to the same question - "why does
+# an embed load for one visitor and get blocked for another?"
+#
+#   1. the Referer (see _uv_ref_for)
+#   2. the cookies the target set for itself (_UV_COOKIES)
+#   3. the embed cloak injected into every relayed document (_uv_cloak_js)
+#
+# The relay is the only place these can be done: it is the component that
+# makes the request to the game host, and it is the component that decides what
+# markup the framed page receives.
+
+# host -> {cookie name: value}. Targets hand out a session on the first hit and
+# then serve the real page only to a client that returns it.
+_UV_COOKIES = {}
+_UV_COOKIE_LOCK = threading.Lock()
+
+# Per-request scratch (one Handler thread per connection): the browser's Referer
+# for the /res/ request currently being served.
+_UV_HINT = threading.local()
+
+
+def _uv_host_of(url):
+    try:
+        return (urllib.parse.urlsplit(str(url or "")).hostname or "").lower()
+    except Exception:
+        return ""
+
+
+def _uv_note_referer(value):
+    """Remember the browser's Referer for the /res/ request being served.
+
+    A subresource request carries the proxied parent page as its Referer, which
+    is one of OUR /res/<hex> routes. Decoding it recovers the real page URL -
+    exactly the value the target host expects to see for its own assets, since
+    hotlink protection compares the referring PAGE, never the host root. The
+    relay used to claim "https://host/" for every request, which satisfies
+    presence checks but reads as a bare fetch to any host that actually looks.
+    """
+    try:
+        _UV_HINT.referer = ""
+    except Exception:
+        return
+    ref = str(value or "").strip()
+    if not ref or _UV_PFX not in ref:
+        return
+    try:
+        path = urllib.parse.urlsplit(ref).path or ""
+    except Exception:
+        return
+    at = path.find(_UV_PFX)
+    if at == -1:
+        return
+    seg = path[at + len(_UV_PFX):].split("/", 1)[0]
+    decoded = _uv_dec(seg)
+    if decoded and re.match(r"^https?://", decoded, re.I):
+        try:
+            _UV_HINT.referer = decoded
+        except Exception:
+            pass
+
+
+def _uv_cookie_header(host):
+    """Cookie header for one target host, or "" when we have nothing for it."""
+    if not host:
+        return ""
+    try:
+        with _UV_COOKIE_LOCK:
+            jar = _UV_COOKIES.get(host)
+            if not jar:
+                return ""
+            return "; ".join("%s=%s" % (k, jar[k]) for k in sorted(jar))
+    except Exception:
+        return ""
+
+
+def _uv_cookie_store(host, headers):
+    """Keep the cookies a target set for itself.
+
+    Plenty of game hosts hand out a session on the first hit and then serve the
+    real page only to a client that returns it: Cloudflare's clearance cookie,
+    PHP/ASP sessions, and the many "verifying your browser" gates that issue a
+    token and check it on the next request. The relay used to throw those away,
+    so the follow-up request looked like a brand-new visitor and the host
+    answered with its gate page again - which is what a player sees as an embed
+    that never starts.
+
+    The jar is per host and process-wide, never per visitor: it holds only the
+    anonymous session the target itself handed out, so nothing here depends on
+    who is asking, and the rewritten-page cache (which is documented as the
+    anonymous version) stays truthful.
+    """
+    if not host or headers is None:
+        return
+    import http.cookies
+    try:
+        raw = headers.get_all("Set-Cookie") or []
+    except Exception:
+        return
+    if not raw:
+        return
+    try:
+        with _UV_COOKIE_LOCK:
+            jar = _UV_COOKIES.setdefault(host, {})
+            for header in raw:
+                parsed = http.cookies.SimpleCookie()
+                try:
+                    parsed.load(str(header))
+                except Exception:
+                    continue
+                for name, morsel in parsed.items():
+                    kill = False
+                    try:
+                        ma = morsel.get("max-age")
+                        if ma not in (None, "") and int(ma) <= 0:
+                            kill = True
+                    except Exception:
+                        pass
+                    if kill:
+                        jar.pop(name, None)
+                    else:
+                        jar[name] = morsel.value
+            # A host that has answered nothing but deletes cannot keep a jar
+            # entry alive forever.
+            if not jar:
+                _UV_COOKIES.pop(host, None)
+    except Exception:
+        return
+
+
+def _uv_ref_for(url):
+    """Referer to send upstream for a relayed request.
+
+    Stream hosts behind the embed providers 404 (or 403) any player document
+    that arrives with NO Referer at all - vidsrc's chain answers 404 to a bare
+    fetch and 200 the moment a Referer exists - which is what surfaced as the
+    relay's own "Proxy couldn't load that page. HTTP 404" inside the player.
+
+    The relay cannot forward the browser's own Referer: the page is served
+    from 127.0.0.1:4173, so that value names this server and is rejected just
+    like no Referer at all. Instead every relayed fetch claims the TARGET's own
+    origin root. That is the one value a browser-hosted copy of the page would
+    plausibly send, it satisfies the plain "Referer must be present" checks,
+    and being the target's own site it can never trip hotlink protection the
+    way a foreign parent domain would.
+
+    One refinement on top of that baseline: when the request being served came
+    from a page we already proxied, _uv_note_referer() has the REAL parent page
+    URL, and that is a strictly better answer whenever it names the same host
+    (a hotlink check compares the referring page on that very host). Hosts that
+    do not match - asset CDNs appear on pages of their own - keep the
+    self-origin fallback, so a foreign parent is never leaked."""
+    try:
+        parts = urllib.parse.urlsplit(url)
+    except Exception:
+        return ""
+    if not parts.scheme or not parts.netloc:
+        return ""
+    host = (parts.hostname or "").lower()
+    try:
+        hint = getattr(_UV_HINT, "referer", "") or ""
+    except Exception:
+        hint = ""
+    if hint and host and _uv_host_of(hint) == host:
+        return hint
+    return "%s://%s/" % (parts.scheme, parts.netloc)
+
+
 def _uv_open(url, post_body=None):
     """Fetch a proxied target with pooled keep-alive connections. Returns the
     urllib-style response object (read/close/headers/getcode) after following
@@ -6536,6 +7667,12 @@ def _uv_open(url, post_body=None):
     import http.client
     import urllib.error
     import urllib.request
+    if _uv_ad_host(url):
+        # Belt and braces: _uv_route answers with a stub before it gets here,
+        # so this only fires for a caller that reached for the network
+        # directly. Blocked is blocked. It runs BEFORE the pool lookup so a
+        # blocked host never occupies a pooled connection either.
+        raise urllib.error.URLError("blocked ad host")
     data = None
     if post_body is not None:
         data = post_body.encode() if isinstance(post_body, str) else post_body
@@ -6546,6 +7683,9 @@ def _uv_open(url, post_body=None):
         "Accept-Language": "en-US,en;q=0.9",
         "Accept-Encoding": "identity",
     }
+    referer = _uv_ref_for(url)
+    if referer:
+        headers["Referer"] = referer
     # Resolve the upstream once per call (not per redirect): switching
     # backends in the Proxies tab applies to the very next request.
     chain = _chain_effective()
@@ -6586,9 +7726,19 @@ def _uv_open(url, post_body=None):
                 req_headers = dict(headers)
                 if data is not None:
                     req_headers["Content-Type"] = "application/x-www-form-urlencoded"
+                cookie = _uv_cookie_header(host)
+                if cookie:
+                    # The session the target handed out on an earlier request,
+                    # returned to it like any real client would (see
+                    # _uv_cookie_store for why that matters).
+                    req_headers["Cookie"] = cookie
                 pooled.conn.request(("POST" if data is not None else "GET"), path,
                                     body=data, headers=req_headers)
                 resp = pooled.conn.getresponse()
+                # Redirects set cookies too (the most common shape: / -> a
+                # session cookie -> the real page), so this runs before the
+                # status is inspected, not after it.
+                _uv_cookie_store(host, resp.headers)
                 break
             except Exception as e:  # stale pooled conn or connect failure -> retry once
                 _uv_pool_discard(pooled)
@@ -6968,7 +8118,8 @@ def _uv_inject_patch(html, target):
     if not re.search(r"<base\b[^>]*>", html, re.I):
         base_dir = urljoin(target, ".")
         base = '<base href="' + _UV_PFX + _uv_enc(base_dir) + '/">'
-    inject = base + "<script>window.__UV_TARGET__=" + json.dumps(target) + ";</script>" + _UV_PATCH_JS
+    inject = (base + "<script>window.__UV_TARGET__=" + json.dumps(target) + ";</script>"
+              + (_UV_CLOAK_JS if _UV_CLOAK_ON else "") + _UV_PATCH_JS)
     m = re.search(r"<head\b[^>]*>", html, re.I)
     if m:
         return html[:m.end()] + inject + html[m.end():]
@@ -6993,6 +8144,7 @@ class QuietServer(ThreadingHTTPServer):
 
 
 def main():
+    _active_boot_purge()
     threading.Thread(target=_pruner, daemon=True).start()
     threading.Thread(target=_wp_warm_all, daemon=True).start()
     # SimpleHTTPRequestHandler.__init__ ignores class-level `directory` and

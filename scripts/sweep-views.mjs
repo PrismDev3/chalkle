@@ -8,12 +8,29 @@
    Expects the Chalkle server on 127.0.0.1:4173.
    Run: node scripts/sweep-views.mjs */
 import { setTimeout as sleep } from "node:timers/promises";
-import { readFileSync, writeFileSync, appendFileSync, rmSync } from "node:fs";
+import { readFileSync, writeFileSync, appendFileSync, rmSync, existsSync } from "node:fs";
 import { spawn } from "node:child_process";
 
 const PORT = 4173;
 const DBG = 9226; /* final-smoke owns 9225; stay out of its way */
-const CHROME = "C:/Program Files/Google/Chrome/Application/chrome.exe";
+/* First Chrome/Chromium we can find: works on Windows dev boxes and the
+   ubuntu CI runner (which installs chromium via apt) alike. */
+function findChrome() {
+  const candidates = process.env.CHALKLE_CHROME
+    ? [process.env.CHALKLE_CHROME]
+    : process.platform === "win32"
+      ? [
+          "C:/Program Files/Google/Chrome/Application/chrome.exe",
+          "C:/Program Files (x86)/Google/Chrome/Application/chrome.exe",
+          process.env.LOCALAPPDATA + "/Google/Chrome/Application/chrome.exe",
+        ]
+      : ["/usr/bin/chromium", "/usr/bin/chromium-browser", "/usr/bin/google-chrome", "/usr/bin/google-chrome-stable"];
+  for (const c of candidates) {
+    try { if (c && existsSync(c)) return c; } catch {}
+  }
+  throw new Error("no Chrome/Chromium found (set CHALKLE_CHROME to override)");
+}
+const CHROME = findChrome();
 const profile = "/tmp/chalkle-sweep-profile";
 rmSync(profile, { recursive: true, force: true });
 
@@ -43,6 +60,9 @@ if (VIEWS.length < 10) {
 }
 
 const chrome = spawn(CHROME, [
+  /* CI runners (GH sets CI=true) need the sandbox off and a bigger shm;
+     local runs keep Chrome's defaults. */
+  ...(process.env.CI ? ["--no-sandbox", "--disable-dev-shm-usage"] : []),
   `--remote-debugging-port=${DBG}`,
   `--user-data-dir=${profile}`,
   "--headless=new", "--no-first-run", "--no-default-browser-check",
