@@ -104,7 +104,7 @@
   function probeBuiltinProxy() {
     var origin = usableOrigin();
     if (!origin) { uvStatus = false; return; }
-    if (uvStatus !== true && uvSeenGet()) uvStatus = true; /* trust this session */
+    if (uvStatus !== true && uvSeenGet() && !mirrorSession) uvStatus = true; /* trust this session (real site only: a mirror's relay may have gone blocked since) */
     uvAttempts++;
     /* The relay probe is shared with the Proxies tab: proxies.js records every
        answer (latency, failures, timestamp) so the status the tab shows and
@@ -125,7 +125,15 @@
       return;
     }
     fetch(origin + "/res/", { method: "GET", cache: "no-store" })
-      .then(function (r) { answer(!!(r && r.ok)); })
+      .then(function (r) {
+        if (!r || !r.ok) return answer(false);
+        /* A school block page answers 200 text/html for EVERY host, so r.ok
+           alone let a blocked relay masquerade as healthy and every game
+           frame showed the block page. Only the real /res/ page counts. */
+        return r.text().then(function (body) {
+          answer(/chalkle/i.test(String(body || "")));
+        }, function () { answer(false); });
+      })
       .catch(function () { answer(false); });
   }
 
@@ -159,8 +167,15 @@
      direct in that window gets X-Frame-Options-blocked. file:// and opaque
      origins (single-file build) never get the flag; the probe downgrades it
      fast on mirrors where /res does not exist. */
+  /* Mirror sessions (jsDelivr, GitHub Pages, svgbulk embeds, file://) exist
+     precisely because the relay is the blocked thing on that network: never
+     start out assuming its /res/ proxy is usable. Wait for the verified
+     probe instead of framing games in a chalkle embed that renders the
+     network's block page. */
+  var mirrorSession = false;
+  try { mirrorSession = !!(window.ChalkleApi && window.ChalkleApi.isMirror && window.ChalkleApi.isMirror()); } catch (eMs) { mirrorSession = false; }
   var bootOrigin = usableOrigin();
-  if (bootOrigin && !/^file:/i.test(String(location.protocol || ""))) uvStatus = true;
+  if (bootOrigin && !mirrorSession && !/^file:/i.test(String(location.protocol || ""))) uvStatus = true;
   probeBuiltinProxy();
   /* Mirrors: when runtime-config failover re-points the relay (primary
      blocked, backup took over), re-probe /res/ against the new origin so the
@@ -257,16 +272,57 @@
      load: single-file embeds first, then proxy routing for external hosts.
      Shared by the in-app browser and the game player, so both surfaces load
      exactly the same payload. */
+  /* Targets that live on a directly-embeddable public host (the GitHub /
+     jsDelivr game mirrors). On a mirror session these must open from their
+     own host: wrapping them in a chalkle.lootline.xyz proxy embed defeats
+     the mirror link entirely, and a blocked network shows its block page
+     inside the game frame instead of the game. */
+  function mirrorOwnsTarget(url) {
+    if (!mirrorSession) return false;
+    try {
+      var host = new URL(String(url), location.href).hostname;
+      return /(?:^|\.)(?:jsdelivr\.net|githack\.com|unpkg\.com|esm\.sh|github\.io|pages\.dev|gitlab\.io|githubusercontent\.com|vercel\.app|netlify\.app|surge\.sh)$/i.test(host);
+    } catch (e) { return false; }
+  }
+
+  /* text/plain-CDN .html documents (jsDelivr family) cannot be framed raw:
+     wrap them in the fetch+<base> boot shell. The relay copy of a local path
+     is only the in-shell fallback when the mirror fetch itself dies. */
+  function htmlBootTarget(target) {
+    try {
+      if (!window.ChalkleApi || !window.ChalkleApi.htmlBoot) return target;
+      var fb = "";
+      try {
+        var t = String(target || "");
+        if (t.charAt(0) === "/" && t.charAt(1) !== "/" && window.ChalkleApi.url) {
+          fb = window.ChalkleApi.url(t);
+        }
+      } catch (e) { /* keep empty */ }
+      return window.ChalkleApi.htmlBoot(target, fb);
+    } catch (e2) { return target; }
+  }
+
+  /* Top-level data: navigations are blocked by every browser: decode a boot
+     shell back into a blob: URL for window.open paths. */
+  function tabBootUrl(url) {
+    var u = String(url || "");
+    if (u.indexOf("data:text/html") !== 0) return u;
+    try {
+      var html = decodeURIComponent(u.slice(u.indexOf(",") + 1));
+      return URL.createObjectURL(new Blob([html], { type: "text/html" }));
+    } catch (e) { return u; }
+  }
+
   function playTarget(url) {
     var target = String(url || "");
     /* Single-file builds: resolve embedded local games before framing. */
     var emb = singleFileEmbed(target);
     if (emb) target = emb;
     var p = liveProxy();
-    if (p && isTargetRoutingProxy(p) && /^https?:/i.test(target) && !shouldOpenDirect(target)) {
+    if (p && isTargetRoutingProxy(p) && /^https?:/i.test(target) && !shouldOpenDirect(target) && !mirrorOwnsTarget(target)) {
       target = routeProxy(target, p.url, p.mode === "frame" || !!p.hashRoute);
     }
-    return target;
+    return htmlBootTarget(target);
   }
 
   /* Open a URL in the in-app browser (ChalkleBrowser when loaded, otherwise
@@ -369,10 +425,11 @@
         var atIdx = rawPath.indexOf("@");
         var path = (atIdx !== -1) ? rawPath.slice(rawPath.indexOf("/", atIdx)) : rawPath;
         if (!path || path.charAt(0) !== "/") path = rawPath;
-        /* /ugs/ and /gn/ are mirrored by jsDelivr but served as text/plain
-           (nosniff), so a game opened from a mirror URL shows raw source -
-           they only play from the relay. Same treatment as game-builds. */
-        if (path.indexOf("/game-builds/") === 0 || path.indexOf("/mc/") === 0 || path.indexOf("/flare/") === 0 || path.indexOf("/assets/games/psx/") === 0 || path.indexOf("/ugs/") === 0 || path.indexOf("/gn/") === 0) {
+        /* Only gitignored folders (game-builds, mc, flare, the PS1 image)
+           need the relay reroute: no mirror carries them. Tracked game
+           folders (/ugs/, /gn/) boot from the mirror copy through the
+           fetch+<base> shell instead - never a chalkle embed. */
+        if (path.indexOf("/game-builds/") === 0 || path.indexOf("/mc/") === 0 || path.indexOf("/flare/") === 0 || path.indexOf("/assets/games/psx/") === 0) {
           var relay = "";
           try { relay = window.ChalkleApi && window.ChalkleApi.root ? String(window.ChalkleApi.root() || "").replace(/\/+$/, "") : ""; } catch (e) { /* keep raw */ }
           if (relay && /^https?:/i.test(relay)) {
@@ -408,7 +465,12 @@
     try {
       if (window.ChalkleApi && window.ChalkleApi.localUrl) url = window.ChalkleApi.localUrl(url);
     } catch (e) { /* keep the resolved path */ }
-    url = rerouteDeadMirrorGameUrl(url);
+    /* Mirror copies of tracked games boot through the fetch+<base> shell
+       (text/plain CDNs) instead of dying in a relay embed; the relay reroute
+       below is only for folders that no mirror can serve at all. */
+    var booted = htmlBootTarget(url);
+    if (booted !== url) url = tabBootUrl(booted);
+    else url = rerouteDeadMirrorGameUrl(url);
     var win = window.open(url, "_blank");
     if (win) {
       try { win.opener = null; } catch (e) { /* already cross-origin */ }
@@ -658,9 +720,10 @@
     /* A cloaked tab that loads a blocked URL is still a blocked tab - when
        the built-in proxy is live, route the framed page through it too. */
     var p = liveProxy();
-    if (p && isTargetRoutingProxy(p) && /^https?:/i.test(target) && !shouldOpenDirect(target)) {
+    if (p && isTargetRoutingProxy(p) && /^https?:/i.test(target) && !shouldOpenDirect(target) && !mirrorOwnsTarget(target)) {
       target = routeProxy(target, p.url, p.mode === "frame" || !!p.hashRoute);
     }
+    target = htmlBootTarget(target);
     /* file: can never load inside a data: page (Chrome logs "Content at … may
        not load or link to file:///" the instant it lands in the DOM), and
        about: here would blank the cloak instead of loading the game. */

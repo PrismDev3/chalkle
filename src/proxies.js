@@ -415,7 +415,15 @@ window.ChalkProxies = [
 
     try {
       fetch(root + "/res/", { cache: "no-store", credentials: "omit" })
-        .then(function (r) { settle(!!r && r.ok); })
+        .then(function (r) {
+          if (!r || !r.ok) return settle(false);
+          /* A school block page answers 200 text/html for every host: only
+             the real /res/ page ("Chalkle Proxy") counts as the relay
+             answering, or a blocked relay keeps masquerading as healthy. */
+          r.text().then(function (body) {
+            settle(/chalkle/i.test(String(body || "")));
+          }, function () { settle(false); });
+        })
         .catch(function () { settle(false); });
     } catch (e) { settle(false); }
   }

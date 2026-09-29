@@ -152,8 +152,10 @@ returns Cloudflare 1033, the origin or the tunnel died: check
   GitHub mirror serves `.html` as `text/plain`: the Bag Game card launches the
   vendored `/ugs/clbagame.html` (never the CDN document again), that shell
   keeps the `<base href>` its jsDelivr assets resolve against, still assembles
-  the split wasm and boots the engine, and `/ugs/` stays relay-only so a mirror
-  cannot serve its own text/plain copy
+  the split wasm and boots the engine, and `/ugs/` games launch from the
+  mirror copy (the fetch+`<base>` boot shell on text/plain CDNs) instead of a
+  chalkle.lootline.xyz embed, which a blocked network renders as its block
+  page inside the game frame
 - `node scripts/build-single-chalkle.mjs` (+ `--cdn`) - regenerate the two
   single-file builds after any source change
 - `node scripts/surprise-e2e.mjs` - boots the real app in headless Chrome,

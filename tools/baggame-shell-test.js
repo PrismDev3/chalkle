@@ -45,7 +45,7 @@ function entryFor(file, title) {
 
 /* --- the shell itself ----------------------------------------------------- */
 const shellPath = path.join(ROOT, SHELL);
-check(SHELL + " exists (tracked in git, served by the relay)", existsSync(shellPath));
+check(SHELL + " exists (tracked in git, served by the mirror and the relay)", existsSync(shellPath));
 const shell = existsSync(shellPath) ? readFileSync(shellPath, "utf8") : "";
 check("is a document, not a build bundle", shell.length > 2000 && shell.length < 65536,
   shell.length + " B");
@@ -60,10 +60,15 @@ check("loads its own game files (index.js / index.pck / index.wasm)",
 check("does not reference its own CDN document (that is what showed source)",
   shell.indexOf("RIPS/A28/index.html") === -1);
 
-/* --- mirrors: /ugs/ is relay-only, so the shell cannot be replaced by a
-       text/plain copy of itself on jsDelivr/GitHub Pages ------------------- */
+/* --- mirrors: /ugs/ is tracked, so the shell plays from the mirror copy.
+       text/plain CDNs (jsDelivr family) boot it through the fetch+<base>
+       shell instead of a chalkle.lootline.xyz embed, which defeated the
+       mirror link on the very networks that need it ---------------------- */
 const runtime = readFileSync(path.join(ROOT, "src", "runtime-config.js"), "utf8");
-check("/ugs/ stays on the relay-only list", /LOCAL_ONLY_PREFIXES = \[[^\]]*"\/ugs\/"/.test(runtime));
+check("/ugs/ is NOT on the relay-only list (mirror-served, no chalkle embed)",
+  !/LOCAL_ONLY_PREFIXES = \[[^\]]*"\/ugs\/"/.test(runtime));
+check("text/plain CDNs boot through htmlBoot()",
+  runtime.indexOf("htmlBoot:") !== -1 && runtime.indexOf("textPlainHtml:") !== -1);
 
 /* --- the vendoring script has to keep copying this document --------------- */
 const vendor = readFileSync(path.join(ROOT, "scripts", "vendor-baggame.mjs"), "utf8");

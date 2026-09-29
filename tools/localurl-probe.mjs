@@ -18,6 +18,7 @@ function makeCtx(url, extra = {}) {
         href: url,
       },
       document: { querySelector: () => null },
+      URL,
       SCHOOL_CENTER_CONFIG: undefined,
     },
     extra
@@ -58,6 +59,18 @@ const cases = [
     api: makeCtx("https://cdn.jsdelivr.net/gh/PrismDev3/chalkle@main/index.html"),
     in: "/gn/0.html",
     want: "/gn/0.html",
+  },
+  {
+    name: "jsDelivr mirror - committed /ugs/ path unchanged (never a chalkle embed)",
+    api: makeCtx("https://cdn.jsdelivr.net/gh/PrismDev3/chalkle@main/index.html"),
+    in: "/ugs/clbagame.html",
+    want: "/ugs/clbagame.html",
+  },
+  {
+    name: "github.io mirror - committed /ugs/ path unchanged",
+    api: makeCtx("https://prismdev3.github.io/chalkle/"),
+    in: "/ugs/clbagame.html",
+    want: "/ugs/clbagame.html",
   },
   {
     name: "jsDelivr mirror - external URL untouched",
@@ -113,6 +126,24 @@ console.log(mirror.root() === "https://chalkle.lootline.xyz" ? "PASS" : "FAIL", 
 const prod = makeCtx("https://lootline.xyz/");
 console.log(prod.isMirror() === false ? "PASS" : "FAIL", "isMirror false on prod");
 console.log(prod.root() === "" ? "PASS" : "FAIL", "root() empty on prod");
+
+// htmlBoot: text/plain CDN documents get the fetch+<base> boot shell;
+// hosts that serve real HTML (and the prod site) pass through untouched.
+function bootCheck(name, api, input, wantBoot) {
+  const got = api.htmlBoot(input);
+  const booted = String(got).indexOf("data:text/html") === 0;
+  const ok = booted === wantBoot && (wantBoot || got === input);
+  if (!ok) fail++;
+  console.log((ok ? "PASS" : "FAIL") + "  " + name + (ok ? "" : "  got: " + String(got).slice(0, 60)));
+}
+bootCheck("htmlBoot wraps a jsDelivr .html in the boot shell",
+  makeCtx("https://cdn.jsdelivr.net/gh/PrismDev3/chalkle@main/index.html"), "/ugs/clbagame.html", true);
+bootCheck("htmlBoot leaves github.io documents alone (served as HTML)",
+  makeCtx("https://prismdev3.github.io/chalkle/"), "/ugs/clbagame.html", false);
+bootCheck("htmlBoot is a no-op on the prod site",
+  makeCtx("https://lootline.xyz/"), "/ugs/clbagame.html", false);
+bootCheck("htmlBoot leaves non-HTML URLs alone",
+  makeCtx("https://cdn.jsdelivr.net/gh/PrismDev3/chalkle@main/index.html"), "/assets/games/t.jpg", false);
 
 console.log(fail === 0 ? "ALL OK" : fail + " FAILURES");
 process.exit(fail === 0 ? 0 : 1);
